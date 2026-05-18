@@ -1,24 +1,46 @@
 # Awesome LLM for Finance
 
-A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, and professional finance evaluation.
+A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, professional finance evaluation, and adjacent strategy/geoeconomics/governance work.
 
-> Status: preliminary public seed. The current catalog starts from 58 seed papers and one systematic Semantic Scholar pass over papers that cite them and papers they cite.
+> Status: preliminary public seed. The current catalog started from 58 finance seed papers and now includes a second 110-seed expansion pass that adds finance plus geopolitics/geoeconomics/governance seeds.
+
+## Latest Expansion Pass
+
+The `110` data files are the current working set for the next curation round.
+
+- Seeds inspected: 110
+- Seeds resolved in Semantic Scholar: 100
+- Seeds expanded through citations and references: 65 high-confidence/high-priority matches
+- Raw citation/reference edges collected: 9,454
+- Relevance-filtered longlist candidates: 3,815
+- Curated preliminary additions for human review: 405
+- Foundation/context papers separated from domain additions: 20
+
+Primary review file: `data/processed/curated_additions_preliminary_110.csv`.
 
 ## Data Files
 
 - `data/processed/seed_papers_enriched.csv`: seed papers with Semantic Scholar metadata, citation counts, links, and abstracts.
 - `data/processed/expansion_candidates_preliminary.csv`: top 200 candidate additions discovered from citation/reference expansion.
 - `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.
+- `data/raw/seed_papers_original_110.csv`: normalized combined finance plus strategy/geoeconomics/governance seed list.
+- `data/processed/seed_papers_enriched_110.csv`: 110-seed enrichment with abstracts, citation counts, and match status.
+- `data/processed/curated_additions_preliminary_110.csv`: preliminary non-seed candidate additions after duplicate and foundation-paper filtering.
+- `data/processed/foundation_context_papers_110.csv`: generic foundation/model papers that are useful context but should not dominate the Awesome list.
+- `data/processed/related_work_longlist_110.csv`: broader candidate longlist before curation filtering.
+- `data/raw/semantic_scholar_related_work_edges_110.csv`: raw 110-seed citation/reference edge table.
+- `data/processed/run_summary_110.json`: run statistics for the 110-seed expansion pass.
 - `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.
 - `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.
 
 ## Collection Method
 
-1. Start with the seed CSV in `data/raw/seed_papers_original.csv`.
-2. Resolve seed papers through Semantic Scholar, preferring arXiv ids when available.
-3. Fetch both citations and references for each resolved seed paper.
-4. Remove existing seed papers from the candidate pool.
-5. Rank candidate additions by finance/LLM relevance terms, number of seed-paper connections, citation count, influential-edge hits, and recency.
+1. Start with seed CSVs in `data/raw/seed_papers_original.csv` and `data/raw/seed_papers_original_110.csv`.
+2. Resolve seed papers through Semantic Scholar and keep match confidence for manual inspection.
+3. Fetch both citations and references for high-confidence, high-priority resolved seed papers.
+4. Remove existing seed papers and near-duplicate title variants from the candidate pool.
+5. Split generic foundation-model context papers from domain-specific additions.
+6. Rank candidate additions by topic relevance, number of seed-paper connections, citation count, and recency.
 
 See `docs/collection_plan.md` for the planned multi-round expansion workflow.
 
