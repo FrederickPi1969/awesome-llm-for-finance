@@ -13,8 +13,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SEED_PATH = ROOT / "data" / "processed" / "seed_papers_enriched.csv"
 EDGES_PATH = ROOT / "data" / "raw" / "semantic_scholar_related_work_edges.csv"
+ROUND2_EDGES_PATH = ROOT / "data" / "raw" / "round2_related_work_edges.csv"
+ROUND2_MANIFEST_PATH = ROOT / "data" / "raw" / "round2_related_work_manifest.csv"
 CANDIDATES_PATH = ROOT / "data" / "processed" / "expansion_candidates_preliminary.csv"
 LONG_LIST_PATH = ROOT / "data" / "processed" / "related_work_relevance_longlist.csv"
+ROUND2_CANDIDATES_PATH = ROOT / "data" / "processed" / "round2_expansion_candidates.csv"
+CURATED_PATH = ROOT / "data" / "processed" / "curated_papers.csv"
 README_PATH = ROOT / "README.md"
 PLAN_PATH = ROOT / "docs" / "collection_plan.md"
 
@@ -50,6 +54,8 @@ STRONG_FINANCE_TERMS = [
     "cfa",
     "fund",
     "fintech",
+    "regulatory",
+    "regulation",
 ]
 
 WEAK_FINANCE_TERMS = [
@@ -126,6 +132,8 @@ def category_for(row: dict[str, str]) -> str:
     title = row.get("title", "").lower()
     if "survey" in title:
         return "Surveys"
+    if any(term in text for term in ["finbert", "fingpt", "bloomberggpt", "finllm", "financial language model", "financial chat model", "financial assistant"]):
+        return "Financial language models"
     if any(term in text for term in ["agent", "multi-agent", "autonomous"]):
         return "Financial agents"
     if any(term in text for term in ["trading", "stock", "portfolio", "investment", "return", "market"]):
@@ -134,8 +142,6 @@ def category_for(row: dict[str, str]) -> str:
         return "Reports, filings, and risk"
     if any(term in text for term in ["benchmark", "dataset", "evaluation", "exam", "question answering", "qa"]):
         return "Benchmarks and datasets"
-    if any(term in text for term in ["finbert", "fingpt", "bloomberggpt", "financial language model"]):
-        return "Financial language models"
     return "Other relevant work"
 
 
@@ -163,6 +169,8 @@ def markdown_link(title: str, url: str) -> str:
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
     with path.open(newline="", encoding="utf-8-sig") as f:
         return list(csv.DictReader(f))
 
@@ -174,6 +182,38 @@ def write_csv(path: Path, rows: list[dict[str, str]], columns: list[str]) -> Non
         writer.writeheader()
         for row in rows:
             writer.writerow({column: row.get(column, "") for column in columns})
+
+
+def normalize_round2_edges(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    normalized = []
+    for row in rows:
+        normalized.append(
+            {
+                "source_index": f"R2-{row.get('source_rank', '')}",
+                "source_signature": f"round2:{row.get('source_paperId', '')}",
+                "source_title": row.get("source_title", ""),
+                "source_year": row.get("source_year", ""),
+                "source_domain": row.get("source_category", ""),
+                "source_tag": "round2",
+                "resolved_source_paperId": row.get("source_paperId", ""),
+                "resolved_source_title": row.get("source_title", ""),
+                "output_csv": "round2_related_work_edges.csv",
+                "paperId": row.get("paperId", ""),
+                "title": row.get("title", ""),
+                "year": row.get("year", ""),
+                "citationCount": row.get("citationCount", ""),
+                "venue": row.get("venue", ""),
+                "authors": row.get("authors", ""),
+                "doi": row.get("doi", ""),
+                "arxiv": row.get("arxiv", ""),
+                "url": row.get("url", ""),
+                "abstract": row.get("abstract", ""),
+                "intents": row.get("intents", ""),
+                "isInfluential": row.get("isInfluential", ""),
+                "citation_or_reference": row.get("citation_or_reference", ""),
+            }
+        )
+    return normalized
 
 
 def build_candidates(seeds: list[dict[str, str]], edges: list[dict[str, str]]) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
@@ -283,7 +323,221 @@ def build_candidates(seeds: list[dict[str, str]], edges: list[dict[str, str]]) -
     return rows[:200], rows
 
 
-def write_readme(seeds: list[dict[str, str]], candidates: list[dict[str, str]]) -> None:
+def round2_manifest_as_seed_rows(manifest_rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    rows = []
+    for row in manifest_rows:
+        if row.get("status") != "ok":
+            continue
+        rows.append(
+            {
+                "title": row.get("source_title", ""),
+                "resolved_title": row.get("source_title", ""),
+                "resolved_paperId": row.get("source_paperId", ""),
+            }
+        )
+    return rows
+
+
+def priority_for(row: dict[str, str]) -> str:
+    citations = to_int(row.get("citationCount", "0"))
+    score = float(row.get("score", "0") or 0)
+    hits = to_int(row.get("seed_hit_count", "0"))
+    year = to_int(row.get("year", "0"))
+    if citations >= 100 or score >= 60 or hits >= 10:
+        return "P0"
+    if citations >= 25 or score >= 42 or year >= 2024:
+        return "P1"
+    return "P2"
+
+
+def paper_url(row: dict[str, str]) -> str:
+    if row.get("url"):
+        return row["url"]
+    if row.get("arxiv"):
+        return f"https://arxiv.org/abs/{row['arxiv']}"
+    return ""
+
+
+def short_name(title: str) -> str:
+    title = " ".join((title or "").split())
+    cleaned = re.sub(r"^A |^An |^The ", "", title).strip()
+    return cleaned[:80]
+
+
+def curated_row_from_candidate(row: dict[str, str], status: str) -> dict[str, str]:
+    category = row.get("category") or category_for(row)
+    seed_hits = row.get("seed_hit_count", "0")
+    source_titles = row.get("matched_seed_titles", "")
+    return {
+        "list_status": status,
+        "priority": priority_for(row),
+        "primary_category": category,
+        "title": " ".join(row.get("title", "").split()),
+        "short_name": short_name(row.get("title", "")),
+        "approx_year": row.get("year", ""),
+        "paper_type": category,
+        "primary_relevance": category,
+        "key_use_for_systematic_survey": (
+            f"Discovered through citation/reference expansion; connected to {seed_hits} source papers."
+        ),
+        "source_url": paper_url(row),
+        "notes": f"Discovery status: {status}. Source links: {source_titles[:500]}",
+        "citationCount": row.get("citationCount", ""),
+        "seed_hit_count": seed_hits,
+        "score": row.get("score", ""),
+        "authors": row.get("authors", ""),
+        "venue": row.get("venue", ""),
+        "doi": row.get("doi", ""),
+        "arxiv": row.get("arxiv", ""),
+        "paperId": row.get("paperId", ""),
+        "abstract": row.get("abstract", ""),
+    }
+
+
+def curated_row_from_seed(row: dict[str, str]) -> dict[str, str]:
+    return {
+        "list_status": "seed",
+        "priority": row.get("priority", ""),
+        "primary_category": seed_category(row),
+        "title": row.get("title", ""),
+        "short_name": row.get("short_name", ""),
+        "approx_year": row.get("approx_year", "") or row.get("resolved_year", ""),
+        "paper_type": row.get("paper_type", ""),
+        "primary_relevance": row.get("primary_relevance", ""),
+        "key_use_for_systematic_survey": row.get("key_use_for_systematic_survey", ""),
+        "source_url": row.get("source_url", "") or row.get("semantic_scholar_url", ""),
+        "notes": row.get("notes", ""),
+        "citationCount": row.get("citationCount", ""),
+        "seed_hit_count": "",
+        "score": "",
+        "authors": row.get("authors", ""),
+        "venue": row.get("venue", ""),
+        "doi": row.get("doi", ""),
+        "arxiv": row.get("arxiv", ""),
+        "paperId": row.get("resolved_paperId", ""),
+        "abstract": row.get("abstract", ""),
+    }
+
+
+def build_curated_papers(
+    seeds: list[dict[str, str]],
+    combined_candidates: list[dict[str, str]],
+    round2_manifest_rows: list[dict[str, str]],
+    round2_candidates: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    curated: list[dict[str, str]] = []
+    seen_titles = set()
+    seen_ids = set()
+
+    def add(row: dict[str, str]) -> None:
+        title_key = norm(row.get("title", ""))
+        paper_id = row.get("paperId", "")
+        is_seed = row.get("list_status") == "seed"
+        if not title_key or title_key in seen_titles or (paper_id and paper_id in seen_ids and not is_seed):
+            return
+        seen_titles.add(title_key)
+        if paper_id:
+            seen_ids.add(paper_id)
+        curated.append(row)
+
+    for seed in seeds:
+        add(curated_row_from_seed(seed))
+
+    by_paper_id = {row.get("paperId", ""): row for row in combined_candidates if row.get("paperId")}
+    by_title = {norm(row.get("title", "")): row for row in combined_candidates}
+
+    for manifest in round2_manifest_rows:
+        if manifest.get("status") != "ok":
+            continue
+        source = by_paper_id.get(manifest.get("source_paperId", "")) or by_title.get(
+            norm(manifest.get("source_title", ""))
+        )
+        if source:
+            add(curated_row_from_candidate(source, "round1_promoted_seed_for_round2"))
+
+    def should_promote_round2(candidate: dict[str, str]) -> bool:
+        title = candidate.get("title", "").lower()
+        category = candidate.get("category", "")
+        year = to_int(candidate.get("year", "0"))
+        citations = to_int(candidate.get("citationCount", "0"))
+        score = float(candidate.get("score", "0") or 0)
+        hits = to_int(candidate.get("seed_hit_count", "0"))
+        model_terms = set(term.strip() for term in candidate.get("model_terms", "").split(";") if term.strip())
+        strong_llm_terms = {
+            "large language model",
+            "llm",
+            "gpt",
+            "chatgpt",
+            "foundation model",
+            "generative ai",
+            "rag",
+            "retrieval",
+            "agent",
+            "instruction",
+            "reasoning",
+            "finbert",
+            "bert",
+        }
+        background_keep = any(term in title for term in ["finbert", "flue", "flang", "www'18"])
+        if background_keep and citations >= 100 and hits >= 4:
+            return True
+        title_finance_terms = [
+            "fin",
+            "finance",
+            "financial",
+            "stock",
+            "investment",
+            "invest",
+            "trading",
+            "market",
+            "equity",
+            "portfolio",
+            "regulatory",
+            "business",
+            "wall street",
+        ]
+        title_llm_terms = [
+            "large language",
+            "llm",
+            "gpt",
+            "finbert",
+            "fingpt",
+            "rag",
+            "retrieval",
+            "agent",
+            "generative ai",
+            "foundation model",
+            "language model",
+            "benchmark",
+        ]
+        if not any(term in title for term in title_finance_terms):
+            return False
+        if not any(term in title for term in title_llm_terms):
+            return False
+        if category == "Other relevant work":
+            return any(term in title for term in ["large language", "llm", "financial assistant", "rag", "retrieval"])
+        if year < 2023:
+            return False
+        if not (model_terms & strong_llm_terms):
+            return False
+        return (score >= 34 and hits >= 2) or citations >= 25
+
+    round2_promoted = 0
+    for candidate in round2_candidates:
+        if round2_promoted >= 40:
+            break
+        if should_promote_round2(candidate):
+            add(curated_row_from_candidate(candidate, "round2_promoted"))
+            round2_promoted += 1
+    return curated
+
+
+def write_readme(
+    seeds: list[dict[str, str]],
+    candidates: list[dict[str, str]],
+    curated: list[dict[str, str]],
+    round2_candidates: list[dict[str, str]],
+) -> None:
     seed_by_category: dict[str, list[dict[str, str]]] = defaultdict(list)
     for seed in seeds:
         seed_by_category[seed_category(seed)].append(seed)
@@ -297,30 +551,33 @@ def write_readme(seeds: list[dict[str, str]], candidates: list[dict[str, str]]) 
         "Financial agents",
         "Other",
     ]
-    candidate_highlights = candidates[:40]
-
     lines = [
         "# Awesome LLM for Finance",
         "",
         "A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, and professional finance evaluation.",
         "",
-        "> Status: preliminary public seed. The current catalog starts from 58 seed papers and one systematic Semantic Scholar pass over papers that cite them and papers they cite.",
+        "> Status: expanding public seed. The current catalog starts from 58 seed papers, one first-pass citation/reference expansion, and a second pass over 40 high-relevance finance LLM candidates.",
         "",
         "## Data Files",
         "",
+        "- `data/processed/curated_papers.csv`: expanded curated list combining the original seeds and promoted additions.",
         "- `data/processed/seed_papers_enriched.csv`: seed papers with Semantic Scholar metadata, citation counts, links, and abstracts.",
         "- `data/processed/expansion_candidates_preliminary.csv`: top 200 candidate additions discovered from citation/reference expansion.",
+        "- `data/processed/round2_expansion_candidates.csv`: top 200 candidate additions discovered from the second-round expansion.",
         "- `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.",
         "- `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.",
+        "- `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.",
         "- `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.",
+        "- `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.",
         "",
         "## Collection Method",
         "",
         "1. Start with the seed CSV in `data/raw/seed_papers_original.csv`.",
         "2. Resolve seed papers through Semantic Scholar, preferring arXiv ids when available.",
         "3. Fetch both citations and references for each resolved seed paper.",
-        "4. Remove existing seed papers from the candidate pool.",
-        "5. Rank candidate additions by finance/LLM relevance terms, number of seed-paper connections, citation count, influential-edge hits, and recency.",
+        "4. Promote high-confidence first-pass candidates as second-round seeds.",
+        "5. Fetch citations and references for those promoted candidates.",
+        "6. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
         "",
         "See `docs/collection_plan.md` for the planned multi-round expansion workflow.",
         "",
@@ -344,17 +601,34 @@ def write_readme(seeds: list[dict[str, str]], candidates: list[dict[str, str]]) 
             )
         lines.append("")
 
-    lines.extend(["## Preliminary Candidate Additions", ""])
-    for row in candidate_highlights:
-        url = row.get("url")
-        arxiv = row.get("arxiv")
-        if not url and arxiv:
-            url = f"https://arxiv.org/abs/{arxiv}"
-        lines.append(
-            f"- {markdown_link(row.get('title', ''), url)} ({row.get('year', 'n.d.')}) "
-            f"- {row.get('category')} - citations: {row.get('citationCount', '0')} "
-            f"- seed hits: {row.get('seed_hit_count')}"
-        )
+    curated_additions_by_category: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in curated:
+        if row.get("list_status") == "seed":
+            continue
+        curated_additions_by_category[row.get("primary_category") or "Other"].append(row)
+
+    lines.extend(["## Expanded Curated Additions", ""])
+    for category in category_order + ["Other relevant work"]:
+        items = curated_additions_by_category.get(category, [])
+        if not items:
+            continue
+        lines.extend([f"### {category}", ""])
+        for row in sorted(
+            items,
+            key=lambda x: (
+                x.get("priority", "P9"),
+                -to_int(x.get("citationCount", "0")),
+                x.get("title", ""),
+            ),
+        ):
+            lines.append(
+                f"- {markdown_link(row.get('title', ''), row.get('source_url', ''))} "
+                f"({row.get('approx_year', 'n.d.')}) - `{row.get('priority', '')}` "
+                f"- citations: {row.get('citationCount', '0')} "
+                f"- {row.get('list_status', '')}"
+            )
+        lines.append("")
+
     lines.extend(
         [
             "",
@@ -394,15 +668,17 @@ Build a high-impact public Awesome-style repository for Large Language Models in
 - Score candidates using seed hit count, citation count, influential edge hits, finance/LLM keyword evidence, and recency.
 - Export a preliminary top-200 candidate CSV for manual review.
 
-## Round 2: Manual Curation
+## Round 2: High-Relevance Candidate Expansion
 
-- Promote true finance-specific LLM papers into the main README.
-- Split generic foundation-model papers into a background section only when they are repeatedly cited by the finance LLM literature.
-- Check abstracts and titles for false positives, especially generic NLP, vision, and optimization papers.
+- Select high-confidence first-round candidates that are clearly finance-specific and LLM-, agent-, RAG-, FinBERT-, or benchmark-related.
+- Fetch citations and references for those promoted candidates.
+- Export `round2_related_work_edges.csv` and `round2_expansion_candidates.csv`.
+- Promote a conservative subset into `curated_papers.csv`.
 
-## Round 3: Deeper Expansion
+## Round 3: Manual Curation
 
-- Re-run citation/reference expansion on accepted candidate additions.
+- Check abstracts and titles for false positives, especially generic financial NLP, reinforcement learning, and non-finance RAG papers.
+- Split older financial NLP benchmarks into a background section when they are useful but not LLM-specific.
 - Add venue, code, dataset, model, benchmark, and task tags.
 - Add GitHub/model/dataset links where available.
 - Create issue templates for community submissions.
@@ -420,8 +696,16 @@ Build a high-impact public Awesome-style repository for Large Language Models in
 
 def main() -> None:
     seeds = read_csv(SEED_PATH)
-    edges = read_csv(EDGES_PATH)
+    first_round_edges = read_csv(EDGES_PATH)
+    round2_edges = normalize_round2_edges(read_csv(ROUND2_EDGES_PATH))
+    edges = first_round_edges + round2_edges
+    round2_manifest_rows = read_csv(ROUND2_MANIFEST_PATH)
     candidates, longlist = build_candidates(seeds, edges)
+    round2_seed_rows = round2_manifest_as_seed_rows(round2_manifest_rows)
+    round2_candidates, _round2_longlist = build_candidates(
+        seeds + round2_seed_rows, round2_edges
+    )
+    curated = build_curated_papers(seeds, longlist, round2_manifest_rows, round2_candidates)
     columns = [
         "rank",
         "title",
@@ -447,12 +731,40 @@ def main() -> None:
     ]
     write_csv(CANDIDATES_PATH, candidates, columns)
     write_csv(LONG_LIST_PATH, longlist, columns)
-    write_readme(seeds, candidates)
+    write_csv(ROUND2_CANDIDATES_PATH, round2_candidates, columns)
+    curated_columns = [
+        "list_status",
+        "priority",
+        "primary_category",
+        "title",
+        "short_name",
+        "approx_year",
+        "paper_type",
+        "primary_relevance",
+        "key_use_for_systematic_survey",
+        "source_url",
+        "notes",
+        "citationCount",
+        "seed_hit_count",
+        "score",
+        "authors",
+        "venue",
+        "doi",
+        "arxiv",
+        "paperId",
+        "abstract",
+    ]
+    write_csv(CURATED_PATH, curated, curated_columns)
+    write_readme(seeds, candidates, curated, round2_candidates)
     write_plan()
     print(f"seeds={len(seeds)}")
+    print(f"first_round_edges={len(first_round_edges)}")
+    print(f"round2_edges={len(round2_edges)}")
     print(f"edges={len(edges)}")
     print(f"candidates={len(candidates)}")
+    print(f"round2_candidates={len(round2_candidates)}")
     print(f"longlist={len(longlist)}")
+    print(f"curated={len(curated)}")
     print(f"wrote={CANDIDATES_PATH}")
 
 

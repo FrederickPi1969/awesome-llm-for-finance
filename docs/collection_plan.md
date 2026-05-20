@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build a high-impact public Awesome-style repository for Large Language Models in Finance, with an adjacent strategy/geoeconomics/governance track where it strengthens the finance and decision-making narrative.
+Build a high-impact public Awesome-style repository for Large Language Models in Finance.
 
 ## Round 0: Seed Consolidation
 
@@ -11,9 +11,6 @@ Build a high-impact public Awesome-style repository for Large Language Models in
 - Store citation counts, venues, authors, URLs, and abstracts.
 - Keep unresolved/manual-check rows instead of dropping them.
 
-Current status: complete for the original 58-paper finance seed list and for the
-110-paper combined finance plus strategy/geoeconomics/governance seed list.
-
 ## Round 1: Citation and Reference Expansion
 
 - For each resolved seed, collect papers that cite it and papers it references.
@@ -21,29 +18,20 @@ Current status: complete for the original 58-paper finance seed list and for the
 - Score candidates using seed hit count, citation count, influential edge hits, finance/LLM keyword evidence, and recency.
 - Export a preliminary top-200 candidate CSV for manual review.
 
-Current 110-seed pass: 65 high-confidence/high-priority seeds expanded, 9,454
-raw edges collected, 3,815 relevance-filtered candidates exported, 405 domain
-additions separated from 20 generic foundation/context papers.
+## Round 2: High-Relevance Candidate Expansion
 
-## Round 2: Manual Curation
+- Select high-confidence first-round candidates that are clearly finance-specific and LLM-, agent-, RAG-, FinBERT-, or benchmark-related.
+- Fetch citations and references for those promoted candidates.
+- Export `round2_related_work_edges.csv` and `round2_expansion_candidates.csv`.
+- Promote a conservative subset into `curated_papers.csv`.
 
-- Promote true finance-specific LLM papers into the main README.
-- Promote geoeconomics, forecasting, governance, and strategy papers only when
-  they support the repository's "LLMs for financial/strategic decision-making"
-  thesis.
-- Split generic foundation-model papers into a background section only when they
-  are repeatedly cited by the finance LLM literature.
-- Check abstracts and titles for false positives, especially generic NLP, vision,
-  optimization, and broad "AI governance" papers.
+## Round 3: Manual Curation
 
-## Round 3: Deeper Expansion
-
-- Re-run citation/reference expansion on accepted candidate additions.
+- Check abstracts and titles for false positives, especially generic financial NLP, reinforcement learning, and non-finance RAG papers.
+- Split older financial NLP benchmarks into a background section when they are useful but not LLM-specific.
 - Add venue, code, dataset, model, benchmark, and task tags.
 - Add GitHub/model/dataset links where available.
 - Create issue templates for community submissions.
-- Add an `accepted`/`deferred` decision column after manual review so later
-  expansions can use only accepted additions as second-order seeds.
 
 ## Review Criteria
 
