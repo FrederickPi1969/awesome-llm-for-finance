@@ -17,10 +17,13 @@ ROUND2_EDGES_PATH = ROOT / "data" / "raw" / "round2_related_work_edges.csv"
 ROUND2_MANIFEST_PATH = ROOT / "data" / "raw" / "round2_related_work_manifest.csv"
 ROUND3_EDGES_PATH = ROOT / "data" / "raw" / "round3_related_work_edges.csv"
 ROUND3_MANIFEST_PATH = ROOT / "data" / "raw" / "round3_related_work_manifest.csv"
+ROUND4_EDGES_PATH = ROOT / "data" / "raw" / "round4_related_work_edges.csv"
+ROUND4_MANIFEST_PATH = ROOT / "data" / "raw" / "round4_related_work_manifest.csv"
 CANDIDATES_PATH = ROOT / "data" / "processed" / "expansion_candidates_preliminary.csv"
 LONG_LIST_PATH = ROOT / "data" / "processed" / "related_work_relevance_longlist.csv"
 ROUND2_CANDIDATES_PATH = ROOT / "data" / "processed" / "round2_expansion_candidates.csv"
 ROUND3_CANDIDATES_PATH = ROOT / "data" / "processed" / "round3_expansion_candidates.csv"
+ROUND4_CANDIDATES_PATH = ROOT / "data" / "processed" / "round4_expansion_candidates.csv"
 CURATED_PATH = ROOT / "data" / "processed" / "curated_papers.csv"
 README_PATH = ROOT / "README.md"
 PLAN_PATH = ROOT / "docs" / "collection_plan.md"
@@ -441,6 +444,8 @@ def build_curated_papers(
     round2_candidates: list[dict[str, str]],
     round3_manifest_rows: list[dict[str, str]] | None = None,
     round3_candidates: list[dict[str, str]] | None = None,
+    round4_manifest_rows: list[dict[str, str]] | None = None,
+    round4_candidates: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     curated: list[dict[str, str]] = []
     seen_titles = set()
@@ -474,6 +479,8 @@ def build_curated_papers(
 
     round3_manifest_rows = round3_manifest_rows or []
     round3_candidates = round3_candidates or []
+    round4_manifest_rows = round4_manifest_rows or []
+    round4_candidates = round4_candidates or []
 
     def should_promote_round2(candidate: dict[str, str]) -> bool:
         title = candidate.get("title", "").lower()
@@ -632,6 +639,128 @@ def build_curated_papers(
         if should_promote_round3(candidate):
             add(curated_row_from_candidate(candidate, "round3_promoted"))
             round3_promoted += 1
+
+    def should_promote_round4_source(manifest: dict[str, str]) -> bool:
+        title = manifest.get("source_title", "").lower()
+        rank = to_int(manifest.get("source_rank", "999"))
+        year = to_int(manifest.get("source_year", "0"))
+        citations = to_int(manifest.get("source_citationCount", "0"))
+        hits = to_int(manifest.get("source_seed_hit_count", "0"))
+        if rank > 20 or year < 2024:
+            return False
+        title_llm_terms = [
+            "large language",
+            "llm",
+            "gpt",
+            "chatgpt",
+            "finbert",
+            "bondbert",
+            "rag",
+            "retrieval",
+            "agent",
+            "generative ai",
+            "foundation model",
+            "language model",
+            "benchmark",
+            "reasoning",
+        ]
+        if not any(term in title for term in title_llm_terms):
+            return False
+        return hits >= 3 or citations >= 5
+
+    round4_source_promoted = 0
+    for manifest in round4_manifest_rows:
+        if round4_source_promoted >= 15:
+            break
+        if manifest.get("status") != "ok":
+            continue
+        if not should_promote_round4_source(manifest):
+            continue
+        source = by_paper_id.get(manifest.get("source_paperId", "")) or by_title.get(
+            norm(manifest.get("source_title", ""))
+        )
+        if source:
+            add(curated_row_from_candidate(source, "round3_promoted_seed_for_round4"))
+            round4_source_promoted += 1
+
+    def should_promote_round4(candidate: dict[str, str]) -> bool:
+        title = candidate.get("title", "").lower()
+        category = candidate.get("category", "")
+        year = to_int(candidate.get("year", "0"))
+        citations = to_int(candidate.get("citationCount", "0"))
+        score = float(candidate.get("score", "0") or 0)
+        hits = to_int(candidate.get("seed_hit_count", "0"))
+        model_terms = set(term.strip() for term in candidate.get("model_terms", "").split(";") if term.strip())
+        strong_llm_terms = {
+            "large language model",
+            "llm",
+            "gpt",
+            "chatgpt",
+            "foundation model",
+            "generative ai",
+            "rag",
+            "retrieval",
+            "agent",
+            "instruction",
+            "reasoning",
+            "finbert",
+            "bert",
+            "benchmark",
+        }
+        title_finance_terms = [
+            "fin",
+            "finance",
+            "financial",
+            "stock",
+            "investment",
+            "invest",
+            "trading",
+            "market",
+            "equity",
+            "portfolio",
+            "accounting",
+            "credit",
+            "bond",
+            "asset",
+            "robo-advisory",
+        ]
+        title_llm_terms = [
+            "large language",
+            "llm",
+            "gpt",
+            "chatgpt",
+            "finbert",
+            "bondbert",
+            "rag",
+            "retrieval",
+            "agent",
+            "generative ai",
+            "foundation model",
+            "language model",
+            "benchmark",
+            "reasoning",
+        ]
+        if year < 2024:
+            return False
+        if not any(term in title for term in title_finance_terms):
+            return False
+        if not any(term in title for term in title_llm_terms):
+            return False
+        if not (model_terms & strong_llm_terms):
+            return False
+        if category == "Other relevant work":
+            return citations >= 8 and hits >= 2 and any(
+                term in title for term in ["large language", "llm", "rag", "retrieval", "agent", "gpt"]
+            )
+        return (score >= 26 and hits >= 2) or (citations >= 10 and hits >= 2) or citations >= 25
+
+    round4_promoted = 0
+    for candidate in round4_candidates:
+        if round4_promoted >= 12:
+            break
+        if should_promote_round4(candidate):
+            add(curated_row_from_candidate(candidate, "round4_promoted"))
+            round4_promoted += 1
     return curated
 
 
@@ -659,7 +788,7 @@ def write_readme(
         "",
         "A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, and professional finance evaluation.",
         "",
-        "> Status: expanding public seed. The current catalog starts from 58 seed papers plus three Semantic Scholar citation/reference expansion rounds over high-relevance finance LLM candidates.",
+        "> Status: expanding public seed. The current catalog starts from 58 seed papers plus four Semantic Scholar citation/reference expansion rounds over high-relevance finance LLM candidates.",
         "",
         "## Data Files",
         "",
@@ -668,20 +797,23 @@ def write_readme(
         "- `data/processed/expansion_candidates_preliminary.csv`: top 200 candidate additions discovered from citation/reference expansion.",
         "- `data/processed/round2_expansion_candidates.csv`: top 200 candidate additions discovered from the second-round expansion.",
         "- `data/processed/round3_expansion_candidates.csv`: top 200 candidate additions discovered from the third-round expansion.",
+        "- `data/processed/round4_expansion_candidates.csv`: top 200 candidate additions discovered from the fourth-round expansion.",
         "- `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.",
         "- `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.",
         "- `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.",
         "- `data/raw/round3_related_work_edges.csv`: raw citation/reference edges from the third expansion pass.",
+        "- `data/raw/round4_related_work_edges.csv`: raw citation/reference edges from the fourth expansion pass.",
         "- `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.",
         "- `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.",
         "- `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.",
+        "- `data/raw/round4_related_work_manifest.csv`: per-round-4-seed retrieval status and edge counts.",
         "",
         "## Collection Method",
         "",
         "1. Start with the seed CSV in `data/raw/seed_papers_original.csv`.",
         "2. Resolve seed papers through Semantic Scholar, preferring arXiv ids when available.",
         "3. Fetch both citations and references for each resolved seed paper.",
-        "4. Promote high-confidence first-pass and second-pass candidates as deeper expansion seeds.",
+        "4. Promote high-confidence candidates from prior passes as deeper expansion seeds.",
         "5. Fetch citations and references for those promoted candidates.",
         "6. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
         "",
@@ -790,6 +922,13 @@ Build a high-impact public Awesome-style repository for Large Language Models in
 
 ## Round 4: Manual Curation
 
+- Select strong round-3 candidates that are not yet curated and still clearly finance-specific and LLM-, RAG-, agent-, benchmark-, or FinBERT-related.
+- Fetch citations and references for those candidates.
+- Export `round4_related_work_edges.csv` and `round4_expansion_candidates.csv`.
+- Promote a conservative subset into `curated_papers.csv`.
+
+## Round 5: Manual Curation
+
 - Check abstracts and titles for false positives, especially generic financial NLP, reinforcement learning, and non-finance RAG papers.
 - Split older financial NLP benchmarks into a background section when they are useful but not LLM-specific.
 - Add venue, code, dataset, model, benchmark, and task tags.
@@ -812,9 +951,11 @@ def main() -> None:
     first_round_edges = read_csv(EDGES_PATH)
     round2_edges = normalize_round_edges(read_csv(ROUND2_EDGES_PATH), "round2", "round2_related_work_edges.csv")
     round3_edges = normalize_round_edges(read_csv(ROUND3_EDGES_PATH), "round3", "round3_related_work_edges.csv")
-    edges = first_round_edges + round2_edges + round3_edges
+    round4_edges = normalize_round_edges(read_csv(ROUND4_EDGES_PATH), "round4", "round4_related_work_edges.csv")
+    edges = first_round_edges + round2_edges + round3_edges + round4_edges
     round2_manifest_rows = read_csv(ROUND2_MANIFEST_PATH)
     round3_manifest_rows = read_csv(ROUND3_MANIFEST_PATH)
+    round4_manifest_rows = read_csv(ROUND4_MANIFEST_PATH)
     candidates, longlist = build_candidates(seeds, edges)
     round2_seed_rows = manifest_as_seed_rows(round2_manifest_rows)
     round2_candidates, _round2_longlist = build_candidates(
@@ -826,13 +967,28 @@ def main() -> None:
         seeds + curated_as_seed_rows(curated_before_round3) + round3_seed_rows,
         round3_edges,
     )
-    curated = build_curated_papers(
+    curated_before_round4 = build_curated_papers(
         seeds,
-        longlist,
+        longlist + round2_candidates + round3_candidates,
         round2_manifest_rows,
         round2_candidates,
         round3_manifest_rows,
         round3_candidates,
+    )
+    round4_seed_rows = manifest_as_seed_rows(round4_manifest_rows)
+    round4_candidates, _round4_longlist = build_candidates(
+        seeds + curated_as_seed_rows(curated_before_round4) + round4_seed_rows,
+        round4_edges,
+    )
+    curated = build_curated_papers(
+        seeds,
+        longlist + round2_candidates + round3_candidates + round4_candidates,
+        round2_manifest_rows,
+        round2_candidates,
+        round3_manifest_rows,
+        round3_candidates,
+        round4_manifest_rows,
+        round4_candidates,
     )
     columns = [
         "rank",
@@ -861,6 +1017,7 @@ def main() -> None:
     write_csv(LONG_LIST_PATH, longlist, columns)
     write_csv(ROUND2_CANDIDATES_PATH, round2_candidates, columns)
     write_csv(ROUND3_CANDIDATES_PATH, round3_candidates, columns)
+    write_csv(ROUND4_CANDIDATES_PATH, round4_candidates, columns)
     curated_columns = [
         "list_status",
         "priority",
@@ -890,10 +1047,12 @@ def main() -> None:
     print(f"first_round_edges={len(first_round_edges)}")
     print(f"round2_edges={len(round2_edges)}")
     print(f"round3_edges={len(round3_edges)}")
+    print(f"round4_edges={len(round4_edges)}")
     print(f"edges={len(edges)}")
     print(f"candidates={len(candidates)}")
     print(f"round2_candidates={len(round2_candidates)}")
     print(f"round3_candidates={len(round3_candidates)}")
+    print(f"round4_candidates={len(round4_candidates)}")
     print(f"longlist={len(longlist)}")
     print(f"curated={len(curated)}")
     print(f"wrote={CANDIDATES_PATH}")

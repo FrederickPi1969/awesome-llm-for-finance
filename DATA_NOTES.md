@@ -9,8 +9,10 @@ This repository currently includes:
   candidates.
 - A third citation/reference expansion pass over 35 recent, high-relevance
   promoted finance LLM candidates.
-- An expanded curated CSV plus top-200 first-round and second-round candidate
-  CSVs plus a top-200 third-round candidate CSV.
+- A fourth citation/reference expansion pass over 30 strong round-3 candidates
+  that were not yet curated.
+- An expanded curated CSV plus top-200 first-, second-, third-, and fourth-round
+  candidate CSVs.
 - A longer relevance-filtered review list.
 - Legacy/adjacent `*_110` expansion files covering finance plus geopolitical,
   geoeconomic, governance, forecasting, and strategic-simulation work. These are

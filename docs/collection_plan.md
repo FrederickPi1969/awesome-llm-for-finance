@@ -34,6 +34,13 @@ Build a high-impact public Awesome-style repository for Large Language Models in
 
 ## Round 4: Manual Curation
 
+- Select strong round-3 candidates that are not yet curated and still clearly finance-specific and LLM-, RAG-, agent-, benchmark-, or FinBERT-related.
+- Fetch citations and references for those candidates.
+- Export `round4_related_work_edges.csv` and `round4_expansion_candidates.csv`.
+- Promote a conservative subset into `curated_papers.csv`.
+
+## Round 5: Manual Curation
+
 - Check abstracts and titles for false positives, especially generic financial NLP, reinforcement learning, and non-finance RAG papers.
 - Split older financial NLP benchmarks into a background section when they are useful but not LLM-specific.
 - Add venue, code, dataset, model, benchmark, and task tags.

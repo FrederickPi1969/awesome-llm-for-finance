@@ -2,7 +2,7 @@
 
 A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, and professional finance evaluation.
 
-> Status: expanding public seed. The current catalog starts from 58 seed papers plus three Semantic Scholar citation/reference expansion rounds over high-relevance finance LLM candidates.
+> Status: expanding public seed. The current catalog starts from 58 seed papers plus four Semantic Scholar citation/reference expansion rounds over high-relevance finance LLM candidates.
 
 ## Data Files
 
@@ -11,20 +11,23 @@ A curated reading list for large language models in finance: financial-domain LL
 - `data/processed/expansion_candidates_preliminary.csv`: top 200 candidate additions discovered from citation/reference expansion.
 - `data/processed/round2_expansion_candidates.csv`: top 200 candidate additions discovered from the second-round expansion.
 - `data/processed/round3_expansion_candidates.csv`: top 200 candidate additions discovered from the third-round expansion.
+- `data/processed/round4_expansion_candidates.csv`: top 200 candidate additions discovered from the fourth-round expansion.
 - `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.
 - `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.
 - `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.
 - `data/raw/round3_related_work_edges.csv`: raw citation/reference edges from the third expansion pass.
+- `data/raw/round4_related_work_edges.csv`: raw citation/reference edges from the fourth expansion pass.
 - `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.
 - `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.
 - `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.
+- `data/raw/round4_related_work_manifest.csv`: per-round-4-seed retrieval status and edge counts.
 
 ## Collection Method
 
 1. Start with the seed CSV in `data/raw/seed_papers_original.csv`.
 2. Resolve seed papers through Semantic Scholar, preferring arXiv ids when available.
 3. Fetch both citations and references for each resolved seed paper.
-4. Promote high-confidence first-pass and second-pass candidates as deeper expansion seeds.
+4. Promote high-confidence candidates from prior passes as deeper expansion seeds.
 5. Fetch citations and references for those promoted candidates.
 6. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.
 
@@ -131,12 +134,18 @@ See `docs/collection_plan.md` for the planned multi-round expansion workflow.
 - [DISC-FinLLM: A Chinese Financial Large Language Model based on Multiple Experts Fine-tuning](https://www.semanticscholar.org/paper/814f0b1658c49c79bc32f3d2b89045de007871c6) (2023) - `P0` - citations: 78 - round1_promoted_seed_for_round2
 - [Open-FinLLMs: Open Multimodal Large Language Models for Financial Applications](https://www.semanticscholar.org/paper/32b18218fa5b48b935b247c0746410b2a2c46a06) (2024) - `P0` - citations: 48 - round1_promoted_seed_for_round2
 - [CFGPT: Chinese Financial Assistant with Large Language Model](https://www.semanticscholar.org/paper/a9eb336485e148d0a3f5010693d7752facba2875) (2023) - `P0` - citations: 20 - round1_promoted_seed_for_round2
+- [Predicting Stock Prices with FinBERT-LSTM: Integrating News Sentiment Analysis](https://www.semanticscholar.org/paper/11abdd87906d558684def669380e4452ea61040e) (2024) - `P1` - citations: 89 - round4_promoted
 - [Sentiment trading with large language models](https://www.semanticscholar.org/paper/f0f339d02a94d9609fc30561e72b3fe1ad83bca4) (2024) - `P1` - citations: 78 - round3_promoted
 - [Forecasting the S&P 500 Index Using Mathematical-Based Sentiment Analysis and Deep Learning Models: A FinBERT Transformer Model and LSTM](https://www.semanticscholar.org/paper/21870c270fd33369b664f216ef6669b200ee331a) (2023) - `P1` - citations: 62 - round3_promoted
+- [Innovative Sentiment Analysis and Prediction of Stock Price Using FinBERT, GPT-4 and Logistic Regression: A Data-Driven Approach](https://www.semanticscholar.org/paper/65def91046a328ccb3ae305316bf8ba993817aef) (2024) - `P1` - citations: 39 - round4_promoted
 - [Hybrid LSTM and GRU for Cryptocurrency Price Forecasting Based on Social Network Sentiment Analysis Using FinBERT](https://www.semanticscholar.org/paper/2b24d46f381954757a9f9bdd8635b38630f403d6) (2023) - `P1` - citations: 30 - round2_promoted
 - [FinBERT-FOMC: Fine-Tuned FinBERT Model with Sentiment Focus Method for Enhancing Sentiment Analysis of FOMC Minutes](https://www.semanticscholar.org/paper/fbd0999cfb30d0bf20641323baaaa5882f651c22) (2023) - `P1` - citations: 28 - round2_promoted
 - [RA-CFGPT: Chinese financial assistant with retrieval-augmented large language model](https://www.semanticscholar.org/paper/39c473ced3121883ec747e92175d29e44a1237c9) (2024) - `P1` - citations: 23 - round2_promoted
+- [Open FinLLM Leaderboard: Towards Financial AI Readiness](https://www.semanticscholar.org/paper/06526d7f7bb077b92f73a2a01480304377a63463) (2025) - `P1` - citations: 15 - round4_promoted
 - [Comparative Investigation of GPT and FinBERT’s Sentiment Analysis Performance in News Across Different Sectors](https://www.semanticscholar.org/paper/83d5a3100782b9803f9e25fbc41d1fbf9e98bed1) (2025) - `P1` - citations: 14 - round3_promoted
+- [Multimodal Financial Foundation Models (MFFMs): Progress, Prospects, and Challenges](https://www.semanticscholar.org/paper/290fe5dfb5d33902c9311aaead75201747acc4d8) (2025) - `P1` - citations: 7 - round3_promoted_seed_for_round4
+- [Reasoning or Overthinking: Evaluating Large Language Models on Financial Sentiment Analysis](https://www.semanticscholar.org/paper/e6135f05d90ca1e7a23118aa2a8fc7d86be76d3b) (2025) - `P1` - citations: 6 - round3_promoted_seed_for_round4
+- [BondBERT: What we learn when assigning sentiment in the bond market](https://www.semanticscholar.org/paper/21015b352de7fa3ecaa804345bab13b6e1693c44) (2025) - `P1` - citations: 1 - round3_promoted_seed_for_round4
 
 ### Benchmarks and datasets
 
@@ -153,9 +162,12 @@ See `docs/collection_plan.md` for the planned multi-round expansion workflow.
 - [Unlocking Data Value in Finance: A Study on Distillation and Difficulty-Aware Training](https://www.semanticscholar.org/paper/2781595bb5eb65d89c966feec9f560805d610738) (2026) - `P0` - citations: 1 - round1_promoted_seed_for_round2
 - [PIXIU: A Comprehensive Benchmark, Instruction Dataset and Large Language Model for Finance](https://www.semanticscholar.org/paper/dc7ee44dc2904228c0da316f6b35ddb6a15f4f63) (2023) - `P1` - citations: 70 - round2_promoted
 - [Are ChatGPT and GPT-4 General-Purpose Solvers for Financial Text Analytics? An Examination on Several Typical Tasks](https://www.semanticscholar.org/paper/45d325884a5169df06e41288717b7a78c07bedb7) (2023) - `P1` - citations: 51 - round2_promoted
+- [OmniEval: An Omnidirectional and Automatic RAG Evaluation Benchmark in Financial Domain](https://www.semanticscholar.org/paper/f489b07797a877c77a9111bab448355046df2885) (2024) - `P1` - citations: 35 - round4_promoted
+- [MME-Finance: A Multimodal Finance Benchmark for Expert-level Understanding and Reasoning](https://www.semanticscholar.org/paper/001f61a948d2652eae8107653ff5f80f5f1ac712) (2025) - `P1` - citations: 30 - round4_promoted
 - [Can GPT models be Financial Analysts? An Evaluation of ChatGPT and GPT-4 on mock CFA Exams](https://www.semanticscholar.org/paper/ec2c330301fa8a9f4b6357d9ca630bf5bcd50996) (2023) - `P1` - citations: 28 - round3_promoted
 - [Benchmarking Large Language Models on CFLUE - A Chinese Financial Language Understanding Evaluation Dataset](https://www.semanticscholar.org/paper/21c22e2a16e3e6a95cc8900d687f3f0d14bd2f64) (2024) - `P1` - citations: 27 - round2_promoted
 - [A Comparative Analysis of Instruction Fine-Tuning Large Language Models for Financial Text Classification](https://www.semanticscholar.org/paper/e94fa7016d7e9814399e42480512a2a8bb73972e) (2025) - `P1` - citations: 26 - round2_promoted
+- [FinMME: Benchmark Dataset for Financial Multi-Modal Reasoning Evaluation](https://www.semanticscholar.org/paper/086c9e9a679ccf4dd7d0cb49d6efa629b1f0109c) (2025) - `P1` - citations: 23 - round4_promoted
 - [An Evaluation of Reasoning Capabilities of Large Language Models in Financial Sentiment Analysis](https://www.semanticscholar.org/paper/4a54ae690a0a1a2613031d31247d312545b86f04) (2024) - `P1` - citations: 18 - round3_promoted
 - [Plutus: Benchmarking Large Language Models in Low-Resource Greek Finance](https://www.semanticscholar.org/paper/5f520e8f20b3063307d174c8bc530317ed0d5a2a) (2025) - `P1` - citations: 18 - round2_promoted
 - [BizFinBench: A Business-Driven Real-World Financial Benchmark for Evaluating LLMs](https://www.semanticscholar.org/paper/9de263bfddf6888f928bc66837f1dd788289de13) (2025) - `P1` - citations: 17 - round2_promoted
@@ -168,7 +180,9 @@ See `docs/collection_plan.md` for the planned multi-round expansion workflow.
 - [TAT-LLM: A Specialized Language Model for Discrete Reasoning over Financial Tabular and Textual Data](https://www.semanticscholar.org/paper/b714baccfd4997ef6c14cbff3d8b4921493d7446) (2024) - `P0` - citations: 26 - round1_promoted_seed_for_round2
 - [A Scoping Review of ChatGPT Research in Accounting and Finance](https://www.semanticscholar.org/paper/93cf2624dc11b38457f603ff8c345c5f3fc9d52b) (2024) - `P1` - citations: 75 - round3_promoted
 - [Fin-R1: A Large Language Model for Financial Reasoning through Reinforcement Learning](https://www.semanticscholar.org/paper/95d638e7705ec561382268405bc488df4c26c7f7) (2025) - `P1` - citations: 66 - round2_promoted
+- [Generative AI Solutions to Empower Financial Firms](https://www.semanticscholar.org/paper/6aa25a7fba787219fc7af14411f42b43d2eda1a9) (2024) - `P1` - citations: 12 - round3_promoted_seed_for_round4
 - [FinNLI: Novel Dataset for Multi-Genre Financial Natural Language Inference Benchmarking](https://www.semanticscholar.org/paper/f22b17e68fc846fd660951807862a78adc08525f) (2025) - `P1` - citations: 4 - round2_promoted
+- [Interpretable LLMs for Credit Risk: A Systematic Review and Taxonomy](https://www.semanticscholar.org/paper/18296b1ee7bc4c70bd5d44503f705f1b535c712d) (2025) - `P1` - citations: 4 - round3_promoted_seed_for_round4
 
 ### Trading and investment
 
@@ -187,14 +201,18 @@ See `docs/collection_plan.md` for the planned multi-round expansion workflow.
 - [Bloated Disclosures: Can ChatGPT Help Investors Process Information?](https://www.semanticscholar.org/paper/af16b6f8146432e9437c1dd9b8320ee24ac63455) (2023) - `P1` - citations: 56 - round3_promoted
 - [Can Large Language Models beat wall street? Evaluating GPT-4’s impact on financial decision-making with MarketSenseAI](https://www.semanticscholar.org/paper/a25a6a7dabe6621e5e74cccdc3963aea947d2d20) (2024) - `P1` - citations: 53 - round2_promoted
 - [Harnessing Earnings Reports for Stock Predictions: A QLoRA-Enhanced LLM Approach](https://www.semanticscholar.org/paper/31e6b91ed8eb6f5fe8703301fc439fd1af160132) (2024) - `P1` - citations: 53 - round3_promoted
+- [LLMFactor: Extracting Profitable Factors through Prompts for Explainable Stock Movement Prediction](https://www.semanticscholar.org/paper/7185f24f33de547954baa0c71cafaf41786e81ba) (2024) - `P1` - citations: 48 - round4_promoted
 - [FinVis-GPT: A Multimodal Large Language Model for Financial Chart Analysis](https://www.semanticscholar.org/paper/0edcd1ce1d44359e8bf255b7216b9b56fa2cea33) (2023) - `P1` - citations: 34 - round2_promoted
 - [Assessing Look-Ahead Bias in Stock Return Predictions Generated by GPT Sentiment Analysis](https://www.semanticscholar.org/paper/af42ae531ad0c41518fcf3a382e6e9f1ba465601) (2023) - `P1` - citations: 29 - round2_promoted
 - [GPT-InvestAR: Enhancing Stock Investment Strategies through Annual Report Analysis with Large Language Models](https://www.semanticscholar.org/paper/110052b69ccbcc280b1a806c4e0bf876e6a5b116) (2023) - `P1` - citations: 29 - round2_promoted
+- [Large Language Model Adaptation for Financial Sentiment Analysis](https://www.semanticscholar.org/paper/4bbc278bc27a399bda7bc3015d2f38bd34f8dff7) (2024) - `P1` - citations: 24 - round4_promoted
 - [Ploutos: Towards interpretable stock movement prediction with financial large language model](https://www.semanticscholar.org/paper/fc4968617eae1d875a77ed0372be8f2e6118440a) (2024) - `P1` - citations: 21 - round3_promoted
+- [FAMMA: A Benchmark for Financial Domain Multilingual Multimodal Question Answering](https://www.semanticscholar.org/paper/1fca4660e5cdc872b8e2b3883457766c9e954a88) (2024) - `P1` - citations: 19 - round4_promoted
 - [FinDER: Financial Dataset for Question Answering and Evaluating Retrieval-Augmented Generation](https://www.semanticscholar.org/paper/1717ec916c1e092facaaeb22fd8fe26b172eb388) (2025) - `P1` - citations: 17 - round1_promoted_seed_for_round2
 - [Fine-Tuning Large Language Models for Stock Return Prediction Using Newsflow](https://www.semanticscholar.org/paper/f6c0a84ac1f1fe79cfde96f4e163d0d69f9c06cb) (2024) - `P1` - citations: 17 - round3_promoted
 - [Leveraging Large Language Models and Retrieval-Augmented Generation for Enhanced Multi-Asset Portfolio Construction](https://www.semanticscholar.org/paper/32e3b82aee29adbca2e826d8cebf06c3f6178038) (2025) - `P1` - citations: 2 - round2_promoted
 - [Large Language Models for Financial Knowledge Extraction Analytical Insights and Corporate Planning Support](https://www.semanticscholar.org/paper/8dd640e8c2d469fb7a1d3286a0d7b14175b9234f) (2025) - `P1` - citations: 1 - round3_promoted
+- [The recent history of large language model in investment and portfolio management: is it a revolution in finance?](https://www.semanticscholar.org/paper/e23021a2ab136fa32d80fe211b0714d72b6b2dbe) (2025) - `P1` - citations: 1 - round3_promoted_seed_for_round4
 - [Exploring the Synergy of Quantitative Factors and Newsflow Representations from Large Language Models for Stock Return Prediction](https://www.semanticscholar.org/paper/88f47a944ab8b957c86393b0900b3d93161473cd) (2025) - `P1` - citations: 0 - round2_promoted
 - [Integrating Stock Features and Global Information via Large Language Models for Enhanced Stock Return Prediction](https://www.semanticscholar.org/paper/0fc94e0c7fea54407e9cf4e4fcbc5487be883b61) (2023) - `P2` - citations: 20 - round3_promoted
 
@@ -215,27 +233,39 @@ See `docs/collection_plan.md` for the planned multi-round expansion workflow.
 - [Learning to Generate Explainable Stock Predictions using Self-Reflective Large Language Models](https://www.semanticscholar.org/paper/a734edb6c3d70eec77ddb4504b2df87c3b74b77c) (2024) - `P1` - citations: 61 - round3_promoted
 - [CryptoTrade: A Reflective LLM-based Agent to Guide Zero-shot Cryptocurrency Trading](https://www.semanticscholar.org/paper/41e49f3e7cef50ec4b1fc4b2fe4dd3ba04ef3b9f) (2024) - `P1` - citations: 36 - round3_promoted
 - [Enhancing Investment Analysis: Optimizing AI-Agent Collaboration in Financial Research](https://www.semanticscholar.org/paper/77ef9666a5fff2e5a0c68b59cabae8295c9739e2) (2024) - `P1` - citations: 36 - round2_promoted
+- [INVESTORBENCH: A Benchmark for Financial Decision-Making Tasks with LLM-based Agent](https://www.semanticscholar.org/paper/03039fbfcc6d46c2d52ec039f923990d4c95de85) (2025) - `P1` - citations: 36 - round4_promoted
 - [Advancing innovation in financial stability: A comprehensive review of ai agent frameworks, challenges and applications](https://www.semanticscholar.org/paper/0ad50aa8e57901e59e959e2f2c0b6d221a0cf8cd) (2025) - `P1` - citations: 32 - round3_promoted
 - [Automate Strategy Finding with LLM in Quant investment](https://www.semanticscholar.org/paper/1b31930e05ba75daf9dafb409242b53af663db66) (2024) - `P1` - citations: 32 - round2_promoted
 - [Optimized Financial Planning: Integrating Individual and Cooperative Budgeting Models with LLM Recommendations](https://www.semanticscholar.org/paper/5479040a44a53b9a7f58d97a91c79349e54e1976) (2023) - `P1` - citations: 32 - round3_promoted
 - [HedgeAgents: A Balanced-aware Multi-agent Financial Trading System](https://www.semanticscholar.org/paper/701cd738cbdeb49b9cd9f2de3ee90d61d066faf5) (2025) - `P1` - citations: 31 - round2_promoted
 - [Large Language Models for Financial and Investment Management: Applications and Benchmarks](https://www.semanticscholar.org/paper/f88c22f58d60dbfcceb2057bed44799f1f515980) (2024) - `P1` - citations: 30 - round2_promoted
 - [When AI Meets Finance (StockAgent): Large Language Model-based Stock Trading in Simulated Real-world Environments](https://www.semanticscholar.org/paper/c8eabdc81e4c6d972336408d1a0a7dccfddece5f) (2024) - `P1` - citations: 30 - round2_promoted
+- [QuantAgent: Seeking Holy Grail in Trading by Self-Improving Large Language Model](https://www.semanticscholar.org/paper/83edf6872534c75b3099c0b456472e68d6d89ed2) (2024) - `P1` - citations: 29 - round4_promoted
 - [MarS: a Financial Market Simulation Engine Powered by Generative Foundation Model](https://www.semanticscholar.org/paper/ef0cf7ac825cdea530ea5842314acea2532b5759) (2024) - `P1` - citations: 26 - round2_promoted
 - [FLAG-Trader: Fusion LLM-Agent with Gradient-based Reinforcement Learning for Financial Trading](https://www.semanticscholar.org/paper/c6e145e7e9e6a6e82e898d6e96997461cd5ec608) (2025) - `P1` - citations: 23 - round2_promoted
 - [Agentic AI Systems Applied to tasks in Financial Services: Modeling and model risk management crews](https://www.semanticscholar.org/paper/32c3e7b6dfe4f7a0c265e56243ed71e67ec113f0) (2025) - `P1` - citations: 19 - round3_promoted
 - [GPT's idea of stock factors](https://www.semanticscholar.org/paper/1d0d08d8255fca583cba525f0299d3a792c5133f) (2024) - `P1` - citations: 17 - round3_promoted
 - [DianJin-R1: Evaluating and Enhancing Financial Reasoning in Large Language Models](https://www.semanticscholar.org/paper/9f7336aff4d63695ffbc7bbab23140bbc1cc9346) (2025) - `P1` - citations: 15 - round3_promoted
+- [MarketSenseAI 2.0: Enhancing Stock Analysis Through LLM Agents](https://www.semanticscholar.org/paper/f937b109dbc2bb4c831af3b63487bf001834cef0) (2025) - `P1` - citations: 13 - round3_promoted_seed_for_round4
 - [Large Language Models in equity markets: applications, techniques, and insights](https://www.semanticscholar.org/paper/b1553a62bd4fbf76ad6a41f05a1a4a5a13e862ad) (2025) - `P1` - citations: 12 - round2_promoted
+- [When Agents Trade: Live Multi-Market Trading Benchmark for LLM Agents](https://www.semanticscholar.org/paper/efbbb0b34d1f07b1c2c3cc2eda3ddec0d9136180) (2025) - `P1` - citations: 11 - round3_promoted_seed_for_round4
 - [MASS: Multi-Agent Simulation Scaling for Portfolio Construction](https://www.semanticscholar.org/paper/82804209a776b25f019c6a6082917eca98c0d5d9) (2025) - `P1` - citations: 9 - round3_promoted
 - [FinArena: A Human-Agent Collaboration Framework for Financial Market Analysis and Forecasting](https://www.semanticscholar.org/paper/f18b6564594bc3f3326ba174416e7e7d9e61f2db) (2025) - `P1` - citations: 8 - round2_promoted
+- [A Comprehensive Review of Gen AI Agents: Applications and Frameworks in Finance, Investments and Risk Domains](https://www.semanticscholar.org/paper/475f97cb4636acfb86112da16b66fab182bb46c9) (2025) - `P1` - citations: 7 - round3_promoted_seed_for_round4
 - [AI Agents in Finance and Fintech: A Scientific Review of Agent-Based Systems, Applications, and Future Horizons](https://www.semanticscholar.org/paper/9669e94896a7f774bdf149a87fd06a6e39f9a830) (2025) - `P1` - citations: 2 - round3_promoted
+- [Trade in Minutes! Rationality-Driven Agentic System for Quantitative Financial Trading](https://www.semanticscholar.org/paper/c78c601e1fff91dd466cc0ee78db27654e604111) (2025) - `P1` - citations: 2 - round3_promoted_seed_for_round4
 - [A Review of Large Language Models for Stock Price Forecasting from a Hedge-Fund Perspective](https://www.semanticscholar.org/paper/bb7ac50bcca09e26e3b273cc2e8da0656f37150c) (2026) - `P1` - citations: 0 - round3_promoted
+- [ALERA: An Entropy-Based LLM Multi-Agent Framework for Dynamic Risk Quantification in Quantitative Investing](https://www.semanticscholar.org/paper/12cf7474ba0c98d7c376fe4e47847d1ef35de14f) (2025) - `P1` - citations: 0 - round3_promoted_seed_for_round4
+- [Agentic Portfolio Construction: A Multi-Agent Architecture for LLM-Driven Financial Asset Allocation](https://www.semanticscholar.org/paper/618884efc04556c0efaf82273066b58b7a25abe1) (2025) - `P1` - citations: 0 - round3_promoted_seed_for_round4
+- [FALLMAS: An LLM-Based Multi-Agent System for Automated Financial Analysis and Strategic Reporting](https://www.semanticscholar.org/paper/e8fc98f85d07fc06da515f21b8d4da458edf2bf6) (2026) - `P1` - citations: 0 - round3_promoted_seed_for_round4
+- [ForexAgent: Identifying Trading Strategies in Forex Markets with Large Language Models](https://www.semanticscholar.org/paper/cd2378d01fae5331b77a9ee02a19acf32c92b2f8) (2026) - `P1` - citations: 0 - round3_promoted_seed_for_round4
 - [P1GPT: a multi-agent LLM workflow module for multi-modal financial information analysis](https://www.semanticscholar.org/paper/5afed2970be135f7a3fae1d8864f53c39c32ee29) (2025) - `P1` - citations: 0 - round3_promoted
+- [PyFi: Toward Pyramid-like Financial Image Understanding for VLMs via Adversarial Agents](https://www.semanticscholar.org/paper/21c8f3c47dcf6d0fbe010fe44283654791c9da79) (2025) - `P1` - citations: 0 - round3_promoted_seed_for_round4
 
 ### Other relevant work
 
 - [LLMs for Financial Advisement: A Fairness and Efficacy Study in Personal Decision Making](https://www.semanticscholar.org/paper/1dddc3cdca26cd434d48110f8d73674bb7f63c4f) (2023) - `P1` - citations: 53 - round2_promoted
+- [Fino1: On the Transferability of Reasoning Enhanced LLMs to Finance](https://www.semanticscholar.org/paper/8ebfac056e9a74874eda4336dd612c36a1915c04) (2025) - `P1` - citations: 43 - round4_promoted
 - [RiskLabs: Predicting Financial Risk Using Large Language Model Based on Multi-Sources Data](https://www.semanticscholar.org/paper/79ad2001981acc7f24f70cdd8307821b70289fb9) (2024) - `P1` - citations: 35 - round3_promoted
 - [Large Language Model in Financial Regulatory Interpretation](https://www.semanticscholar.org/paper/cda483cdf8c4c7a020def02f5523101558c78cca) (2024) - `P1` - citations: 12 - round2_promoted
 - [Multimodal retrieval-augmented generation for financial documents: image-centric analysis of charts and tables with large language models](https://www.semanticscholar.org/paper/7cf98ce56b91fd97d664a2ec2f9f2e24c232a378) (2025) - `P1` - citations: 6 - round2_promoted
