@@ -23,6 +23,8 @@ TRADING_AGENT_FOCUS_EDGES_PATH = ROOT / "data" / "raw" / "trading_agent_focus_ed
 TRADING_AGENT_FOCUS_MANIFEST_PATH = ROOT / "data" / "raw" / "trading_agent_focus_manifest.csv"
 REPORT_ANALYSIS_FOCUS_EDGES_PATH = ROOT / "data" / "raw" / "report_analysis_focus_edges.csv"
 REPORT_ANALYSIS_FOCUS_MANIFEST_PATH = ROOT / "data" / "raw" / "report_analysis_focus_manifest.csv"
+REGTECH_COMPLIANCE_FOCUS_EDGES_PATH = ROOT / "data" / "raw" / "regtech_compliance_focus_edges.csv"
+REGTECH_COMPLIANCE_FOCUS_MANIFEST_PATH = ROOT / "data" / "raw" / "regtech_compliance_focus_manifest.csv"
 CANDIDATES_PATH = ROOT / "data" / "processed" / "expansion_candidates_preliminary.csv"
 LONG_LIST_PATH = ROOT / "data" / "processed" / "related_work_relevance_longlist.csv"
 ROUND2_CANDIDATES_PATH = ROOT / "data" / "processed" / "round2_expansion_candidates.csv"
@@ -32,6 +34,8 @@ TRADING_AGENT_FOCUS_SEEDS_PATH = ROOT / "data" / "processed" / "trading_agent_fo
 TRADING_AGENT_FOCUS_CANDIDATES_PATH = ROOT / "data" / "processed" / "trading_agent_focus_expansion_candidates.csv"
 REPORT_ANALYSIS_FOCUS_SEEDS_PATH = ROOT / "data" / "processed" / "report_analysis_focus_seed_candidates.csv"
 REPORT_ANALYSIS_FOCUS_CANDIDATES_PATH = ROOT / "data" / "processed" / "report_analysis_focus_expansion_candidates.csv"
+REGTECH_COMPLIANCE_FOCUS_ANCHORS_PATH = ROOT / "data" / "processed" / "regtech_compliance_focus_anchor_candidates.csv"
+REGTECH_COMPLIANCE_FOCUS_CANDIDATES_PATH = ROOT / "data" / "processed" / "regtech_compliance_focus_expansion_candidates.csv"
 CURATED_PATH = ROOT / "data" / "processed" / "curated_papers.csv"
 TAXONOMY_PATH = ROOT / "data" / "processed" / "curated_papers_by_taxonomy.csv"
 README_PATH = ROOT / "README.md"
@@ -769,6 +773,7 @@ def build_curated_papers(
     trading_focus_candidates: list[dict[str, str]] | None = None,
     report_focus_seed_candidates: list[dict[str, str]] | None = None,
     report_focus_candidates: list[dict[str, str]] | None = None,
+    regtech_focus_candidates: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     curated: list[dict[str, str]] = []
     seen_titles = set()
@@ -808,6 +813,7 @@ def build_curated_papers(
     trading_focus_candidates = trading_focus_candidates or []
     report_focus_seed_candidates = report_focus_seed_candidates or []
     report_focus_candidates = report_focus_candidates or []
+    regtech_focus_candidates = regtech_focus_candidates or []
 
     def should_promote_round2(candidate: dict[str, str]) -> bool:
         title = candidate.get("title", "").lower()
@@ -1246,6 +1252,144 @@ def build_curated_papers(
         if should_promote_report_focus(candidate):
             add(curated_row_from_candidate(candidate, "report_analysis_focus_promoted"))
             report_focus_promoted += 1
+
+    def should_promote_regtech_focus(candidate: dict[str, str]) -> bool:
+        title = candidate.get("title", "").lower()
+        text = f"{title} {candidate.get('abstract', '').lower()}"
+        year = to_int(candidate.get("year", "0"))
+        citations = to_int(candidate.get("citationCount", "0"))
+        score = float(candidate.get("score", "0") or 0)
+        hits = to_int(candidate.get("seed_hit_count", "0"))
+        finance_terms = [
+            "finance",
+            "financial",
+            "bank",
+            "banking",
+            "credit",
+            "lending",
+            "accounting",
+            "audit",
+            "auditing",
+            "investment",
+            "investor",
+            "regulatory",
+            "regulation",
+            "compliance",
+            "fintech",
+        ]
+        finance_title_terms = [
+            "finance",
+            "financial",
+            "bank",
+            "banking",
+            "bfsi",
+            "credit",
+            "lending",
+            "accounting",
+            "audit",
+            "auditing",
+            "investment",
+            "investor",
+            "retirement",
+            "fintech",
+            "sme",
+            "structured finance",
+        ]
+        regtech_terms = [
+            "regulatory",
+            "regulation",
+            "compliance",
+            "model risk",
+            "risk management",
+            "audit",
+            "auditing",
+            "trustworthiness",
+            "trustworthy",
+            "fairness",
+            "bias",
+            "responsible",
+            "accounting",
+            "financial advisement",
+            "financial advice",
+            "advisor",
+            "supervisory",
+            "aml",
+            "kyc",
+        ]
+        regtech_title_terms = [
+            "regulatory",
+            "regulation",
+            "compliance",
+            "model risk",
+            "risk management",
+            "risk identification",
+            "audit",
+            "auditing",
+            "trustworthiness",
+            "trustworthy",
+            "fairness",
+            "bias",
+            "responsible",
+            "financial advisement",
+            "financial advice",
+            "financial advisor",
+            "financial advisors",
+            "retirement",
+            "anomaly detection",
+            "safety",
+            "safe",
+            "governance",
+            "banking",
+            "accounting",
+            "underlying asset review",
+            "underlying asset reviews",
+        ]
+        llm_terms = [
+            "large language",
+            "llm",
+            "gpt",
+            "chatgpt",
+            "language model",
+            "generative ai",
+            "foundation model",
+            "agent",
+            "benchmark",
+        ]
+        excluded = [
+            "healthcare",
+            "medical",
+            "legal domain",
+            "software engineering",
+            "generic",
+            "supply chain",
+            "education",
+            "marketing",
+            "digital governance",
+            "business intelligence",
+        ]
+        if year < 2023:
+            return False
+        if any(term in title for term in excluded):
+            return False
+        if not any(term in title for term in finance_title_terms):
+            return False
+        if not any(term in title for term in regtech_title_terms):
+            return False
+        if not any(term in text for term in finance_terms):
+            return False
+        if not any(term in text for term in regtech_terms):
+            return False
+        if not any(term in text for term in llm_terms):
+            return False
+        return citations >= 2 or score >= 16 or hits >= 2
+
+    regtech_focus_promoted = 0
+    for candidate in regtech_focus_candidates:
+        if regtech_focus_promoted >= 20:
+            break
+        if should_promote_regtech_focus(candidate):
+            add(curated_row_from_candidate(candidate, "regtech_compliance_focus_promoted"))
+            regtech_focus_promoted += 1
     return curated
 
 
@@ -1265,7 +1409,7 @@ def write_readme(
         "",
         "A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, and professional finance evaluation.",
         "",
-        "> Status: expanding public seed. The current catalog starts from 58 seed papers, four broad Semantic Scholar citation/reference expansion rounds, one focused FinMem trading-agent deep-dive, and one focused financial report analysis deep-dive.",
+        "> Status: expanding public seed. The current catalog starts from 58 seed papers, four broad Semantic Scholar citation/reference expansion rounds, focused FinMem trading-agent and financial report analysis deep-dives, and a focused RegTech/compliance deep-dive.",
         "",
         "## Taxonomy",
         "",
@@ -1318,6 +1462,7 @@ def write_readme(
                 "round4_promoted": "expanded",
                 "trading_agent_focus_promoted": "focused expansion",
                 "report_analysis_focus_promoted": "focused expansion",
+                "regtech_compliance_focus_promoted": "focused expansion",
             }.get(status, status)
             lines.append(
                 f"- {markdown_link(row.get('title', ''), row.get('source_url', ''))} "
@@ -1341,6 +1486,8 @@ def write_readme(
             "- `data/processed/trading_agent_focus_expansion_candidates.csv`: candidate additions discovered from the focused FinMem trading-agent deep-dive.",
             "- `data/processed/report_analysis_focus_seed_candidates.csv`: focused seed candidates from financial report analysis neighborhoods.",
             "- `data/processed/report_analysis_focus_expansion_candidates.csv`: candidate additions discovered from the focused financial report analysis deep-dive.",
+            "- `data/processed/regtech_compliance_focus_anchor_candidates.csv`: focused anchors for RegTech, compliance, audit, and model-risk expansion.",
+            "- `data/processed/regtech_compliance_focus_expansion_candidates.csv`: candidate additions discovered from the focused RegTech/compliance deep-dive.",
             "- `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.",
             "- `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.",
             "- `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.",
@@ -1348,12 +1495,14 @@ def write_readme(
             "- `data/raw/round4_related_work_edges.csv`: raw citation/reference edges from the fourth expansion pass.",
             "- `data/raw/trading_agent_focus_edges.csv`: raw citation/reference edges from the focused FinMem trading-agent deep-dive.",
             "- `data/raw/report_analysis_focus_edges.csv`: raw citation/reference edges from the focused financial report analysis deep-dive.",
+            "- `data/raw/regtech_compliance_focus_edges.csv`: raw citation/reference edges from the focused RegTech/compliance deep-dive.",
             "- `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.",
             "- `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.",
             "- `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.",
             "- `data/raw/round4_related_work_manifest.csv`: per-round-4-seed retrieval status and edge counts.",
             "- `data/raw/trading_agent_focus_manifest.csv`: per-focused-seed retrieval status and edge counts.",
             "- `data/raw/report_analysis_focus_manifest.csv`: per-report-analysis-focused-seed retrieval status and edge counts.",
+            "- `data/raw/regtech_compliance_focus_manifest.csv`: per-RegTech/compliance-focused-anchor retrieval status and edge counts.",
             "",
             "## Collection Method",
             "",
@@ -1364,7 +1513,8 @@ def write_readme(
             "5. Fetch citations and references for those promoted candidates.",
             "6. Run a focused deep-dive from the highest-cited trading-agent seed, FinMem, to capture recent LLM trading-agent work.",
             "7. Run a focused financial report analysis deep-dive over financial statement analysis, SEC filing QA, report chunking, XBRL, and report-generation anchors.",
-            "8. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
+            "8. Run a focused RegTech/compliance deep-dive over regulatory interpretation, model risk, audit, trustworthiness, and financial advisement anchors.",
+            "9. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
             "",
             "See `docs/collection_plan.md` for the planned multi-round expansion workflow.",
         ]
@@ -1465,7 +1615,20 @@ def main() -> None:
         "report_analysis_focus",
         "report_analysis_focus_edges.csv",
     )
-    edges = first_round_edges + round2_edges + round3_edges + round4_edges + trading_focus_edges + report_focus_edges
+    regtech_focus_edges = normalize_round_edges(
+        read_csv(REGTECH_COMPLIANCE_FOCUS_EDGES_PATH),
+        "regtech_compliance_focus",
+        "regtech_compliance_focus_edges.csv",
+    )
+    edges = (
+        first_round_edges
+        + round2_edges
+        + round3_edges
+        + round4_edges
+        + trading_focus_edges
+        + report_focus_edges
+        + regtech_focus_edges
+    )
     round2_manifest_rows = read_csv(ROUND2_MANIFEST_PATH)
     round3_manifest_rows = read_csv(ROUND3_MANIFEST_PATH)
     round4_manifest_rows = read_csv(ROUND4_MANIFEST_PATH)
@@ -1473,6 +1636,7 @@ def main() -> None:
     trading_focus_seed_candidates = read_csv(TRADING_AGENT_FOCUS_SEEDS_PATH)
     report_focus_manifest_rows = read_csv(REPORT_ANALYSIS_FOCUS_MANIFEST_PATH)
     report_focus_seed_candidates = read_csv(REPORT_ANALYSIS_FOCUS_SEEDS_PATH)
+    regtech_focus_manifest_rows = read_csv(REGTECH_COMPLIANCE_FOCUS_MANIFEST_PATH)
     candidates, longlist = build_candidates(seeds, edges)
     round2_seed_rows = manifest_as_seed_rows(round2_manifest_rows)
     round2_candidates, _round2_longlist = build_candidates(
@@ -1529,7 +1693,7 @@ def main() -> None:
         seeds + curated_as_seed_rows(curated_before_report_focus) + report_focus_seed_rows,
         report_focus_edges,
     )
-    curated = build_curated_papers(
+    curated_before_regtech_focus = build_curated_papers(
         seeds,
         longlist
         + round2_candidates
@@ -1549,6 +1713,34 @@ def main() -> None:
         trading_focus_candidates,
         report_focus_seed_candidates,
         report_focus_candidates,
+    )
+    regtech_focus_seed_rows = manifest_as_seed_rows(regtech_focus_manifest_rows)
+    regtech_focus_candidates, _regtech_focus_longlist = build_candidates(
+        seeds + curated_as_seed_rows(curated_before_regtech_focus) + regtech_focus_seed_rows,
+        regtech_focus_edges,
+    )
+    curated = build_curated_papers(
+        seeds,
+        longlist
+        + round2_candidates
+        + round3_candidates
+        + round4_candidates
+        + trading_focus_seed_candidates
+        + trading_focus_candidates
+        + report_focus_seed_candidates
+        + report_focus_candidates
+        + regtech_focus_candidates,
+        round2_manifest_rows,
+        round2_candidates,
+        round3_manifest_rows,
+        round3_candidates,
+        round4_manifest_rows,
+        round4_candidates,
+        trading_focus_seed_candidates,
+        trading_focus_candidates,
+        report_focus_seed_candidates,
+        report_focus_candidates,
+        regtech_focus_candidates,
     )
     columns = [
         "rank",
@@ -1580,6 +1772,7 @@ def main() -> None:
     write_csv(ROUND4_CANDIDATES_PATH, round4_candidates, columns)
     write_csv(TRADING_AGENT_FOCUS_CANDIDATES_PATH, trading_focus_candidates, columns)
     write_csv(REPORT_ANALYSIS_FOCUS_CANDIDATES_PATH, report_focus_candidates, columns)
+    write_csv(REGTECH_COMPLIANCE_FOCUS_CANDIDATES_PATH, regtech_focus_candidates, columns)
     curated_columns = [
         "list_status",
         "priority",
@@ -1615,6 +1808,7 @@ def main() -> None:
     print(f"round4_edges={len(round4_edges)}")
     print(f"trading_agent_focus_edges={len(trading_focus_edges)}")
     print(f"report_analysis_focus_edges={len(report_focus_edges)}")
+    print(f"regtech_compliance_focus_edges={len(regtech_focus_edges)}")
     print(f"edges={len(edges)}")
     print(f"candidates={len(candidates)}")
     print(f"round2_candidates={len(round2_candidates)}")
@@ -1622,6 +1816,7 @@ def main() -> None:
     print(f"round4_candidates={len(round4_candidates)}")
     print(f"trading_agent_focus_candidates={len(trading_focus_candidates)}")
     print(f"report_analysis_focus_candidates={len(report_focus_candidates)}")
+    print(f"regtech_compliance_focus_candidates={len(regtech_focus_candidates)}")
     print(f"longlist={len(longlist)}")
     print(f"curated={len(curated)}")
     print(f"taxonomy={len(taxonomy_rows)}")
