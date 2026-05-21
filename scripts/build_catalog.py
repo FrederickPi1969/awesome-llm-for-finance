@@ -63,7 +63,6 @@ INSTITUTIONAL_TRADING_ROUND3_CANDIDATES_PATH = ROOT / "data" / "processed" / "in
 CURATED_PATH = ROOT / "data" / "processed" / "curated_papers.csv"
 TAXONOMY_PATH = ROOT / "data" / "processed" / "curated_papers_by_taxonomy.csv"
 README_PATH = ROOT / "README.md"
-PLAN_PATH = ROOT / "docs" / "collection_plan.md"
 
 
 TAXONOMY_ORDER = [
@@ -2157,8 +2156,6 @@ def write_readme(
         "",
         "A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, and professional finance evaluation.",
         "",
-        "> Status: expanding public seed. The current catalog starts from 58 seed papers, four broad Semantic Scholar citation/reference expansion rounds, focused FinMem trading-agent, financial report analysis, RegTech/compliance, and multi-step specific-domain deep-dives.",
-        "",
         "## Taxonomy",
         "",
         "Each paper is assigned to exactly one primary category. The taxonomy is intentionally a partition: the total number of papers in the categories below equals the total rows in `data/processed/curated_papers.csv`.",
@@ -2215,109 +2212,12 @@ def write_readme(
                 x.get("title", ""),
             ),
         ):
-            status = row.get("list_status", "")
-            status_label = {
-                "seed": "seed",
-                "round1_promoted_seed_for_round2": "expanded",
-                "round2_promoted": "expanded",
-                "round3_promoted": "expanded",
-                "round3_promoted_seed_for_round4": "expanded",
-                "round4_promoted": "expanded",
-                "trading_agent_focus_promoted": "focused expansion",
-                "report_analysis_focus_promoted": "focused expansion",
-                "regtech_compliance_focus_promoted": "focused expansion",
-                "specific_domain_focus_promoted": "focused expansion",
-                "specific_domain_round2_promoted": "focused expansion",
-                "specific_domain_round3_promoted": "focused expansion",
-                "institutional_trading_focus_promoted": "focused expansion",
-                "institutional_trading_round2_promoted": "focused expansion",
-                "institutional_trading_round3_promoted": "focused expansion",
-            }.get(status, status)
             lines.append(
                 f"- {markdown_link(row.get('title', ''), row.get('source_url', ''))} "
                 f"({row.get('approx_year', 'n.d.')}) - `{row.get('priority', '')}` "
-                f"- citations: {row.get('citationCount', '0')} - {status_label}"
+                f"- citations: {row.get('citationCount', '0')}"
             )
         lines.append("")
-
-    lines.extend(
-        [
-            "## Data Files",
-            "",
-            "- `data/processed/curated_papers.csv`: expanded curated list combining the original seeds and promoted additions.",
-            "- `data/processed/curated_papers_by_taxonomy.csv`: the same curated list with one mutually exclusive taxonomy category per paper plus trading/investment subtheme tags.",
-            "- `data/processed/seed_papers_enriched.csv`: seed papers with Semantic Scholar metadata, citation counts, links, and abstracts.",
-            "- `data/processed/expansion_candidates_preliminary.csv`: top 200 candidate additions discovered from citation/reference expansion.",
-            "- `data/processed/round2_expansion_candidates.csv`: top 200 candidate additions discovered from the second-round expansion.",
-            "- `data/processed/round3_expansion_candidates.csv`: top 200 candidate additions discovered from the third-round expansion.",
-            "- `data/processed/round4_expansion_candidates.csv`: top 200 candidate additions discovered from the fourth-round expansion.",
-            "- `data/processed/trading_agent_focus_finmem_seed_candidates.csv`: focused seed candidates from the FinMem trading-agent neighborhood.",
-            "- `data/processed/trading_agent_focus_expansion_candidates.csv`: candidate additions discovered from the focused FinMem trading-agent deep-dive.",
-            "- `data/processed/report_analysis_focus_seed_candidates.csv`: focused seed candidates from financial report analysis neighborhoods.",
-            "- `data/processed/report_analysis_focus_expansion_candidates.csv`: candidate additions discovered from the focused financial report analysis deep-dive.",
-            "- `data/processed/regtech_compliance_focus_anchor_candidates.csv`: focused anchors for RegTech, compliance, audit, and model-risk expansion.",
-            "- `data/processed/regtech_compliance_focus_expansion_candidates.csv`: candidate additions discovered from the focused RegTech/compliance deep-dive.",
-            "- `data/processed/specific_domain_focus_search_candidates.csv`: direct Semantic Scholar search candidates for industry/sector analysis, supply-chain finance/risk, and ETF/asset-allocation workflows.",
-            "- `data/processed/specific_domain_focus_expansion_candidates.csv`: candidate additions discovered from the focused specific-domain deep-dive.",
-            "- `data/processed/specific_domain_round2_anchor_candidates.csv`: Critic-approved anchors for the second specific-domain deep-dive.",
-            "- `data/processed/specific_domain_round2_expansion_candidates.csv`: candidate additions discovered from the second specific-domain deep-dive.",
-            "- `data/processed/specific_domain_round3_anchor_candidates.csv`: Critic-approved anchors for the third specific-domain deep-dive.",
-            "- `data/processed/specific_domain_round3_expansion_candidates.csv`: candidate additions discovered from the third specific-domain deep-dive.",
-            "- `data/processed/institutional_trading_focus_search_candidates.csv`: direct Semantic Scholar search candidates for derivatives/options, execution/microstructure, investment advisory, and private/alternative assets.",
-            "- `data/processed/institutional_trading_focus_expansion_candidates.csv`: candidate additions discovered from the focused institutional trading/investment deep-dive.",
-            "- `data/processed/institutional_trading_round2_anchor_candidates.csv`: anchors for the second institutional trading/investment deep-dive.",
-            "- `data/processed/institutional_trading_round2_expansion_candidates.csv`: candidate additions discovered from the second institutional trading/investment deep-dive.",
-            "- `data/processed/institutional_trading_round3_anchor_candidates.csv`: anchors for the third institutional trading/investment deep-dive.",
-            "- `data/processed/institutional_trading_round3_expansion_candidates.csv`: candidate additions discovered from the third institutional trading/investment deep-dive.",
-            "- `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.",
-            "- `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.",
-            "- `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.",
-            "- `data/raw/round3_related_work_edges.csv`: raw citation/reference edges from the third expansion pass.",
-            "- `data/raw/round4_related_work_edges.csv`: raw citation/reference edges from the fourth expansion pass.",
-            "- `data/raw/trading_agent_focus_edges.csv`: raw citation/reference edges from the focused FinMem trading-agent deep-dive.",
-            "- `data/raw/report_analysis_focus_edges.csv`: raw citation/reference edges from the focused financial report analysis deep-dive.",
-            "- `data/raw/regtech_compliance_focus_edges.csv`: raw citation/reference edges from the focused RegTech/compliance deep-dive.",
-            "- `data/raw/specific_domain_focus_edges.csv`: raw citation/reference edges from the focused specific-domain deep-dive.",
-            "- `data/raw/specific_domain_round2_edges.csv`: raw citation/reference edges from the second specific-domain deep-dive.",
-            "- `data/raw/specific_domain_round3_edges.csv`: raw citation/reference edges from the third specific-domain deep-dive.",
-            "- `data/raw/institutional_trading_focus_edges.csv`: raw citation/reference edges from the focused institutional trading/investment deep-dive.",
-            "- `data/raw/institutional_trading_round2_edges.csv`: raw citation/reference edges from the second institutional trading/investment deep-dive.",
-            "- `data/raw/institutional_trading_round3_edges.csv`: raw citation/reference edges from the third institutional trading/investment deep-dive.",
-            "- `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.",
-            "- `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.",
-            "- `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.",
-            "- `data/raw/round4_related_work_manifest.csv`: per-round-4-seed retrieval status and edge counts.",
-            "- `data/raw/trading_agent_focus_manifest.csv`: per-focused-seed retrieval status and edge counts.",
-            "- `data/raw/report_analysis_focus_manifest.csv`: per-report-analysis-focused-seed retrieval status and edge counts.",
-            "- `data/raw/regtech_compliance_focus_manifest.csv`: per-RegTech/compliance-focused-anchor retrieval status and edge counts.",
-            "- `data/raw/specific_domain_focus_manifest.csv`: per-specific-domain-focused-anchor retrieval status and edge counts.",
-            "- `data/raw/specific_domain_round2_manifest.csv`: per-second-specific-domain-focused-anchor retrieval status and edge counts.",
-            "- `data/raw/specific_domain_round3_manifest.csv`: per-third-specific-domain-focused-anchor retrieval status and edge counts.",
-            "- `data/raw/institutional_trading_focus_manifest.csv`: per-institutional-trading-focused-anchor retrieval status and edge counts.",
-            "- `data/raw/institutional_trading_round2_manifest.csv`: per-second-institutional-trading-focused-anchor retrieval status and edge counts.",
-            "- `data/raw/institutional_trading_round3_manifest.csv`: per-third-institutional-trading-focused-anchor retrieval status and edge counts.",
-            "",
-            "## Collection Method",
-            "",
-            "1. Start with the seed CSV in `data/raw/seed_papers_original.csv`.",
-            "2. Resolve seed papers through Semantic Scholar, preferring arXiv ids when available.",
-            "3. Fetch both citations and references for each resolved seed paper.",
-            "4. Promote high-confidence candidates from prior passes as deeper expansion seeds.",
-            "5. Fetch citations and references for those promoted candidates.",
-            "6. Run a focused deep-dive from the highest-cited trading-agent seed, FinMem, to capture recent LLM trading-agent work.",
-            "7. Run a focused financial report analysis deep-dive over financial statement analysis, SEC filing QA, report chunking, XBRL, and report-generation anchors.",
-            "8. Run a focused RegTech/compliance deep-dive over regulatory interpretation, model risk, audit, trustworthiness, and financial advisement anchors.",
-            "9. Run a focused specific-domain deep-dive over industry/sector analysis, supply-chain finance/risk, investment research, and ETF/asset-allocation anchors.",
-            "10. Run a Critic-approved second specific-domain deep-dive over corporate/supply-chain risk, financial knowledge graphs, sector intelligence, and finance-specific model deployment anchors.",
-            "11. Run a Critic-approved third specific-domain deep-dive over financial knowledge graphs, risk-factor extraction, event ripple effects, and nature-finance graph intelligence anchors.",
-            "12. Run a focused institutional trading/investment deep-dive over derivatives/options, execution/microstructure, investment advisory, and private/alternative assets.",
-            "13. Run a second institutional trading/investment deep-dive over options/hedging, order-level execution, prediction markets, and VC due-diligence anchors.",
-            "14. Run a third institutional trading/investment deep-dive over factor mining, market simulation infrastructure, options optimization, and VC startup-success anchors.",
-            "15. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
-            "",
-            "See `docs/collection_plan.md` for the planned multi-round expansion workflow.",
-        ]
-    )
 
     lines.extend(
         [
@@ -2328,74 +2228,11 @@ def write_readme(
             "",
             "## Attribution",
             "",
-            "Paper metadata in `data/` was collected from the seed CSV and the Semantic Scholar Graph API. Abstracts and third-party metadata remain subject to their original rights and provider terms.",
+            "Paper titles, links, citation counts, abstracts, and third-party metadata remain subject to their original rights and provider terms.",
             "",
         ]
     )
     README_PATH.write_text("\n".join(lines), encoding="utf-8")
-
-
-def write_plan() -> None:
-    PLAN_PATH.parent.mkdir(parents=True, exist_ok=True)
-    PLAN_PATH.write_text(
-        """# Collection Plan
-
-## Objective
-
-Build a high-impact public Awesome-style repository for Large Language Models in Finance.
-
-## Round 0: Seed Consolidation
-
-- Normalize the original seed CSV.
-- Resolve each seed paper against Semantic Scholar.
-- Store citation counts, venues, authors, URLs, and abstracts.
-- Keep unresolved/manual-check rows instead of dropping them.
-
-## Round 1: Citation and Reference Expansion
-
-- For each resolved seed, collect papers that cite it and papers it references.
-- Aggregate duplicate papers across all seeds.
-- Score candidates using seed hit count, citation count, influential edge hits, finance/LLM keyword evidence, and recency.
-- Export a preliminary top-200 candidate CSV for manual review.
-
-## Round 2: High-Relevance Candidate Expansion
-
-- Select high-confidence first-round candidates that are clearly finance-specific and LLM-, agent-, RAG-, FinBERT-, or benchmark-related.
-- Fetch citations and references for those promoted candidates.
-- Export `round2_related_work_edges.csv` and `round2_expansion_candidates.csv`.
-- Promote a conservative subset into `curated_papers.csv`.
-
-## Round 3: Manual Curation
-
-- Select high-confidence second-round promoted candidates that are recent, finance-specific, and LLM-, RAG-, agent-, benchmark-, or FinBERT-related.
-- Fetch citations and references for those promoted candidates.
-- Export `round3_related_work_edges.csv` and `round3_expansion_candidates.csv`.
-- Promote a conservative subset into `curated_papers.csv`.
-
-## Round 4: Manual Curation
-
-- Select strong round-3 candidates that are not yet curated and still clearly finance-specific and LLM-, RAG-, agent-, benchmark-, or FinBERT-related.
-- Fetch citations and references for those candidates.
-- Export `round4_related_work_edges.csv` and `round4_expansion_candidates.csv`.
-- Promote a conservative subset into `curated_papers.csv`.
-
-## Round 5: Manual Curation
-
-- Check abstracts and titles for false positives, especially generic financial NLP, reinforcement learning, and non-finance RAG papers.
-- Split older financial NLP benchmarks into a background section when they are useful but not LLM-specific.
-- Add venue, code, dataset, model, benchmark, and task tags.
-- Add GitHub/model/dataset links where available.
-- Create issue templates for community submissions.
-
-## Review Criteria
-
-- Direct relevance to LLMs, foundation models, agents, or language-centric reasoning in finance.
-- Finance-specific datasets, benchmarks, or evaluation protocols.
-- High citation count or repeated appearance across multiple seed-paper neighborhoods.
-- Practical importance for a repository reader building systems for SEC filings, financial QA, trading, research reports, risk analytics, or professional finance reasoning.
-""",
-        encoding="utf-8",
-    )
 
 
 def main() -> None:
@@ -2892,7 +2729,6 @@ def main() -> None:
     ]
     write_csv(TAXONOMY_PATH, taxonomy_rows, taxonomy_columns)
     write_readme(seeds, candidates, curated, round2_candidates, taxonomy_rows)
-    write_plan()
     print(f"seeds={len(seeds)}")
     print(f"first_round_edges={len(first_round_edges)}")
     print(f"round2_edges={len(round2_edges)}")
