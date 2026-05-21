@@ -13,11 +13,26 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - **Benchmarks and Evaluation Suites** (18) - General finance LLM benchmarks, evaluation suites, exams, leaderboards, and broad task collections.
 - **Financial QA, Reasoning, and Table Understanding** (12) - Question answering, numerical reasoning, financial table/text reasoning, and discrete reasoning tasks.
 - **Reports, Filings, Accounting, and Risk** (39) - SEC filings, annual reports, XBRL, accounting, credit/risk, disclosure, and document analytics.
-- **Trading, Investment, and Portfolio Management** (67) - Stock prediction, trading, alpha, portfolio construction, allocation, investment reports, and market analysis.
-- **Agents and Multi-Agent Systems** (63) - Financial LLM agents, trading agents, multi-agent markets, agent benchmarks, and autonomous workflows.
-- **RAG, Search, and Knowledge Systems** (27) - Retrieval-augmented generation, search, knowledge grounding, knowledge graphs, and document retrieval systems.
+- **Trading, Investment, and Portfolio Management** (68) - Stock prediction, trading, alpha, portfolio construction, allocation, investment reports, and market analysis.
+- **Agents and Multi-Agent Systems** (71) - Financial LLM agents, trading agents, multi-agent markets, agent benchmarks, and autonomous workflows.
+- **RAG, Search, and Knowledge Systems** (28) - Retrieval-augmented generation, search, knowledge grounding, knowledge graphs, and document retrieval systems.
 - **Multimodal and Multilingual Finance** (17) - Multimodal, multilingual, bilingual, and non-English financial LLM resources and evaluations.
 - **Professional, Regulatory, and Advisory Applications** (14) - CFA/professional exams, financial advice, regulatory interpretation, compliance, and human-facing advisory settings.
+
+## Trading Subthemes
+
+Trading and investment papers are also tagged with a finer `trading_subtheme` field in `data/processed/curated_papers_by_taxonomy.csv`. These tags separate the current collection into more useful institutional-investing slices.
+
+- **Alpha Mining and Factor Discovery** (11) - LLM-driven alpha discovery, formulaic factor mining, interpretable factors, and alpha decay control.
+- **Derivatives, Options, and Structured Products** (21) - Options, derivatives, hedging, payoff reasoning, structured products, and volatility-surface tasks.
+- **Market Simulation and Execution Infrastructure** (7) - Limit-order-book simulators, high-fidelity market simulators, and execution/HFT infrastructure used to evaluate trading agents.
+- **Market Microstructure, Execution, and Prediction Markets** (20) - Order-level trading, execution agents, slippage, liquidity, transaction costs, prediction markets, and latency arbitrage.
+- **Private Markets, VC, and Due Diligence** (7) - Venture capital, startup success prediction, private equity, private-market due diligence, and investment memo workflows.
+- **Wealth, Advisory, and Personal Investing** (16) - Financial advisors, robo-advisory, investor profiling, suitability, private-investor risk, and portfolio advice.
+- **Portfolio, ETF, and Asset Allocation** (34) - Portfolio construction, ETF/sector/macro allocation, and allocation rationale generation.
+- **Trading Agents and Strategy Generation** (34) - LLM trading agents, multi-agent trading, strategy generation, backtesting, and executable trading instructions.
+- **Stock Prediction and Market Forecasting** (14) - Stock-return prediction, market forecasting, sentiment-driven prediction, and general return-predictability tasks.
+- **Investment Research and Financial Analysis** (48) - Equity research, investment reports, financial analysis workflows, and analyst-style systems.
 
 ## Contents
 
@@ -26,9 +41,9 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - [Benchmarks and Evaluation Suites](#benchmarks-and-evaluation-suites) (18)
 - [Financial QA, Reasoning, and Table Understanding](#financial-qa-reasoning-and-table-understanding) (12)
 - [Reports, Filings, Accounting, and Risk](#reports-filings-accounting-and-risk) (39)
-- [Trading, Investment, and Portfolio Management](#trading-investment-and-portfolio-management) (67)
-- [Agents and Multi-Agent Systems](#agents-and-multi-agent-systems) (63)
-- [RAG, Search, and Knowledge Systems](#rag-search-and-knowledge-systems) (27)
+- [Trading, Investment, and Portfolio Management](#trading-investment-and-portfolio-management) (68)
+- [Agents and Multi-Agent Systems](#agents-and-multi-agent-systems) (71)
+- [RAG, Search, and Knowledge Systems](#rag-search-and-knowledge-systems) (28)
 - [Multimodal and Multilingual Finance](#multimodal-and-multilingual-finance) (17)
 - [Professional, Regulatory, and Advisory Applications](#professional-regulatory-and-advisory-applications) (14)
 
@@ -197,6 +212,7 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - [ECC Analyzer: Extract Trading Signal from Earnings Conference Calls using Large Language Model for Stock Performance Prediction](https://www.semanticscholar.org/paper/6fedc49097f302e4d7deb04fb51ada81c27c9a64) (2024) - `P1` - citations: 8 - focused expansion
 - [Chain-of-Alpha: Unleashing the Power of Large Language Models for Alpha Mining in Quantitative Trading](https://www.semanticscholar.org/paper/d392598fbffaae986b15695b24611205be2e6ec3) (2025) - `P1` - citations: 8 - focused expansion
 - [FinRipple: Aligning Large Language Models with Financial Market for Event Ripple Effect Awareness](https://www.semanticscholar.org/paper/ae31ca9344da43928a894bf9641b199290a109f6) (2025) - `P1` - citations: 7 - focused expansion
+- [LOB-Bench: Benchmarking Generative AI for Finance - an Application to Limit Order Book Data](https://www.semanticscholar.org/paper/80e111a3da98a87e170f797c6dee988871d78b1c) (2025) - `P1` - citations: 7 - focused expansion
 - [FinBERT2: A Specialized Bidirectional Encoder for Bridging the Gap in Finance-Specific Deployment of Large Language Models](https://www.semanticscholar.org/paper/fc1a94c865f4ba58f0da35f6a377b4f37eb2c356) (2025) - `P1` - citations: 5 - focused expansion
 - [Leveraging Large Language Models for Top-Down Sector Allocation](https://arxiv.org/html/2503.09647v5) (2025) - `P1` - citations: 3 - seed
 - [Interpreting Fedspeak with Confidence: A LLM-Based Uncertainty-Aware Framework Guided by Monetary Policy Transmission Paths](https://www.semanticscholar.org/paper/b0baf442a5ba9092ee8464451f2e1f9f78744bf6) (2025) - `P1` - citations: 2 - focused expansion
@@ -273,7 +289,9 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - [TradingGroup: A Multi-Agent Trading System with Self-Reflection and Data-Synthesis](https://www.semanticscholar.org/paper/0b49f889237966c002165ae9af2be864187a02d2) (2025) - `P1` - citations: 5 - focused expansion
 - [DeltaHedge: A Multi-Agent Framework for Portfolio Options Optimization](https://www.semanticscholar.org/paper/8d945047c842438ded67ed1e3e212271d40dcf0f) (2025) - `P1` - citations: 4 - focused expansion
 - [Agent Trading Arena: A Study on Numerical Understanding in LLM-Based Agents](https://www.semanticscholar.org/paper/95f225d1e545977115c535bcd696025a043e590e) (2025) - `P1` - citations: 3 - focused expansion
+- [FactorMAD: A Multi-Agent Debate Framework Based on Large Language Models for Interpretable Stock Alpha Factor Mining](https://www.semanticscholar.org/paper/4a6015774ecfab2fd75ef7fa936a88ef7338daf9) (2025) - `P1` - citations: 3 - focused expansion
 - [ATLAS: Adaptive Trading with LLM AgentS Through Dynamic Prompt Optimization and Multi-Agent Coordination](https://www.semanticscholar.org/paper/be8e14fdedf1b3edd32ae453e524f5b5ee727a7e) (2025) - `P1` - citations: 2 - focused expansion
+- [Cognitive Alpha Mining via LLM-Driven Code-Based Evolution](https://www.semanticscholar.org/paper/0bcbc6fc6d7c872cbc98c8a0d0bcec053d21e02a) (2025) - `P1` - citations: 2 - focused expansion
 - [From Earnings Calls to Investment Reports: Evaluating Role-based Multi-Agent LLM Systems](https://www.semanticscholar.org/paper/2e2247c23e3582030950b08828074d23ba4fa86f) (2025) - `P1` - citations: 2 - focused expansion
 - [To Trade or Not to Trade: An Agentic Approach to Estimating Market Risk Improves Trading Decisions](https://www.semanticscholar.org/paper/c5580a444dfd0cd80dc915fc7d1da7061a4855d7) (2025) - `P1` - citations: 2 - focused expansion
 - [Trade in Minutes! Rationality-Driven Agentic System for Quantitative Financial Trading](https://www.semanticscholar.org/paper/c78c601e1fff91dd466cc0ee78db27654e604111) (2025) - `P1` - citations: 2 - expanded
@@ -281,18 +299,24 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - [Equity Research Chatbot Using LLM: A Responsive Agent for Investment Research](https://www.semanticscholar.org/paper/7bb4a5e42968d11762bd82b57b0f68797235bb21) (2024) - `P1` - citations: 1 - focused expansion
 - [Beyond Isolated Investor: Predicting Startup Success via Roleplay-Based Collective Agents](https://www.semanticscholar.org/paper/79d817735b4da4bb0103593698d923fb7102461a) (2025) - `P1` - citations: 1 - focused expansion
 - [FinSphere: A Conversational Stock Analysis Agent based on Large Language Models](https://arxiv.org/abs/2501.12399) (2025) - `P1` - citations: 1 - seed
+- [Strategic Complexity and Behavioral Distortion: Retail Investing Under Large Language Model Augmentation](https://www.semanticscholar.org/paper/a0dc01bc2e145a521b4682df0719a167730cf3d0) (2025) - `P1` - citations: 1 - focused expansion
 - [Design and Empirical Study of a Large Language Model-Based Multi-Agent Investment System for Chinese Public REITs](https://www.semanticscholar.org/paper/4f1188a5073c4d475eb959e1a667ad5bc7cb2f1e) (2026) - `P1` - citations: 1 - focused expansion
+- [QuantaAlpha: An Evolutionary Framework for LLM-Driven Alpha Mining](https://www.semanticscholar.org/paper/3821672c3b0665b1250e1fffabb20283f1d8cda6) (2026) - `P1` - citations: 1 - focused expansion
 - [Signal or Noise in Multi-Agent LLM-based Stock Recommendations?](https://www.semanticscholar.org/paper/a3f2d5e7cafe1dd5672fadcddfc72135107c57c2) (2026) - `P1` - citations: 1 - focused expansion
 - [Toward Expert Investment Teams:A Multi-Agent LLM System with Fine-Grained Trading Tasks](https://www.semanticscholar.org/paper/d9d5b834ed8657fafdf851da941c52c73edd6ce5) (2026) - `P1` - citations: 1 - focused expansion
 - [Agentic Portfolio Construction: A Multi-Agent Architecture for LLM-Driven Financial Asset Allocation](https://www.semanticscholar.org/paper/618884efc04556c0efaf82273066b58b7a25abe1) (2025) - `P1` - citations: 0 - expanded
 - [AlphaQuanter: An End-to-End Tool-Augmented Agentic Reinforcement Learning Framework for Stock Trading](https://www.semanticscholar.org/paper/b2785ebbb4b014c2cf1e48e3914ddf986f14195b) (2025) - `P1` - citations: 0 - focused expansion
 - [Artificial Intelligence for Quantitative Finance: A RAG-Augmented Multi-Agent Framework for Robust Equity Strategy Discovery](https://www.semanticscholar.org/paper/70103bfb66cae1c281a7d0f8dd063dffedd7715b) (2025) - `P1` - citations: 0 - focused expansion
+- [Multi-Agent LLM Framework for Formulaic Alpha Generation and Selection in Quantitative Trading](https://www.semanticscholar.org/paper/d3cc99f0143c24012b376c5250c7bc88c1f011a5) (2025) - `P1` - citations: 0 - focused expansion
 - [P1GPT: a multi-agent LLM workflow module for multi-modal financial information analysis](https://www.semanticscholar.org/paper/5afed2970be135f7a3fae1d8864f53c39c32ee29) (2025) - `P1` - citations: 0 - expanded
 - [PyFi: Toward Pyramid-like Financial Image Understanding for VLMs via Adversarial Agents](https://www.semanticscholar.org/paper/21c8f3c47dcf6d0fbe010fe44283654791c9da79) (2025) - `P1` - citations: 0 - expanded
 - [A Multi-Agent Orchestration Framework for Venture Capital Due Diligence](https://www.semanticscholar.org/paper/3e11f028e0cc4481d66006fd43d4252db5cc3ee9) (2026) - `P1` - citations: 0 - focused expansion
+- [AlphaCrafter: A Full-Stack Multi-Agent Framework for Cross-Sectional Quantitative Trading](https://www.semanticscholar.org/paper/14de51b7dde5eb7474df0cadf50e6623a5b6676f) (2026) - `P1` - citations: 0 - focused expansion
 - [FALLMAS: An LLM-Based Multi-Agent System for Automated Financial Analysis and Strategic Reporting](https://www.semanticscholar.org/paper/e8fc98f85d07fc06da515f21b8d4da458edf2bf6) (2026) - `P1` - citations: 0 - expanded
+- [FactorEngine: A Program-level Knowledge-Infused Factor Mining Framework for Quantitative Investment](https://www.semanticscholar.org/paper/dd21f3602898d4510ecf5bf0053cf4e131887c71) (2026) - `P1` - citations: 0 - focused expansion
 - [ForexAgent: Identifying Trading Strategies in Forex Markets with Large Language Models](https://www.semanticscholar.org/paper/cd2378d01fae5331b77a9ee02a19acf32c92b2f8) (2026) - `P1` - citations: 0 - expanded
 - [PolySwarm: A Multi-Agent Large Language Model Framework for Prediction Market Trading and Latency Arbitrage](https://www.semanticscholar.org/paper/f0673b21eb152c62ba4c7afe881718bfb6e25789) (2026) - `P1` - citations: 0 - focused expansion
+- [TradeFM: A Generative Foundation Model for Trade-flow and Market Microstructure](https://www.semanticscholar.org/paper/0712ecdd042d258ef049ce838494b04d9c4728cd) (2026) - `P1` - citations: 0 - focused expansion
 - [When Agents Trade: Live Multi-Market Trading Arena for LLM Agents](https://www.semanticscholar.org/paper/f1763b12c3557fcc9ce23f9dfada2003094d7c24) (2026) - `P1` - citations: 0 - focused expansion
 
 ### RAG, Search, and Knowledge Systems
@@ -321,6 +345,7 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - FinAgent: A multimodal foundation agent for financial trading: Data-retrieval data-mining, policy-generation, and trading (2024) - `P1` - citations:  - focused expansion
 - [Advancing Retrieval-Augmented Generation for Financial Question Answering](https://www.semanticscholar.org/paper/c1e75f6f1819ef2b0ebad2f9f4b290cc7c4a3b65) (2025) - `P1` - citations: 0 - focused expansion
 - [NatureKG: an ontology and knowledge graph for nature finance with a Text2Cypher application](https://www.semanticscholar.org/paper/d45721e1412296bee277dfa6ac831d630da7c424) (2025) - `P1` - citations: 0 - focused expansion
+- [AlphaPROBE: Alpha Mining via Principled Retrieval and On-graph biased evolution](https://www.semanticscholar.org/paper/e07b61330198b48a3fa6be2a9944f39f1f72bbef) (2026) - `P1` - citations: 0 - focused expansion
 - [Decomposing Retrieval Failures in RAG for Long-Document Financial Question Answering](https://www.semanticscholar.org/paper/c16e8450de9afc9a39248ce87bb1922bb855c961) (2026) - `P1` - citations: 0 - focused expansion
 - [Risk Factor Extraction in Financial Disclosures via a Knowledge Graph-Enhanced Language Model](https://www.semanticscholar.org/paper/ce7b615098491b4686d7f34df8a80e0fe3aa186c) (2026) - `P1` - citations: 0 - focused expansion
 - [FinKG: A Core Financial Knowledge Graph for Financial Analysis](https://www.semanticscholar.org/paper/9eb95d26abac2f94ce353de53f33ad29d2973996) (2023) - `P2` - citations: 15 - focused expansion
@@ -365,7 +390,7 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 ## Data Files
 
 - `data/processed/curated_papers.csv`: expanded curated list combining the original seeds and promoted additions.
-- `data/processed/curated_papers_by_taxonomy.csv`: the same curated list with one mutually exclusive taxonomy category per paper.
+- `data/processed/curated_papers_by_taxonomy.csv`: the same curated list with one mutually exclusive taxonomy category per paper plus trading/investment subtheme tags.
 - `data/processed/seed_papers_enriched.csv`: seed papers with Semantic Scholar metadata, citation counts, links, and abstracts.
 - `data/processed/expansion_candidates_preliminary.csv`: top 200 candidate additions discovered from citation/reference expansion.
 - `data/processed/round2_expansion_candidates.csv`: top 200 candidate additions discovered from the second-round expansion.
@@ -387,6 +412,8 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - `data/processed/institutional_trading_focus_expansion_candidates.csv`: candidate additions discovered from the focused institutional trading/investment deep-dive.
 - `data/processed/institutional_trading_round2_anchor_candidates.csv`: anchors for the second institutional trading/investment deep-dive.
 - `data/processed/institutional_trading_round2_expansion_candidates.csv`: candidate additions discovered from the second institutional trading/investment deep-dive.
+- `data/processed/institutional_trading_round3_anchor_candidates.csv`: anchors for the third institutional trading/investment deep-dive.
+- `data/processed/institutional_trading_round3_expansion_candidates.csv`: candidate additions discovered from the third institutional trading/investment deep-dive.
 - `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.
 - `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.
 - `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.
@@ -400,6 +427,7 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - `data/raw/specific_domain_round3_edges.csv`: raw citation/reference edges from the third specific-domain deep-dive.
 - `data/raw/institutional_trading_focus_edges.csv`: raw citation/reference edges from the focused institutional trading/investment deep-dive.
 - `data/raw/institutional_trading_round2_edges.csv`: raw citation/reference edges from the second institutional trading/investment deep-dive.
+- `data/raw/institutional_trading_round3_edges.csv`: raw citation/reference edges from the third institutional trading/investment deep-dive.
 - `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.
 - `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.
 - `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.
@@ -412,6 +440,7 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - `data/raw/specific_domain_round3_manifest.csv`: per-third-specific-domain-focused-anchor retrieval status and edge counts.
 - `data/raw/institutional_trading_focus_manifest.csv`: per-institutional-trading-focused-anchor retrieval status and edge counts.
 - `data/raw/institutional_trading_round2_manifest.csv`: per-second-institutional-trading-focused-anchor retrieval status and edge counts.
+- `data/raw/institutional_trading_round3_manifest.csv`: per-third-institutional-trading-focused-anchor retrieval status and edge counts.
 
 ## Collection Method
 
@@ -428,7 +457,8 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 11. Run a Critic-approved third specific-domain deep-dive over financial knowledge graphs, risk-factor extraction, event ripple effects, and nature-finance graph intelligence anchors.
 12. Run a focused institutional trading/investment deep-dive over derivatives/options, execution/microstructure, investment advisory, and private/alternative assets.
 13. Run a second institutional trading/investment deep-dive over options/hedging, order-level execution, prediction markets, and VC due-diligence anchors.
-14. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.
+14. Run a third institutional trading/investment deep-dive over factor mining, market simulation infrastructure, options optimization, and VC startup-success anchors.
+15. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.
 
 See `docs/collection_plan.md` for the planned multi-round expansion workflow.
 
