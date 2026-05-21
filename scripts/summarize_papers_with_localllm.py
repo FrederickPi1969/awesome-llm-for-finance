@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import time
+import unicodedata
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -36,6 +37,7 @@ SUMMARY_CSV = ROOT / "data" / "processed" / "paper_summaries.csv"
 SUMMARY_FAILURES = ROOT / "data" / "processed" / "paper_summary_failures.csv"
 SUMMARY_REPORT = ROOT / "reports" / "paper_summaries.md"
 TEXT_MANIFEST = ROOT / "data" / "processed" / "paper_text_manifest.csv"
+SUMMARY_SCHEMA_VERSION = "detailed-en-v3"
 
 LOCAL_LLM_BASE_URL = os.environ.get("LOCAL_LLM_BASE_URL", "http://192.168.50.18:31969/v1")
 LOCAL_LLM_TOKEN = os.environ.get("LOCAL_LLM_TOKEN", "1969")
@@ -310,6 +312,25 @@ def prune_summary_jsonl(path: Path) -> None:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def remove_summaries_for_keys(path: Path, keys: set[str]) -> None:
+    if not path.exists() or not keys:
+        return
+    rows: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if str(row.get("paper_key", "")) not in keys:
+                rows.append(row)
+    with path.open("w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
 def available_models(base_url: str, token: str, timeout: int = 30) -> set[str]:
     req = urllib.request.Request(
         base_url.rstrip("/") + "/models",
@@ -350,25 +371,45 @@ def build_prompt(row: dict[str, str], paper_text: str, max_chars: int) -> str:
         "abstract_from_catalog": row.get("abstract", ""),
     }
     doc = truncate_text(paper_text, max_chars)
-    return f"""请基于下面论文 metadata 和论文正文，为我们的 Awesome LLM for Finance 项目生成一份短 summary。
+    return f"""Create a detailed structured paper summary for our Awesome LLM for Finance collection.
 
-要求：
-- 输出必须是 JSON object，不要 Markdown，不要额外解释。
-- 用中文总结，但 tags 用英文小写短语。
-- 不要编造论文没有说的内容。
-- 单篇不要太长，便于人工快速阅读。
-- 每篇 paper 给 10 到 20 个 tags。
-- paywall_or_full_text_notes 只基于提供的正文。如果正文像是完整论文，可以提炼 paywall/正文里的高价值信息；如需引用，单条摘录不要超过 20 个英文词或等量中文字符，优先转述。
+Requirements:
+- Return a JSON object only. Do not output Markdown or any extra explanation.
+- Write all summary fields in English.
+- Do not invent claims that are not supported by the provided metadata or paper text.
+- The detailed_summary must be useful for survey writing and must add value beyond the abstract.
+- detailed_summary must be 250-500 English tokens when the downloaded text contains enough detail. Fewer than 250 tokens is too short and should be treated as invalid unless the downloaded text is severely incomplete. It must never exceed 500 English tokens.
+- Write detailed_summary as three paragraphs inside one JSON string. Each paragraph should be 90-150 English tokens when the text supports it: paragraph 1 for research problem and positioning, paragraph 2 for method/data/experiments, paragraph 3 for findings/use cases/limitations. Use "\\n\\n" between paragraphs.
+- The complete tags list must be at most 200 English tokens.
+- Each core field must include concrete methods, data/experiments, results, finance use cases, or limitations when available. Avoid generic filler.
+- Give each paper 10 to 20 high-quality tags.
+- paywall_or_full_text_notes must be based only on the provided text. If the downloaded text appears to be a complete paper, extract useful full-text details beyond the abstract. If not available, write "Not available from downloaded text".
+- If the paper is not strictly about trading/investment but is useful for a finance LLM survey, explain that boundary instead of overstating relevance.
+
+Tag quality rules:
+- Tags must be lowercase English noun phrases, 1-4 words each, ASCII where possible.
+- Use spaces, not underscores. Avoid punctuation unless it is standard in a term, e.g. "10-k", "xbrl", "rag".
+- Avoid generic tags such as "finance", "machine learning", "artificial intelligence", "large language models", "research", or "paper" unless the paper is specifically about that concept as a contribution.
+- Normalize synonyms consistently: use "llm" not "large language model"; "rag" not "retrieval augmented generation"; "multi-agent systems" not "multi agent"; "portfolio optimization" not "portfolio construction" unless construction is the paper's own term; "alpha mining" for factor discovery; "market microstructure" for order-book/execution work; "financial question answering" for QA benchmarks.
+- Prefer tags that capture task, asset/market, method, data type, and evaluation target, e.g. "alpha mining", "order book", "earnings calls", "10-k filings", "portfolio optimization", "sentiment trading", "financial rag", "xbrl analysis", "agentic workflow".
+- Avoid duplicates and near-duplicates in the same paper, e.g. do not include both "rag" and "financial rag" unless both are needed.
+- Do not include authors, venue names, years, or broad taxonomy labels as tags.
 
 JSON schema:
 {{
-  "one_sentence_summary": "一句话总结",
-  "important_abstract_and_results": ["3-5条，重要摘要与结果"],
-  "deliverables": ["1-4条，交付成果/数据集/模型/benchmark/代码/系统"],
-  "method": ["2-4条，研究方法"],
-  "paywall_or_full_text_notes": ["0-3条，正文中 abstract 之外的重要信息；没有就写 Not available from downloaded text"],
-  "limitations_or_caveats": ["1-3条"],
-  "tags": ["10-20个英文小写tag"],
+  "one_sentence_summary": "One specific sentence stating what the paper does and its main conclusion.",
+  "detailed_summary": "Three compact English paragraphs separated by \\n\\n, 250-500 English tokens when enough text is available, never above 500. Cover the research problem, method/data/experiments, findings/use cases/limitations.",
+  "research_problem": "The specific finance/LLM problem addressed, in 2-4 sentences.",
+  "core_contributions": ["4-7 concrete contribution bullets. Do not merely say 'proposes a framework'."],
+  "data_and_experiments": ["3-6 bullets covering data sources, market/asset scope, benchmarks, experimental design, metrics, or noting that the paper is survey/conceptual."],
+  "important_abstract_and_results": ["5-8 bullets covering important results, quantitative findings, comparisons, and business meaning when present."],
+  "deliverables": ["2-6 bullets covering datasets, models, benchmarks, code, systems, taxonomies, or conceptual frameworks."],
+  "method": ["4-8 bullets explaining the pipeline, model, agents, retrieval, optimization, statistical tests, or evaluation."],
+  "taxonomy_rationale": "2-4 sentences explaining why this paper belongs to the given taxonomy_category and trading_subtheme.",
+  "survey_relevance_notes": ["3-6 bullets explaining how this paper should be used in a survey and which section/theme it supports."],
+  "paywall_or_full_text_notes": ["2-5 bullets with useful full-text details beyond the abstract, or Not available from downloaded text."],
+  "limitations_or_caveats": ["3-6 bullets covering limitations, threats to validity, external-validity risk, data gaps, or deployment caveats."],
+  "tags": ["10-20 normalized lowercase English tags"],
   "trading_investment_relevance": "high|medium|low",
   "summary_confidence": "high|medium|low"
 }}
@@ -394,7 +435,7 @@ def local_llm_json(prompt: str, model: str, base_url: str, token: str, timeout: 
             {"role": "user", "content": prompt},
         ],
         "temperature": 0,
-        "max_tokens": 1600,
+        "max_tokens": 3600,
         "chat_template_kwargs": {"enable_thinking": False},
     }
     req = urllib.request.Request(
@@ -418,6 +459,12 @@ def local_llm_json(prompt: str, model: str, base_url: str, token: str, timeout: 
         return json.loads(cleaned), content
     except json.JSONDecodeError as exc:
         return None, f"json_parse_failed: {exc}: {content[:1000]}"
+
+
+def estimated_tokens(text: Any) -> int:
+    if not isinstance(text, str):
+        return 0
+    return len(re.findall(r"\S+", text))
 
 
 def summarize_one(
@@ -460,13 +507,21 @@ def summarize_one(
             "download_status": download.get("download_status", ""),
             "extract_status": extract_status,
         }
+    if len(text) >= 10_000 and estimated_tokens(summary.get("detailed_summary", "")) < 250:
+        retry_prompt = (
+            prompt
+            + "\n\nYour previous detailed_summary was too short. Regenerate the full JSON. "
+            + "The detailed_summary must be 250-500 English tokens and must include concrete "
+            + "method, data/experiment, result, finance-use-case, and caveat details. "
+            + "Write it as three compact paragraphs separated by \\n\\n."
+        )
+        retry_summary, retry_error = local_llm_json(retry_prompt, model=model, base_url=base_url, token=token)
+        if retry_summary is not None:
+            summary = retry_summary
+        else:
+            summary["quality_warning"] = retry_error
 
-    tags = summary.get("tags", [])
-    if not isinstance(tags, list):
-        tags = []
-    summary["tags"] = [str(tag).strip().lower() for tag in tags if str(tag).strip()][:20]
-    while len(summary["tags"]) < 10:
-        summary["tags"].append("needs-tag-review")
+    summary["tags"] = normalize_tags(summary.get("tags", []), row)
 
     return {
         "paper_key": key,
@@ -481,6 +536,7 @@ def summarize_one(
         "text_path": str(text_path.relative_to(ROOT)),
         "text_char_count": len(text),
         "model_input_char_count": min(len(text), max_chars),
+        "summary_schema_version": SUMMARY_SCHEMA_VERSION,
         "summary_status": "ok",
         "extract_status": extract_status,
         "extract_error": extract_error,
@@ -497,6 +553,95 @@ def flatten(value: Any) -> str:
     return "" if value is None else str(value)
 
 
+GENERIC_TAGS = {
+    "finance",
+    "financial",
+    "machine learning",
+    "artificial intelligence",
+    "large language models",
+    "large language model",
+    "research",
+    "paper",
+    "study",
+    "survey",
+    "finance ai",
+    "financial ai",
+}
+
+TAG_SYNONYMS = {
+    "large language model": "llm",
+    "large language models": "llm",
+    "llms": "llm",
+    "llm survey": "literature review",
+    "financial llm": "domain-specific llm",
+    "financial llms": "domain-specific llm",
+    "retrieval augmented generation": "rag",
+    "retrieval-augmented generation": "rag",
+    "financial retrieval augmented generation": "financial rag",
+    "financial retrieval-augmented generation": "financial rag",
+    "multi agent systems": "multi-agent systems",
+    "multi-agent system": "multi-agent systems",
+    "multi agent": "multi-agent systems",
+    "factor discovery": "alpha mining",
+    "factor generation": "alpha mining",
+    "alpha factor mining": "alpha mining",
+    "stock factor mining": "alpha mining",
+    "portfolio construction": "portfolio optimization",
+    "qa": "financial question answering",
+    "financial qa": "financial question answering",
+    "finance qa": "financial question answering",
+    "question answering": "financial question answering",
+    "finqa": "financial question answering",
+    "xbrl": "xbrl analysis",
+    "10k filings": "10-k filings",
+    "10 k filings": "10-k filings",
+    "orderbook": "order book",
+    "limit order book": "order book",
+}
+
+
+def normalize_tag(tag: Any) -> str:
+    text = unicodedata.normalize("NFKD", str(tag)).encode("ascii", "ignore").decode("ascii")
+    text = text.lower().strip()
+    text = text.replace("_", " ").replace("/", " ")
+    text = re.sub(r"[^a-z0-9+\- ]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip(" -")
+    text = TAG_SYNONYMS.get(text, text)
+    if text in GENERIC_TAGS:
+        return ""
+    if not text or len(text.split()) > 4:
+        return ""
+    return text
+
+
+def normalize_tags(tags: Any, row: dict[str, str]) -> list[str]:
+    raw = tags if isinstance(tags, list) else []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for tag in raw:
+        clean = normalize_tag(tag)
+        if clean and clean not in seen:
+            normalized.append(clean)
+            seen.add(clean)
+        if len(normalized) >= 20:
+            return normalized
+
+    fallback_terms = [
+        row.get("trading_subtheme", ""),
+        row.get("taxonomy_category", ""),
+        row.get("primary_category", ""),
+    ]
+    for term in fallback_terms:
+        for piece in re.split(r"[,;/|]", term):
+            clean = normalize_tag(piece)
+            if clean and clean not in seen:
+                normalized.append(clean)
+                seen.add(clean)
+            if len(normalized) >= 10:
+                return normalized[:20]
+    return normalized[:20]
+
+
 def write_summary_csv(jsonl_path: Path, csv_path: Path) -> None:
     rows: list[dict[str, Any]] = []
     if not jsonl_path.exists():
@@ -511,11 +656,18 @@ def write_summary_csv(jsonl_path: Path, csv_path: Path) -> None:
         "year",
         "taxonomy_category",
         "trading_subtheme",
+        "summary_schema_version",
         "summary_status",
         "one_sentence_summary",
+        "detailed_summary",
+        "research_problem",
+        "core_contributions",
+        "data_and_experiments",
         "important_abstract_and_results",
         "deliverables",
         "method",
+        "taxonomy_rationale",
+        "survey_relevance_notes",
         "paywall_or_full_text_notes",
         "limitations_or_caveats",
         "tags",
@@ -549,9 +701,33 @@ def write_markdown_report(jsonl_path: Path, report_path: Path) -> None:
                 f"- Year: {row.get('year', '')}",
                 f"- Category: {row.get('taxonomy_category', '')}",
                 f"- Trading subtheme: {row.get('trading_subtheme', '')}",
-                f"- Summary: {row.get('one_sentence_summary', '')}",
+                f"- One-line summary: {row.get('one_sentence_summary', '')}",
+                "",
+                "### Detailed Summary",
+                "",
+                row.get("detailed_summary", ""),
+                "",
+                "### Research Problem",
+                "",
+                row.get("research_problem", ""),
+                "",
+                "### Core Contributions",
+                "",
+                flatten(row.get("core_contributions", [])),
+                "",
+                "### Data and Experiments",
+                "",
+                flatten(row.get("data_and_experiments", [])),
+                "",
+                "### Main Results",
+                "",
+                flatten(row.get("important_abstract_and_results", [])),
+                "",
                 f"- Deliverables: {flatten(row.get('deliverables', []))}",
                 f"- Method: {flatten(row.get('method', []))}",
+                f"- Taxonomy rationale: {row.get('taxonomy_rationale', '')}",
+                f"- Survey relevance: {flatten(row.get('survey_relevance_notes', []))}",
+                f"- Limitations: {flatten(row.get('limitations_or_caveats', []))}",
                 f"- Tags: {', '.join(row.get('tags', []))}",
                 "",
             ]
@@ -592,6 +768,9 @@ def main() -> int:
     MANUAL_DIR.mkdir(parents=True, exist_ok=True)
 
     prune_summary_jsonl(SUMMARY_JSONL)
+    if not args.only_missing and not args.download_only and not args.extract_only:
+        selected_keys = {paper_key(row) for row in rows}
+        remove_summaries_for_keys(SUMMARY_JSONL, selected_keys)
     done = load_existing_summaries(SUMMARY_JSONL) if args.only_missing else set()
     manifest_rows: list[dict[str, Any]] = []
     manual_rows: list[dict[str, Any]] = []

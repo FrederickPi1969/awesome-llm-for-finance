@@ -30,6 +30,7 @@ URLS = {
     "ChatGPT as a Financial Advisor: A Re-Examination": "https://mdpi-res.com/d_attachment/jrfm/jrfm-18-00664/article_deploy/jrfm-18-00664.pdf",
     "Strategic Complexity and Behavioral Distortion: Retail Investing Under Large Language Model Augmentation": "https://mdpi-res.com/d_attachment/ijfs/ijfs-13-00210/article_deploy/ijfs-13-00210.pdf",
     "Large Language Models for Financial Knowledge Extraction Analytical Insights and Corporate Planning Support": "https://drpress.org/ojs/index.php/mmaa/article/download/32153",
+    "ABIDES: Towards High-Fidelity Multi-Agent Market Simulation": "https://par.nsf.gov/servlets/purl/10185795",
     "An Evaluation of Reasoning Capabilities of Large Language Models in Financial Sentiment Analysis": "https://www.sentic.net/llm-reasoning-capabilities-in-financial-sentiment-analysis.pdf",
     "A Review on Large Language Models and Generative AI in Banking": "https://www.scitepress.org/Papers/2025/134726/134726.pdf",
     "MME-Finance: A Multimodal Finance Benchmark for Expert-level Understanding and Reasoning": "https://arxiv.org/pdf/2411.03314.pdf",
