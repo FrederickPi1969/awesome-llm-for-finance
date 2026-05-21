@@ -109,7 +109,7 @@ TRADING_SUBTHEME_ORDER = [
 TRADING_SUBTHEME_DESCRIPTIONS = {
     "Alpha Mining and Factor Discovery": "LLM-driven alpha discovery, formulaic factor mining, interpretable factors, and alpha decay control.",
     "Derivatives, Options, and Structured Products": "Options, derivatives, hedging, payoff reasoning, structured products, and volatility-surface tasks.",
-    "Market Simulation and Execution Infrastructure": "Limit-order-book simulators, high-fidelity market simulators, and execution/HFT infrastructure used to evaluate trading agents.",
+    "Market Simulation and Execution Infrastructure": "Limit-order-book simulators, high-fidelity market simulators, and background execution/HFT infrastructure used to evaluate trading agents.",
     "Market Microstructure, Execution, and Prediction Markets": "Order-level trading, execution agents, slippage, liquidity, transaction costs, prediction markets, and latency arbitrage.",
     "Private Markets, VC, and Due Diligence": "Venture capital, startup success prediction, private equity, private-market due diligence, and investment memo workflows.",
     "Wealth, Advisory, and Personal Investing": "Financial advisors, robo-advisory, investor profiling, suitability, private-investor risk, and portfolio advice.",
@@ -882,25 +882,106 @@ def assign_taxonomy_category(row: dict[str, str]) -> str:
 
 def assign_trading_subtheme(row: dict[str, str]) -> str:
     title = norm(row.get("title", ""))
+    short_name = norm(row.get("short_name", ""))
     abstract = norm(row.get("abstract", ""))
     category = norm(row.get("primary_category", ""))
-    status = norm(row.get("list_status", ""))
-    signal = f"{title} {abstract} {category} {status}"
-    padded_signal = f" {signal} "
+    narrow_signal = f"{title} {short_name} {category}"
+    full_signal = f"{narrow_signal} {abstract}"
 
-    def has_any(terms: list[str]) -> bool:
-        return any(term in signal for term in terms)
+    def has_any(terms: list[str], text: str = narrow_signal) -> bool:
+        return any(term in text for term in terms)
+
+    # The subtheme tags are intentionally high precision. Broad surveys,
+    # foundation models, QA benchmarks, and report-analysis papers often mention
+    # trading words in passing; they should not inflate the trading taxonomy.
+    if has_any(
+        [
+            "large language models in finance: a survey",
+            "bridging language models and financial analysis",
+            "financeqa",
+            "finsheet-bench",
+            "famma:",
+            "mme-finance",
+            "financebench",
+            "open finllm leaderboard",
+        ]
+    ):
+        return "Not Trading Focused"
+
+    if category == "derivatives, options, and structured products":
+        if has_any(
+            [
+                "option",
+                "options",
+                "derivative",
+                "derivatives",
+                "structured product",
+                "structured products",
+                "hedging",
+                "volatility surface",
+                "implied volatility",
+                "payoff",
+                "deltahedge",
+            ]
+        ):
+            return "Derivatives, Options, and Structured Products"
+        return "Not Trading Focused"
+
+    if category == "market microstructure and execution":
+        if has_any(
+            [
+                "jax-lob",
+                "abides",
+                "simulator",
+                "simulation",
+                "environment",
+                "infrastructure",
+            ]
+        ):
+            return "Market Simulation and Execution Infrastructure"
+        if has_any(
+            [
+                "alpha mining",
+                "factor mining",
+                "formulaic alpha",
+                "factor discovery",
+                "alphaforge",
+            ]
+        ):
+            return "Alpha Mining and Factor Discovery"
+        return "Market Microstructure, Execution, and Prediction Markets"
+
+    if category == "private markets and alternative assets":
+        if has_any(["finsheet-bench", "spreadsheet"]):
+            return "Not Trading Focused"
+        return "Private Markets, VC, and Due Diligence"
+
+    if category == "wealth, advisory, and personal investing":
+        return "Wealth, Advisory, and Personal Investing"
+
+    if category == "etf and asset allocation":
+        return "Portfolio, ETF, and Asset Allocation"
+
+    if category == "industry, sector, and investment research":
+        return "Investment Research and Financial Analysis"
 
     if has_any(
         [
             "alpha mining",
             "alpha decay",
             "factor mining",
+            "factor generation",
             "formulaic factor",
+            "formulaic alpha",
             "interpretable financial factors",
-            "financial factors",
             "factor discovery",
             "alpha jungle",
+            "alphaagent",
+            "alphaprobe",
+            "alphacrafter",
+            "quantaalpha",
+            "factorengine",
+            "factormad",
         ]
     ):
         return "Alpha Mining and Factor Discovery"
@@ -914,7 +995,6 @@ def assign_trading_subtheme(row: dict[str, str]) -> str:
             "structured product",
             "structured products",
             "hedging",
-            "hedge",
             "volatility surface",
             "implied volatility",
             "payoff",
@@ -953,6 +1033,8 @@ def assign_trading_subtheme(row: dict[str, str]) -> str:
             "prediction market",
             "prediction markets",
             "polymarket",
+            "lob-bench",
+            "tradefm",
         ]
     ):
         return "Market Microstructure, Execution, and Prediction Markets"
@@ -1007,26 +1089,39 @@ def assign_trading_subtheme(row: dict[str, str]) -> str:
     ):
         return "Portfolio, ETF, and Asset Allocation"
 
-    if has_any(
+    trading_agent_terms = [
+        "trading agent",
+        "trading agents",
+        "stockagent",
+        "tradearena",
+        "tradingagents",
+        "finagent",
+        "hedgeagents",
+        "forexagent",
+        "quantagent",
+        "livetradebench",
+        "tradetrap",
+        "trading strategy",
+        "trading strategies",
+        "algorithmic trading",
+        "executable trading",
+        "trading instruction",
+        "trading instructions",
+        "strategy generation",
+        "backtesting",
+    ]
+    if has_any(trading_agent_terms):
+        return "Trading Agents and Strategy Generation"
+
+    if category == "financial agents" and has_any(
         [
-            "trading agent",
-            "trading agents",
             "multi-agent",
             "multi agent",
-            "strategy generation",
-            "trading strategy",
-            "trading strategies",
-            "algorithmic trading",
-            "executable trading",
-            "trading instruction",
-            "trading instructions",
-            "stockbench",
-            "tradearena",
-            "tradingagents",
-            "finagent",
-        ]
+        ],
+        full_signal,
     ):
-        return "Trading Agents and Strategy Generation"
+        if has_any(trading_agent_terms, full_signal):
+            return "Trading Agents and Strategy Generation"
 
     if has_any(
         [
@@ -1040,6 +1135,8 @@ def assign_trading_subtheme(row: dict[str, str]) -> str:
             "forecast stock",
             "predict stock",
             "sentiment trading",
+            "stock movement",
+            "stock movements",
         ]
     ):
         return "Stock Prediction and Market Forecasting"
@@ -1054,9 +1151,27 @@ def assign_trading_subtheme(row: dict[str, str]) -> str:
             "research reports",
             "fundamental analysis",
             "analyst",
+            "investment management",
         ]
-    ) or " trading " in padded_signal or " investment " in padded_signal:
+    ):
         return "Investment Research and Financial Analysis"
+
+    if category == "trading and investment":
+        if has_any(
+            [
+                "stock",
+                "equity",
+                "market",
+                "return",
+                "investment",
+                "investing",
+                "portfolio",
+                "trading",
+                "alpha",
+                "forecast",
+            ]
+        ):
+            return "Investment Research and Financial Analysis"
 
     return "Not Trading Focused"
 
@@ -2057,7 +2172,7 @@ def write_readme(
             "",
             "## Trading Subthemes",
             "",
-            "Trading and investment papers are also tagged with a finer `trading_subtheme` field in `data/processed/curated_papers_by_taxonomy.csv`. These tags separate the current collection into more useful institutional-investing slices.",
+            "Trading and investment papers are also tagged with a finer `trading_subtheme` field in `data/processed/curated_papers_by_taxonomy.csv`. These high-precision tags separate the current collection into more useful institutional-investing slices; broad finance papers are tagged `Not Trading Focused` and omitted from the counts below.",
             "",
         ]
     )

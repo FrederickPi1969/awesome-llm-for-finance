@@ -21,18 +21,18 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 
 ## Trading Subthemes
 
-Trading and investment papers are also tagged with a finer `trading_subtheme` field in `data/processed/curated_papers_by_taxonomy.csv`. These tags separate the current collection into more useful institutional-investing slices.
+Trading and investment papers are also tagged with a finer `trading_subtheme` field in `data/processed/curated_papers_by_taxonomy.csv`. These high-precision tags separate the current collection into more useful institutional-investing slices; broad finance papers are tagged `Not Trading Focused` and omitted from the counts below.
 
-- **Alpha Mining and Factor Discovery** (11) - LLM-driven alpha discovery, formulaic factor mining, interpretable factors, and alpha decay control.
-- **Derivatives, Options, and Structured Products** (21) - Options, derivatives, hedging, payoff reasoning, structured products, and volatility-surface tasks.
-- **Market Simulation and Execution Infrastructure** (7) - Limit-order-book simulators, high-fidelity market simulators, and execution/HFT infrastructure used to evaluate trading agents.
-- **Market Microstructure, Execution, and Prediction Markets** (20) - Order-level trading, execution agents, slippage, liquidity, transaction costs, prediction markets, and latency arbitrage.
-- **Private Markets, VC, and Due Diligence** (7) - Venture capital, startup success prediction, private equity, private-market due diligence, and investment memo workflows.
-- **Wealth, Advisory, and Personal Investing** (16) - Financial advisors, robo-advisory, investor profiling, suitability, private-investor risk, and portfolio advice.
-- **Portfolio, ETF, and Asset Allocation** (34) - Portfolio construction, ETF/sector/macro allocation, and allocation rationale generation.
-- **Trading Agents and Strategy Generation** (34) - LLM trading agents, multi-agent trading, strategy generation, backtesting, and executable trading instructions.
-- **Stock Prediction and Market Forecasting** (14) - Stock-return prediction, market forecasting, sentiment-driven prediction, and general return-predictability tasks.
-- **Investment Research and Financial Analysis** (48) - Equity research, investment reports, financial analysis workflows, and analyst-style systems.
+- **Alpha Mining and Factor Discovery** (13) - LLM-driven alpha discovery, formulaic factor mining, interpretable factors, and alpha decay control.
+- **Derivatives, Options, and Structured Products** (3) - Options, derivatives, hedging, payoff reasoning, structured products, and volatility-surface tasks.
+- **Market Simulation and Execution Infrastructure** (5) - Limit-order-book simulators, high-fidelity market simulators, and background execution/HFT infrastructure used to evaluate trading agents.
+- **Market Microstructure, Execution, and Prediction Markets** (10) - Order-level trading, execution agents, slippage, liquidity, transaction costs, prediction markets, and latency arbitrage.
+- **Private Markets, VC, and Due Diligence** (5) - Venture capital, startup success prediction, private equity, private-market due diligence, and investment memo workflows.
+- **Wealth, Advisory, and Personal Investing** (7) - Financial advisors, robo-advisory, investor profiling, suitability, private-investor risk, and portfolio advice.
+- **Portfolio, ETF, and Asset Allocation** (10) - Portfolio construction, ETF/sector/macro allocation, and allocation rationale generation.
+- **Trading Agents and Strategy Generation** (25) - LLM trading agents, multi-agent trading, strategy generation, backtesting, and executable trading instructions.
+- **Stock Prediction and Market Forecasting** (17) - Stock-return prediction, market forecasting, sentiment-driven prediction, and general return-predictability tasks.
+- **Investment Research and Financial Analysis** (46) - Equity research, investment reports, financial analysis workflows, and analyst-style systems.
 
 ## Contents
 
