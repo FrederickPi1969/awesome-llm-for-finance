@@ -1,0 +1,905 @@
+[Page 1]
+BBT-Fin: Comprehensive Construction of Chinese Financial Domain
+Pre-trained Language Model, Corpus and Benchmark
+Dakuan Lu1, Hengkui Wu3∗, Jiaqing Liang2, Yipei Xu1, Qianyu He1,
+Yipeng Geng3, Mengkun Han3, Yingsi Xin3, Yanghua Xiao1∗
+1Shanghai Key Laboratory of Data Science, School of Computer Science, Fudan University
+2School of Data Science, Fudan University
+3SuperSymmetry Technologies
+{ludakuan1234, l.j.q.light, xuyipei000, abbey4799}@gmail.com,
+{ypgeng, mkhan, ysxin, hkwu}@ssymmetry.com, shawyh@fudan.edu.cn
+Abstract
+To advance Chinese ﬁnancial natural language
+processing (NLP), we introduce BBT-FinT5,
+a new Chinese ﬁnancial pre-training language
+model based on the T5 model. To support this
+effort, we have built BBT-FinCorpus, a large-
+scale ﬁnancial corpus with approximately
+300GB of raw text from four different sources.
+In general domain NLP, comprehensive bench-
+marks like GLUE and SuperGLUE have
+driven signiﬁcant advancements in language
+model pre-training by enabling head-to-head
+comparisons among models. Drawing inspira-
+tion from these benchmarks, we propose BBT-
+CFLEB, a Chinese Financial Language un-
+derstanding and generation Evaluation Bench-
+mark, which includes six datasets covering
+both understanding and generation tasks. Our
+aim is to facilitate research in the development
+of NLP within the Chinese ﬁnancial domain.
+Our model, corpus and benchmark are re-
+leased at https://github.com/ssymmetry/
+BBT-FinCUGE-Applications. Our work be-
+longs to the Big Bang Transformer (BBT),
+a large-scale pre-trained language model
+project.
+1 Introduction
+Pre-trained language models(PLMs), such as BERT
+(Devlin et al., 2018) and T5 (Raffel et al., 2019),
+have led to great performance boosts across many
+NLP tasks. Despite the excellent performance of
+pre-trained language models (PLMs) on a large
+number of NLP tasks, their performance is of-
+ten affected when applied to domain-speciﬁc texts
+that exhibit signiﬁcant differences from general
+text in terms of word usage, syntax, and writing
+style (Gururangan et al., 2020; Gu et al., 2021).
+To address this issue, Gururangan et al. (2020)
+proposed that continuing to pre-train a general
+PLM on target domain corpora and task-relevant
+texts can effectively improve its performance on
+∗Corresponding author.
+domain-speciﬁc tasks, while Gu et al. (2021) fur-
+ther suggested that pre-training domain-speciﬁc
+PLMs from scratch with a sufﬁciently large cor-
+pus can achieve even better domain-speciﬁc perfor-
+mance. Inspired by these studies, domain-speciﬁc
+pre-trained language models have emerged in some
+domains, such as BioBERT (Peng et al., 2019a) and
+PubMedBERT (Gu et al., 2021) in the biomedicine
+ﬁeld, which have been utilized for practical tasks
+like entity and relation extraction.
+We collect all existing NLP competition tasks
+and academic datasets related to ﬁnance on the
+Chinese internet and summarized them in Table 2,
+revealing a growing demand for NLP capabilities
+in ﬁnance, particularly in information extraction
+and sentiment analysis. To meet these demands
+and improve the overall level of Chinese ﬁnancial
+NLP, several companies have already developed
+and released Chinese ﬁnancial pre-trained language
+models, such as FinBERT (Hou et al., 2020) and
+Mengzi-BERT-base-ﬁn (Zhang et al., 2021). How-
+ever, these models are based on the BERT-base
+model, have a single architecture type, and a pa-
+rameter count (around 110 million) that is outdated
+and unable to meet the increasing demand for NLP
+capabilities in this ﬁeld. Therefore, we propose
+FinT5, the largest Chinese ﬁnancial pre-trained lan-
+guage model to date, based on the advanced T5
+architecture, with 220 million parameters for the
+base version and 1 billion for the large version.
+Furthermore, NLP tasks in the ﬁnancial indus-
+try focus primarily on information extraction, re-
+quiring models with high entity knowledge under-
+standing and memorization capabilities. Although
+studies have shown that pre-trained PLMs on large-
+scale corpora already have some entity knowledge
+understanding and memorization capabilities, there
+are still some shortcomings. To address this issue,
+many studies have used knowledge-enhanced pre-
+training methods to improve PLMs’ understanding
+and memorization of entity knowledge. However,
+arXiv:2302.09432v2  [cs.CL]  26 Feb 2023
+
+
+[Page 2]
+these methods mostly target BERT-like models and
+lack strategies designed for T5 models. To im-
+prove T5’s performance on ﬁnancial NLP tasks,
+we propose a concise knowledge-enhanced pre-
+training method based on the T5 model’s text-to-
+text paradigm.
+In addition, another challenge faced by Chinese
+ﬁnancial NLP is the lack of corpus. The scale and
+diversity of corpora play an essential role in lan-
+guage model pre-training (Xu et al., 2020; Raffel
+et al., 2019; Gao et al., 2020). However, exist-
+ing Chinese ﬁnancial corpora are small in scale,
+poor in diversity and not open, as can be shown
+in Table 1. To solve this problem, we ﬁrst need to
+determine the text types that a qualiﬁed Chinese ﬁ-
+nancial corpus needs to cover. To this end, we ﬁrst
+collected almost all existing Chinese ﬁnancial NLP
+tasks and summarized their text sources, as shown
+in the Table 2. According to the source distribu-
+tion of these tasks, we have determined the range
+of text types we need to collect. As a result, we
+collect and release a large-scale Chinese ﬁnancial
+corpus named BBT-FinCorpus with about 300 GB
+raw text, which consists of ﬁve different sources to
+enhance its diversity covering most text sources of
+Chinese ﬁnancial NLP tasks.
+The widespread use of benchmark evaluations
+is a key driving force that has greatly improved
+and rapidly iterated PLMs. These evaluations use
+a single score to assess model performance across
+multiple tasks, enabling direct and comprehensive
+comparisons between pre-trained language mod-
+els. Existing English PLMs use the general bench-
+mark evaluations GLUE (Wang et al., 2018) and
+SuperGLUE (Wang et al., 2019), while the gen-
+eral benchmark evaluation for Chinese PLMs is
+CLUE (Xu et al., 2020). Almost all PLMs partic-
+ipate in these evaluations to compare their perfor-
+mance with other models. However, there is no
+publicly available benchmark for Chinese ﬁnancial
+NLP, which makes it difﬁcult to compare existing
+pre-trained language models on different task sets
+and hinders the rapid improvement of PLM perfor-
+mance in the Chinese ﬁnancial domain.
+To address this issue and promote research in the
+ﬁnancial domain, we propose CFLEB, theChinese
+Financial Language Understanding and Generation
+Evaluation Benchmark, consisting of six datasets
+covering language understanding and generation
+tasks. These datasets encompass a diverse range of
+text genres, dataset sizes, and levels of difﬁculty,
+and more importantly, emphasize challenges that
+arise in real-world scenarios.
+Our contributions are summarized as follows:
+• We introduce BBT-FinT5, a state-of-the-art ﬁ-
+nancial Chinese PLM with large-scale param-
+eters and knowledge-enhanced pre-training.
+• We provide BBT-FinCorpus, a comprehensive
+and diverse ﬁnancial Chinese corpus.
+• We propose BBT-CFLEB, a benchmark for
+evaluating Chinese language understanding
+and generation in the ﬁnancial domain.
+2 Related Work
+2.1 Domain-speciﬁc PLMs and Corpora
+PLMs have achieved state-of-the-art performance
+in many NLP tasks (Devlin et al., 2018; Raffel
+et al., 2019; Liu et al., 2019). However, when ap-
+plied to domain-speciﬁc tasks, models pre-trained
+on general corpora often produce unsatisfactory re-
+sults due to the difference in word distribution from
+general to speciﬁc domains (Gururangan et al.,
+2020; Gu et al., 2021). To better adapt a language
+model to a target domain, pre-training on the cor-
+pus of the target domain is proposed (Gururangan
+et al., 2020). For domains with abundant unla-
+beled text, such as biomedicine, pre-training from
+scratch results in substantial gains over continual
+pre-training of general-domain language models
+(Gu et al., 2021). Consequently, many domain-
+speciﬁc PLMs have been proposed and pre-trained
+on their respective corpora.
+In the ﬁeld of ﬁnancial NLP, domain-speciﬁc
+pre-trained language models (PLMs) have demon-
+strated their superiority over general-domain PLMs.
+For instance, Araci (2019) and Yang et al. (2020)
+pre-trained BERT on English ﬁnance news and
+communications, respectively, and outperformed
+competitive baselines on ﬁnancial sentiment analy-
+sis tasks. In the context of Chinese ﬁnancial NLP,
+Hou et al. (2020) pre-trained BERT on Chinese ﬁ-
+nancial news, analysis reports, company announce-
+ments, and encyclopedias, and evaluated it on news
+classiﬁcation, sentiment analysis, and named entity
+recognition tasks. Furthermore, Zhang et al. (2021)
+pre-trained the Chinese PLM Mengzi on a 20GB
+ﬁnancial corpus and demonstrated its effectiveness
+on multiple downstream tasks.
+Table 1 summarizes the characteristics of typical
+PLMs and their corpora in the ﬁnancial domain. It
+
+
+[Page 3]
+can be observed that both the scale of our model
+and corpus exceed existing works.
+2.2 Knowledge Enhanced Pre-training
+Although PLMs can acquire rich linguistic knowl-
+edge from pretraining on large-scale corpora, many
+studies have shown that PLMs still have shortcom-
+ings in entity knowledge understanding and mem-
+ory, as the distribution of entity knowledge in un-
+ﬁltered corpora is sparse and long-tailed (Yang
+et al., 2021). Therefore, PLMs can beneﬁt
+from knowledge-enhanced pretraining methods
+that strengthen entity knowledge understanding and
+memory.
+For example, Ernie (Sun et al., 2019) is de-
+signed to learn language representation enhanced
+by knowledge masking strategies, which includes
+entity-level masking and phrase-level masking.
+The disadvantage of this approach is that it can
+only help the model better learn existing entity
+knowledge from the corpus, without addressing
+the issues of sparse and long-tailed distribution of
+entity knowledge in the corpus.
+Ernie 3.0, introduced by Sun et al. (2021), in-
+corporates the universal knowledge-text prediction
+(UKTP) task. This task involves a pair of triples
+from a knowledge graph and their corresponding
+sentences from an encyclopedia, where either the
+relation in the triple or the words in the sentence are
+randomly masked. In order to predict the relation in
+the triple, the model must identify the head and tail
+entities mentioned in the sentence, and determine
+the semantic relationship between them.
+The limitation of this approach is that it only
+masks the relation in the triple and not the enti-
+ties, which can hinder the learning of entity rep-
+resentations. Moreover, distant supervision has a
+certain amount of noise, which means that the rela-
+tion in the triple may not necessarily appear in the
+sentence (Smirnova and Cudré-Mauroux, 2018).
+Therefore, only masking the relation and predict-
+ing it can have a strong negative impact on the
+model. Although the above methods have made
+some progress, they are all designed for the BERT-
+like model.
+To our knowledge, there is currently a gap
+in knowledge enhancement pre-training methods
+available for T5-like models.
+2.3 Domain-speciﬁc NLP Benchmarks
+Various domain-speciﬁc NLP benchmarks have
+been proposed to compare the ability of different
+methods in modeling text from speciﬁc domains in
+a fair manner. The BLUE benchmark (Peng et al.,
+2019b) evaluates the ability of models in biomed-
+ical text mining through ﬁve tasks. The BLURB
+benchmark (Gu et al., 2021) further focuses on
+clinical domains by removing two unrelated tasks
+and includes a wider range of biomedical applica-
+tions. Despite these efforts, a comprehensive set of
+benchmark tasks for training, evaluating, and an-
+alyzing ﬁnancial PLMs is still largely unexplored.
+Currently, the FLUE (Shah et al., 2022) is the only
+benchmark for the ﬁnancial domain, consisting of
+ﬁve tasks speciﬁcally designed for English ﬁnan-
+cial text. However, we are the ﬁrst to construct
+a comprehensive set of benchmarks for Chinese
+ﬁnancial text, covering a range of language un-
+derstanding and generation tasks that differ from
+previous works.
+3 The Corpus: BBT-FinCorpus
+We build FinCorpus, the biggest corpus of Chinese
+ﬁnancial domain to get a superior pre-trained lan-
+guage model. Section 3.1 covers how we decided
+on the corpus contents. We collected, reﬁned and
+sorted the corpus to ﬁnally obtain the FinCorpus,
+as elaborated in Section 3.3.
+3.1 Coverage Conﬁrmation of the Corpus
+We believe that, since the purpose of domain pre-
+training is to help models better understand domain
+texts and perform domain tasks more effectively, it
+is essential to observe the text distribution of do-
+main tasks to determine the coverage of the corpus.
+The domain corpus should cover the text sources
+of domain tasks as much as possible to enhance the
+model’s understanding of the tasks. To this end,
+we ﬁrst collected almost all Chinese ﬁnancial NLP
+task datasets available on the Chinese internet in
+recent years, including several datasets used in this
+study, and their text sources, as shown in Table 2.
+It can be seen that the text sources of these ﬁ-
+nancial NLP datasets are mainly concentrated in
+ﬁnancial news, company announcements, research
+reports, and social media. For ﬁnancial news, we
+chose the largest ﬁnancial news websites on the
+Chinese Internet for crawling, namely Sina Fi-
+nance 1, Tencent Finance 2, Phoenix Finance 3,
+1https://finance.sina.com.cn/
+2https://new.qq.com/ch/finance/
+3https://finance.ifeng.com/
+
+
+[Page 4]
+PLM Size Corpus Size Corpus Sources
+FinBERT (Araci, 2019) 110M 29M words News ﬁltered by ﬁnancial keywords
+FinBERT (Yang et al., 2020) 110M 4.9B tokens Corporate Reports, Earnings Call Tran-
+scripts, Analyst Reports
+FinBERT (Hou et al., 2020) 110M 3B tokens News, Analyse reports, Company an-
+nouncements and Encyclopedias
+Mengzi-BERT-base-ﬁn (Zhang
+et al., 2021)
+110M 20GB ﬁle News, Analyse reports, Company an-
+nouncements
+BBT-FinT5 (ours) 220M, 1B 80B tokens Corporate Reports, Analyst Reports, So-
+cial media and Financial News
+Table 1: Typical ﬁnancial PLMs and their corpora.
+Dataset Text Source Open State Practicality
+DuEE-ﬁn (Han et al., 2022) Financial news, Company
+announcement
+Yes High
+FinRE (Li et al., 2019) Financial news Yes High
+Announcement information extrac-
+tion (Tianchi, 2018)
+Company announcement Yes High
+Discovery of new entities in Internet ﬁ-
+nance (Datafountain, 2019)
+Social media Unspeciﬁed Low
+Announcement information extraction (Bien-
+data, 2019)
+Company announcement Unspeciﬁed High
+Construction of ﬁnancial knowledge graph (Bi-
+endata, 2020b)
+Analyse report Unspeciﬁed Medium
+Event causality extraction (Biendata, 2021) Financial news Unspeciﬁed Low
+Financial NL2SQL (Biendata, 2022a) Data query sentence Unspeciﬁed Medium
+Few-shot event extraction (Biendata, 2022b) Financial news Unspeciﬁed Medium
+Few-shot event extraction (Biendata, 2020a) Financial news Unspeciﬁed Medium
+FinNL (ours) Financial news Yes High
+FinNA (ours) Financial news Yes High
+FinFE (ours) Social media Yes High
+FinNSP (ours) Social media Yes High
+Table 2: Chinese ﬁnancial datasets we collected, with their open source status and practicality scores
+36Kr 4and Huxiu 5. For company announcements
+and research reports, we chose Eastmoney 6 for
+crawling. For social media, we chose the two
+largest ﬁnancial social media platforms on the Chi-
+nese Internet, Guba 7 and Xueqiu 8, for crawling.
+3.2 Crawling and Filtering of the Corpus
+We used a proxy-based distributed crawler to crawl
+public web pages. We ﬁltered the web pages using
+a series of rules (Raffel et al., 2019; Yuan et al.,
+2021).
+4https://36kr.com/
+5https://www.huxiu.com/
+6https://www.eastmoney.com/
+7https://guba.eastmoney.com/
+8https://xueqiu.com/
+3.3 Description of the Corpus
+After crawling, cleaning, and processing, we ob-
+tained the FinCorpus, a large-scale Chinese ﬁnan-
+cial domain corpus that contains four types of lan-
+guage materials:
+• Corporate announcements. These are the
+announcements released by all listed compa-
+nies in China over the past twenty years. The
+original data is in PDF format, with a total size
+of about 2TB. Using a PDF parser, we con-
+verted the PDF ﬁles into text ﬁles, resulting in
+a total size of 105GB.
+• Research reports. These are research re-
+ports issued by investment institutions such
+as securities ﬁrms and investment banks on
+macroeconomic issues, sectors, industries,
+
+
+[Page 5]
+and individual stocks, analyzing the current
+status and future development trends of the
+research object. The original data is in PDF
+format, with a total size of about 1TB. After
+conversion, the total size of the resulting text
+ﬁles is about 11GB.
+• Financial news. These are the ﬁnancial
+news articles from the past ﬁve years crawled
+from websites including Sina Finance, Ten-
+cent Finance, Phoenix Finance, 36Kr, and
+Huxiu. After cleaning, the total size of the
+resulting text ﬁles is about 20GB.
+• Social media. These are the posts from all
+stockholders and bloggers published on stock
+bar and Xueqiu website over the past twenty
+years. After cleaning, the total size of the
+resulting text is about 120GB.
+The corpus from the above ﬁve sources basically
+covers all types of texts in the common Chinese
+ﬁnancial NLP.
+4 The Large PLM: BBT-FinT5
+To enhance the performance of the Chinese ﬁnan-
+cial NLP baseline and foster the growth of the
+open-source community in this domain, we intro-
+duce the FinT5 model. This model’s architecture
+and pre-training tasks are consistent with the T5
+(Raffel et al., 2019) model and are pre-trained on
+BBT-FinCorpus (refer to Section 3). We chose
+this model for its robust performance on many gen-
+eral benchmarks and compatibility with understand-
+ing and generating tasks based on the text-to-text
+paradigm, which facilitates transfer learning. Our
+experiments demonstrate that the FinT5 model sig-
+niﬁcantly outperforms T5 trained on the general
+corpus.
+In this section, we ﬁrst describe the architecture
+and pre-training task of the T5 model. Then we
+outline the pre-training acceleration method based
+on DeepSpeed, and ﬁnally introduce the knowledge
+enhancement pre-training method that we propose
+for the T5 model, which is based on triple masking.
+4.1 Pre-training Model Architecture and
+Task
+Raffel et al. (2019) model all NLP tasks in a text-
+to-text format which enable the use of a uniﬁed
+network architecture, training approach, and loss
+function to handle all NLP tasks, promoting trans-
+fer learning in the NLP ﬁeld. Building upon this,
+they conducted a series of comparative experiments
+and chose to develop a large-scale PLM, T5, based
+on an encoder-decoder architecture and pre-trained
+using MLM. Speciﬁcally, T5 utilizes the span mask
+method proposed by SpanBERT (Joshi et al., 2020),
+randomly masking 15% contiguous spans within a
+sentence rather than independent tokens.
+4.2 Pre-training Acceleration
+We use the optimizer state parallelism and gradient
+parallelism implemented by DeepSpeed (Rasley
+et al., 2020) to accelerate the pre-training pro-
+cess. In particular, we found that using the
+BFLOAT16 (Kalamkar et al., 2019) half-precision
+ﬂoating-point format for optimization can effec-
+tively solve the problem of gradient overﬂow that
+occurs in the training process with FP16 half-
+precision ﬂoating-point format, without the need
+to repeatedly adjust gradient scaling coefﬁcients
+and other hyperparameters. Kalamkar et al. (2019)
+pointed out that in the training of deep neural net-
+works, the value range (i.e., exponent range) of the
+ﬂoating-point numbers used to represent each pa-
+rameter in the network is more important for train-
+ing stability and performance than their mantissa
+precision. Therefore, the BFLOAT16 format uses
+the same eight-bit exponent as the FP32 format to
+represent the same exponent range as the FP32 for-
+mat, at the cost of having three fewer mantissa bits
+than the FP16 format. Extensive experiments have
+shown that this trade-off makes the BFLOAT16
+format as fast and memory-efﬁcient as the FP16
+format while having training stability and perfor-
+mance close to that of the FP32 format.
+4.3 Knowledge Enhancement Pre-training
+Method Based on Triple Masking
+We propose a knowledge enhancement pre-training
+method based on triple masking (KETM).
+First, for each triple in the knowledge graph,
+we use the distant supervision algorithm to obtain
+sentences corresponding to it. Speciﬁcally, for a
+knowledge triple (head entity, relation, tail entity),
+if there is a sentence in the encyclopedia that con-
+tains both the head and tail entities, we consider
+this sentence to contain the knowledge described
+by this triple.
+Next, for a sentence and its contained triple,
+we concatenate the triple at the beginning of the
+sentence. For the triple part, we randomly mask
+one element, and for the sentence part, we ran-
+domly mask 15% of a random-length span. Finally,
+
+
+[Page 6]
+(Andersen, write, Nightingale) The Nightingale is written by Danish author Anderson.
+(Andersen, write, <m1>) The Nightingale is written by <m2>
+Triplet Mask & Span Mask
+<m1>Nightingale<m2>Danish author Anderson<m3>
+Train Model to Predict
+Knowledge Graph Encyclopedias
+Figure 1: Knowledge enhancement pre-training method based on triple masking (KETM)
+we input the masked triple and sentence into the
+model and require the model to predict the masked
+element, as shown in the Figure 1. The model
+is trained to ﬁll the masked element in the triple
+based on the two unmasked elements in the triple
+and the partially masked sentence, which helps
+the model better understand and memorize entity-
+related knowledge.
+5 The Benchmark: BBT-CFLEB
+In this section, we ﬁrst describe the method used for
+selecting tasks for the benchmark. We then intro-
+duce the selected tasks and the three leaderboards,
+each of which is composed of different tasks.
+5.1 Task Selection
+We propose that for domain-speciﬁc NLP evalua-
+tion benchmarks, special attention should be paid
+to their practicality, especially for the ﬁnancially
+valuable ﬁeld, to better reﬂect the model’s ability
+in practice. Therefore, we use a practicality score
+to measure the practicality of the tasks we collect.
+Speciﬁcally, we invited ﬁnancial experts to eval-
+uate the practicality of each task and gave a low,
+medium, or high practicality rating, only selecting
+tasks with a high practicality rating as candidate
+tasks. In addition, we only kept tasks with a clear
+open-source statement as candidate tasks. Finally,
+we selected six tasks for BBT-CFLEB in Table 2.
+5.2 Task Introduction
+CFLEB includes six tasks in total, consisting of
+two language generation tasks and four language
+understanding tasks. These tasks are as follows:
+• FinNL, a ﬁnancial news classiﬁcation dataset.
+Given ﬁnancial news articles, the model needs
+to classify them into up to 15 possible cate-
+gories, with evaluation measured by F1-Score.
+The training set contains 8,000 articles, the
+validation set contains 1,000 articles, and the
+test set contains 1,000 articles.
+• FinNA, a ﬁnancial news summarization
+dataset. Given ﬁnancial news articles, the
+model needs to generate a summary, with eval-
+uation measured by Rouge (Lin, 2004). The
+training set contains 24,000 articles, the vali-
+dation set contains 3,000 articles, and the test
+set contains 3,000 articles.
+• FinRE, a ﬁnancial news relation extraction
+dataset. Given ﬁnancial news articles and
+head-tail entity pairs, the model needs to clas-
+sify the relation between entity pairs into up
+to 44 categories, including the null relation,
+with evaluation measured by F1-Score. The
+training set contains 7,454 articles, the vali-
+dation set contains 1,489 articles, and the test
+set contains 3,727 articles.
+• FinFE, a ﬁnancial social media text sentiment
+classiﬁcation dataset. Given ﬁnancial social
+media text, the model needs to classify the
+sentiment of the text into negative-neutral-
+positive categories, with evaluation measured
+by accuracy. The training set contains 8,000
+articles, the validation set contains 1,000 arti-
+cles, and the test set contains 1,000 articles.
+• FinQA, a ﬁnancial news announcement event
+question-answering dataset, derived from the
+DuEE-ﬁn (Han et al., 2022) dataset. Given
+
+
+[Page 7]
+Task Name Introduction Data Evaluation
+FinNL Multi-label classiﬁcation of ﬁnancial
+news
+8000/1000/1000 F1-score
+FinNA Generation of summaries for ﬁnancial
+news
+24000/3000/3000 Rouge
+FinRE Entity relation classiﬁcation for ﬁnan-
+cial news
+7454/1489/3727 F1-score
+FinFE Sentiment classiﬁcation of ﬁnancial so-
+cial media text
+8000/1000/1000 Accuracy
+FinQA Question-answering for ﬁnancial
+news/events
+16000/2000/2000 F1-score
+FinNSP Detection of negative messages and en-
+tities in ﬁnancial news
+4800/600/600 F1-score
+Table 3: Summary of CFLEB tasks.
+ﬁnancial news or announcement text and a
+question related to an event mentioned in the
+text, the model needs to generate an answer
+to the question based on the text, with evalua-
+tion measured by F1-Score. The training set
+contains 16,000 articles, the validation set con-
+tains 2,000 articles, and the test set contains
+2,000 articles.
+• FinNSP, a ﬁnancial negative news and its sub-
+ject determination dataset. Given ﬁnancial
+news or social media text and entities men-
+tioned in the text, the model needs to deter-
+mine if the text contains negative news related
+to any entity and identify which entity is the
+subject of the negative news, with evaluation
+measured by F1-Score. The training set con-
+tains 4,800 articles, the validation set contains
+600 articles, and the test set contains 600 arti-
+cles.
+5.3 Leaderboard Introduction
+We have organized the tasks into multiple leader-
+boards according to different ability require-
+ments (Xu et al., 2020), so that researchers can
+observe the model’s ability rankings from different
+perspectives. The leaderboards of FinCUGE are as
+follows:
+• Overall leaderboard: includes all six tasks.
+• Understanding ability leaderboard: includes
+four language comprehension tasks, FinNL,
+FinRE, FinFE, and FinNSP.
+• Generation ability leaderboard: includes two
+language generation tasks, FinNA and FinQA.
+6 Experiments
+In this section, we ﬁrst introduces the basic settings
+of the experiment, including the basic information
+of the PLMs involved in the comparison and the
+processing format of the tasks in the evaluation
+benchmark. Then we conduct sufﬁcient experi-
+mental and comparative analysis to validate the
+effectiveness of the proposed model and method.
+6.1 Experiments Setup
+6.1.1 Pre-trained Language Models
+The models participating in the comparative exper-
+iment of this section include:
+• GPT2-base (Zhao et al., 2019). A Chinese
+GPT2 released by Zhao et al. (2019). Pre-
+trained using the general corpus CLUECor-
+pusSmall (Xu et al., 2020).
+• T5-base (Zhao et al., 2019). A Chinese
+T5 released by Zhao et al. (2019). Pre-
+trained using the general corpus CLUECor-
+pusSmall (Xu et al., 2020).
+• FinBERT (Hou et al., 2020). A Chi-
+nese BERT for the ﬁnancial domain released
+by Hou et al. (2020).
+• Mengzi-BERT-base-ﬁn(Zhang et al., 2021).
+A Chinese BERT for the ﬁnancial domain re-
+leased by Zhang et al. (2021).
+• FinT5-base. Our Chinese pre-trained lan-
+guage model for the ﬁnancial domain, pre-
+trained on our ﬁnancial corpus, FinCorpus.
+Its model architecture, parameter size, and
+
+
+[Page 8]
+PLMs FinFE FinNL FinNSP FinRE Un.Avg. FinNA FinQA Ge.Avg. Avg.
+GPT2-base 79.05 84.09 91.30 36.37 72.70 44.19 75.22 59.71 68.37
+T5-base 79.40 87.48 95.43 54.93 79.56 48.54 83.58 66.06 74.89
+FinBERT-base 79.45 84.69 69.01 55.33 72.37 - - - -
+Mengzi-BERT-base-ﬁn 79.50 85.88 71.72 58.25 73.59 - - - -
+BBT-FinT5-base 80.19 87.55 94.50 60.62 80.21 50.06 84.82 67.44 76.29
+BBT-FinT5-base-KE 79.43 87.77 95.05 61.79 80.26 51.36 85.66 68.51 76.84
+BBT-FinT5-large 80.24 88.44 94.54 61.88 81.78 51.42 85.95 68.69 77.07
+Table 4: Results of BBT-CFLEB from different PLMs.
+pre-training hyperparameters are the same as
+T5-v1.1-base.
+• FinT5-base-KE. Knowledge-enhanced
+version of FinT5-base, enhanced by KETM
+method using CN-DBPedia (Xu et al., 2017)
+knowledge graph.
+• FinT5-large. Our proposed Chinese pre-
+trained language model for the ﬁnancial do-
+main, with a total of about 1 billion model
+parameters, and the pre-training hyperparam-
+eters are the same as T5-base.
+6.1.2 Fine-tuning
+For generative models (GPT, T5), we evaluated all
+six datasets by modeling all tasks as text-to-text.
+For BERT-based models, we evaluated them on
+four language understanding tasks: FinNL, FinRE,
+FinFE, and FinNSP, using BERT with an additional
+classiﬁcation layer for all tasks.
+6.2 Experiment 1: Comparison of
+Pre-trained Model Architectures
+For the two models in the general domain, GPT2-
+base and T5-base, their pre-training corpora, hyper-
+parameters, and training volume are all the same,
+but their average scores differ signiﬁcantly, with
+T5-base signiﬁcantly outperforming GPT2-base, as
+shown in Table 4. This difference is mainly due
+to the differences in the architectures, parameter
+sizes, and pre-training methods of the T5 and GPT
+models. This performance conﬁrms the correctness
+of our choice of the T5 model.
+6.3 Experiment 2: Effectiveness of Domain
+Pre-training
+As shown in Table 4, the comparison between the
+FinT5-base model and the T5-base model indicates
+that the FinT5-base model pre-trained on FinCor-
+pus signiﬁcantly outperforms the T5-base model
+with the same parameter size, demonstrating the
+effectiveness of domain pre-training and the effec-
+tiveness of FinCorpus.
+6.4 Experiment 3: Superiority Compared to
+Existing Models in the domain
+As shown in Table 4, in the four language un-
+derstanding tasks evaluated with FinBERT and
+Mengzi-BERT-base-ﬁn, FinT5-base signiﬁcantly
+outperformed both models, demonstrating the supe-
+riority of FinT5 over existing models in the domain.
+6.5 Experiment 4: Effectiveness of KETM
+As shown in Table 4, by comparing FinT5-base-ke
+with FinT5-base, it can be seen that the knowledge-
+enhanced text modeling method signiﬁcantly im-
+proves the model’s performance on tasks such as
+relation extraction and news summarization, with-
+out signiﬁcantly compromising the performance on
+other tasks, thus proving the effectiveness of the
+KETM method.
+6.6 Experiment 5: Effectiveness of parameter
+scaling up
+As shown in Table 4, the performance comparison
+between FinT5-base and FinT5-large models indi-
+cates that the FinT5-large model with one billion
+parameters performs signiﬁcantly better than the
+FinT5-base model, demonstrating the effectiveness
+of parameter scaling up.
+7 Conclusion
+In this article, we introduced three new contribu-
+tions to the domain of NLP in the context of Chi-
+nese ﬁnance. We created the largest open-source
+corpus for this domain, called FinCorpus, which
+contains a diverse collection of around 300GB of
+text from four sources. Our FinT5 model is the
+largest pre-trained language model for the Chinese
+ﬁnancial domain, with one billion parameters. To
+enhance our pre-training method, we developed a
+unique knowledge-based approach called KETM,
+
+
+[Page 9]
+which was effective. We also created a bench-
+mark to evaluate the understanding and generation
+capabilities of language models, called CFLEB.
+We believe domain benchmarks should prioritize
+practicality to better reﬂect how improvements in
+language models in academia can beneﬁt the real
+world. Our future work includes expanding Fin-
+Corpus and FinT5 and exploring multilingual and
+multimodal applications.
+References
+Dogu Araci. 2019. Finbert: Financial sentiment analy-
+sis with pre-trained language models. arXiv preprint
+arXiv:1908.10063.
+Biendata. 2019. Ccks 2019 extraction of public com-
+pany announcement information.
+Biendata. 2020a. Ccks 2020: Cross-class few-shot
+transfer event extraction for ﬁnancial domain.
+Biendata. 2020b. Ccks 2020: Evaluation of auto-
+mated construction techniques for ﬁnancial knowl-
+edge graph based on ontology.
+Biendata. 2021. Ccks 2021: Event relation extraction
+for ﬁnancial texts (part ii) - extraction of causal rela-
+tionships between events.
+Biendata. 2022a. Ccks2022: Evaluation of nl2sql for
+ﬁnancial domain.
+Biendata. 2022b. Ccks2022: Few-shot event extraction
+for ﬁnancial domain.
+Datafountain. 2019. Discovery of new entities in inter-
+net ﬁnance.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and
+Kristina Toutanova. 2018. Bert: Pre-training of deep
+bidirectional transformers for language understand-
+ing. arXiv preprint arXiv:1810.04805.
+Leo Gao, Stella Biderman, Sid Black, Laurence Gold-
+ing, Travis Hoppe, Charles Foster, Jason Phang, Ho-
+race He, Anish Thite, Noa Nabeshima, et al. 2020.
+The pile: An 800gb dataset of diverse text for lan-
+guage modeling. arXiv preprint arXiv:2101.00027.
+Yu Gu, Robert Tinn, Hao Cheng, Michael Lucas,
+Naoto Usuyama, Xiaodong Liu, Tristan Naumann,
+Jianfeng Gao, and Hoifung Poon. 2021. Domain-
+speciﬁc language model pretraining for biomedical
+natural language processing. ACM Transactions on
+Computing for Healthcare (HEALTH), 3(1):1–23.
+Suchin Gururangan, Ana Marasovi ´c, Swabha
+Swayamdipta, Kyle Lo, Iz Beltagy, Doug Downey,
+and Noah A Smith. 2020. Don’t stop pretraining:
+adapt language models to domains and tasks. arXiv
+preprint arXiv:2004.10964.
+Cuiyun Han, Jinchuan Zhang, Xinyu Li, Guojin Xu,
+Weihua Peng, and Zengfeng Zeng. 2022. Duee-ﬁn:
+A large-scale dataset for document-level event ex-
+traction. In CCF International Conference on Nat-
+ural Language Processing and Chinese Computing ,
+pages 172–183. Springer.
+Panpan Hou, Mengchao Zhang, Zhib-
+ing Fu, and Yu Li. 2020. Finbert.
+https://github.com/valuesimplex/
+FinBERT. GitHub repository, commit:
+ec1b14b96de9bdb5217abba1d197428cf00ddaa6.
+
+
+[Page 10]
+Mandar Joshi, Danqi Chen, Yinhan Liu, Daniel S Weld,
+Luke Zettlemoyer, and Omer Levy. 2020. Spanbert:
+Improving pre-training by representing and predict-
+ing spans. Transactions of the Association for Com-
+putational Linguistics, 8:64–77.
+Dhiraj Kalamkar, Dheevatsa Mudigere, Naveen
+Mellempudi, Dipankar Das, Kunal Banerjee,
+Sasikanth Avancha, Dharma Teja V ooturi, Nataraj
+Jammalamadaka, Jianyu Huang, Hector Yuen, et al.
+2019. A study of bﬂoat16 for deep learning training.
+arXiv preprint arXiv:1905.12322.
+Ziran Li, Ning Ding, Zhiyuan Liu, Haitao Zheng,
+and Ying Shen. 2019. Chinese relation extraction
+with multi-grained information and external linguis-
+tic knowledge. In Proceedings of the 57th Annual
+Meeting of the Association for Computational Lin-
+guistics, pages 4377–4386, Florence, Italy. Associa-
+tion for Computational Linguistics.
+Chin-Yew Lin. 2004. Rouge: A package for automatic
+evaluation of summaries. In Text summarization
+branches out, pages 74–81.
+Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Man-
+dar Joshi, Danqi Chen, Omer Levy, Mike Lewis,
+Luke Zettlemoyer, and Veselin Stoyanov. 2019.
+Roberta: A robustly optimized bert pretraining ap-
+proach. arXiv preprint arXiv:1907.11692.
+Yifan Peng, Shankai Yan, and Zhiyong Lu. 2019a.
+Transfer learning in biomedical natural language
+processing: An evaluation of BERT and ELMo on
+ten benchmarking datasets. In Proceedings of the
+18th BioNLP Workshop and Shared Task, pages 58–
+65, Florence, Italy. Association for Computational
+Linguistics.
+Yifan Peng, Shankai Yan, and Zhiyong Lu. 2019b.
+Transfer learning in biomedical natural language
+processing: an evaluation of bert and elmo
+on ten benchmarking datasets. arXiv preprint
+arXiv:1906.05474.
+Colin Raffel, Noam Shazeer, Adam Roberts, Katherine
+Lee, Sharan Narang, Michael Matena, Yanqi Zhou,
+Wei Li, and Peter J. Liu. 2019. Exploring the limits
+of transfer learning with a uniﬁed text-to-text trans-
+former. arXiv e-prints.
+Jeff Rasley, Samyam Rajbhandari, Olatunji Ruwase,
+and Yuxiong He. 2020. Deepspeed: System opti-
+mizations enable training deep learning models with
+over 100 billion parameters. In Proceedings of the
+26th ACM SIGKDD International Conference on
+Knowledge Discovery & Data Mining , pages 3505–
+3506.
+Raj Sanjay Shah, Kunal Chawla, Dheeraj Eidnani,
+Agam Shah, Wendi Du, Sudheer Chava, Natraj Ra-
+man, Charese Smiley, Jiaao Chen, and Diyi Yang.
+2022. When ﬂue meets ﬂang: Benchmarks and
+large pre-trained language model for ﬁnancial do-
+main. arXiv preprint arXiv:2211.00083.
+Alisa Smirnova and Philippe Cudré-Mauroux. 2018.
+Relation extraction using distant supervision: A sur-
+vey. ACM Computing Surveys (CSUR), 51(5):1–35.
+Yu Sun, Shuohuan Wang, Shikun Feng, Siyu Ding,
+Chao Pang, Junyuan Shang, Jiaxiang Liu, Xuyi
+Chen, Yanbin Zhao, Yuxiang Lu, et al. 2021. Ernie
+3.0: Large-scale knowledge enhanced pre-training
+for language understanding and generation. arXiv
+preprint arXiv:2107.02137.
+Yu Sun, Shuohuan Wang, Yukun Li, Shikun Feng, Xuyi
+Chen, Han Zhang, Xin Tian, Danxiang Zhu, Hao
+Tian, and Hua Wu. 2019. Ernie: Enhanced rep-
+resentation through knowledge integration. arXiv
+preprint arXiv:1904.09223.
+Tianchi. 2018. The dataset for extracting announce-
+ment information of a-share listed companies.
+Alex Wang, Yada Pruksachatkun, Nikita Nangia,
+Amanpreet Singh, Julian Michael, Felix Hill, Omer
+Levy, and Samuel Bowman. 2019. Superglue: A
+stickier benchmark for general-purpose language un-
+derstanding systems. Advances in neural informa-
+tion processing systems, 32.
+Alex Wang, Amanpreet Singh, Julian Michael, Felix
+Hill, Omer Levy, and Samuel R Bowman. 2018.
+Glue: A multi-task benchmark and analysis platform
+for natural language understanding. arXiv preprint
+arXiv:1804.07461.
+Bo Xu, Yong Xu, Jiaqing Liang, Chenhao Xie, Bin
+Liang, Wanyun Cui, and Yanghua Xiao. 2017. Cn-
+dbpedia: A never-ending chinese knowledge extrac-
+tion system. In Advances in Artiﬁcial Intelligence:
+From Theory to Practice: 30th International Confer-
+ence on Industrial Engineering and Other Applica-
+tions of Applied Intelligent Systems, IEA/AIE 2017,
+Arras, France, June 27-30, 2017, Proceedings, Part
+II, pages 428–438. Springer.
+Liang Xu, Hai Hu, Xuanwei Zhang, Lu Li, Chenjie
+Cao, Yudong Li, Yechen Xu, Kai Sun, Dian Yu,
+Cong Yu, et al. 2020. Clue: A chinese language un-
+derstanding evaluation benchmark. arXiv preprint
+arXiv:2004.05986.
+Jian Yang, Gang Xiao, Yulong Shen, Wei Jiang, Xinyu
+Hu, Ying Zhang, and Jinghui Peng. 2021. A survey
+of knowledge enhanced pre-trained models. arXiv
+preprint arXiv:2110.00269.
+Yi Yang, Mark Christopher Siy Uy, and Allen Huang.
+2020. Finbert: A pretrained language model
+for ﬁnancial communications. arXiv preprint
+arXiv:2006.08097.
+Sha Yuan, Hanyu Zhao, Zhengxiao Du, Ming Ding,
+Xiao Liu, Yukuo Cen, Xu Zou, Zhilin Yang, and Jie
+Tang. 2021. Wudaocorpora: A super large-scale chi-
+nese corpora for pre-training language models. AI
+Open, 2:65–68.
+
+
+[Page 11]
+Zhuosheng Zhang, Hanqing Zhang, Keming Chen,
+Yuhang Guo, Jingyun Hua, Yulong Wang, and Ming
+Zhou. 2021. Mengzi: Towards lightweight yet inge-
+nious pre-trained models for chinese. arXiv preprint
+arXiv:2110.06696.
+Zhe Zhao, Hui Chen, Jinbin Zhang, Xin Zhao, Tao Liu,
+Wei Lu, Xi Chen, Haotang Deng, Qi Ju, and Xiaoy-
+ong Du. 2019. Uer: An open-source toolkit for pre-
+training models. EMNLP-IJCNLP 2019, page 241.

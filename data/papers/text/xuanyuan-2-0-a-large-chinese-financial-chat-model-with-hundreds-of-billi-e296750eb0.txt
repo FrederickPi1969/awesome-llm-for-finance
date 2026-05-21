@@ -1,0 +1,452 @@
+[Page 1]
+XuanYuan 2.0: A Large Chinese Financial Chat Model
+with Hundreds of Billions Parameters
+Xuanyu Zhang, Qing Yang and Dongliang Xu
+Du Xiaoman Financial
+Abstract
+In recent years, pre-trained language models
+have undergone rapid development with the
+emergence of large-scale models. However,
+there is a lack of open-sourced chat models
+speciﬁcally designed for the Chinese language,
+especially in the ﬁeld of Chinese ﬁnance, at
+the scale of hundreds of billions. To address
+this gap, we introduce XuanYuan 2.0 (轩
+辕 2.0), the largest Chinese chat model to
+date, built upon the BLOOM-176B architec-
+ture. Additionally, we propose a novel train-
+ing method called hybrid-tuning to mitigate
+catastrophic forgetting. By combining general-
+domain with domain-speciﬁc knowledge and
+integrating the stages of pre-training and ﬁne-
+tuning, XuanYuan 2.0 is capable of provid-
+ing accurate and contextually appropriate re-
+sponses in the Chinese ﬁnancial domain.
+1 Introduction
+In recent years, pre-trained language models have
+witnessed rapid development. Broadly speaking,
+they can be categorized into three main architec-
+tures: the Encoder architecture represented by
+BERT (Devlin et al., 2018), the Decoder architec-
+ture represented by GPT (Radford et al., 2018), and
+the Encoder-Decoder architecture represented by
+T5 (Raffel et al., 2020). Each architecture has its
+unique characteristics and advantages, catering to
+different NLP requirements.
+The GPT series, with GPT-4 (OpenAI, 2023)
+being the latest addition, has gained considerable
+attention due to its remarkable performance in nat-
+ural language generation tasks, including dialogue
+generation. The ChatGPT (OpenAI, 2022) model,
+in particular, has impressed researchers and prac-
+titioners with its ability to generate coherent and
+contextually relevant responses in conversational
+settings. As a result, the GPT series has become
+a focal point of research and development in the
+NLP community.
+Moreover, the emergence of large-scale pre-
+trained models has further fueled the advancements
+in language modeling. Models such as OPT (Zhang
+et al., 2022), BLOOM (Scao et al., 2022), and
+LLaMA (Touvron et al., 2023), with parameter
+sizes reaching billions, have recently been open-
+sourced, enabling researchers and developers to ex-
+plore the potential of these massive models. These
+models have demonstrated superior performance
+on various tasks, pushing the boundaries of what is
+possible in NLP.
+While the general-purpose large models men-
+tioned above have garnered signiﬁcant attention,
+the importance of domain-speciﬁc models cannot
+be overlooked. In many domains, the distribu-
+tion of language and the speciﬁc linguistic nuances
+require models that are ﬁne-tuned or speciﬁcally
+trained for that particular domain. Consequently,
+a range of domain-speciﬁc large models has been
+proposed to cater to the unique needs of various
+ﬁelds. For example, BioBERT (Lee et al., 2020)
+and PubMedBERT (Gu et al., 2021) are proposed
+for the biomedical ﬁeld, and BloombergGPT (Wu
+et al., 2023) are proposed for ﬁnancial scenarios.
+These models have shown promising results in their
+respective domains, leveraging the domain-speciﬁc
+knowledge learned during pre-training.
+Within the Chinese ﬁnancial domain, there has
+been considerable progress in the development of
+pre-trained language models. Researchers have in-
+troduced models such as FinBERT (Araci, 2019;
+Yang et al., 2020; Liu et al., 2021), Mengzi (Zhang
+et al., 2021), and FinT5 (Lu et al., 2023), which
+have been tailored for ﬁnancial text analysis and
+understanding. These models, though valuable for
+certain applications, have parameter sizes below
+one billion, limiting their ability to handle the in-
+creasing demands of the Chinese ﬁnancial NLP
+landscape. As the volume of ﬁnancial data and the
+complexity of language usage continue to grow,
+there is a pressing need for more powerful models
+arXiv:2305.12002v1  [cs.CL]  19 May 2023
+
+
+[Page 2]
+Model Type Parameter Corpus Content
+FinBERT (Araci, 2019) PLM 110M News ﬁltered by ﬁnancial keywords
+FinBERT (Yang et al., 2020) PLM 110M Corporate Reports, Earnings Call Tran-
+scripts, Analyst Reports
+Mengzi-BERT-base-ﬁn (Zhang
+et al., 2021)
+PLM 110M News, Analyse reports, Company an-
+nouncements
+FinT5 (Lu et al., 2023) PLM 220M, 1B Corporate Reports, Analyst Reports, So-
+cial media and Financial News
+XuanYuan 2.0 ChatLM 176B Corporate Reports, Analyst Reports, So-
+cial media and Financial News
+Table 1: Comparison of different ﬁnancial language models.
+that can effectively process and understand Chinese
+ﬁnancial text.
+Despite signiﬁcant advancements in chat mod-
+els, there is currently no open-sourced chat model
+at the scale of hundreds of billions speciﬁcally de-
+signed for the Chinese language, let alone in the
+ﬁeld of Chinese ﬁnance. To address this gap, we
+propose XuanYuan 2.0 (轩辕 2.0), the largest Chi-
+nese chat model to date, based on BLOOM-176B.
+XuanYuan 2.0 not only surpasses its predecessor,
+XuanYuan 1.0 (轩辕 1.0), which achieved ﬁrst
+place at the leaderboard of CLUE classiﬁcation in
+2021, but also addresses the need for a large-scale
+chat model speciﬁcally designed for the Chinese
+ﬁnancial domain.
+Furthermore, domain-speciﬁc language models
+and chat models impose higher requirements on
+data distribution and training approaches compared
+to general-domain models. Domain-speciﬁc mod-
+els need to capture the unique linguistic character-
+istics, terminologies, and contexts of a particular
+ﬁeld to achieve optimal performance. However,
+training these models solely on domain-speciﬁc
+data may lead to catastrophic forgetting, where the
+model loses previously learned knowledge from the
+general domain, impacting its overall performance.
+To mitigate this issue, we propose a novel training
+method, hybrid-tuning, that combines the stages of
+pre-training and ﬁne-tuning. By integrating the two
+stages, our approach guarantees that ﬁne-tuning the
+model with ﬁnancial-speciﬁc instructions does not
+impede its general generation capabilities acquired
+during pre-training. As a result, XuanYuan 2.0 can
+effectively leverage both its general-domain knowl-
+edge and domain-speciﬁc ﬁnancial knowledge to
+provide accurate and contextually appropriate re-
+sponses in the Chinese ﬁnancial domain.
+2 Related Work
+The advancements in pre-trained language mod-
+els have led to remarkable progress in various
+NLP tasks, attracting extensive research efforts.
+Among the notable contributions, the BERT (De-
+vlin et al., 2018) series stands out as a groundbreak-
+ing development in the ﬁeld of pre-trained models.
+Following the success of BERT, the GPT (Rad-
+ford et al., 2018) series emerged as a prominent
+line of research, focusing on the decoding aspect
+of language modeling. GPT models, in contrast
+to BERT’s bidirectional approach, leveraged au-
+toregressive language modeling. By training on
+large amounts of unlabeled text data, GPT mod-
+els acquired a rich understanding of language and
+demonstrated impressive capabilities in generat-
+ing coherent and contextually relevant text. Subse-
+quent iterations of the GPT series, such as GPT-4
+(OpenAI, 2023), showcased superior performance
+in various language generation tasks. And Chat-
+GPT (OpenAI, 2022), an extension of the GPT
+series, demonstrated the ability to engage in in-
+teractive and contextually coherent conversations.
+This breakthrough sparked considerable interest
+in developing conversational AI agents capable of
+simulating human-like dialogue.
+In addition to the general-purpose BERT and
+GPT models, there has been a growing interest in
+domain-speciﬁc pre-training. Researchers have rec-
+ognized that incorporating domain-speciﬁc knowl-
+edge during pre-training can lead to substantial per-
+formance gains in downstream tasks within those
+domains. Domain-speciﬁc pre-trained models aim
+to capture domain-speciﬁc nuances, enabling them
+to excel in tasks relevant to the target domain. For
+instance, in the biomedical domain, BioBERT (Lee
+et al., 2020) and PubMedBERT (Gu et al., 2021)
+are proposed to leverage large-scale biomedical
+
+
+[Page 3]
+GeneralPre-trained Model
+UnsupervisedDomain-specificPre-trainingSupervisedDomain-specificInstruction-tuning
+General Pre-training20%
+Financial Pre-training13% General Instruction46%
+Financial Instruction21%
+Instruction Data67%
+Hybrid-tuning(OurMethod)
+Shuffle
+TrainingDataGeneralPre-trainingFinancialInstructionFinancialPre-trainingGeneralInstruction…FinancialInstruction
+TraditionalDomain-specificPre-trainingandFine-tuning
+Domain-specificChatModel
+UnstructuredDataStructuredDataSeedDataSelf-InstructSelf-QAInstruction-tuningData
+Crawled DataPre-trainingData
+Figure 1: Our proposed hybrid-tuning.
+corpora during pre-training. Similarly, in the ﬁnan-
+cial domain, models such as BloombergGPT (Wu
+et al., 2023) were developed to address the unique
+challenges and intricacies of the ﬁnancial text.
+Despite the advancements in domain-speciﬁc
+pre-training, the availability of large-scale open-
+source chat models speciﬁcally tailored for the Chi-
+nese language and the Chinese ﬁnancial domain
+has remained limited. This gap motivates our work
+in proposing XuanYuan 2.0, a model built upon
+BLOOM-176B (Scao et al., 2022) with hundreds
+of billions parameters, to address the unique re-
+quirements of the Chinese ﬁnancial domain and
+facilitate the development of sophisticated conver-
+sational AI systems.
+3 XuanYuan 2.0
+3.1 Model Architecture
+We adopted the original BLOOM (Scao et al., 2022)
+architecture, which is a decoder-only architecture.
+The joint probability of tokens in a text can be
+represented as:
+p(w) = p(w1,...,w T ) =
+T∏
+t=1
+p(wt|w<t) (1)
+wherew represents a sequence of tokens,wt is the
+tth token, andw<t is the sequence of tokens pre-
+cedingwt. This method is called autoregressive
+language modeling, where we predict the probabil-
+ity of the next token in an iterative manner. And
+following BLOOM, we utilize ALiBi positional
+embeddings (Press et al., 2021) and embedding
+LayerNorm (Dettmers et al., 2022) in the tradi-
+tional decoder structure of Transformer (Vaswani
+et al., 2017).
+3.2 Hybrid-tuning
+To alleviate the problem of catastrophic forgetting,
+we propose a novel domain-speciﬁc training frame-
+work, hybrid-tuning. In terms of the training stage,
+it integrates the pre-training stage and instruction
+ﬁne-tuning stage that are previously split together.
+In terms of the ﬁeld of data, it integrates data from
+both general and ﬁnancial domains.
+As shown in Figure 1, different from traditional
+two-stage domain-speciﬁc training, our proposed
+hybrid-tuning randomly shufﬂes pre-training data
+(general pre-training, ﬁnancial pre-training) and in-
+struction data (general instruction, ﬁnancial instruc-
+tion) into one training data. And all the training
+
+
+[Page 4]
+process is done in one stage. In this way, the model
+can accurately handle instructions in the ﬁnancial
+domain, while retaining general conversational ca-
+pabilities.
+For unsupervised pre-training data, we crawl
+them from the Internet and clean and ﬁlter them.
+For Instruction-tuning data, we use human-written
+seed instructions to collect general data by Self-
+Instruct (Wang et al., 2022) and utilize unstruc-
+tured and structured data in the ﬁnancial ﬁeld to
+gather domain-speciﬁc instruction data by Self-QA
+(Zhang and Yang, 2023). Unstructured ﬁnancial
+data comprises a wide range of textual information,
+such as ﬁnancial news articles, market reports, an-
+alyst commentary, and social media discussions.
+And structured ﬁnancial data includes company in-
+formation and so on. These sources offer valuable
+insights into market trends, investment strategies,
+and economic situations.
+3.3 Training
+To train our complex and computationally intensive
+model, we employ the powerful NVIDIA A100
+80GB GPU and the DeepSpeed (Rasley et al., 2020)
+distributed training framework. For parallel pro-
+cessing, we primarily rely on pipeline parallelism,
+which involves distributing the layers of our model
+across several GPUs. This approach ensures that
+each GPU only handles a portion of the model’s lay-
+ers, a technique also known as vertical parallelism.
+Additionally, we adopt the Zero Redundancy Opti-
+mizer (Rajbhandari et al., 2020) to enable different
+processes to store only a portion of the data (param-
+eters, gradients, and optimizer states). Speciﬁcally,
+we use ZeRO stage 1, which means that only the
+optimizer states are divided using this method. The
+speciﬁc hyperparameters are presented in Table 2.
+4 Experiment
+We conducted a comparison between our model
+and other open-source Chinese conversational mod-
+els. Simultaneously, we constructed evaluation
+datasets encompassing various dimensions in both
+general and ﬁnancial domains, which were subse-
+quently subject to manual assessment. The results
+revealed XuanYuan’s robust knowledge base and
+conversational capabilities in the ﬁnancial domain.
+Further insights and additional ﬁndings will be pre-
+sented in the next version of the paper after the
+release of the evaluation rankings.
+Hyperparameter XuanYuan2-7B XuanYuan2
+Architecture hyperparameters
+Parameters 7,069M 176,247M
+Layers 30 70
+Hidden dim. 4096 14336
+Attention heads 32 112
+V ocab size 250,680
+Sequence length 2048
+Precision float16
+Activation GELU
+Position emb. Alibi
+Tied emb. True
+Pretraining hyperparameters
+Global Batch Size 512 2048
+Learning rate 1.2e-4 6e-5
+Total tokens 341B 366B
+Min. learning rate 1e-5 6e-6
+Warmup tokens 375M
+Decay tokens 410B
+Decay style cosine
+Adam (β1,β 2) (0.9, 0.95)
+Weight decay 1e-1
+Gradient clipping 1.0
+Multitask ﬁnetuning hyperparameters
+Global Batch Size 2048 2048
+Learning rate 2.0e-5 2.0e-5
+Total tokens 13B
+Warmup tokens 0
+Decay style constant
+Weight decay 1e-4
+Table 2: Training hyperparameters of XuanYuan 2.0.
+5 Conclusion
+In this paper, we propose the largest Chinese ﬁnan-
+cial chat model, XuanYuan 2.0 (轩辕 2.0), to ﬁll
+the gap of open-source billion-scale chat models
+speciﬁcally designed for the Chinese ﬁnancial do-
+main. Besides, we propose a novel training method
+called hybrid-tuning to mitigate catastrophic for-
+getting. By combining the general domain with
+domain-speciﬁc knowledge and integrating the
+stages of pre-training and ﬁnetuning, XuanYuan
+2.0 achieves the remarkable ability to deliver pre-
+cise and contextually relevant responses within the
+Chinese ﬁnancial domain. We will continue to
+gather larger-scale Chinese ﬁnancial domain data
+in order to further optimize our model.
+
+
+[Page 5]
+References
+Dogu Araci. 2019. Finbert: Financial sentiment analy-
+sis with pre-trained language models. arXiv preprint
+arXiv:1908.10063.
+Tim Dettmers, Mike Lewis, Younes Belkada, and Luke
+Zettlemoyer. 2022. Llm. int8 (): 8-bit matrix mul-
+tiplication for transformers at scale. arXiv preprint
+arXiv:2208.07339.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and
+Kristina Toutanova. 2018. Bert: Pre-training of deep
+bidirectional transformers for language understand-
+ing. arXiv preprint arXiv:1810.04805.
+Yu Gu, Robert Tinn, Hao Cheng, Michael Lucas,
+Naoto Usuyama, Xiaodong Liu, Tristan Naumann,
+Jianfeng Gao, and Hoifung Poon. 2021. Domain-
+speciﬁc language model pretraining for biomedical
+natural language processing. ACM Transactions on
+Computing for Healthcare (HEALTH), 3(1):1–23.
+Jinhyuk Lee, Wonjin Yoon, Sungdong Kim,
+Donghyeon Kim, Sunkyu Kim, Chan Ho So, and
+Jaewoo Kang. 2020. Biobert: a pre-trained biomed-
+ical language representation model for biomedical
+text mining. Bioinformatics, 36(4):1234–1240.
+Zhuang Liu, Degen Huang, Kaiyu Huang, Zhuang Li,
+and Jun Zhao. 2021. Finbert: A pre-trained ﬁnan-
+cial language representation model for ﬁnancial text
+mining. In Proceedings of the twenty-ninth interna-
+tional conference on international joint conferences
+on artiﬁcial intelligence, pages 4513–4519.
+Dakuan Lu, Jiaqing Liang, Yipei Xu, Qianyu He,
+Yipeng Geng, Mengkun Han, Yingsi Xin, Hengkui
+Wu, and Yanghua Xiao. 2023. Bbt-ﬁn: Compre-
+hensive construction of chinese ﬁnancial domain
+pre-trained language model, corpus and benchmark.
+arXiv preprint arXiv:2302.09432.
+OpenAI. 2022. Chatgpt.
+OpenAI. 2023. Gpt-4 technical report.
+Oﬁr Press, Noah A Smith, and Mike Lewis. 2021.
+Train short, test long: Attention with linear biases
+enables input length extrapolation. arXiv preprint
+arXiv:2108.12409.
+Alec Radford, Karthik Narasimhan, Tim Salimans, Ilya
+Sutskever, et al. 2018. Improving language under-
+standing by generative pre-training.
+Colin Raffel, Noam Shazeer, Adam Roberts, Katherine
+Lee, Sharan Narang, Michael Matena, Yanqi Zhou,
+Wei Li, and Peter J Liu. 2020. Exploring the limits
+of transfer learning with a uniﬁed text-to-text trans-
+former. The Journal of Machine Learning Research,
+21(1):5485–5551.
+Samyam Rajbhandari, Jeff Rasley, Olatunji Ruwase,
+and Yuxiong He. 2020. Zero: Memory optimiza-
+tions toward training trillion parameter models. In
+SC20: International Conference for High Perfor-
+mance Computing, Networking, Storage and Anal-
+ysis, pages 1–16. IEEE.
+Jeff Rasley, Samyam Rajbhandari, Olatunji Ruwase,
+and Yuxiong He. 2020. Deepspeed: System opti-
+mizations enable training deep learning models with
+over 100 billion parameters. In Proceedings of the
+26th ACM SIGKDD International Conference on
+Knowledge Discovery & Data Mining , pages 3505–
+3506.
+Teven Le Scao, Angela Fan, Christopher Akiki, El-
+lie Pavlick, Suzana Ili ´c, Daniel Hesslow, Ro-
+man Castagné, Alexandra Sasha Luccioni, François
+Yvon, Matthias Gallé, et al. 2022. Bloom: A 176b-
+parameter open-access multilingual language model.
+arXiv preprint arXiv:2211.05100.
+Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier
+Martinet, Marie-Anne Lachaux, Timothée Lacroix,
+Baptiste Rozière, Naman Goyal, Eric Hambro,
+Faisal Azhar, et al. 2023. Llama: Open and efﬁ-
+cient foundation language models. arXiv preprint
+arXiv:2302.13971.
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob
+Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz
+Kaiser, and Illia Polosukhin. 2017. Attention is all
+you need. Advances in neural information process-
+ing systems, 30.
+Yizhong Wang, Yeganeh Kordi, Swaroop Mishra, Al-
+isa Liu, Noah A Smith, Daniel Khashabi, and Han-
+naneh Hajishirzi. 2022. Self-instruct: Aligning lan-
+guage model with self generated instructions. arXiv
+preprint arXiv:2212.10560.
+Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravol-
+ski, Mark Dredze, Sebastian Gehrmann, Prabhan-
+jan Kambadur, David Rosenberg, and Gideon Mann.
+2023. Bloomberggpt: A large language model for
+ﬁnance. arXiv preprint arXiv:2303.17564.
+Yi Yang, Mark Christopher Siy Uy, and Allen Huang.
+2020. Finbert: A pretrained language model
+for ﬁnancial communications. arXiv preprint
+arXiv:2006.08097.
+Susan Zhang, Stephen Roller, Naman Goyal, Mikel
+Artetxe, Moya Chen, Shuohui Chen, Christopher De-
+wan, Mona Diab, Xian Li, Xi Victoria Lin, et al.
+2022. Opt: Open pre-trained transformer language
+models. arXiv preprint arXiv:2205.01068.
+Xuanyu Zhang and Qing Yang. 2023. Self-qa: Unsu-
+pervised knowledge guided language model align-
+ment. arXiv preprint.
+Zhuosheng Zhang, Hanqing Zhang, Keming Chen,
+Yuhang Guo, Jingyun Hua, Yulong Wang, and Ming
+Zhou. 2021. Mengzi: Towards lightweight yet inge-
+nious pre-trained models for chinese. arXiv preprint
+arXiv:2110.06696.

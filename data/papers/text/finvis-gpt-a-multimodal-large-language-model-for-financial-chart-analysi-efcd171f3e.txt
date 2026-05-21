@@ -1,0 +1,505 @@
+[Page 1]
+FinVis-GPT: A Multimodal Large Language Model for Financial Chart Analysis
+Ziao Wang , Yuhang Li, Junda Wu , Jaehyeon Soon , Xiaofeng Zhang∗ ,
+School of Computer Science and Technology, Harbin Institute of Technology, Shenzhen, China
+wangziao1993@hotmail.com, 331137797@qq.com, wujunda@stu.hit.edu.cn,
+jaehyeon soon@stu.hit.edu.cn, zhangxiaofeng@hit.edu.cn
+Abstract
+In this paper, we propose FinVis-GPT, a novel mul-
+timodal large language model (LLM) specifically
+designed for financial chart analysis. By leveraging
+the power of LLMs and incorporating instruction
+tuning and multimodal capabilities, FinVis-GPT is
+capable of interpreting financial charts and provid-
+ing valuable analysis. To train FinVis-GPT, a fi-
+nancial task oriented dataset was generated for pre-
+training alignment and instruction tuning, compris-
+ing various types of financial charts and their corre-
+sponding descriptions. We evaluate the model per-
+formance via several case studies due to the time
+limit, and the promising results demonstrated that
+FinVis-GPT is superior in various financial chart
+related tasks, including generating descriptions, an-
+swering questions and predicting future market
+trends, surpassing existing state-of-the-art multi-
+modal LLMs. The proposed FinVis-GPT serves as
+a pioneering effort in utilizing multimodal LLMs
+in the finance domain and our generated dataset
+will be release for public use in the near future to
+speedup related research.
+1 Introduction
+In the era of large language model (LLM) [6, 7, 9, 10], var-
+ious real-world applications will be deeply and permanently
+changed by the LLMs as well as other large models (LMs).
+For instance, the LLMs already demonstrated a superior per-
+formance in various NLP tasks such as understanding and
+generating human-like text. Similarly, the large multimodal
+models (LMMs) has opened up new possibilities for more
+complex applications such as embodied robot. Thus, a good
+number of research efforts as well as industrial attentions
+have been attracted to explore the possibility whether such
+LMs could be utilized for financial related tasks.
+Therefore, we are motivated to propose this novel multi-
+modal large language model (FinVis-GPT) specifically de-
+signed for understanding financial chart. The proposed ap-
+proach are two-stage ones. At the first stage, we must care-
+fully prepare a dataset for this task which will be released for
+∗Corresponding author. Email: zhangxiaofeng@hit.edu.cn
+public use in the near future. At the second stage, we train a
+large multimodal model using this dataset. Note that it is very
+demanding to tune a large multimodal model from the begin-
+ing. Thus, we only fine-tune an existing model using this
+generated dataset. We expect that, by leveraging the power of
+LLMs, the proposed FinVis-GPT should be capable of inter-
+preting financial charts and providing more accurate analysis
+in a human-like manner. This capability allows FinVis-GPT
+to answer a wide range of questions, such as predicting future
+trends based on historical data, identifying key patterns, and
+providing explanations for observed market phenomena.
+As aforementioned, the key contribution of our work is the
+creation of a financial task oriented dataset for pre-training
+and instruction-tuning the large models. For the pre-training
+phase, we have curated a dataset comprising various types of
+financial charts along with their corresponding descriptions.
+This dataset enables FinVis-GPT to learn the intricate rela-
+tionships between visual patterns in financial charts and their
+textual interpretations. For the instruction tuning phase, we
+have prepared a dataset that pairs images of financial charts
+with a set of instructions or questions. This dataset allows
+FinVis-GPT to learn how to respond to specific queries re-
+lated to financial chart analysis, thereby enhancing its ability
+to generate relevant and accurate responses. After training
+the FinVis-GPT on this dataset, we investigate the model per-
+formance via various case studies due to the time limit. The
+results demonstrated that FinVis-GPT can effectively analyze
+financial charts and generate reliable and accurate interpre-
+tations. We believe that our work paves the way for more
+sophisticated applications of multimodal LLMs in the finan-
+cial domain, potentially transforming how financial analysis
+is conducted.
+2 Related Work
+The evolution of LLMs and LMMs have already become the
+major research subjects recently. In this section, we briefly
+review several most pertinent works in these areas and discuss
+their relationship to our proposed model, FinVis-GPT.
+Large Language Models and Instruction Tuning The
+transformation of LLMs into instruction followers has been
+a prominent research direction. For instance, InstructGPT
+[8] was introduced as a model designed to follow instruc-
+tions given in natural language and generate useful responses.
+arXiv:2308.01430v1  [cs.CL]  31 Jul 2023
+
+
+[Page 2]
+Figure 1: The designed process to generate multimodal dataset.
+This model demonstrated that instruction tuning could signif-
+icantly enhance the performance of LLMs, surpassing even
+the capabilities of GPT-3. Building on this concept, Chiang
+et al. [1] fine-tuned the LLaMA model [10] on user-shared di-
+alogues collected from ShareGPT, resulting in an open-source
+chatbot with impressive performance.
+Large Multimodal Models The extension of LLMs to han-
+dle multimodal inputs has been a significant advancement in
+recent research. The KOSMOS-1 model [4], trained from
+scratch on web-scale multimodal corpora, showcased impres-
+sive performance across language understanding, generation,
+and perception-language tasks. Similarly, MiniGPT-4 [12]
+demonstrated the potential of aligning a frozen visual encoder
+with a frozen LLM, Vicuna, using a single projection layer.
+Further extending the multimodal capabilities, mPLUG-Owl
+[11] was proposed to concurrently support multiple modali-
+ties and facilitate diverse unimodal and multimodal abilities
+through modality collaboration. In a similar vein, LLaMA-
+Adapter V2 [3] was proposed as a parameter-efficient model
+capable of handling visual instructions. Lastly, InstructBLIP
+[2] was designed to handle a variety of instructions, show-
+casing its ability to generate detailed captions, count specific
+objects, and address general inquiries posed by users.
+Building upon these advancements, our proposed model,
+FinVis-GPT, incorporates financial charts as part of the mul-
+timodal input. This integration enables a more nuanced un-
+derstanding of financial data, marking a significant step to-
+wards the application of multimodal LLMs in the financial
+domain. By leveraging the strengths of both instruction tun-
+ing and multimodal capabilities, FinVis-GPT aims to provide
+insightful analysis of financial charts, demonstrating the po-
+tential of multimodal LLMs in domain-specific applications.
+3 Generating Multimodal Financial Dataset
+The data collection for FinVis-GPT involved creating datasets
+for two phases: pre-training alignment and instruction tuning.
+The goal of these datasets was to equip the model with the
+ability to understand and interpret multimodal data, particu-
+larly financial charts, and generate valuable responses based
+on given instructions. An illustrative example of our whole
+collection pipeline and the collected data is shown in Figure
+1.
+3.1 Pre-training Alignment Dataset
+Pre-training alignment is a crucial step in training multimodal
+models, as it allows the model to align various types of data
+into a common embedding space. For the purpose of this step,
+we used historical daily stock price data of Chinese A-share
+from 2006 to 2023. This data was segmented into smaller
+sets containing 60-80 trading days, and each set was further
+divided into prompt data (data given to the model for predic-
+tion) and predict data (data to be predicted), with the former
+comprising 60-80% of each set.
+Images were generated from this prompt data using the
+mplfinance1 library, with a split of 80% for candlestick charts
+and 20% for line charts. To simulate real world scenarios, the
+generated charts were enhanced with moving averages of 3,
+6, and 9 days, volume bars, and various chart styles, all added
+randomly.
+1https://github.com/matplotlib/mplfinance
+
+
+[Page 3]
+You will play the role of a financial expert. Upon receiving
+a k-line chart, you should first identify what type of chart it
+is and then describe the different stages of stock trends. You
+are required to conduct professional financial analysis on the
+input data while ensuring that your analysis is comprehensive
+and professional from different perspectives. Finally, you need
+to summarize your findings. To facilitate generating answers,
+you will not receive an image but rather data related to the k-line
+chart. In this scenario, since it is assumed that you are analyzing
+an image as an expert, your answer should pretend that you are
+analyzing an image and only mention content commonly found
+in k-line charts.
+In your answer:
+• Do not evaluate what you are doing; simply provide an-
+swers.
+• Use ”this stock” instead of direct stock codes.
+• Do not explain the meaning of different data segments or
+their names.
+• Do not draw charts; use text descriptions based on data
+only.
+• Avoid saying more data is needed or suggesting other fac-
+tors be considered; provide clear analytical conclusions
+instead.
+The output format for analysis results: ‘Answer’, using mark-
+down format. The first line of received content represents the
+name of each data segment, with each subsequent line repre-
+senting one day’s k-line data separated by spaces.
+Table 1: Prompt designed for pre-training stage in data collection.
+The data structure for each entry in this dataset consisted
+of an image, an instruction, and an answer. The instructions,
+designed to request an interpretation of the charts, were man-
+ually crafted. The answer for each instruction was generated
+by using chatGPT to interpret the prompt data. The prompt
+given to chatGPT are shown in Table 1.
+3.2 Instruction Tuning Dataset
+For instruction tuning, a separate dataset was created, com-
+prising 200K sets, each with about five questions. The pri-
+mary purpose of this dataset was to fine-tune FinVis-GPT’s
+ability to generate relevant and accurate responses to specific
+queries related to financial chart analysis.
+Like the pre-training alignment dataset, the data structure
+for this dataset also consists of an image, an instruction, and
+an answer. However, the key difference lies in the generation
+manner of instructions and answers: they were crafted using
+both prompt data and predict data, which allowed the model
+to generate future trend predictions, the prompt designed to
+give chatGPT is reported in Table 2.
+3.3 Dataset Statistics
+Table 3 provides a detailed breakdown of the key statistics
+associated with the collected datasets used in the pre-training
+and instruction tuning phases of the FinVis-GPT model. The
+count of words in questions, answers, and total dialog ex-
+You will play the roles of a financial expert and a questioner
+respectively. The questioner presents a candlestick chart to the
+expert, and then asks questions based on different aspects of this
+stock. A total of five ‘Q&A’ sessions are required. The ques-
+tioning should be diverse, with questions as comprehensive and
+rich as possible, from multiple perspectives. For example, ask-
+ing the expert for professional financial analysis of the stock,
+predicting its future trend or explaining data. To facilitate pre-
+diction, we will provide two sets of data: known data and future
+data. In this scenario, it is assumed that both the expert and
+questioner only know about the known data; while future data
+is only used to help generate accurate predictions. Therefore,
+when answering questions related to predictions, experts must
+pretend that they only know about known data without mention-
+ing future data explicitly but must combine them with generated
+predictions using future data to answer such questions clearly.
+In addition, since you are playing an expert who receives images
+in this scenario; your answers need to use language suitable for
+analyzing an image-oriented perspective while focusing on con-
+tent commonly found in candlestick charts. During questioning
+by the questioner or answering by the expert:
+• Do not directly use stock codes; instead use ‘this stock’ as
+a substitute.
+• Do not explain what each segment represents.
+• Do not mention any segment names.
+• Experts should refrain from evaluating their own tasks
+during responses.
+• Avoid saying more information is needed or suggesting
+other factors need consideration.
+• Do not allow questioner to view additional information
+themselves.
+When asked for predictions by questioner during questioning
+sessions - experts must give out forecasts based on generated
+results using future-data. The output format for analytical re-
+sults: ”Question@Answer@” where both ”@” symbols serve
+as separators between Question and Answer pairs except at any
+other time within either part (use markdown formatting). The
+first line of the known data indicates each segment’s name fol-
+lowed by k-line trading records for each day, with data segments
+separated by spaces:
+{prompt data}
+The first line of the future data indicates each segment’s name
+followed by k-line trading records for each day, with data seg-
+ments separated by spaces:
+{predict data}
+Table 2: Prompt designed for instruction-tuning stage in data collec-
+tion.
+
+
+[Page 4]
+mean q-5% q-95%
+pre-train
+# Question 28.68 21 36
+# Answer 401.15 179 882
+# Dialog 429.83 207 910
+instruction
+# Turns 4.79 3.00 5.00
+# Question 19.96 11.00 14.00
+# Answer 63.03 23 41
+# Dialog 397.36 238 748
+Table 3: Summary statistics of the collected dataset. Here, ‘#’ rep-
+resents word count. The dataset includes two main categories: pre-
+training and instruction. The statistics cover the mean, 5th percentile
+(q-5%) and 95th percentile (q-95%) of word count for questions, an-
+swers, and dialogues in each category.
+Figure 2: The model architecture.
+changes (denoted as ‘#’) are examined under various statisti-
+cal metrics such as mean, the 5-th percentile (q-5%), and the
+95th percentile (q-95%).
+During pre-training, we observe that on average, questions
+have around 28.68 words, while answers contain approxi-
+mately 401.15 words. This indicates that responses tend to be
+much more detailed and comprehensive. The entire dialog,
+including both questions and answers, contains about 429.83
+words on average. The data distributions for the number of
+words in the questions, answers, and the entire dialog show
+a wide spread, as evidenced by the 5th and 95th percentile
+values.
+In the instruction tuning phase, the number of turns taken
+averages at 4.79, hinting at the complexity and depth of the
+conversations in the dataset. Questions contain fewer words
+compared to the pre-training dataset, with an average of 19.96
+words. The answers in this phase are significantly shorter,
+with approximately 63.03 words on average. This suggests a
+shift towards more focused and concise communication. The
+entire dialog contains about 397.36 words on average, with
+a less pronounced spread than observed in the pre-training
+dataset.
+4 Model Training
+The FinVis-GPT model was built on top of the pre-existing
+LLaV A [5] model, incorporating the advanced language ca-
+pabilities of the latter while extending them for the specific
+financial context, the model architecture is plotted in Figure 2.
+The training process consists of two major steps: pre-training
+alignment and instruction tuning.
+4.1 Pre-training Alignment
+Pre-training alignment aimed at teaching the model to un-
+derstand the relationship between visual patterns in financial
+charts and their corresponding textual interpretations. The
+pre-training alignment dataset, consisting of various financial
+charts and corresponding descriptions, was used for this pur-
+pose.
+For the pre-training, we adopted the same training ap-
+proach as LLaV A but used our specifically curated dataset
+of financial charts and descriptions. The model was trained
+using a batch size of 128 and a learning rate of 2e-3. The pre-
+training was carried out on 8 NVIDIA Tesla A100 GPUs for
+1 epochs.
+The effectiveness of pre-training alignment was evaluated
+by feeding the model with new, unseen financial charts and
+checking its ability to generate accurate and relevant descrip-
+tions. The generated descriptions were evaluated by a panel
+of financial experts for their accuracy and relevance.
+4.2 Instruction Tuning
+Instruction tuning is a technique that allows the model to learn
+how to generate appropriate responses to specific instructions
+or queries. For this, we used the instruction tuning dataset,
+which was specifically created for the purpose of fine-tuning
+FinVis-GPT.
+The tuning phase involved adjusting the model’s parame-
+ters so that it could accurately respond to instructions about
+financial charts. This phase was also executed using a batch
+size of 128 and a learning rate of 1e-5 for 3 epochs.
+4.3 Regularization and Model Validation
+To prevent overfitting during the training process, we incor-
+porated dropout and weight decay regularization techniques.
+We also used early stopping based on the validation set per-
+formance to determine the optimal number of training epochs.
+Model validation was performed intermittently throughout
+the training process. We maintained a holdout validation set
+that was not used during the training process. At the end of
+each epoch, the model was tested on this validation set to
+gauge its performance and to ensure it was learning the in-
+tended tasks effectively.
+In sum, the training process of FinVis-GPT was a metic-
+ulous process aimed at harnessing the language prowess of
+LLaV A and tailoring it to the complex task of financial chart
+interpretation and analysis.
+5 Experiments
+5.1 Experimental Setup
+We compared FinVis-GPT against several baseline models in-
+cluding LLaV A [5], MPLUG-Owl [11], and MiniGPT-4 [12].
+Each of these models represents the latest advancements in
+multimodal learning with unique advantages. The metrics
+used for comparison included quality of financial chart de-
+scriptions, understanding of financial context, and prediction
+accuracy of financial trends. We employed the following
+three tasks to evaluate each model:
+
+
+[Page 5]
+Figure 3: Experiment results on description generation.
+Figure 4: Experiment results on question answering.
+Figure 5: Experiment results on trend prediction.
+
+
+[Page 6]
+• Description Generation: For this task, the models were
+given an image of a financial chart and were required
+to generate a description, capturing the key trends, pat-
+terns, and anomalies.
+• Question Answering: This task involved a comprehen-
+sion test where models were given an image of a finan-
+cial chart along with a set of questions. The questions
+were designed to assess the model’s understanding of
+the financial context of the chart.
+• Trend Prediction: For this task, models were provided
+an image of a financial chart along with historical finan-
+cial data and were asked to predict future trends. The
+predictions were compared with actual future data to
+evaluate the model’s predictive performance.
+5.2 Results and Discussion
+Description Generation. The task of description genera-
+tion is exemplified in Figure 3, where a randomly selected
+outcome is presented. Based on these results, it is obvious
+that LLaV A fails to accurately identify the image as a rep-
+resentation of stock trends. In contrast, Minit-GPT4 demon-
+strated a superior understanding by correctly recognizing the
+image as a stock trading chart, though it inaccurately identi-
+fied the blue line as a stock trend line. Moreover, mplug-owl
+managed to acknowledge the image as a stock price chart but
+it introduced several unrelated elements, causing its descrip-
+tion to veer off the accurate interpretation. Among all models
+assessed, FinVis-GPT emerged as the most proficient, cor-
+rectly recognizing the image and providing a concise and ac-
+curate description. This underscores its capacity for generat-
+ing superior descriptions when compared to the other models
+in this specific context.
+Question Answering. The question answering task is plot-
+ted in Figure 4. The results reveal that LLaV A substan-
+tially misconstrued the stock trend, erroneously identifying
+the black candle line as the past trend and the white as the fu-
+ture trend. Meanwhile, Mini-GPT4 muddled the representa-
+tion of black and white lines, further compounding its output
+with a significant amount of irrelevant content. The mplug-
+owl model exhibited a complete lack of recognition for the
+image, fabricating an entirely unrelated narrative. In contrast,
+the response provided by FinVis-GPT was both concise and
+accurate, earning it the top spot amongst the compared mod-
+els for this task. Its output underscores the superior efficacy of
+FinVis-GPT in understanding and accurately answering ques-
+tions based on the given visual representation.
+Trend Prediction. An example of trend prediction is de-
+picted in Figure 5. The left image represents a market trend
+over a certain period, with the trend within the black box pro-
+vided as input to the models. The accurate prediction for
+this trend should indicate an upward trajectory. However,
+LLaV A’s prediction was contrary to this, presenting a down-
+ward trend instead. Mini-GPT4 failed to answer the predic-
+tion question accurately, and instead produced unrelated in-
+formation, a phenomenon often referred to as ‘hallucination’.
+Similarly, mplug-owl’s output was also characterized by this
+‘hallucinating’ issue. In contrast, FinVis-GPT’s prediction
+was not only accurate but also incorporated a proper descrip-
+tion of the trend. This showcases FinVis-GPT’s superiority in
+trend prediction tasks, with an ability to provide both accurate
+and informative responses.
+6 Conclusion
+In this work, we presented FinVis-GPT, a novel large multi-
+modal model tailored to the financial domain, with a focus on
+financial chart analysis. Our approach integrated the benefits
+of pre-trained LLMs with a curated dataset sourced directly
+from the financial sector. The FinVis-GPT model showed sig-
+nificant improvement over existing models in terms of gen-
+erating accurate, relevant, and financially styled responses.
+Through the creation of a robust instruction tuning dataset
+and case studies, we have demonstrated the potential of multi-
+modal LLMs in the financial sector. This work lays the foun-
+dation for more sophisticated applications of AI in finance,
+potentially transforming the landscape of financial analysis.
+Future work will focus on further expanding the applicability
+of FinVis-GPT in more diverse financial scenarios and real-
+time financial decision-making.
+References
+[1] Wei-Lin Chiang, Zhuohan Li, Zi Lin, Ying Sheng,
+Zhanghao Wu, Hao Zhang, Lianmin Zheng, Siyuan
+Zhuang, Yonghao Zhuang, Joseph E. Gonzalez, Ion Sto-
+ica, and Eric P. Xing. Vicuna: An open-source chat-
+bot impressing gpt-4 with 90%* chatgpt quality, March
+2023. URL https://lmsys.org/blog/2023-03-30-vicuna/.
+[2] Wenliang Dai, Junnan Li, Dongxu Li, Anthony
+Meng Huat Tiong, Junqi Zhao, Weisheng Wang,
+Boyang Li, Pascale Fung, and Steven Hoi. In-
+structBLIP: Towards General-purpose Vision-Language
+Models with Instruction Tuning, 2023. URL http://
+arxiv.org/abs/2305.06500.
+[3] Peng Gao, Jiaming Han, Renrui Zhang, Ziyi Lin, Shi-
+jie Geng, Aojun Zhou, Wei Zhang, Pan Lu, Con-
+ghui He, Xiangyu Yue, Hongsheng Li, and Yu Qiao.
+LLaMA-Adapter V2: Parameter-Efficient Visual In-
+struction Model, 2023. URL http://arxiv.org/abs/2304.
+15010.
+[4] Shaohan Huang, Li Dong, Wenhui Wang, Yaru Hao,
+Saksham Singhal, Shuming Ma, Tengchao Lv, Lei Cui,
+Owais Khan Mohammed, Barun Patra, Qiang Liu, Kriti
+Aggarwal, Zewen Chi, Johan Bjorck, Vishrav Chaud-
+hary, Subhojit Som, Xia Song, and Furu Wei. Language
+Is Not All You Need: Aligning Perception with Lan-
+guage Models, 2023. URL http://arxiv.org/abs/2302.
+14045.
+[5] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae
+Lee. Visual Instruction Tuning, 2023. URL http://arxiv.
+org/abs/2304.08485.
+[6] OpenAI. Introducing ChatGPT, 2022. URL https:
+//openai.com/blog/chatgpt.
+[7] OpenAI. Gpt-4 technical report, 2023.
+
+
+[Page 7]
+[8] Long Ouyang, Jeff Wu, Xu Jiang, Diogo Almeida, Car-
+roll L. Wainwright, Pamela Mishkin, Chong Zhang,
+Sandhini Agarwal, Katarina Slama, Alex Ray, John
+Schulman, Jacob Hilton, Fraser Kelton, Luke Miller,
+Maddie Simens, Amanda Askell, Peter Welinder, Paul
+Christiano, Jan Leike, and Ryan Lowe. Training lan-
+guage models to follow instructions with human feed-
+back, 2022.
+[9] Yizhong Wang, Yeganeh Kordi, Swaroop Mishra, Alisa
+Liu, Noah A. Smith, Daniel Khashabi, and Hannaneh
+Hajishirzi. Self-instruct: Aligning language model with
+self generated instructions, 2022.
+[10] Jerry Wei, Jason Wei, Yi Tay, Dustin Tran, Albert Web-
+son, Yifeng Lu, Xinyun Chen, Hanxiao Liu, Da Huang,
+Denny Zhou, and Tengyu Ma. Larger language mod-
+els do in-context learning differently, 2023. URL http:
+//arxiv.org/abs/2303.03846.
+[11] Qinghao Ye, Haiyang Xu, Guohai Xu, Jiabo Ye,
+Ming Yan, Yiyang Zhou, Junyang Wang, Anwen Hu,
+Pengcheng Shi, Yaya Shi, Chenliang Li, Yuanhong Xu,
+Hehong Chen, Junfeng Tian, Qian Qi, Ji Zhang, and
+Fei Huang. mPLUG-Owl: Modularization Empow-
+ers Large Language Models with Multimodality, 2023.
+URL http://arxiv.org/abs/2304.14178.
+[12] Deyao Zhu, Jun Chen, Xiaoqian Shen, Xiang Li, and
+Mohamed Elhoseiny. MiniGPT-4: Enhancing Vision-
+Language Understanding with Advanced Large Lan-
+guage Models, 2023. URL http://arxiv.org/abs/2304.
+10592.

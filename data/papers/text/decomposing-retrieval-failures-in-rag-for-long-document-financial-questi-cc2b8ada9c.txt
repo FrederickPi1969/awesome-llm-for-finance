@@ -1,0 +1,605 @@
+[Page 1]
+Decomposing Retrieval Failures in RAG for Long-Document
+Financial Question Answering
+Amine Kobeissi†,‡, * , Philippe Langlais†,‡
+† Department of Computer Science and Operations Research, Université de Montréal
+‡ RALI
+* amine.kobeissi@umontreal.ca
+Abstract
+Retrieval-augmented generation is increasingly used for financial question answering over
+long regulatory filings, yet reliability depends on retrieving the exact context needed
+to justify answers in high stakes settings. We study a frequent failure mode in which
+the correct document is retrieved but the page or chunk that contains the answer is
+missed, leading the generator to extrapolate from incomplete context. Despite its practical
+significance, this within-document retrieval failure mode has received limited systematic
+attention in the Financial Question Answering (QA) literature. We evaluate retrieval at
+multiple levels of granularity, document, page, and chunk level, and introduce an oracle
+based analysis to provide empirical upper bounds on retrieval and generative performance.
+On a 150 question subset of FinanceBench, we reproduce and compare diverse retrieval
+strategies including dense, sparse, hybrid, and hierarchical methods with reranking and
+query reformulation. Across methods, gains in document discovery tend to translate into
+stronger page recall, yet oracle performance still suggests headroom for page and chunk
+level retrieval. To target this gap, we introduce a domain fine-tuned page scorer that
+treats pages as an intermediate retrieval unit between documents and chunks. Unlike prior
+passage-based hierarchical retrieval, we fine-tune a bi-encoder specifically for page-level
+relevance on financial filings, exploiting the semantic coherence of pages. Overall, our
+results demonstrate a significant improvement in page recall and chunk retrieval.
+Keywords:Retrieval-AugmentedGeneration, InformationRetrieval, FinancialQuestion
+Answering, Natural Language Processing, Large Language Models
+1.Introduction
+Large language models often produce fluent and accurate answers, yet domain specific tasks
+such as financial question answering require verifiable grounding in long source documents.
+Retrieval augmented generation (RAG) addresses this by selecting candidate passages from
+a corpus and generating an answer conditioned on those passages. In this setting, retrieval
+quality is the main determinant of whether an answer is supported by the correct context.
+In practice, retrieval success is not a single concept. A pipeline can retrieve the correct
+filing and still miss the page or chunk that contains the answer, especially in long reports
+with repeated templates, dense tables, and similar sections over years. Thus, when the
+correct chunks are not retrieved, the generator can produce plausible but incorrect responses.
+Furthermore, document-level metrics can obscure cases where the correct document is
+retrieved but the answer-bearing context is missed, and generation metrics (answer accuracy,
+ROUGE-L) do not directly distinguish retrieval from generation failures. For example, low
+answer accuracy could stem from either retrieving wrong chunks or from generation errors
+given the correct chunks. We address this with page and chunk retrieval metrics and oracle
+bounds that separate document discovery from within-document context retrieval
+We study this failure mode in financial question answering over U.S. Securities and
+Exchange Commission (SEC) filings using FinanceBench [1]. We propose an oracle based
+analysis that quantifies how much performance is lost due to imperfect document versus
+imperfect page or chunk retrieval inside the correct filing. The potential benefits of this idea
+can be visualized in Figure 1, where we compare retrieval performance in different settings.
+Since retrieval quality ultimately determines generation quality, we use BLEU [2] and
+ROUGE-L [3] between retrieved chunks and gold chunks as proxies for retrieval performance.
+arXiv:2602.17981v1  [cs.CL]  20 Feb 2026
+
+
+[Page 2]
+Figure 1.Maximum BLEU and ROUGE-L scores between retrieved chunks and gold
+chunks under standard retrieval and oracle settings
+We can see that standard RAG pipelines are inadequate compared to oracle settings, revealing
+the retrieval gap.
+Contributions.
+(1) We define an oracle-based retrieval gap analysis that decomposes retrieval into document,
+page, and within page (chunk) discovery.
+(2) We provide a comprehensive evaluation of common retrieval strategies on a shared multi
+document index for FinanceBench, including dense, sparse, hybrid, hierarchical retrieval,
+query reformulation, and reranking.
+(3) We introduce a domain fine-tuned page scorer that ranks pages before chunk retrieval,
+providing a novel approach to close the retrieval gap.
+(4) We analyze performance by document type, and question type, showing that retrieval
+difficulty varies across categories.
+2.Related Work
+Retrieval augmented generation combines retrieval with conditional generation to improve
+factuality and traceability by grounding answers in retrieved text [4]. In long document
+settings, retrieval quality becomes the main bottleneck because many passages are topically
+similar while only a small subset contains answer bearing context [5]. This motivates
+evaluations that measure not only whether the correct source document is found, but also
+whether retrieval locates the optimal page and chunk region needed for a verifiable answer.
+Financial question answering is challenging because filings are long, semi structured, and
+numerically sensitive. Benchmarks such as as FinQA [6], TAT-QA [7], and ConvFinQA [8]
+emphasize numerical reasoning, often requiring multi-step computation grounded in tables
+and narrative context. FinanceBench adds gold evidence annotations in SEC filings and
+supports evidence-based evaluation at scale [1]. Newer retrieval oriented suites such SEC-
+QA [9] further highlight practical workflows where users require both the answer and the
+supporting retrieval context.
+Retrieval for filings typically relies on chunking plus sparse, dense, or hybrid retrieval, query
+reformulation, and reranking. Recent work has emphasized the importance of domain-adapted
+preprocessing and retrieval strategies for financial documents. Kim et al. [10] propose a three-
+phase pipeline that combines query expansion, corpus preprocessing, hybrid retrieval with
+fine-tuned embedders, and a DPO-trained reranker with document selection. Evaluated across
+several financial QA datasets, their method achieves substantial improvements in retrieval
+precision. Wang et al. [11] introduce FinSage, a multi-aspect RAG framework that unifies
+multi-modal preprocessing, multi-path retrieval and a domain-specialized reranker, achieving
+strong retrieval results and improvements in accuracy over baselines on FinanceBench.
+
+
+[Page 3]
+While these systems demonstrate strong end-to-end performance, they do not explicitly
+decompose retrieval failures into document discovery versus within-document retrieval. Our
+work complements this by introducing an oracle-based analysis that separately quantifies
+headroom from imperfect document retrieval and imperfect page or chunk retrieval within
+the correct filing. We show that while methods like HyDE and reranking improve document
+discovery, substantial page and chunk retrieval gaps remain. To address this, we introduce a
+domain fine-tuned page scorer that explicitly addresses granular page level retrieval, providing
+a diagnostic framework to measure and close the retrieval gap in financial question answering.
+3.Data and Experimental Setup
+3.1.Dataset
+We use the open source subset of FinanceBench with 150 questions. Each sample includes
+a question, a reference answer, and ground truth annotations that identify the gold document
+and page numbers. We treat the gold pages asP ⋆ during evaluation. Table 1 shows a
+simplified instance from FinanceBench.
+Field V alue
+Company Amcor
+DocumentAMCOR_2020_10K
+Question type Metrics Generated
+Reasoning Information Extraction
+Question What is Amcor’s year end FY2020 net AR (in USD millions)? Address the
+question by adopting the perspective of a financial analyst who can only use the
+details shown within the balance sheet.
+Answer $1616.00
+Evidence page 49
+Evidence text Amcor plc and Subsidiaries Consolidated Balance Sheet (in millions) As of June
+30, 2020 2019 Assets Current assets: Cash and cash equivalents $ 742.6 $ 601.6
+Trade receivables, net1,615.91,864.3 Inventories...
+Table 1.Instance from FinanceBench. Evidence text is the gold passage for retrieval1
+FinanceBench includes three question types: domain relevant, metrics generated, and
+novel generated. Domain relevant questions often require locating narrative statements and
+may reference multiple periods, and are generic questions relevant to financial analysis of a
+publicly-traded companies. Metrics generated questions (as in Table 1) require tight retrieval
+to the right statement or table to extract base figures for downstream calculation, they
+require computation and reasoning over different financial figures. Novel generated questions
+are designed to involve reasoning and are very specific to the company, industry, and report
+in question. They were designed to require reasoning and not to be purely extractive.
+FinanceBench also draws from multiple document types. We report results by document
+type because retrieval difficulty can differ between annual reports and quarterly reports due
+to length and section structure. The documents along with their proportion in the data are
+10K (74.7%), 10Q (10%), Earnings (9.3%), and 8K (6%) reports.
+3.2.T ask Setup
+Figure 2 illustrates the overall RAG pipeline evaluated in this work. LetD = {d1, . . . , dD}
+be a set of documents. Each documentd∈ D contains n pages {pd
+1, . . . , pd
+n}, we extract the
+1Evidence text is a passage from the evidence (gold) page containing the answer bearing information.
+
+
+[Page 4]
+page from the PDF document using the FinanceBench preprocessing2. We build a chunk
+corpus C by splitting page text into overlapping spans, where the text is of 1024 tokens and
+overlap of 128 tokens3. Each chunk is a tuple(c, d, p)with chunk text c, document idd, and
+a 0-indexed page numberp. For a queryq, a retriever produces a ranked list of chunks,
+Rk(q) = Topk (c,d,p)∈C s(q, c) ={(c i, di, pi)}k
+i=1,
+where s is a scoring function. The generator produces an answer ˆy= Gθ(q,R k(q)).
+FinanceBench provides a gold documentd⋆ and gold pagesP ⋆ for each query.
+Figure 2.Overview of RAG pipeline. Documents are decomposed into pages and chunks.
+For a query, blue pages and chunks represent the gold context containing the answer.
+3.3.Oracle Retrieval Conditions
+We define three retrieval settings that differ by candidate restriction. First, standard
+retrieval, where we retrieve over the entire search space. Second, Oracle document retrieval,
+where the candidates in the search space are restricted to the gold filing document,Cdoc(d⋆) =
+{(c, d, p) ∈ C |d = d⋆}. Third, Oracle page retrieval, where candidates are restricted to the
+gold filing and gold pages,Cpage(d⋆, P ⋆) = {(c, d, p) ∈ C |d = d⋆, p∈P ⋆}, resulting in a
+near complete reduction of noise.
+These conditions provide empirical upper bounds. The Oracle document setting quantifies
+headroom due to imperfect page and chunk discovery. The Oracle page setting quantifies
+headroom due to imperfect chunk retrieval when the gold pages and documents are known.
+Evaluating both bounds helps isolate where errors arise. More broadly, oracle bounds provide
+a common reference across systems. The gap to oracle normalizes for pipeline differences
+and contextualizes raw scores.
+3.4.Evaluation Metrics
+For each questionq, FinanceBench provides a gold filingd⋆(q)and a set of gold pages
+P ⋆(q). Let the topk retrieved chunks beRk(q) = {(ci, di, pi)}k
+i=1, where di and pi denote
+the filing id and page index of chunkci.
+First, we measure document recall. Since each question has a single gold filing, document
+recall atkis equivalent to hit,
+DocRec@k(q) =I
+
+d⋆(q)∈ {d i}k
+i=1
+
+.
+Then, we measure page recall atk, where there can be many gold pages.
+PageRec@k(q) =
+P ⋆(q)∩ {p i |d i =d ⋆(q)}k
+i=1
+
+|P ⋆(q)| .
+2https://github.com/patronus-ai/financebench
+3Following Yepes et al. [12], and our ablations, we find that larger chunk sizes aid in Financial RAG
+
+
+[Page 5]
+Finally, as a chunk-level proxy, we compute the maximum ROUGE-L [3] and BLEU [2]
+similarity between any retrieved chunk and the gold evidence concatenated into a single
+reference text,e ⋆(q). Given the top-kretrieved chunks{c i}k
+i=1, for each query we report
+CtxROUGE-L@k(q) = max
+i∈{1,...,k}
+ROUGE-L(ci, e⋆(q)),
+and analogously CtxBLEU@k(q)using BLEU. To evaluate the generator, ROUGE-L scores
+on the generated output against the reference answer are used along with a numeric match
+for metric based questions. To calculate the numeric match, given a reference answery⋆
+and a model predictionˆy, we extract sets of numbersR = Nums(y⋆)and P = Nums(ˆy)
+using a regular expression after removing commas and currency symbols. We count an
+example as a numeric match if there existr∈R and p∈P such thatr and p are close under
+numpy.isclose4, usingatol= 0.03andrtol= 0.03.
+We report macro averages over all 150 questions and usek = 5throughout the evaluation,
+other than for numeric match which is only reported on the 50 metrics generated questions.
+3.5.Generation Setup
+The generator model, prompt template, and decoding settings are fixed across all retrieval
+methods. We use Qwen-2.5-7B-Instruct as our generator model. The prompt template used
+can be found in Appendix A.
+4.Methodology and Approach
+We evaluate a suite of retrieval strategies designed to improve document, page, and chunk
+level discovery. All strategies share the same task setup as described in section 3.2. For
+dense methods we use a sharedChromaDB5 vector store built once per configuration. The
+implementation is model agnostic and supports embedding backbones such asBGE-M3 [13].
+Chunks are stored in a singleChromaDBcollection, and retrieval usessimilarity_search.
+4.1.Dense Retrieval
+Dense retrieval maps a query and each chunk to a shared vector space [14] and ranks
+chunks by vector similarity. LetE(·)be the embedding model andc a chunk. We compute a
+query embedding E(q)and retrieve the top k chunks by cosine similarity. All dense variants
+differ only in the choice of embedding backbone while sharing the same vector store, chunk
+size and overlap, and chunk metadata.
+4.2.Sparse retrieval
+Sparse retrieval excels at keyword matching and interpretability, thus offering potential
+advantages for Financial QA. We test BM25 [15] as a sparse baseline and SPLADE [16] as a
+learned sparse retriever that produces sparse term weighted vectors. BM25 is implemented
+using rank-bm256. Tokenization uses a finance oriented preprocessing function that preserves
+currency symbols, percents, and financial tokens such as numbers with commas and decimals.
+The retriever returns the topk chunks with the highest BM25 scores. SPLADE uses the
+checkpoint naver/splade-cocondenser-ensembledistil. Due to architectural constraints
+of the checkpoint, we truncate inputs to 512 tokens, and we keep the topN = 256weighted
+terms for efficiency. The token truncation may impact SPLADE results since it sees less
+4https://numpy.org/doc/stable/reference/generated/numpy.isclose.html
+5https://github.com/chroma-core/chroma
+6https://github.com/dorianbrown/rank_bm25
+
+
+[Page 6]
+context per chunk than methods with 1024 tokens. Retrieval ranks chunks by sparse dot
+product between query and chunk vectors.
+4.3.Hybrid F usion
+We combine dense and sparse ranked lists using Reciprocal Rank Fusion [17]. Letrankr(c)
+be the rank of chunkcunder retrieverr. Then RRF assigns
+sRRF(c) =
+X
+r∈M
+1
+krrf +rank r(c) ,
+where krrf = 60and method are equally weighted. To fuse and compare outputs robustly
+across systems, we align chunks using stable SHA1 hashes computed from normalized chunk
+text concatenated with metadata fields for source and page. This creates consistent keys
+even when different retrievers produce results through different internal data structures.
+4.4.Query Reformulation, HyDE and Multi-HyDE
+Lexical mismatch between short questions and filing language is common, particularly
+when the question uses conversational phrasing while filings use formal accounting terminology.
+To address this challenge, we attempt three approaches. First, we apply a deterministic
+query expansion baseline for retrieval, while generation uses the original question. We
+expand common finance acronyms by appending an expanded version, for example CAPEX
+becomes capital expenditure, and PPE becomes property plant equipment. We also normalize
+temporal expressions such as FY2018, or FY18 into a canonical form fiscal year 2018.
+For the other two methods, we follow HyDE and its multi sample variant proposed in
+the literature [18, 19]. HyDE generates a hypothetical passage intended to resemble the
+target context, then retrieves using the embedding of that passage rather than the raw query
+embedding. We use Qwen-2.5-7B-Instruct as our LLM to generate the hypothetical passages.
+We set temperature to 0.7 to encourage diversity in the outputs and cap the generated
+passage to 200 tokens. The prompt uses the following template,
+Please write a short financial report excerpt (1 paragraph) that precisely
+answers the question below. Do not introduce the text, just write the excerpt.
+Question: {question}
+Passage:
+For Multi-HyDE we use the same set up as HyDE but generate 4 hypothetical passages
+{hi}4
+i=1, embed each passage, then form a single query vector¯hto perform the search,
+¯h= 1
+4
+4X
+i=1
+E(hi).
+4.5.Hierarchical Retrieval
+Hierarchical retrieval addresses long context by retrieving at a coarse granularity and
+then refining at a finer granularity within the retrieved region. Recent work targets fine
+grained retrieval in financial filings via a hierarchical approach, often taking the form of
+document retrieval followed by passage retrieval, with additional refinement aggregation [5,
+20, 21]. We implement a simple Parent-Child style hierarchy that retrieves child chunks
+at a fine granularity, then maps to larger parent chunks for generation context. We index
+small child chunks for retrieval and maintain a deterministic mapping from each child to a
+larger parent span. After retrieving children, we deduplicate by parent id and return up to
+
+
+[Page 7]
+k unique parents. A parent score is derived from its children by taking the best similarity
+score among children assigned to that parent, then ranking parents accordingly.
+4.6.Cross-Encoder Reranking
+In long filings, reranking can help separate near duplicate regions and improve retrieved
+context ordering after a high recall first stage, which is important when multiple sections con-
+tain similar language across years or business segments [21]. We add a second stage reranker
+using BAAI/bge-reranker-v2-m3. For each query we first retrieveN = 20candidates from
+a base retriever, then rerank with the cross-encoder and keep the topk.
+4.7.Page-then-Chunk Retrieval
+We propose a hierarchical retrieval method that identifies relevant pages and then retrieves
+chunks only from those pages, reducing noise from irrelevant sections while preserving fine-
+grained context retrieval. To do this, we fine-tune a bi-encoder to identify optimal pages
+while enabling efficient inference through pre-computed page embeddings. The method has
+two stages. Stage one ranks pages in the corpus and returns the topP pages. Stage two
+runs a retriever over chunks whose metadata matches the selected pages.
+For each filingd, we extract the text of each pagep and apply a deterministic normalization
+function N(·)that collapses whitespace and truncates long pages to a fixed length. We set
+the maximum length toM = 2000characters. The learned page scorer replaces a pretrained
+page encoder with a fine-tuned bi-encoder. LetText(d, p)be the page text of a document, we
+compute their embeddings fromN(Text(d, p)). For the scoring function, we train a bi-encoder
+Eθp initialized from BAAI/BGE-M3 that maps queries and pages into a shared vector space.
+The learned page relevance score is the cosine similarity of the learned embedding of the page
+and query, spage(q, d, p) = cos
+
+Eθp(q), E θp
+ 
+NText(d, p)
+
+. At inference, pages are ranked
+bys page and the topPpages are passed to the chunk stage.
+For each questionq, FinanceBench provides a gold filingd⋆(q)and a set of gold page
+indices P ⋆(q). To train, we construct positives by pairing each question with every annotated
+page in its gold filing,S = {(q, (d⋆(q), p+)) |p + ∈P ⋆(q)}. During training, we sample
+minibatches from the training subset ofS and apply contrastive learning7 to fine-tune the
+embedding model Eθp using the Multiple Negatives Ranking loss with in-batch negatives [22].
+For a minibatch of sizeB with positive pairs{(qi, (d⋆
+i , p+
+i ))}B
+i=1 sampled from S, the loss is
+LMNR =− 1
+B
+BX
+i=1
+
+spage(qi, d⋆
+i , p+
+i )−log
+BX
+j=1
+exp
+ 
+spage(qi, d⋆
+j , p+
+j )
+
+
+ .
+For eachqi, its paired gold page is the positive target, and all other pages in the minibatch
+are negatives.
+We train8 the page scorer using document-level splits to prevent data leakage, ensuring no
+document appears in both training and evaluation sets. We perform 5-fold cross-validation,
+partitioning the questions by their source documents. For each fold, we train on 80% and
+evaluate on the remaining 20% of documents. Training uses a learning rate of 2e-5, batch
+size of 16, and 15 epochs. Final metrics are aggregated across all folds.
+7https://huggingface.co/blog/dragonkue/mitigating-false-negatives-in-retriever-training
+8Experiments were run on a RTX 3090 GPU with 32GB memory.
+
+
+[Page 8]
+4.7.1.Inference and Integration with Chunk Retrieval
+After training, we embed every page in the corpus withEθp and index them with(d, p)
+metadata. At inference, given query q, we retrieve the topP = 20pages (via ablation
+in Appendix B) underspage, filter chunks to only those from selected pages, then apply
+chunk-level retrieval to select the final topk chunks for generation. This targets page-level
+relevance while preserving fine-grained chunk selection. Algorithm 1 provides the routine.
+Algorithm 1Page-then-chunk retrieval using fine tuned page scorer
+Require: Query q, Fine tuned page encoderEθp, Chunk encoderEchunk, P pages, k chunks
+Require:Page indexI page storing entries
+ 
+(d, p), vpage
+d,p
+
+wherev page
+d,p =E θp
+ 
+N(Text(d, p))
+
+is computed offline once
+Require:Chunk indexI chunk storing entries
+ 
+c, vchunk
+c , d c, p c
+
+wherev chunk
+c =E chunk(c)is computed offline once
+1:Stage 1: Page retrieval
+2:e page
+q ←E θp(q)
+3:P P (q)←Search cos
+ 
+Ipage, epage
+q , P
+
+▷Nearest neighbor search over storedvpage
+d,p
+4:Stage 2: Chunk retrieval on filtered search space
+5:e chunk
+q ←E chunk(q)
+6:C filt ← {c∈ I chunk |(d c, pc)∈ P P (q)}
+7:R k(q)←Search cos
+ 
+Cfilt, echunk
+q , k
+
+▷Search over storedv chunk
+c in the filtered pool
+8:returnR k(q)
+5.Results and Analysis
+5.1.Oracle Results
+Table 2 reports oracle document and oracle page results atk = 5using BAAI/BGE-M3.
+Under the oracle document setting, we have a page recall of 0.60, as well as a BLEU score of
+0.25 and ROUGE-L of 0.42. When restricting the search space in the oracle page experiment,
+the BLEU and ROUGE-L scores increase, meaning that we are retrieving better context. The
+numeric answer accuracy also increases under the oracle page setting, indicating expectedly
+that down stream generation improves when the correct page is located. These results
+provide empirical upper bounds for the remaining experiments.
+SettingDocRec@5PageRec@5 Max BLEU@5 Max ROUGE-L@5 Numeric Match
+Oracle document 1.00 0.60 0.25 0.42 0.26
+Oracle page 1.00 1.00 0.40 0.59 0.34
+Table 2.Oracle results. Evaluation metrics defined in section 3.4.
+5.2.Retrieval Results
+We report aggregated retrieval performance on all 150 questions in Table 3. Across all
+methods, page recall substantially lags document recall, revealing that while baseline methods
+successfully identify the correct filing, they struggle to find answer-bearing context within it.
+Consistent with prior work, dense retrieval outperforms sparse methods on FinanceBench [10],
+likely due to lexical mismatch between queries and formal filing language. Among baselines,
+BGE-M3 combined with Multi-HyDE and reranking performs best (0.46 page recall), showing
+
+
+[Page 9]
+that query reformulation and cross-encoder scoring effectively improve within-document
+retrieval. However, in terms of page recall, this method is still 0.14 away from the Oracle
+Document upper bound of 0.60, demonstrating the retrieval gap. Our learned page scorer
+achieves 0.55 page recall, outperforming baselines and closing the page recall gap to 0.05
+for the oracle document setting. We also achieve the highest chunk-level BLEU (0.33) and
+ROUGE-L (0.46) scores, outperforming all baselines and Oracle Document. This validates
+that page-level filtering improves retrieval quality over direct chunk search.
+MethodDocRec@5PageRec@5 Max BLEU@5 Max ROUGE-L@5
+Dense baseline BGE-M3 0.88 0.34 0.26 0.35
+BM25 0.32 0.07 0.04 0.12
+SPLADE 0.50 0.16 0.18 0.29
+Hybrid fusion (BM25 + BGE-M3) 0.61 0.23 0.13 0.27
+Parent-Child 0.31 0.13 0.12 0.22
+Query expansion 0.68 0.27 0.08 0.24
+HyDE 0.86 0.40 0.25 0.37
+Multi-HyDE 0.85 0.42 0.27 0.39
+BGE-M3 + ReRanker 0.87 0.41 0.19 0.34
+BGE-M3 + Multi-HyDE + ReRanker 0.93 0.46 0.28 0.40
+Learned page scorer (Ours)0.95 0.55 0.33 0.46
+Table 3.Aggregated retrieval performance over 150 FinanceBench samples atk= 5.
+5.3.Breakdown by Question and Document Type
+We report page and document recall by question type. Figure 3 demonstrates that
+performance varies significantly by question type. On metrics questions, our learned page
+scorer with a page recall of 0.81 exceeds Oracle Document page recall of 0.68, despite both
+achieving perfect document recall. This occurs because metrics questions target financial
+tables and numerical statements that appear in structurally predictable sections, allowing the
+domain-tuned page embeddings to effectively retrieve the correct page. Conversely, domain
+and novel questions show larger gaps to their oracle bounds, as these require narrative
+context that is harder to capture and face different retrieval challenges.
+Figure 3.Document and page recall atk= 5by question type. 50 questions per type
+As shown in Table 4, performance varies substantially by filing type. On 10K filings, which
+comprise 75% of our dataset, the learned page scorer achieves 0.62 page recall, exceeding
+both the best baseline (0.45) and Oracle Document (0.56). The strong performance on 10Ks
+is likely due to the sample size in the training data and reflects the consistent structure and
+
+
+[Page 10]
+length of annual reports. In contrast, performance on Earnings call (EC) transcripts is weak
+(0.10), falling far short of the oracle bound (0.64) and baseline (0.36). Earnings calls have
+less standardized structure and evidence may appear in conversational Q&A sections that
+differ from the training data. Performance on 10Q and 8K filings also underperformed the
+baseline, likely due to limited representation of these document types in training data.
+10K (n=112) 10Q (n=15) 8K (n=9) EC (n=14)
+Method D@5 P@5 D@5 P@5 D@5 P@5 D@5 P@5
+BGE-M3 + Multi-HyDE + ReRanker 0.96 0.45 0.87 0.47 0.89 0.78 0.86 0.36
+Learned Page Scorer (Ours) 0.97 0.62 0.87 0.40 0.89 0.56 0.86 0.10
+Oracle Document 1.00 0.56 1.00 0.60 1.00 0.89 1.00 0.64
+Table 4.Document (D@5) and page (P@5) recall atk = 5by filing type. EC is Earnings.
+5.4.Generative Results
+Despite improvements in page recall, it is important to evaluate whether downstream
+generation benefits from better evidence retrieval. Table 5 shows answer quality using
+Qwen-2.5-7B-Instruct. Our learned page scorer achieves 0.30 numeric match accuracy,
+outperforming the best baseline (12%) and oracle document (26%), while also improving
+ROUGE-L scores over strongest baseline (0.15 vs 0.07), supporting our results from Figure 3,
+where our method outperformed the Oracle Document setting on metrics question. This
+suggests that page-level filtering successfully targets pages containing the numerical evidence
+needed for accurate calculation, while maintaining answer quality across both extractive and
+reasoning questions.
+Method ROUGE-L Numeric Match
+BGE-M3 + Multi-HyDE + ReRanker 0.07 0.12
+Learned Page Scorer (Ours) 0.15 0.30
+Oracle Doc 0.16 0.26
+Oracle Page 0.20 0.34
+Table 5.Generative results. Numeric match follows tolerance from FinanceBench
+6.Conclusion
+We introduced an oracle-based framework to decompose retrieval failures in financial
+question answering, separating document discovery from page and chunk level retrieval
+within the correct filing. Across diverse retrieval strategies on FinanceBench, we find that
+while current methods improve document recall, page-level retrieval gaps remain even when
+the correct document is retrieved. To address this bottleneck, we introduce a page scorer
+that ranks pages within a document and then restricts chunk retrieval to the top ranked
+pages. Our approach achieves 55% page recall, outperforming all baseline methods as well
+as Oracle Document retrieval on metrics generated questions. This shows that explicit
+page-level modeling with domain-specific training improves within-document retrieval more
+effectively than direct chunk matching, even with perfect document discovery.
+Our study evaluates 150 questions from FinanceBench, predominantly 10-K filings, limiting
+generalization to other document types or domains. This motivates the need to evaluate our
+
+
+[Page 11]
+approach on other benchmarks or the full FinanceBench dataset. The page scorer requires
+gold annotations and relies on random in-batch negatives during training, in the future hard
+negative mining could improve results. Answer evaluation uses ROUGE-L and numeric
+matching, which may not fully capture correctness in financial contexts. Finally, generative
+results are based on one LLM, using larger or different models may impact generative results.
+Promising directions include combining page scoring with reranking or query augmentation,
+reinforcement learning for iterative retrieval, incorporating document structure metadata,
+and extending to multi-document questions requiring cross-filing context aggregation.
+AppendixA.Generator Prompt Template
+System: You are a financial analyst assistant. Your task is to provide
+accurate, concise, and well-supported answers to questions based on provided
+financial document segments.
+Context: {retrieved_evidence}
+Question: {query}
+Answer:
+AppendixB.Learned Page Scorer Performance by P
+PDocRec@5PageRec@5 Max BLEU@5 Max ROUGE-L@5
+5 0.92 0.48 0.30 0.44
+10 0.95 0.48 0.31 0.44
+20 0.95 0.55 0.33 0.46
+Table 6.P value ablation for learned page scorer
+References
+[1] P. Islam, A. Kannappan, D. Kiela, R. Qian, N. Scherrer, and B. Vidgen.FinanceBench: A
+New Benchmark for Financial Question Answering. 2023. arXiv: 2311.11944[cs.CL].
+[2] K. Papineni, S. Roukos, T. Ward, and W.-J. Zhu. “Bleu: a method for automatic evaluation
+of machine translation”. In:Proceedings of the 40th annual meeting of the Association for
+Computational Linguistics. 2002, pp. 311–318.
+[3] C.-Y. Lin. “ROUGE: A Package for Automatic Evaluation of Summaries”. In:Text Summa-
+rization Branches Out. Barcelona, Spain: Association for Computational Linguistics, 2004,
+pp. 74–81.
+[4] P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. Küttler, M. Lewis,
+W.-t. Yih, T. Rocktäschel, et al. “Retrieval-augmented generation for knowledge-intensive nlp
+tasks”. In:Advances in neural information processing systems33 (2020), pp. 9459–9474.
+[5] G. Izacard and E. Grave. “Leveraging Passage Retrieval with Generative Models for Open
+Domain Question Answering”. In:Proceedings of the 16th Conference of the European Chapter
+of the Association for Computational Linguistics: Main Volume. Online: Association for
+Computational Linguistics, 2021, pp. 874–880.doi: 10.18653/v1/2021.eacl-main.74.
+[6] Z. Chen, W. Chen, C. Smiley, S. Shah, I. Borova, D. Langdon, R. Moussa, M. I. Beane, T.-H. K.
+Huang, B. R. Routledge, and W. Y. Wang. “FinQA: A Dataset of Numerical Reasoning over
+Financial Data”. In:ArXivabs/2109.00122 (2021).
+
+
+[Page 12]
+[7] F. Zhu, W. Lei, Y. Huang, C. Wang, S. Zhang, J. Lv, F. Feng, and T.-S. Chua. “TAT-QA: A
+Question Answering Benchmark on a Hybrid of Tabular and Textual Content in Finance”.
+In:Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics
+and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long
+Papers). Ed. by C. Zong, F. Xia, W. Li, and R. Navigli. Online: Association for Computational
+Linguistics, 2021, pp. 3277–3287.doi: 10.18653/v1/2021.acl-long.254.
+[8] Z. Chen, S. Li, C. Smiley, Z. Ma, S. Shah, and W. Y. Wang. “Convfinqa: Exploring the chain
+of numerical reasoning in conversational finance question answering”. In:Proceedings of the
+2022 conference on empirical methods in natural language processing. 2022, pp. 6279–6292.
+[9] V. D. Lai, M. Krumdick, C. Lovering, V. Reddy, C. Schmidt, and C. Tanner.SEC-QA: A
+Systematic Evaluation Corpus for Financial QA. 2024. arXiv: 2406.14394[cs.CL].
+[10] S. Kim, H. Song, H. Seo, and H. Kim.Optimizing Retrieval Strategies for Financial Question
+Answering Documents in Retrieval-Augmented Generation Systems. 2025. arXiv: 2503.15191
+[cs.IR].
+[11] X. Wang, J. Chi, Z. Tai, T. S. T. Kwok, H. He, Z. Li, Y. Hua, M. Li, P. Lu, S. Wang, et al.
+“Finsage: A multi-aspect rag system for financial filings question answering”. In:Proceedings
+of the 34th ACM International Conference on Information and Knowledge Management. 2025,
+pp. 6144–6152.
+[12] A. J. Yepes, Y. You, J. Milczek, S. Laverde, and R. Li.Financial Report Chunking for Effective
+Retrieval Augmented Generation. 2024. arXiv: 2402.05131[cs.CL].
+[13] J. Chen, S. Xiao, P. Zhang, K. Luo, D. Lian, and Z. Liu.M3-Embedding: Multi-Linguality,
+Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation.
+2025. arXiv: 2402.03216[cs.CL].
+[14] V. Karpukhin, B. Oguz, S. Min, P. S. Lewis, L. Wu, S. Edunov, D. Chen, and W.-t. Yih.
+“Dense Passage Retrieval for Open-Domain Question Answering.” In:"Proceedings of the
+2020 Conference on Empirical Methods in Natural Language Processing (EMNLP)". 2020,
+pp. 6769–6781.
+[15] S. E. Robertson and H. Zaragoza. “The Probabilistic Relevance Framework: BM25 and Beyond”.
+In:Found. Trends Inf. Retr.3 (2009), pp. 333–389.
+[16] T. Formal, B. Piwowarski, and S. Clinchant. “SPLADE: Sparse lexical and expansion model
+for first stage ranking”. In:Proceedings of the 44th International ACM SIGIR Conference on
+Research and Development in Information Retrieval. 2021, pp. 2288–2292.
+[17] G. V. Cormack, C. L. Clarke, and S. Buettcher. “Reciprocal rank fusion outperforms condorcet
+and individual rank learning methods”. In:Proceedings of the 32nd international ACM SIGIR
+conference on Research and development in information retrieval. 2009, pp. 758–759.
+[18] L. Gao, X. Ma, J. Lin, and J. Callan. “Precise zero-shot dense retrieval without relevance
+labels”. In:Proceedings of the 61st Annual Meeting of the Association for Computational
+Linguistics (Volume 1: Long Papers). 2023, pp. 1762–1777.
+[19] R. George, A. G. Srinivasan, J. K. Joe, H. MR, H. Kant, R. Vimalkanth, S. Suresh, et al.
+“Enhancing Financial RAG with Agentic AI and Multi-HyDE: A Novel Approach to Knowledge
+Retrieval and Hallucination Reduction”. In:Proceedings of The 10th Workshop on Financial
+Technology and Natural Language Processing. 2025, pp. 19–32.
+[20] J.Choe,J.Kim,andW.Jung.“HierarchicalRetrievalwithEvidenceCurationforOpen-Domain
+Financial Question Answering on Standardized Documents”. In:Findings of the Association
+for Computational Linguistics: ACL 2025. Association for Computational Linguistics, 2025,
+16663–16681.doi: 10.18653/v1/2025.findings-acl.855.
+[21] Y. Li, M. Wang, M. de Carvalho, S. Sabanis, and T. Ma.FinGEAR: Financial Mapping-Guided
+Enhanced Answer Retrieval. 2025. arXiv: 2509.12042[cs.CE].
+[22] M. Henderson, R. Al-Rfou, B. Strope, Y. hsuan Sung, L. Lukacs, R. Guo, S. Kumar, B. Miklos,
+and R. Kurzweil.Efficient Natural Language Response Suggestion for Smart Reply. 2017.
+arXiv: 1705.00652[cs.CL].

@@ -1,0 +1,2979 @@
+[Page 1]
+FinReasoning: A Hierarchical Benchmark for Reliable
+Financial Research Reporting
+Yiyun Zhu1,∗, Yidong Jiang1,∗, Ziwen Xu1, Yinsheng Yao1, Dawei Cheng1,†,
+Jinru Ding2 and Jie Xu2
+1 School of Computer Science and Technology, Tongji University, Shanghai, China
+2 Shanghai Artificial Intelligence Laboratory, Shanghai, China
+{2533994, dcheng}@tongji.edu.cn {dingjinru, xujie}@pjlab.org.cn
+Abstract
+Large language models (LLMs) are increasingly deployed in financial research
+workflows, where their role is evolving from single-model assistance for human
+analysts toward autonomous collaboration among multiple agents. Yet real-world
+deployments still expose factual errors, numerical inconsistencies, and shallow
+analysis, which can distort assessments of corporate fundamentals and trigger
+severe economic losses. While existing benchmarks have begun to evaluate such
+failures, they score all aspects of the generated analysis in one pass, failing to dis-
+tinguish whether a model fails at foundational stages like auditing and correction,
+or underperforms at generating research-grade insights. Consequently, it obscures
+capability bottlenecks and the specialized strengths essential for multi-agent role
+assignment. To address these gaps, we introduce FinReasoning, a hierarchical
+benchmark that decomposes the core capabilities of financial research into semantic
+consistency, data alignment, and deep insight. We further propose a fine-grained
+evaluation framework that strengthens hallucination-correction assessment and
+incorporates a 12-indicator rubric for core analytical skills. FinReasoning re-
+veals clear capability stratification across model types. Closed-source models
+(like Doubao-Seed-1.8) perform strongly overall and are better suited for core
+reasoning agents in multi-agent financial systems; open-source general models
+(like Qwen3-235B) show clear capability divergence and consistently underper-
+form on Semantic Consistency, making them less suited for quality-sensitive
+generation tasks; financial-domain models (like Fin-R1) generate moderate in-
+sights but lack foundational auditing skills. Our work has already been deployed
+in pilot tests across several real-world scenarios. The resource is available at
+https://github.com/TongjiFinLab/FinReasoning.
+1 Introduction
+Financial LLM applications are undergoing a paradigm shift from single-model assistance to au-
+tonomous multi-agent collaboration. Institutions such as Union Bank of Switzerland [1] and Citadel
+[2] have integrated LLMs into research pipelines for drafting equity reports and market analyses, while
+recent agent frameworks enable autonomous portfolio management and trading. Meanwhile, emerg-
+ing multi-agent financial systems [3, 4, 5] increasingly distribute responsibilities across specialized
+agents for strategy generation, risk assessment, data verification, and decision synthesis.
+However, recent financial benchmarks like PHANTOM and CNFinBench[6, 7, 8, 9, 10] reveal that
+current LLMs pose significant risks in financial writing, including factual errors, fabricated citations,
+∗These authors contributed equally to this work.
+†Corresponding author.
+Preprint.
+arXiv:2603.19254v2  [cs.CL]  8 May 2026
+
+
+[Page 2]
+Test with Injected Errors
+Semantic Consistency
+Terminology
+Term Confusion
+Term Inconsist.
+Improper Usage
+Num. Consistency Val.
+Data Alignment
+Verification
+Value Scaling
+Unit Conversion
+Relation Reversal
+Calculation Reasoning
+SQLReason
+Verify
+Deep Insight
+Research-Level Analysis
+Peer Comp.
+Indicator Relation
+Trend Analysis
+Fact
+Entity Error
+Context Error
+Relation Error
+Logic
+Reasoning Chain
+Context Inconsist.
+Discourse Relation
+Based on the provided external knowledge base 
+information, identify all [contextual inconsistencies] 
+in the following context.
+Based on the MACD divergence for Company A from 
+March 12 to June 10, 2025, does the price decline 
+lack intrinsic momentum support?
+Data
+p Answer
+p Cal. Process
+p Data Retrived
+Stock Quant
+Empirical Trading
+Theor. Pricing
+Justification & 
+Causal Depth
+Architectural Richness 
+& Strictness
+Factuality & 
+Contextualization
+Using the SWOT framework, conduct a 
+systematic analysis of Company A's current 
+strategic position.
+Analyse Knowledge
+ Origin
+Report
+Research
+p Causal Chain
+p Risk Factors
+p Factual Grounding
+p Error Type
+p Error Content
+p Error Location 
+Completeness & 
+Comparative Analysis 
+Figure 1: An overview of the taxonomy of FinReasoning benchmark, which is organized into three
+complementary tracks. Semantic Consistency track evaluates text-grounded error detection and
+correction. Data Alignment track assesses structured data grounding and executable rule-based
+reasoning. Deep Insight track measures research-grade analyses. Each track is constructed with
+multi-level tasks to diagnose LLMs’ capabilities from factual reliability to analytical reasoning.
+and shallow analysis. Real-world reports have repeatedly revealed similar problems. Two government
+reports Deloitte prepared for Australian and Canadian authorities were found to contain fabricated
+references and incorrect citations linked to generative-AI hallucinations [11]. In financial research,
+where numerical precision and temporal consistency are essential, such failures are particularly
+concerning. These errors can distort views of corporate fundamentals, affecting investment decisions
+and triggering severe economic losses. This raises a deeper challenge beyond error detection:
+evaluating whether models can sustain reliable reasoning throughout the entire analytical process.
+Many existing benchmarks typically treat hallucination as a binary outcome, without assessing a
+model’s ability to repair and maintain overall coherence after detection [8, 6, 12]. Benchmarks closer
+to financial report generation mainly rely on aggregate accuracy and lack independent evaluation of
+key abilities like structured exposition, failing to expose analytical bottlenecks [13, 14, 9].
+Financial reasoning is not a single, unified skill, but a structured process composed of multiple inter-
+dependent stages. In professional practice, analysts are evaluated across staged competencies—from
+ensuring semantic and factual correctness, to grounding intermediate steps in structured data, and
+ultimately to synthesizing evidence into high-level analytical judgments. As a result, capabilities are
+rarely uniform across levels: both human analysts and models may perform well in certain stages
+while remaining limited in others. When these heterogeneous abilities are collapsed into a single
+aggregate metric, critical differences in capability profiles are obscured, making it difficult to diagnose
+reasoning failures or support downstream system design. Therefore, evaluating financial reasoning
+requires a hierarchical framework that can disentangle stage-specific competencies.
+To address these gaps, we introduce FinReasoning, an open evaluation resource and benchmark to
+evaluate three core capabilities underlying financial research workflows. Figure 1 illustrates the
+distribution of tasks, which remains relatively balanced across tracks. Semantic Consistency inspects
+whether a model can maintain terminological precision, factual correctness, and reasoning continuity
+in long-form financial text. It evaluates the model’s error diagnosis and correction quality through
+correctness, reasoning soundness, relevance, and completeness. Data Alignment examines whether
+a model can anchor its analysis in structured financial data by performing numerical verification,
+indicator computation, and rule-based reasoning. Its execution success rate and field/date selection
+accuracy identify where the reasoning pipeline breaks. Deep Insight assesses whether a model can
+transform verified evidence into research-grade analysis, using an expert rubric with 4 dimensions and
+12 indicators to assess different aspects. This benchmark reveals the capability of LLMs at different
+financial reasoning stages, and has already been piloted in several real-world applications, including
+multi-agent retrieval and analytical systems in banking scenarios. Our contributions are as follows:
+• We release FinReasoning as a hierarchical evaluation resource for assessing LLMs’ reliability in
+financial report generation, with tasks aligned to analyst workflows across semantic consistency,
+data alignment, and deep analytical insight.
+• We provide a fine-grained evaluation framework with documented protocols and a 12-indicator ana-
+lytical rubric, enhancing hallucination-correction assessment and enabling structured, reproducible
+diagnosis of model strengths and failure modes.
+2
+
+
+[Page 3]
+• We evaluate 19 LLMs and uncover systematic capability stratification across reasoning stages.
+Models with similar overall performance exhibit different strengths, demonstrating that financial
+reasoning is not a monolithic ability. These findings highlight the diagnostic value of hierarchical
+evaluation and provide actionable guidance for model selection and system design.
+2 Related Work
+2.1 Reasoning Benchmarks in General Domain
+The evaluation paradigm in the general domain is evolving from single accuracy metrics toward
+multidimensional reliability validation [15, 16, 17, 18]. Within this landscape, assessing a model’s
+reasoning integrity increasingly necessitates a focus on hallucination detection, numerical precision,
+and deep logical analysis. In the area of hallucination and consistency, HalluLens [19] establishes
+a rigorous classification system distinguishing between context-conflicting and fact-conflicting,
+highlighting the primary limitation of current models due to the ambiguity of external knowledge
+boundaries. In the field of structured and numerical reasoning, RealHiTBench [ 20] introduces
+complex hierarchical tables and reveals the structural blindness of top models when handling non-flat
+data, strongly arguing that relying solely on text serialization fails to meet high-precision reasoning
+requirements. This finding complements earlier work on modal alignment in TAT-DQA [21] and
+StructText [22]. Regarding deep logical analysis, while FOLIO [23] and ProntoQA [24] respectively
+evaluate first-order logic and multi-step deductive chains, LogicBench [25] exposes critical failures
+in complex negations and parametric interference.
+2.2 Financial Benchmarks
+In the financial domain, early evaluation efforts focused on fragmented capabilities [26, 27]. TAT-
+QA [16] and FinQA [28] evaluate if models can perform numerical reasoning over hybrid financial
+data. To better emulate the complexity of real-world scenarios, recent benchmarks incorporate long
+financial disclosures and hallucination detection. SEC-QA [ 13] and SECQUE [14] leverage U.S.
+Securities and Exchange Commission filings to test insight generation and risk assessment, while
+FinAuditing [29] performs structure-aware logical validation across documents based on international
+accounting and disclosure principles. Meanwhile, FAITH [ 12] targets intrinsic hallucinations in
+financial tables, and FinTrust [8] establishes a framework for evaluating fiduciary duty and alignment.
+Despite these advances, existing benchmarks still focus on isolated aspects of the financial workflow,
+failing to provide a unified and fine-grained evaluation of these capabilities within a coherent
+analytical framework. Although FinMaster [30] introduces a workflow-oriented setting grounded
+in real investment analysis, it prioritizes broad task coverage and offers only limited evaluation of
+reliability, traceability, and consistency in complex multi-step reasoning. As a result, there remains
+a gap for a hierarchical evaluation that synthesizes financial logic with rigorous staged reliability
+validation. In Table 1, we present a comprehensive comparison of FinReasoning with representative
+Financial benchmarks in this area.
+Table 1: Comparison of FinReasoning with existing financial benchmarks. The criteria columns of the
+table include: (1) task type (objective vs. subjective/open-ended), (2) core competence (calculation,
+consistency, long text), (3) evaluation protocol (staged evaluation, LLM judge, expert rubric), (4)
+total evaluation samples, and (5) baselines tested.
+Benchmarks Task Type Core Competence Evaluation Protocol Baselines
+Obj. Subj. Calculation Consistency Long Text Staged Eval. LLM Judge Expert Rubric
+TAT-QA [16]✓×✓× × × × ×5
+FinQA [28]✓×✓× × × × ×11
+SEC-QA [13]×✓× ×✓×✓×4
+FinAuditing [29]✓× ×✓ ✓ ✓× ×13
+FAITH [12]✓× ×✓×✓× ×16
+FinMaster [30]✓ ✓ ✓ ✓ ✓×✓×7
+FinReasoning (Ours) ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ 19
+3
+
+
+[Page 4]
+stcode stock code
+open open price
+dt date
+fin. literature
+677
+fin. news
+1w+
+fin. report 
+901
+3.5M
+stock
+Source Semantic Consistency
+    news chunk
+   rule/term
+  report chunk
+news
+report
+literature
+news 
+report 
+STEP1 Corpus Building STEP2 Text Synthesis STEP3 Error Injection
+long context
+summary
+research repo.
+mkt. comment
+ind. analysis
+9 error types
+term   fact   logic
+error
+Data Alignment
+Modified
+·---- --- ·---
+----- ------ -
+----- ·----- -
+-----· ----- -
+---·---·----
+error type
+error loc.
+corr. text
+Deep Insight
+event
+driver
+trend
+action
+Report
+----- ----
+----- ·---
+---· ----- 
+----·--·-
+STEP1 Evd. Extraction STEP2 QA Gen.
+Q resoning ... 
+ expert-level A
+event
+inter. mech.
+final impact
+STEP3 Check
+fact.
+caus.
+rigior
+halluc.
+    
+expert
+ judge
+600800
+400
+300
+300
+300
+300
+600
+600
+600
+SC-Term.
+SC-Fact
+SC-Logic
+DI-CA
+DI-FC
+DI-ARS
+DI-JCD
+DA-Veri
+DA-Cal
+DA-Reason
+STEP1 Database Constr.
+STEP2 Rule Selection
+STEP3 Code Exe.
+61 Financial Rule
+$xx.xx
+Figure 2: An overview of the FinReasoning benchmark, presenting its data sources, the construction
+procedures for each task, and the data statistics including the number of sub-tasks within each track.
+3 FinReasoning
+3.1 Data Source and Statistics
+FinReasoning is built upon real-world financial materials sourced from a leading domestic financial
+institution and publicly authorized for use. The prompt templates, code, data, resource usage
+instructions, and other related information are all available at our project url. For textual resources,
+the dataset aggregates 677 pieces of financial literature, over 10,000 publicly available news reports,
+and 901 Chinese financial research reports, covering a broad spectrum of market events, industry
+narratives, and analytical writing styles. For structured numerical data, we incorporate A-share market
+data from 2023 to 2025, including fundamental company indicators and daily trading information.
+FinReasoning contains 4,800 high-quality financial evaluation samples. Table 2 reports the detailed
+statistics. Detailed statistics are provided in Appendix B.
+Table 2: An overview of FinReasoning statistics, including the number of samples and the average,
+maximum, and minimum lengths of questions and answers.
+Track number Length (Q) Length (A)
+avg. max min avg. max min
+Semantic Consistency 1800 8783 12183 5475 6767 12317 4326
+Data Alignment 1800 57 220 23 1 1 1
+Deep Insight 1200 138 347 33 1483 2823 653
+3.2 Task Definition and Construction
+As shown in Figure 2, FinReasoning decomposes the workflow of research report generation into
+three sequential capability modules that together reflect the full cognitive process of financial analysts:
+reading, verification, reasoning, and writing. We present a detailed data collection process and
+benchmark taxonomy in Appendix B.2. DeepSeek-V3 [ 31] is used for QA generation across all
+tasks, with all outputs subjected to rigorous expert validation. The generation prompts are provided
+in Appendix F.1, and detailed validation procedure is described in Appendix C.1.
+Semantic Consistency (SC).SC targets whether a model can maintain coherent semantics in
+long-form financial text by identifying and correcting terminology misuse, factual inaccuracies, and
+breaks in reasoning chains. This capability aligns with the proofreading stage of analyst workflows,
+where one must understand long-text structure, compare information across segments, and accurately
+locate potential errors.
+In constructing the dataset, we first conduct a pilot study to ground our error taxonomy in real-world
+LLM behavior. Specifically, we sample 200 long-form financial texts and prompt five representative
+models—DeepSeek-V3, Qwen3-235B, GPT-5, Intern-S1, and Fin-R1—to generate corresponding
+QA pairs or continuations. Through expert review, we identify, categorize, and distill recurring
+hallucination patterns observed across these outputs, yielding a systematic taxonomy of terminology
+misuse, factual inaccuracies, and logical inconsistencies commonly produced by LLMs in financial
+contexts. Guided by these empirically derived error categories, we then design nine controllable error-
+injection mechanisms that closely mirror the distribution and typology of real model hallucinations.
+4
+
+
+[Page 5]
+This design allows us to introduce 1–3 diagnostically meaningful perturbations into each sample
+without disrupting overall fluency, thereby simulating authentic LLM behavior under controlled
+conditions. The original and perturbed texts are paired with structured annotations specifying error
+type, location, and corrected content, all verified through expert review. This approach ensures
+our benchmark diagnoses errors that reflect actual model weaknesses, directly aligning with the
+proofreading demands of real-world financial auditing scenarios.
+Data Alignment (DA).DA focuses on aligning natural-language reasoning with structured financial
+data and producing correct outcomes for indicator queries, numerical computations, and rule-based
+judgments. It simulates the workflow of research analysts who extract financial indicators from
+databases, requiring an accurate understanding of data schemas and the ability to convert analytical
+intent into database operations.
+In constructing the dataset, we design a rule framework based on a structured database of A-share
+market data from 2023 to 2025. For verification tasks, we define 4 categories of numerical-consistency
+and text-perturbation rules to check whether natural-language statements match the values in the
+database. For calculation tasks, we specify 35 indicator formulas that combine multiple fields
+and dates, supporting cross-period comparison and composite metric computation. For rule-based
+reasoning tasks, we build 61 executable rules based on established financial analysis practices and
+commonly used industry heuristics, enabling professional-grade reasoning in trend assessment, ratio
+interpretation, and conditional judgments. All rules are broken into atomic steps and executed through
+a unified calculator. During QA generation, we first sample real data and then apply a randomly
+selected rule to compute or infer the answer, ensuring that every output is grounded in verifiable data
+and explicit logic rather than the LLM’s unreliable numerical guessing.
+Deep Insight (DI).This task assesses a model’s ability to generate research-grade analytical
+insights grounded in evidence, with logical coherence, causal reasoning, structured perspectives, and
+professional judgment. It mirrors the workflow of research analysts, who distill mechanisms, flag
+risks, and build clear analytical frameworks from large amounts of information when drafting reports.
+In constructing the dataset, we select paragraphs from industry research reports that contain core
+events or key mechanisms as evidence, keeping limited redundant context to preserve a realistic
+writing environment. Based on these evidence segments, we craft open-ended analytical questions
+that prompt the model to reason about the multidimensional impacts of each event. Gold answers are
+generated by DeepSeek-V3 in an expert role-playing setup, following professional research-writing
+logic: a framing sentence that sets the structure, a three-step causal chain (event → intermediate
+mechanism → final impact), and at least one counterbalancing point addressing execution risks,
+external constraints, or alternative interpretations. All answers undergo automated and expert review
+to ensure every claim is evidence-grounded, and experts further verify the overall analytical quality.
+Table 3: Evaluation Metrics Overview. This table details the metrics and methodologies. For LLM-
+judge, we use a fused protocol combining DeepSeek-V3 and Qwen3-235B.
+Track Evaluation Metrics Method
+Semantic Consistency
+Error Location Sentence-F1
+Error Explanation BERTScore, SimCSE, LLM-as-a-Judge
+Correct Content BERTScore, SimCSE, LLM-as-a-Judge
+Data Alignment
+Success Rate Rate
+Answer Accuracy Accuracy
+Retrieval Accuracy F1-Score (Data ID, Field)
+Deep Insight Category-specific Scoring Criteria LLM-as-a-Judge
+3.3 Benchmark Evaluation
+Evaluation MethodAs shown in Table 3, FinReasoning adopts a hybrid evaluation framework
+that combines objective metrics with model-based judgments. To mitigate single-model bias, we
+employed DeepSeek-V3 and Qwen3-235B as judge models and fused their outputs via grid search
+over weighting parameters to maximize alignment with expert annotations. All metrics are normalized
+5
+
+
+[Page 6]
+and then averaged to produce a composite score for each track. Detailed evaluation prompts and
+scoring rubrics are provided in Appendix F.2.
+In SC track, we use sentence-level Precision, Recall, and F1 to evaluate error localization, and employ
+BERTScore and SimCSE to measure the semantic alignment of error explanations and corrected text.
+To assess hallucination diagnosis and correction quality, we further introduce an LLM-as-a-Judge
+mechanism that assigns fine-grained scores to both the explanation and the revision along four
+dimensions: correctness, reasoning rigor, relevance, and completeness.
+In DA track, we separate evaluation into outcome correctness and process correctness to prevent
+cases where a model reaches the right answer through an invalid reasoning path. Answer Accuracy
+measures whether the final judgment is correct, while Retrieval Accuracy, computed as the F1 score
+over retrieved fields and row identifiers, checks whether the model’s reasoning is grounded in the
+correct data source. Success Rate is also necessarily recorded because some LLMs may fail during
+the query phase or be unable to return the correct format.
+In DI track, we employ an expert-designed rubric through an LLM-as-a-judge to score model-
+generated analyses across four dimensions comprising twelve indicators: Justification and causal
+depth, including completeness of the causal chain, necessity of causal explanation, and adherence to
+professional analytical norms; Factuality and contextualization, examining factual density, computa-
+tional rigor, and contextual reasoning; Completeness and comparative analysis, evaluating critical
+thinking, comparative perspective, and balance of arguments; Architectural richness and strictness,
+assessing framework completeness, logical hierarchy, and expression granularity.
+Evaluation ReliabilityWe conduct several robustness checks beyond the main scoring protocol.
+Two financial experts independently reviewed 10% of LLM-Judged samples for both DeepSeek-V3
+and Qweb3-238B; the resulting inter-expert agreement was κ= 0.79 on SC and κ= 0.76 on DI,
+which supports the use of the fused LLM-as-a-Judge protocol as a scalable evaluation mechanism.
+Full verification details and fusion strategy are provided in Appendix C.2. Prompt perturbation
+experiments in Appendix D.2 show that rephrasing the judge’s instructions has limited impact on
+model rankings, with an average Spearman’sρ of 0.95. Bootstrap confidence intervals provided in
+Appendix D.4 further indicate that the major performance gaps are statistically stable. We also observe
+systematic differences in judge stringency and mild model-family preference in Appendix D.3. The
+Pearson correlation coefficients for two LLM judges reach 0.94, so judge-based scores primarily
+serve ranking stability and diagnostic comparison rather than calibrated absolute quality estimates.
+4 Experiments
+4.1 Experimental Setup
+We evaluate the zero-shot performance of 16 general LLMs and 3 financial LLMs. The closed-source
+general models include GPT series (GPT-5, GPT-4o) [32, 33], Gemini-3-pro [34], Claude-sonnet-
+4.5 [35], GLM-4.6 [ 36], Qwen3-Max [ 37], Kimi-K2 [ 38] and Doubao-Seed-1.8 [ 39]. The open-
+source general models include DeepSeek series (DeepSeek-V3, DeepSeek-R1) [31, 40], Qwen se-
+ries (Qwen3-8B, Qwen3-32B, Qwen3-235B) [37], Llama series (Llama-3.1-8B, Llama-3.1-70B) [41]
+and Intern-S1 [42]. The open-source financial models includeFin-R1[ 43], TouchstoneGPT [44]
+and DianJin-R1-7B [45], all of which are fine-tuned on Qwen2.5 [46]. For open-source LLMs, we
+directly utilize their released model weights on Nvidia A100 GPUs during the evaluation. All models
+are evaluated under a unified decoding temperature of 0.1. For those who wish to use our evaluation
+suite, we provide detailed evaluation cost in Appendix D.1 as reference.
+4.2 Main Results
+In order to enable meaningful cross-track comparison despite heterogeneous scoring mechanisms,
+we apply a two-stage Z-Score & Min-Max normalization to produce a unified leaderboard shown in
+Table 4. The overall ranking reveals Doubao-Seed-1.8 (96.8), GPT-5 (95.4), and Kimi-K2 (93.3) as
+the top 3 models in these tasks, while all three financial domain models rank in the bottom. Beyond
+overall ranking, a key observation is the systematic divergence of model capabilities across different
+reasoning stages. We present the detailed results of each evaluation rubric in Appendix E.3, additional
+quantitative statistics and case analyses are provided in Appendix E.
+6
+
+
+[Page 7]
+Table 4: Performance comparison of LLMs across different tracks (Best in bold, second best
+underlined; the full leaderboard is ranked by the Overall Normalized Score). Ver.=Verification;
+Cal.=Calculation; Reason.=Reasoning; ARS=Architectural Richness and Strictness; FC=Factuality
+and Contextualization; CA=Completeness and Comparative Analysis; JCD=Justification and Causal
+Depth; Avg.=Average Score; Norm.=Normalized Score.
+Model Semantic Consistency Data Alignment Deep Insight Overall
+Term. Fact Logic Avg. Norm. Ver. Cal. Reason. Avg. Norm. ARS F&C C&A JCD Avg. Norm. Norm.
+Doubao-Seed-1.8 63.9 74.4 63.3 67.2 100.0 93.5 66.6 55.6 71.9 92.1 93.587.2 86.2 95.7 90.6 98.3 96.8
+GPT-5 64.371.4 57.6 64.4 94.9 88.372.8 68.5 76.5 100.0 92.4 84.6 86.7 81.8 86.4 91.1 95.4
+Kimi-K2 49.5 66.0 59.1 58.2 83.7 90.2 69.3 63.2 74.2 96.1 93.4 87.4 89.5 96.3 91.6 100.0 93.3
+Claude-sonnet-4.5 54.9 69.0 51.8 58.6 84.4 85.3 64.6 62.7 70.9 90.4 92.2 87.1 84.5 96.2 90.0 97.3 90.7
+GLM-4.6 59.0 73.4 62.5 65.0 96.0 89.4 67.5 58.4 59.4 70.7 92.688.187.3 96.1 91.0 99.0 88.6
+Gemini-3-pro 63.1 71.1 50.2 61.5 89.7 94.369.9 56.8 73.7 95.2 82.1 79.0 76.7 80.7 79.6 79.5 88.1
+Qwen3-Max 51.2 70.0 57.1 59.4 85.9 92.3 67.1 66.3 75.2 97.8 85.8 76.0 75.8 82.9 80.1 80.4 88.0
+DeepSeek-V3 41.7 63.1 54.0 52.9 74.1 91.8 63.7 60.4 72.0 92.3 82.0 81.0 77.9 86.4 81.8 83.3 83.2
+Intern-S1 39.5 57.1 35.4 44.0 58.0 88.8 62.9 53.9 68.5 86.3 84.4 82.1 81.6 88.0 84.0 87.0 77.1
+GPT-4o 35.7 53.8 37.6 42.4 55.2 90.4 61.0 63.1 71.5 91.4 80.0 77.6 74.8 76.9 77.3 75.6 74.1
+Qwen3-235B 40.3 57.7 33.0 43.7 57.5 90.1 63.1 54.2 69.1 87.3 75.4 63.8 63.6 67.5 67.6 59.0 68.0
+DeepSeek-R1 51.6 66.9 46.7 55.0 77.9 25.7 68.9 22.5 39.1 36.0 88.0 84.6 80.0 89.8 85.6 89.8 67.9
+Qwen3-32B 38.1 54.9 34.2 42.4 55.2 91.6 55.7 65.0 70.8 90.2 73.6 61.7 60.3 65.7 65.3 55.1 66.8
+Qwen3-8B 32.4 46.1 37.6 38.7 48.5 83.5 51.8 54.2 63.2 77.2 69.3 51.1 53.9 57.4 57.9 42.5 56.1
+Fin-R1 21.4 22.6 24.2 22.8 19.7 65.4 40.6 38.6 48.2 51.5 77.9 71.8 73.5 71.5 73.7 69.5 46.9
+Llama-3.1-70B 19.7 28.8 20.4 23.0 20.1 88.2 61.3 61.3 70.3 89.4 42.6 36.5 34.7 36.8 37.7 8.0 39.2
+DianJin-R1-7B 19.1 22.7 20.3 20.7 15.9 65.9 20.1 6.9 30.9 21.9 77.1 63.6 73.3 69.1 70.8 64.5 34.1
+Llama-3.1-8B 19.4 21.1 16.9 19.2 13.2 78.4 49.1 42.6 56.7 66.1 39.1 30.8 31.3 32.1 33.3 0.5 26.6
+TouchstoneGPT 12.0 12.0 11.6 11.8 0.0 23.8 17.9 12.6 18.1 0.0 38.3 28.7 30.8 34.2 33.0 0.0 0.0
+Average 40.9 52.7 40.7 44.8 59.5 79.8 57.6 50.9 62.1 75.4 76.8 69.6 69.6 73.9 72.5 67.4 67.4
+4.2.1 Semantic Consistency
+Table 5 reports the detailed scores in SC, where the Overall Score is computed as the mean of
+Error Location, Error Explanation, and Correct Content; the latter two are each averaged over three
+sub-metrics. Validation shows that BERTScore and SimCSE achieve Pearson correlations of 0.86
+and 0.91 with LLM-Judge, confirming the reliability of LLM scoring.
+Table 5: Detailed results across tasks in Semantic Consistency.
+Task Error Location Error Explanation Correct Content Overall Score
+Sentence-F1 BERTScore SimCSE LLM BERTScore SimCSE LLM
+Terminology 20.6 66.0 67.5 49.9 36.7 35.7 50.4 40.9
+Fact 40.0 64.8 69.3 57.7 52.8 51.5 58.5 52.7
+Logic 21.5 61.9 62.7 62.8 26.4 25.8 62.2 40.7
+Finding 1: Models can explain errors but struggle to correct them.Across all three tasks, Error
+Explanation scores are consistently higher than Correct Content scores, with gaps of 20.2 points for
+Terminology, 9.7 for Fact, and 24.3 for Logic. These results indicate that models often rely on surface
+clues to describe what is wrong, yet struggle to produce revisions that align with financial-domain
+conventions or maintain contextual coherence. The difficulty is most pronounced in Logic, where
+correcting an error requires reconstructing an entire reasoning chain rather than adjusting a term or a
+number. This suggests that models lack the structured financial reasoning needed to transform error
+detection into valid, domain-grounded corrections.
+Finding 2: Fact-type errors are easier to detect than Terminology and Logic errors.Fact errors
+(Avg. = 52.7) outperform Terminology (40.9) and Logic (40.7) by approximately 12 points. This is
+because factual errors, such as incorrect entities or misattributed relationships, create clearer textual
+inconsistencies that models can detect from surface patterns. Terminology errors depend on precise
+financial vocabulary knowledge, while Logic errors require multi-step causal reasoning.
+4.2.2 Data Alignment
+Table 6 presents the detailed scores of selected LLMs, where the Overall Score is computed by
+multiplying the Success Rate by the average of other scoring metrics.
+7
+
+
+[Page 8]
+Finding 1: Performance declines consistently with task difficulty, but the extent of degradation
+varies sharply across model categories.As shown in Figure 3, average performance degrades
+monotonically from Ver. (79.8) to Cal. (57.6) to Reason. (50.9), with a mean decay rate of 36.6%.
+Success rates follow the same trend, showing that models not only answer less accurately but also fail
+more often to produce valid outputs as tasks require more steps and cross-field reasoning. However,
+the magnitude of degradation differs substantially by model family.
+Closed-source models maintain near-perfect format compliance and experience only moderate
+accuracy declines, reflecting stronger general reasoning and error-recovery capabilities. This stability
+likely stems from their larger model capacity and more robust instruction tuning, which help preserve
+structured outputs as task complexity increases. In contrast, financial domain models deteriorate
+severely as task complexity rises. For example, DianJin-R1-7B falls from 65.9 (Ver.) to 6.9 (Reason.),
+an 89.5% decline, driven largely by its success rate dropping to 16.0%. This indicates that small
+financial models lack the structural capacity to maintain coherent output formats when reasoning
+chains become long or interdependent.
+Table 6: Detailed results of Reasoning tasks. Suc-
+cess R.=Success Rate; Ans. Acc.=Answer Accu-
+racy; Over. S.=Overall Score.
+Model Success R. Ans. Acc. ID F1 Fields F1 Over. S.
+GPT-5 100.0 63.0 64.7 77.8 68.5
+Qwen3-Max 99.5 60.8 63.0 76.1 66.3
+DeepSeek-R1 38.8 60.6 49.0 64.6 22.5
+Fin-R1 59.8 60.7 80.4 53.0 38.6
+DianJin-R1-7B 16.0 51.6 44.0 34.0 6.9
+0
+20
+40
+60
+80
+100
+Verification Calculation Reasoning
+Close-Source
+Open-Source General
+Open-Source Financial
+Average of 19 LLMs
+Success Rate
+Figure 3: Comparative performance across model
+categories over three levels of the DA track.
+Finding 2: Reasoning-specialized models fail unexpectedly on simple tasks.Although DeepSeek-
+R1 performs competitively on Cal. (68.9), its Ver. score drops sharply to 25.7. Diagnostics show a
+100% Success Rate but near-random Answer Accuracy (23.5%) and ID F1 (28.1%), indicating that
+the model produces outputs in the correct format but retrieves the wrong content. Similar patterns
+appear in Reason.-style tasks, where DeepSeek-R1 reaches 60.6% Answer Accuracy yet only 38.8%
+Success Rate, with frequent format violations; DianJin-R1-7B and Fin-R1 display the same trend.
+These results suggest that models optimized for complex reasoning may over-reason on direct lookup
+tasks, inserting unnecessary inference steps that disrupt simple data retrieval. They also tend to
+lose format stability when the reasoning load increases. These behaviors collectively reduce their
+reliability on tasks that require precise and strictly structured responses.
+57.9
+65.3 67.6
+33.3
+37.7
+0 
+10 
+20 
+30 
+40 
+50 
+60 
+70 
+Qwen3-8B
+Qwen3-32B
+Qwen3-235B
+Llama-3.1-8B
+Llama-3.1-70B
+b) Average scores across model series.a) Score distributions across tasks.
+Figure 4: Visualized DI scores across tasks and model series.
+4.2.3 Deep Insight
+The DI track evaluates open-ended financial analysis through four dimensions via LLM-as-a-Judge.
+Finding 1: Causal reasoning is the primary capability that separates top-tier models from
+the rest.Figure 4.a shows per-dimension score distributions, revealing that most models handle
+structured exposition well. However, JCD displays a strong split: four models score above 95 (Kimi-
+K2, Claude-Sonnet-4.5, GLM-4.6, Doubao-Seed-1.8), while the remaining models cluster much
+lower. In contrast, F&C and C&A (both mean = 69.6) remain difficult, requiring accurate evidence
+grounding and multi-perspective analytical judgment rather than surface-level summarization. These
+results suggest that only a few frontier models can reliably form multi-step causal links, whereas
+most models lose coherence once the task moves beyond descriptive summarization. The ability to
+integrate events, mechanisms, and impacts appears to underlie the performance gap.
+8
+
+
+[Page 9]
+Finding 2: Model scale is helpful but insufficient for deep financial analysis.As shown in
+Figure 4.b, across Qwen3 variants, scaling from 8B to 32B yields a clear 12.8% gain, yet increasing
+to 235B adds only another 3.5%. Even more notably, Llama-3.1-8B (33.3) and Llama-3.1-70B (37.7)
+both remain far below the DI track average (72.5), despite the 70B model performing competitively
+on DA (70.3). Their weak DI results are further affected by limited Chinese comprehension. These
+observations show that improvements in parametric scale and structured reasoning (as reflected in
+DA) do not automatically translate into strong open-ended financial analysis. Deep Insight tasks rely
+on knowledge, disciplined instruction-following, and multi-step analytical planning.
+4.3 Discussion
+Hierarchical Model Diagnosis.Performance varies sharply across stages. For error detection
+and correction in long-text, Doubao-Seed-1.8 and GLM-4.6 show stronger control over factual
+accuracy and logical consistency. Tasks requiring numerical verification and multi-step reasoning
+are better handled by GPT-5 and Qwen3-Max, reflecting stronger execution over tabular data and
+rule-based operations. For higher-level analytical writing abilities, Kimi-K2 and Claude-sonnet-4.5
+produce more coherent and well-grounded insights. These patterns indicate that models strong in
+high-level analysis do not necessarily maintain stable foundations, while those with strong semantic
+reliability may not excel in structured reasoning. Across model families, closed-source models are
+more balanced, open-source models show larger variance, and financial fine-tuned models lag in
+foundational stages despite moderate high-level performance. This suggests that model capabilities
+should be matched to stage-specific roles in downstream systems.
+Directions for Improving Financial Fine-Tuned Models.Across all three tracks, financial-domain
+models lag behind closed-source and general open-source models of similar scale, with average
+gaps of 26.4 points on Semantic Consistency and 29.7 on Data Alignment. Even on Deep Insight,
+they remain 13.34 points behind. For example, the 7B financial models Fin-R1 (SC: 22.8) and
+DianJin-R1-7B (SC: 20.7) score far below Qwen3-8B (SC: 38.7). These patterns indicate that current
+financial fine-tuning improves terminology recognition and event-based summarization but does not
+develop the reasoning needed to validate, connect, and transform financial information. Because
+training signals emphasize surface-level associations rather than structured inference, models learn to
+imitate financial language but struggle with systematic, rule-consistent manipulation of data.
+Future development should integrate objectives that enhance reliability and structured operations,
+such as hallucination correction and supervised practice with database- and API-grounded reasoning.
+These capabilities are increasingly necessary as financial institutions adopt agent-based workflows
+that require verifiable retrieval, multi-step execution, and consistent outputs under reasoning demands.
+Future Work.Our results show that models perform substantially worse on Semantic Consistency
+and Data Alignment (average scores of 44.8 and 62.1) than on Deep Insight (72.5). This suggests
+that the fundamental bottlenecks for financial LLMs lie in hallucination detection and correction, as
+well as in executing structured, database-grounded operations. However, our current evaluation does
+not measure how hallucinations propagate into downstream tasks. For instance, whether undetected
+inconsistencies in SC ultimately distort higher-level analysis in DI. Designing end-to-end settings to
+quantify these effects remains an important direction.
+Moreover, Data Alignment is currently evaluated through controlled interactions with a local database,
+which prevents destructive operations but also limits the scope of executable queries. Future work
+should develop a sandboxed environment that safely allows the full range of database operations,
+enabling models to perform realistic retrievals, updates, joins, and multi-step financial computa-
+tions. Such environments would better simulate real-world financial workflows and provide a more
+comprehensive assessment of LLMs as autonomous financial agents.
+5 Conclusion
+We introduce FinReasoning, a Chinese benchmark that evaluates the core abilities required in financial
+report generation across three dimensions: semantic consistency, data alignment, and deep analytical
+insight, which are specifically constructed through hierarchical tasks. To support rigorous assessment,
+we design a framework with a unified metric suite combining objective scoring for error localization
+9
+
+
+[Page 10]
+and database-grounded operations with LLM-based judging for analytical quality. Experiments on
+19 LLMs expose persistent weaknesses in factual stability and multi-step reasoning, and reveal that
+models with similar overall performance often exhibit markedly different strengths across different
+capabilities. This indicates that financial reasoning is not a monolithic ability but a composition of
+unevenly developed competencies. Thus, our hierarchical evaluation not only highlights a direction
+for future financial model development, but also serves as a foundation for designing more reliable
+and modular multi-agent financial systems in the future.
+References
+[1] Redmond, N. This bank is using ai versions of its analysts to
+meet clients’ demand for videos. https://www.businessinsider.com/
+ai-videos-analysts-research-notes-ubs-swiss-bank-2025-5 , 2025. Accessed: 2026-
+02-11.
+[2] Vinn, M. Citadel debuts new ai tool for equities investors,
+cto subramanian says. https://www.reuters.com/business/
+citadel-debuts-new-ai-tool-equities-investors-cto-subramanian-says-2025-12-03 ,
+2025. Accessed: 2026-02-11.
+[3] Kou, Z., H. Yu, J. Luo, et al. Automate strategy finding with llm in quant investment.seed, 1:3, 2024.
+[4] Yu, Y ., H. Li, Z. Chen, et al. Finmem: A performance-enhanced llm trading agent with layered memory
+and character design.IEEE Transactions on Big Data, 2025.
+[5] Li, X., Y . Zeng, X. Xing, et al. Hedgeagents: A balanced-aware multi-agent financial trading system. In
+Companion Proceedings of the ACM on Web Conference 2025, pages 296–305. 2025.
+[6] Ji, L., D. Seyler, G. Kaur, et al. PHANTOM: A benchmark for hallucination detection in financial long-
+context QA. InThe Thirty-ninth Annual Conference on Neural Information Processing Systems Datasets
+and Benchmarks Track. 2025.
+[7] Ding, J., C. Ding, W. Pang, et al. Cnfinbench: A benchmark for safety and compliance of large language
+models in finance.arXiv preprint arXiv:2512.09506, 2025.
+[8] Hu, T., T. Hu, L. Bai, et al. FinTrust: A comprehensive benchmark of trustworthiness evaluation in finance
+domain. In C. Christodoulopoulos, T. Chakraborty, C. Rose, V . Peng, eds.,Proceedings of the 2025
+Conference on Empirical Methods in Natural Language Processing, pages 10099–10128. Association for
+Computational Linguistics, Suzhou, China, 2025.
+[9] Islam, P., A. Kannappan, D. Kiela, et al. Financebench: A new benchmark for financial question answering,
+2023.
+[10] Spörer, J.Can AI Read Like a Financial Analyst? A Financial Touchstone for Frontier Language Models
+Such as Gemini 2.5 Pro, o3, and Grok 4 on Long-Context Annual Report Comprehension, page 291–298.
+Association for Computing Machinery, New York, NY , USA, 2025.
+[11] Brake, J. Major n.l. healthcare report contains errors likely generated by a.i. https://theindependent.
+ca/news/lji/major-n-l-healthcare-report-contains-errors-likely-generated-by-a-i/ ,
+2025. Accessed: 2026-02-11.
+[12] Zhang, M., J. Fu, T. Warrier, et al. Faith: A framework for assessing intrinsic tabular hallucinations in
+finance. InProceedings of the 6th ACM International Conference on AI in Finance, pages 159–167. 2025.
+[13] Lai, V ., M. Krumdick, C. Lovering, et al. SEC-QA: A systematic evaluation corpus for financial QA. In
+C.-C. Chen, G. I. Winata, S. Rawls, A. Das, H.-H. Chen, H. Takamura, eds.,Proceedings of The 10th
+Workshop on Financial Technology and Natural Language Processing, pages 221–236. Association for
+Computational Linguistics, Suzhou, China, 2025.
+[14] BenYoash, N., M. Brief, O. Ovadia, et al. SECQUE: A benchmark for evaluating real-world financial
+analysis capabilities. In O. Arviv, M. Clinciu, K. Dhole, R. Dror, S. Gehrmann, E. Habba, I. Itzhak,
+S. Mille, Y . Perlitz, E. Santus, J. Sedoc, M. Shmueli Scheuer, G. Stanovsky, O. Tafjord, eds.,Proceedings
+of the Fourth Workshop on Generation, Evaluation and Metrics (GEM2), pages 212–230. Association for
+Computational Linguistics, Vienna, Austria and virtual meeting, 2025.
+[15] Li, J., J. Chen, R. Ren, et al. The dawn after the dark: An empirical study on factuality hallucination
+in large language models. In L.-W. Ku, A. Martins, V . Srikumar, eds.,Proceedings of the 62nd Annual
+Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pages 10879–10899.
+Association for Computational Linguistics, Bangkok, Thailand, 2024.
+[16] Zhu, F., W. Lei, Y . Huang, et al. TAT-QA: A question answering benchmark on a hybrid of tabular and
+textual content in finance. In C. Zong, F. Xia, W. Li, R. Navigli, eds.,Proceedings of the 59th Annual
+Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on
+10
+
+
+[Page 11]
+Natural Language Processing (Volume 1: Long Papers), pages 3277–3287. Association for Computational
+Linguistics, Online, 2021.
+[17] Dong, Z., T. Tang, J. Li, et al. Bamboo: A comprehensive benchmark for evaluating long text modeling
+capacities of large language models. InProceedings of the 2024 Joint International Conference on
+Computational Linguistics, Language Resources and Evaluation (LREC-COLING 2024), pages 2086–2099.
+2024.
+[18] Bai, Y ., S. Tu, J. Zhang, et al. Longbench v2: Towards deeper understanding and reasoning on realistic
+long-context multitasks. InProceedings of the 63rd Annual Meeting of the Association for Computational
+Linguistics (Volume 1: Long Papers), pages 3639–3664. 2025.
+[19] Bang, Y ., Z. Ji, A. Schelten, et al. HalluLens: LLM hallucination benchmark. In W. Che, J. Nabende,
+E. Shutova, M. T. Pilehvar, eds.,Proceedings of the 63rd Annual Meeting of the Association for Com-
+putational Linguistics (Volume 1: Long Papers), pages 24128–24156. Association for Computational
+Linguistics, Vienna, Austria, 2025.
+[20] Wu, P., Y . Yang, G. Zhu, et al. RealHiTBench: A comprehensive realistic hierarchical table benchmark
+for evaluating LLM-based table analysis. In W. Che, J. Nabende, E. Shutova, M. T. Pilehvar, eds.,
+Findings of the Association for Computational Linguistics: ACL 2025, pages 7105–7137. Association for
+Computational Linguistics, Vienna, Austria, 2025.
+[21] Zhu, F., W. Lei, F. Feng, et al. Towards complex document understanding by discrete reasoning. In
+Proceedings of the 30th ACM International Conference on Multimedia, pages 4857–4866. 2022.
+[22] Kashyap, S., S. Shirai, N. Mihindukulasooriya, et al. Structtext: A synthetic table-to-text approach for
+benchmark generation with multi-dimensional evaluation.Proceedings of the VLDB Endowment. ISSN,
+2150:8097, 2025.
+[23] Han, S., H. Schoelkopf, Y . Zhao, et al. FOLIO: Natural language reasoning with first-order logic. In
+Y . Al-Onaizan, M. Bansal, Y .-N. Chen, eds.,Proceedings of the 2024 Conference on Empirical Methods in
+Natural Language Processing, pages 22017–22031. Association for Computational Linguistics, Miami,
+Florida, USA, 2024.
+[24] Saparov, A., H. He. Language models are greedy reasoners: A systematic formal analysis of chain-of-
+thought. InThe Eleventh International Conference on Learning Representations. 2023.
+[25] Parmar, M., N. Patel, N. Varshney, et al. LogicBench: Towards systematic evaluation of logical reasoning
+ability of large language models. In L.-W. Ku, A. Martins, V . Srikumar, eds.,Proceedings of the 62nd
+Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pages 13679–
+13707. Association for Computational Linguistics, Bangkok, Thailand, 2024.
+[26] Lei, Y ., J. Li, D. Cheng, et al. Cfbenchmark: Chinese financial assistant benchmark for large language
+model.arXiv preprint arXiv:2311.05812, 2023.
+[27] Li, J., Y . Zhu, D. Cheng, et al. Cfbenchmark-mm: Chinese financial assistant benchmark for multimodal
+large language model.arXiv preprint arXiv:2506.13055, 2025.
+[28] Chen, Z., W. Chen, C. Smiley, et al. FinQA: A dataset of numerical reasoning over financial data. In M.-F.
+Moens, X. Huang, L. Specia, S. W.-t. Yih, eds.,Proceedings of the 2021 Conference on Empirical Methods
+in Natural Language Processing, pages 3697–3711. Association for Computational Linguistics, Online
+and Punta Cana, Dominican Republic, 2021.
+[29] Wang, Y ., K. Wang, S. Yang, et al. Finauditing: A financial taxonomy-structured multi-document
+benchmark for evaluating llms.arXiv preprint arXiv:2510.08886, 2025.
+[30] Jiang, J., C. Yang, A. Cui, et al. Finmaster: A holistic benchmark for mastering full-pipeline financial
+workflows with llms, 2025.
+[31] DeepSeek-AI, A. Liu, B. Feng, et al. Deepseek-v3 technical report, 2025.
+[32] Hurst, A., A. Lerer, A. P. Goucher, et al. Gpt-4o system card.arXiv preprint arXiv:2410.21276, 2024.
+[33] Singh, A., A. Fry, A. Perelman, et al. Openai gpt-5 system card.arXiv preprint arXiv:2601.03267, 2025.
+[34] Team, G., A. Kamath, J. Ferret, et al. Gemma 3 technical report.arXiv preprint arXiv:2503.19786, 2025.
+[35] Anthropic. System card: Claude opus 4 & claude sonnet 4, 2025.
+[36] Zeng, A., X. Lv, Q. Zheng, et al. Glm-4.5: Agentic, reasoning, and coding (arc) foundation models.arXiv
+preprint arXiv:2508.06471, 2025.
+[37] Yang, A., A. Li, B. Yang, et al. Qwen3 technical report.arXiv preprint arXiv:2505.09388, 2025.
+[38] Team, K., Y . Bai, Y . Bao, et al. Kimi k2: Open agentic intelligence, 2026.
+[39] Seed, B., J. Chen, T. Fan, et al. Seed1. 5-thinking: Advancing superb reasoning models with reinforcement
+learning.arXiv preprint arXiv:2504.13914, 2025.
+11
+
+
+[Page 12]
+[40] Guo, D., D. Yang, H. Zhang, et al. Deepseek-r1 incentivizes reasoning in llms through reinforcement
+learning.Nature, 645(8081):633–638, 2025.
+[41] Dubey, A., A. Jauhri, A. Pandey, et al. The llama 3 herd of models.arXiv e-prints, pages arXiv–2407,
+2024.
+[42] Bai, L., Z. Cai, Y . Cao, et al. Intern-s1: A scientific multimodal foundation model.arXiv preprint
+arXiv:2508.15763, 2025.
+[43] Liu, Z., X. Guo, Z. Yang, et al. Fin-r1: A large language model for financial reasoning through reinforce-
+ment learning, 2026.
+[44] Wu, X., J. Liu, H.-Y . Su, et al. Golden touchstone: A comprehensive bilingual benchmark for evaluating
+financial large language models. In C. Christodoulopoulos, T. Chakraborty, C. Rose, V . Peng, eds.,Findings
+of the Association for Computational Linguistics: EMNLP 2025, pages 22544–22560. Association for
+Computational Linguistics, Suzhou, China, 2025.
+[45] Zhu, J., Q. Chen, H. Dou, et al. Dianjin-r1: Evaluating and enhancing financial reasoning in large language
+models.arXiv preprint arXiv:2504.15716, 2025.
+[46] Yang, A., B. Yang, B. Zhang, et al. Qwen2. 5 technical report.arXiv e-prints, pages arXiv–2412, 2024.
+12
+
+
+[Page 13]
+A Limitations
+The substantive contribution of this benchmark lies in its task design, which closely mirrors real-world business
+logic. Rather than confining itself to conventional financial question answering or information extraction, the
+benchmark deconstructs research report generation into reading, validation, reasoning, and writing stages that
+align with the cognitive processes of human analysts, offering strong diagnostic value for industrial applications.
+However, FinReasoning still has few limitations:
+• LLM-as-a-Judge evaluation still carries the risk of systematic scoring bias. As shown in Section D.3,
+DeepSeek-V3 and Qwen3-235B preserve highly consistent model rankings, but their absolute scores
+are not identical. This suggests that the robustness of our judge-based evaluation should be interpreted
+primarily at the ranking and diagnostic-pattern level rather than as perfectly calibrated absolute scores.
+In addition, since part of the benchmark construction relies on LLM-generated reference answers, the
+gold responses may retain certain stylistic or structural preferences. We mitigate this risk through expert
+validation, fused judging, prompt perturbation tests, and correlation checks with objective metrics, but
+future extensions should further incorporate independent human-written references or judge calibration
+sets that exclude model families involved in data generation or evaluation.
+• Although the benchmark is designed around the workflow of financial research reporting, the three tracks
+are evaluated as staged capability modules rather than as a fully end-to-end report-generation pipeline;
+therefore, the current setting does not directly measure how an error in semantic consistency or data
+alignment propagates into downstream investment analysis.
+• Part of the dataset construction relies on LLM-assisted generation followed by expert verification; while
+this enables scalable and fine-grained benchmark construction, it may still introduce residual artifacts in
+question style, answer structure, or reasoning templates.
+Our future work will try to extend FinReasoning toward cross-market and multilingual settings, sandboxed
+executable data environments, and end-to-end evaluations that quantify how local factual or numerical failures
+affect final research conclusions.
+B Detailed Corpus and Task Statistics
+In this section, we provide a comprehensive statistical overview of the FinReasoning benchmark to ensure
+transparency and facilitate reproducibility. In section B.1, we detail the composition of the textual corpus,
+which aggregates professional literature, financial news, and research reports to simulate authentic analyst work
+environments. We also present the specifics of the structured numerical database, encompassing extensive
+market indicators and historical trading records across the A-share market. In section B.2, we provide a granular
+breakdown of the task distribution across the Semantic Consistency, Data Alignment, and Deep Insight tracks.
+These statistics illustrate the structural diversity and logical complexity of our evaluation scenarios, highlighting
+the benchmark’s capacity to assess multi-level financial reasoning.
+B.1 Data Provenance and Collection Pipelines
+FinReasoning Evaluation Resource Construction aims to comprehensively simulate real-world financial research
+and analysis workflows by integrating high-quality, multi-dimensional domain-specific corpora. All source
+materials are obtained from leading domestic professional financial data service platforms and are accompanied
+by public authorization for academic research use.
+• Textual Resources:We collected 677 professional documents covering financial industry standards and
+term definitions, 901 in-depth Chinese research reports authored by licensed analysts, and over 10,000
+publicly available financial news articles. Spanning market dynamics and industry trends from 2023 to
+2025, these materials provide a rich contextual foundation for assessing model performance in terms of
+logical consistency and analytical depth over long texts. From the above documents, we further extracted
+authoritative industry rules and term definitions, and combined these with key paragraphs from research
+reports that describe core events or economic mechanisms, thereby constructing a set of text segments
+grounded in authentic analytical contexts.
+• Structured Numerical Data:We integrated comprehensive market data and company fundamental
+indicators for the A-share market from 2023 to 2025. This database comprises over 3.5 million records,
+including but not limited to daily trading prices, financial statement line items, and various derived financial
+indicators, forming the underlying environment for SQL execution and numerical logic validation in the
+Data Alignment track.
+• Data Preprocessing:We implemented a rigorous preprocessing pipeline. First, through a combination
+of automated scripts and manual review, we removed personally identifiable information (PII) from the
+13
+
+
+[Page 14]
+corpora, such as personal contact details and internal employee IDs. Second, we filtered redundant
+content from the research reports, eliminating advertisements and duplicate information, and retaining only
+narratively valuable segments with evidential value. This approach enhances the focus of the evaluation
+tasks while simulating authentic, complex real-world environments.
+B.2 Hierarchical Task Distribution
+In this subsection, we provide a detailed breakdown of FinReasoning’s taxonomy, which is structured into a
+three-track hierarchy to evaluate distinct cognitive stages in financial research reporting. As summarized in
+Table 7, the benchmark comprises 4,800 high-quality evaluation samples balanced acrossSemantic Consistency
+(SC),Data Alignment (DA), andDeep Insight (DI). The SC track encompasses 1,800 samples focusing
+on terminology precision, factual accuracy, and logical continuity. The DA track includes 1,800 samples
+assessing a model’s ability to perform precise numerical calculations and rule-driven reasoning over structured
+databases. The DI track consists of 1,200 samples evaluating research-grade analytical depth across 12 expert
+indicators. This hierarchical distribution ensures a granular and systematic assessment of model reliability within
+professional financial workflows.
+Table 7: Hierarchical Task Distribution of FinReasoning. This table provides a detailed breakdown of
+the tracks, categories, and dimensions, including the specific logic and sample size for each task.
+Category Dimension Explanation Number
+Semantic Consistency (SC)
+Terminology Improper Usage Inconsistent terminology, reducing rigor 200Terminology Inconsistency Use of colloquial or non-domain standard vocabulary 200Terminology Confusion Words with similar semantics but different definitions 200
+Fact Relation Error Errors in predicates, actions, or relationship descriptions 200Entity Error Wrong key entities or subject-object reversal 200Context Error Errors in modifiers such as time, location, quantity, etc. 200
+Logic Reasoning Chain Error Logical gaps, skipped steps, or contradictory reasoning 200Discourse Relation Errors in chronological order or causal relationships 200Context Inconsistency Conclusion conflicts with previous settings 200
+Data Alignment (DA)
+Simple Alignment & Verification
+Value Modification Random arithmetic operations on original values 150Unit Modification Inconsistent numerical scales in financial values 150Comparison Relation Tampering with logical words (e.g., "increase/decrease") 150Synonym Replacement Using financial synonym dictionary to test grounding 150
+Complex Numerical Calculation
+Single Date Multi-IndicatorComposite calculation of multiple indicators for one date200Multi-Date Single Indicator Cross-date comparison and calculation for one indicator 200Multi-Date Multi-Indicator Cross-date calculation for multiple indicators 200Cross-Company/Indicator Ranking, Max/Min, Group comparison, etc. 200
+Rule-Driven Reasoning / Quantitative rule evaluation over indicators 400
+Deep Insight (DI)
+Justification & Causal Depth / Conformity to business logic and clarity of causal chains 300
+Factuality & Context / Accuracy of evidence-based factual support 300
+Completeness & Comparative Analysis / Identification of risks, limitations, and counterarguments 300
+Architecture Richness & Strictness / Professional logical framework and conceptual depth 300
+C Instructions for Manual Examination
+In this section, we delineate the manual examination protocols established to safeguard the quality and evaluative
+credibility ofFinReasoning. To mitigate potential biases inherent in automated pipelines and establish a
+definitive “Gold Standard,” we implemented a quality control system led by two financial experts, each with
+5–10 years of professional experience spanning investment analysis and equity research report writing. In
+Section C.1, we detail the expert verification process for data construction, encompassing the evidentiary
+grounding, logical cross-checking, and manual refinement of the 4,800 evaluation samples. In Section C.2, we
+present the expert auditing procedure for theLLM-as-a-Judgecomponent. Through expert blind reviews and
+quantitative agreement analysis, we validate the effectiveness and robustness of the automated scoring system.
+These manual examination guidelines, executed by domain practitioners with substantial frontline experience,
+provide the foundational assurance for the benchmark’s professional rigor.
+C.1 Expert Verification Process For Data Construction
+To ensure the reliability of FinReasoning in terms of task definition, answer quality, and financial professionalism,
+we conducted expert manual verification over all samples constructed in the QA construction stage. TheSemantic
+14
+
+
+[Page 15]
+Consistency (SC)track contains 1,800 samples, theData Alignment (DA)track contains 1,800 samples, and
+theDeep Insight (DI)track contains 1,200 samples, for a total of 4,800 QA instances. We invited two experts
+with experience in financial analysis and data annotation to independently review and cross-revise all samples
+under a unified verification protocol, with the goal of ensuring professional rigor, task adjudicability, and the
+stability of the gold-standard answers.
+In practice, we adopted a five-stage verification pipeline:Review – Judgment – Consensus – Recheck – Revision.
+1. Review.The two experts independently examined all samples. For the SC track, they mainly checked whether
+the injected errors had clear financial diagnostic significance, whether the overall coherence of the original text
+was preserved, and whether the error type labels, error locations, and correction suggestions were accurate.
+For the DA track, they focused on whether the fields, date ranges, and sample IDs required by each question
+were consistent with the underlying database records, and whether the numerical answers, retrieval paths, and
+structured formats conformed to the predefined rules. For the DI track, they examined whether the evidence
+fully anchored an analyzable event, whether the question genuinely required open-ended analysis, and whether
+the ground-truth answer demonstrated factual grounding, causal reasoning, and critical analysis. The detailed
+verification guidelines are provided in the colorbox below.
+I. Semantic Consistency:
+• Diagnostic Perturbation Verification: Verify whether the 1–3 injected errors carry clear financial diagnostic signifi-
+cance while preserving the overall coherence of the text. Perturbations that are overly obvious (e.g., trivial spelling
+mistakes) or overly obscure (i.e., even experts cannot reach consensus) should be flagged and removed.
+• Annotation Precision Check: Examine whether the classification of error types is accurate, and whether the location
+of the erroneous sentence within the long text is identified with character-level precision.
+• Validity of Correction Suggestions: Confirm that the “corrected text" removes the error while preserving all
+remaining original content word for word, and that its accompanying “Reason" conforms to financial auditing
+standards and is logically persuasive.
+II. Data Alignment:
+• Consistency with Numerical Gold Standards: Based on predefined indicator formulas and financial execution rules,
+experts must cross-check the gold-standard answer against the raw records in the underlying A-share database to
+verify its uniqueness and precision on an item-by-item basis.
+• Logical Verification of Retrieval Path: Verify whether the fields, date ranges, and sample identifiers (IDs) selected
+by the model in complex calculations fully match the logic of the question, thereby preventing the model from
+arriving at the correct number by chance through an incorrect retrieval path.
+• Format Compliance Review: Ensure that all generated data pairs strictly follow the predefined structured format
+(e.g., SQL statements or JSON objects) so as to support automated statistics of execution success rate.
+III. Deep Insight:
+• Factual Grounding in Evidence: Rigorously verify that every argument generated by the model can be traced to
+explicit evidence in the provided research report or literature. The model must not introduce external hallucinations
+or unsupported speculation.
+• Evaluation of Causal Chain Completeness: Using the three-step framework of “event → mechanism → impact",
+assess whether the model reveals the underlying economic logic. Responses that fail to establish logical connections
+or merely provide surface-level summaries should be marked as low-quality.
+• Multi-perspective and Hedging Check: Pay particular attention to whether the model identifies potential execution
+risks or countervailing constraints. Samples that exhibit excessive optimism or pessimism without critical reasoning
+should be revised or removed.
+2. Judgment.Based on the same standardized criteria, the two experts independently assigned each sample a
+ValidorInvalidlabel and recorded revision suggestions. AValidlabel indicates that the sample satisfies the
+release requirements in terms of task definition, evidential support, gold-standard answer quality, and format
+specification. AnInvalidlabel indicates that the sample contains critical defects, such as unnatural error injection,
+a non-unique numerical reasoning chain, an overly superficial analytical question, insufficient factual grounding
+in the gold answer, or an incomplete reasoning loop.
+3. Consensus.For samples on which the two experts disagreed, the research team organized item-by-item
+discussion to align the final decision. The discussion focused on issues such as whether an injected error
+was diagnostically meaningful without being overly explicit, whether the data retrieval path was unique and
+reproducible, and whether the gold answer truly reflected deep analysis rather than surface-level summarization.
+This process not only resolved final labels, but also refined the boundary conditions of the verification criteria,
+which in turn constrained subsequent data revision.
+4. Recheck.All revised samples underwent second-round verification by at least one expert to confirm that the
+original issues had been properly resolved without introducing new ambiguities or formatting errors. For the
+open-ended analytical questions in the DI track, the re-check stage additionally required verification that the
+15
+
+
+[Page 16]
+gold-standard answer simultaneously satisfied causal depth, factual accuracy, critical thinking, and structural
+completeness, to avoid including samples that were formally correct but not substantively judgeable in final set.
+5. Revision.Based on the experts’ feedback, we systematically revised the samples, including rewriting question
+statements, replacing or expanding evidence, correcting gold-standard answers, updating error labels, adjusting
+data retrieval ranges, and unifying output formats.
+Under this standardized protocol, the two experts independently assignedValid/Invalidlabels to all samples, and
+we quantified their agreement using Cohen’s Kappa:
+κ= po −p e
+1−p e
+,
+wherep o is observed agreement andp e is chance agreement from marginal label distributions.
+In our setting,N= 4800, and the two experts agreed on4624samples, yielding
+po = 4624
+4800 = 0.9633.
+The marginal label counts were:
+Expert A: Valid= 4479,Invalid= 321,
+Expert B: Valid= 4381,Invalid= 419.
+Accordingly, the expected agreement is
+pe =p A,V pB,V +p A,I pB,I = 4479
+4800 · 4381
+4800 + 321
+4800 · 419
+4800 ≈0.8561.
+Therefore,
+κ= 0.9633−0.8561
+1−0.8561 ≈0.7454.
+The high inter-expert agreement supports the reliability of the manual verification protocol, while the consensus
+and re-check stages further mitigate remaining discrepancies.
+C.2 Expert Verification Process For LLM-as-a-Judge
+The purpose of this stage is to assess whether theLLM-as-a-Judgeoutputs provide reliable evaluations of model
+responses. This differs from expert verification during QA construction, which focuses on the quality of the
+benchmark data itself. We randomly sampled 20% of theLLM-as-a-Judgeresults for each model. According to
+the benchmark design, only the Semantic Consistency (SC) and Deep Insight (DI) tracks rely onLLM-as-a-Judge
+evaluation. Therefore, expert review at this stage was restricted to judge outputs from these two tracks. With full
+model coverage over all SC and DI questions, this yielded 11,400 reviewed model–judgment cases in total.
+The overall workflow followed the same five-stage protocol as in Section C.1, which isReview – Judgment
+– Consensus – Recheck – Revision. The verification criteria were redefined for theLLM-as-a-Judgesetting.
+Experts were instructed to examine whether the judge outputs were rubric-faithful, evidence-grounded, and
+discriminative with respect to answer quality.
+Verification Guidelines for Experts.For each sampled case, the experts were provided with the question,
+the gold answer, the model answer, the scoring rubric, and the correspondingLLM-as-a-Judgeoutput. They
+determined whether the judge output should be labeled asValidorInvalidaccording to the following guidelines.
+16
+
+
+[Page 17]
+I. Rubric Fidelity.Experts should examine whether the judge’s assigned scores and explanations are consistent with the
+predefined rubric, including the intended scoring dimensions, severity boundaries, and decision logic. A judge output
+should be marked as invalid if it assigns obviously inappropriate scores, ignores key rubric requirements, or bases its
+judgment on criteria not specified in the rubric.
+II. Evidence Grounding.Experts should verify whether the judge’s reasoning is grounded in the actual content of the
+gold answer and the model answer. The judge should not introduce unsupported assumptions, hallucinated deficiencies, or
+irrelevant evaluation criteria. Its explanation should be traceable to concrete qualities or flaws in the evaluated response,
+rather than generic evaluative language.
+III. Discriminative Validity.Experts should assess whether the judge can meaningfully distinguish high-quality answers
+from low-quality ones. In particular, the judge should reward substantive correctness, grounded reasoning, and rubric-
+relevant strengths, while penalizing key omissions, unsupported claims, broken logic, or superficial responses. Outputs
+that are excessively lenient or harsh due only to fluency, verbosity, or superficial formatting should be treated as invalid.
+IV . Track-Specific Verification for SC.For the SC track, experts should focus on whether the judge correctly evaluates
+semantic error diagnosis and correction quality. This includes checking whether the judge appropriately scores the
+identification of injected errors, the validity of the error explanation, and the fidelity of the corrected text to the gold-
+standard correction. Special attention should be paid to whether the judge fails to penalize missed key errors, false-positive
+error claims, incorrect error typing, or unnecessary over-correction.
+5. Track-Specific Verification for DI.For the DI track, experts should focus on whether the judge accurately assesses deep
+analytical quality according to the corresponding rubric dimensions, such as factual grounding, causal depth, comparative
+or critical reasoning, and structural rigor. High scores should only be assigned when the model answer demonstrates
+evidence-based financial analysis, coherent causal linkage, and balanced reasoning. Superficially fluent but shallow,
+ungrounded, or overly generic responses should not receive inflated scores.
+6. Explanation Quality.Experts should verify whether the judge’s explanation is specific, decision-relevant, and aligned
+with the assigned score. A valid explanation should identify the key strengths or weaknesses that actually justify the score
+under the rubric. Explanations that are vague, templated, or disconnected from the score should lower confidence in the
+judge output and may lead to an invalid label.
+7. Validity Decision Rule.A judge output is labeled asValidif its score profile and justification are broadly consistent
+with the rubric and with expert judgment on the same case. A judge output is labeled asInvalidif it contains major scoring
+errors, unsupported reasoning, weak grounding, or systematic bias toward superficial response characteristics.
+Following the same protocol as in Section C.1, the two experts independently assignedValid/Invalidlabels to
+the sampledLLM-as-a-Judgeoutputs, and we quantified their agreement using Cohen’s Kappa:
+κ= po −p e
+1−p e
+,
+wherep o is observed agreement andp e is chance agreement from marginal label distributions.
+Since only the Semantic Consistency (SC) and Deep Insight (DI) tracks requireLLM-as-a-Judgeevaluation, we
+report the agreement statistics separately for these two tracks.
+Semantic Consistency.For the SC track, the total number of reviewed judge outputs was
+NSC = 19×1800×10%×2 = 6840.
+In this setting, the two experts agreed on6552sampled cases, yielding
+po = 6552
+6840 = 0.9725.
+The marginal label counts were:
+Expert A: Valid= 6345,Invalid= 495,
+Expert B: Valid= 6376,Invalid= 464.
+Accordingly, the expected agreement is
+pe =p A,V pB,V +p A,I pB,I = 6345
+6840 · 6376
+6840 + 495
+6840 · 464
+6840 ≈0.8696.
+Therefore,
+κSC = 0.9725−0.8696
+1−0.8696 ≈0.7891.
+Deep Insight.For the DI track, the total number of reviewed judge outputs was
+NDI = 19×1200×10%×2 = 4560.
+In this setting, the two experts agreed on4302sampled cases, yielding
+po = 4302
+4560 = 0.9434.
+The marginal label counts were:
+Expert A: Valid= 3964,Invalid= 596,
+17
+
+
+[Page 18]
+Expert B: Valid= 3883,Invalid= 677.
+Accordingly, the expected agreement is
+pe =p A,V pB,V +p A,I pB,I = 3964
+4560 · 3883
+4560 + 596
+4560 · 677
+4560 ≈0.7596.
+Therefore,
+κDI = 0.9434−0.7596
+1−0.7596 ≈0.7646.
+These results still indicate stronger inter-expert agreement on SC than on DI. This difference is expected given
+the distinct nature of the two tasks. SC primarily evaluates whether errors are correctly detected and corrected,
+making its judgment criteria relatively objective and well-defined. In contrast, DI assesses the depth and quality
+of financial analysis, where experts must further evaluate causal reasoning, critical thinking, and structural rigor,
+leading to greater room for subjective variation.
+Fusion Strategy.To determine the optimal fusion weights for the two judge models, we conducted a grid
+search over the weighting parameter α∈[0,1] with a step size of 0.02, where the fused score for each sample is
+computed as α·s DeepSeek +(1−α)·s Qwen. The optimal α for each track was selected to maximize agreement with
+expert annotations on the 20% reviewed samples. Table 8 reports the resulting weights and the corresponding
+expert agreement rates.
+Table 8: Optimal fusion weights and expert agreement by track.
+Track DeepSeek-V3 Weight Qwen3-235B Weight
+Semantic Consistency (SC) 0.58 0.42
+Deep Insight (DI) 0.60 0.40
+D Extended Experimental Results and Sensitivity Analysis
+D.1 Computational Cost and Scalability Analysis
+Table 9 presents supplementary computational cost statistics for each evaluation track across different task
+categories, offering an overview of the benchmarking runtime characteristics. It enables readers to understand the
+distribution of input/output sizes and inference latency in the test procedures. Notably, this table is not intended
+for model capability comparison or as a basis for the main conclusions; rather, it enhances the completeness
+and reproducibility of the experimental report, serving as a reference for experiment replication, evaluation cost
+estimation, and system load analysis.
+D.2 Prompt Sensitivity and Evaluation Robustness
+To assess the robustness of theLLM-as-a-Judgeevaluation, we rephrase the evaluation prompt while preserving
+the original task definition, scoring criteria, and rubric semantics. We introduce controlled prompt perturbations
+by rewriting the instruction wording and reordering the rubric items without changing the scoring dimensions or
+evaluation targets. Table 10, 11, 12, 13 reports the model scores under the original and rephrased judge prompts.
+We use rank correlation to test whether rephrasing the judge prompt changes the model ranking. We first compute
+Spearman’sρbetween the rankings produced by the original and rephrased prompts:
+ρ= 1− 6Pn
+i=1 d2
+i
+n(n2 −1)
+where di is the rank difference of model i between the two prompt settings. Spearman’s ρ measures whether the
+overall ranking order is preserved.
+We then compute Kendall’sτb:
+τb = C−Dp
+(C+D+T x)(C+D+T y)
+where C and D denote the numbers of concordant and discordant model pairs, and Tx and Ty denote tied pairs
+in the two rankings. Kendall’sτb measures the consistency of pairwise ordering between models.
+The average Spearman’sρ is 0.9478 and the average Kendall’sτb is 0.8651, showing that prompt rephrasing has
+little effect on the final model ranking.
+18
+
+
+[Page 19]
+Table 9: Computational Cost and Scalability Statistics Across Tracks (average per sample). We report
+input/output/total tokens and latency for each category.
+Category / Dimension Input Tokens (Avg) Output Tokens (Avg) Total Tokens (Avg) Latency (ms, Avg)
+Semantic Consistency
+Terminology Confusion 5078.2 3385.0 8463.3 105947.4
+Terminology Inconsistency 5322.2 4286.5 9608.8 96807.5
+Improper Usage 5049.1 3540.5 8589.6 88156.3
+Entity Error 5024.5 3462.3 8486.7 86872.0
+Relation Error 5045.9 3573.3 8619.2 87682.7
+Context Error 5218.9 3940.3 9159.2 119598.2
+Reasoning Chain Error 5476.4 3894.4 9370.8 87639.3
+Discourse Relation 5454.1 4592.5 10046.6 100362.0
+Context Inconsistency 5246.8 4072.8 9319.7 95265.3
+Average 5212.9 3860.8 9073.8 96481.2
+Data Alignment
+Verification_stage1 2096.3 1156.7 3253.0 24761.2
+Verification_stage2 509.2 1601.3 2110.4 29014.0
+Calculation_stage1 2098.7 1622.0 3720.7 49554.6
+Calculation_stage2 2585.3 4913.2 7498.5 121589.2
+Reasoning_stage1 2110.7 2235.1 4345.9 41187.1
+Reasoning_stage2 11271.7 10658.3 21930.0 184907.1
+Average 3445.3 3697.8 7143.1 75168.9
+Deep Insight
+Justification & Causal Depth 2898.2 367.9 3266.0 18014.0
+Factuality & Contextualization 2700.6 375.7 3076.3 16779.5
+Completeness & Comparative Analysis 2486.0 387.5 2873.6 16413.8
+Architectural Richness & Strictness 2888.7 325.2 3213.9 14143.2
+Average 2743.4 364.1 3107.5 16337.6
+Table 10: Prompt sensitivity of LLM-as-a-Judge evaluation under original and rephrased prompts for
+theTerminologycategory in the Semantic Consistency track.
+Models Error Explanation Correct Content
+Origin Rephrase Origin Rephrase
+Close-Source
+GPT-5 85.09 83.31 88.12 87.43
+GPT-4o 48.24 49.78 50.34 49.94
+Gemini-3-pro 79.00 81.45 82.17 81.39
+Claude-sonnet-4.5 80.65 79.69 83.82 80.92
+GLM-4.6 67.91 64.22 69.45 65.33
+Qwen3-Max 62.20 66.45 64.78 62.82
+Kimi-K2 63.16 65.97 65.46 69.47
+Doubao-Seed-1.8 71.53 69.21 73.69 75.27
+Open-Source General
+DeepSeek-R1 58.22 60.33 59.48 57.41
+DeepSeek-V3 44.87 41.42 47.97 50.52
+Intern-S1 50.81 51.37 50.87 54.13
+Qwen3-8B 48.81 49.95 49.66 50.31
+Qwen3-32B 51.53 52.63 50.66 53.92
+Qwen3-235B 51.28 54.89 52.87 51.09
+Llama-3.1-8B 13.49 14.93 11.66 14.86
+Llama-3.1-70B 16.39 17.51 10.97 14.35
+Open-Source Financial
+Fin-R1 26.73 28.53 26.04 30.17
+TouchstoneGPT 2.88 2.32 2.36 1.95
+DianJin-R1-7B 25.59 24.18 17.34 15.23
+19
+
+
+[Page 20]
+Table 11: Prompt sensitivity of LLM-as-a-Judge evaluation under original and rephrased prompts for
+theFactcategory in the Semantic Consistency track.
+Models Error Explanation Correct Content
+Origin Rephrase Origin Rephrase
+Close-Source
+GPT-5 80.14 79.76 82.38 85.43
+GPT-4o 60.08 62.63 62.74 63.79
+Gemini-3-pro 81.43 78.12 83.35 87.07
+Claude-sonnet-4.5 82.12 83.45 85.22 87.80
+GLM-4.6 78.74 81.27 80.78 78.90
+Qwen3-Max 76.00 74.05 81.62 81.04
+Kimi-K2 72.43 73.16 74.68 75.12
+Doubao-Seed-1.8 80.19 77.49 82.36 80.36
+Open-Source General
+DeepSeek-R1 70.46 68.90 71.61 71.32
+DeepSeek-V3 67.11 66.51 71.19 68.53
+Intern-S1 64.58 63.63 65.88 66.76
+Qwen3-8B 60.70 59.77 61.55 63.79
+Qwen3-32B 68.10 70.99 68.09 72.01
+Qwen3-235B 61.48 64.82 67.17 66.99
+Llama-3.1-8B 11.94 8.11 11.30 9.45
+Llama-3.1-70B 22.70 25.94 15.02 10.96
+Open-Source Financial
+Fin-R1 23.44 26.81 22.31 26.44
+TouchstoneGPT 2.71 4.90 2.05 4.01
+DianJin-R1-7B 31.69 33.87 22.39 18.44
+Table 12: Prompt sensitivity of LLM-as-a-Judge evaluation under original and rephrased prompts for
+theLogiccategory in the Semantic Consistency track.
+Models Error Explanation Correct Content
+Origin Rephrase Origin Rephrase
+Close-Source
+GPT-5 87.89 84.74 90.47 87.67
+GPT-4o 67.15 68.27 68.71 72.19
+Gemini-3-pro 87.15 89.34 88.32 91.65
+Claude-sonnet-4.5 89.76 88.80 91.82 89.14
+GLM-4.6 83.23 82.98 84.88 82.04
+Qwen3-Max 84.29 84.75 86.74 82.52
+Kimi-K2 82.63 78.92 83.26 79.54
+Doubao-Seed-1.8 84.33 83.81 86.56 88.03
+Open-Source General
+DeepSeek-R1 67.54 64.23 68.25 72.69
+DeepSeek-V3 69.79 71.31 72.05 71.10
+Intern-S1 66.39 62.97 68.17 66.95
+Qwen3-8B 67.46 64.68 69.97 65.91
+Qwen3-32B 70.33 66.10 68.34 66.37
+Qwen3-235B 67.10 65.06 66.63 63.54
+Llama-3.1-8B 17.14 16.80 10.48 7.76
+Llama-3.1-70B 25.10 28.36 16.65 14.16
+Open-Source Financial
+Fin-R1 36.39 36.81 30.97 33.57
+TouchstoneGPT 1.93 2.09 1.95 1.88
+DianJin-R1-7B 37.66 35.12 28.15 29.32
+20
+
+
+[Page 21]
+Table 13: Prompt sensitivity of LLM-as-a-Judge evaluation under original and rephrased prompts for
+the Deep Insight track.
+Models ARS F&C C&A JCD
+Origin Rephrase Origin Rephrase Origin Rephrase Origin Rephrase
+Close-Source
+GPT-5 92.39 90.29 84.58 87.63 86.71 83.48 81.80 82.97
+GPT-4o 79.96 84.19 77.64 75.83 74.78 75.33 76.93 72.87
+Gemini-3-pro 82.14 79.78 79.01 80.95 76.65 75.88 80.67 79.56
+Claude-sonnet-4.5 92.19 96.52 87.07 86.48 84.51 80.57 96.17 96.83
+GLM-4.6 92.58 91.03 88.10 85.63 87.33 87.12 96.06 97.43
+Qwen3-Max 85.80 88.79 75.95 75.96 75.78 73.56 82.89 83.66
+Kimi-K2 93.38 93.92 87.42 90.51 89.47 85.26 96.27 96.16
+Doubao-Seed-1.8 93.52 95.83 87.15 85.37 86.17 87.86 95.73 99.33
+Open-Source General
+DeepSeek-R1 88.03 90.13 84.63 87.00 80.03 80.63 89.76 91.96
+DeepSeek-V3 81.99 85.49 81.03 78.65 77.89 78.39 86.36 83.92
+Intern-S1 84.36 86.40 82.08 79.18 81.59 77.85 88.00 83.12
+Qwen3-8B 69.33 71.25 51.09 48.56 53.85 49.78 57.37 56.64
+Qwen3-32B 73.61 71.91 61.67 63.73 60.29 61.31 65.70 67.44
+Qwen3-235B 75.38 78.41 63.79 66.52 63.65 59.86 67.48 71.86
+Llama-3.1-8B 39.09 39.17 30.83 29.72 31.33 29.62 32.13 28.73
+Llama-3.1-70B 42.64 41.50 36.47 34.09 34.73 37.71 36.84 37.13
+Open-Source Financial
+Fin-R1 77.90 75.99 71.83 69.43 73.53 75.65 71.47 71.82
+TouchstoneGPT 38.33 37.39 28.70 30.75 30.78 34.67 34.22 30.77
+DianJin-R1-7B 77.14 81.65 63.61 63.64 73.27 77.10 69.14 67.43
+D.3 Inter-Judge Consistency and Bias Analysis
+Figure 5,6 presents a multi-dimensional analysis of systematic differences between two LLM-based judges
+(DeepSeek-V3 and Qwen3-235B) in the Semantic Consistency evaluation track and Deep Insight. (A) The
+correlation scatter plot with Pearson correlation coefficient reveals the agreement level between the two judges’
+overall scoring patterns. (B) The Bland-Altman plot visualizes scoring bias distribution, highlighting which
+specific models exhibit the largest discrepancies between the two judges and detecting potential systematic
+favoritism. (C) The radar chart illustrates the dimensional focus and stringency profile of both judges. (D) The
+paired horizontal bar chart directly compares the absolute scores assigned by each judge to all 19 evaluated
+models, revealing model-specific preference profiles and potential self-bias patterns (e.g., whether DeepSeek-V3
+as judge exhibits favoritism toward DeepSeek models). Together, these analyses assess the robustness and
+identify potential sources of bias in using large language models as evaluation judges.
+First, when using DeepSeek-V3 and Qwen3-235B as judge models, both maintain high consistency in overall
+model ranking, although their absolute scores are not equivalent. The Pearson correlation coefficients for the
+two LLM judges in the SC and DI tracks reach 0.942 and 0.939, respectively. The scatter plot (Figure A) and the
+Bland-Altman plot (Figure B) jointly indicate a stable systematic bias between the two judges rather than random
+fluctuations. Qwen3-235B exhibits more lenient scoring across both tracks, with average scores consistently
+higher than those assigned by DeepSeek-V3.
+In the SC track, this discrepancy is particularly evident at the dimensional level. Figure 5.C shows that Qwen3-
+235B assigns higher scores across all four dimensions, with the largest difference observed inCorrectness,
+followed byCompleteness. This suggests that Qwen imposes relatively weaker constraints on factual precision
+and coverage completeness, whereas DeepSeek-V3 is more conservative and more sensitive to fine-grained
+inconsistencies. Further model-level comparisons (Figure 5.D) reveal that both judges exhibit a degree of
+in-group preference, but DeepSeek-V3 demonstrates a stronger self-model bias: DeepSeek family models receive
+notably higher scores when evaluated by DeepSeek-V3, while Qwen’s preference for Qwen family models,
+though present, is weaker. The largest discrepancies between the two judges tend to occur for low-to-medium
+quality or borderline models, whereas discrepancies are smaller for strong general-purpose models such as
+Gemini and GPT-4o, indicating that bias primarily concentrates on critical samples.
+The DI track exhibits a similar but not identical pattern. The two judges maintain high consistency in overall
+ranking, yet a stable absolute score difference persists, suggesting that the discrepancy primarily stems from
+judge “stringency" rather than ranking reversal. Figure 6.D shows that Qwen3-235B is more lenient on most
+models, while DeepSeek-V3 assigns lower absolute scores. Synthesizing the results from both SC and DI tracks,
+the robustness of LLM judges should be understood as stability at the ranking level rather than consistency in
+raw scores. Therefore, for scenarios requiring comparability of absolute scores, judge calibration or ensemble
+evaluation should be introduced to mitigate systematic bias and enhance scoring reliability.
+21
+
+
+[Page 22]
+Figure 5: Comparative Evaluation of DeepSeek-V3 and Qwen3-235B in Semantic Consistency track.
+Figure 6: Comparative Evaluation of DeepSeek-V3 and Qwen3-235B in Deep Insight track.
+22
+
+
+[Page 23]
+D.4 Statistical Robustness Analysis
+To ascertain whether the performance disparities observed among models are statistically stable, we conducted a
+robust uncertainty estimation using 95% bootstrap confidence intervals (CIs). Specifically, for each model across
+all tracks and sub-dimensions, we performed 1,000 iterations of resampling with replacement. This methodology
+quantifies the variability of performance estimates under test-sample perturbation.
+Semantic Consistency Track (Figure 7)Claude-sonnet-4.5 achieved the most superior and stable
+performance in the SC track (95% CI: [57.14, 60.00]). Crucially, the non-overlapping nature of its CI with that
+of GPT-5 [50.82, 52.86] furnishes robust statistical evidence that its lead is not a byproduct of sample noise but a
+consistent capability advantage. A similar statistical separation was observed between GPT-5 and GLM-4.6.
+Conversely, the slight overlap between GPT-5 and Gemini-3-pro suggests their performance delta should be
+interpreted with caution, as it may be sensitive to specific sample distributions.
+Figure 7: Bootstrap 95% confidence intervals across Semantic Consistency.
+Figure 8: Bootstrap 95% confidence intervals across Data Alignment.
+Data Alignment Track (Figure 8)GPT-5 exhibited the most resilient overall performance with a 95% CI
+of [71.19, 74.80], closely followed by clustered intervals for Qwen3-Max, Gemini-3-pro, and Kimi-K2. Notably,
+capabilities vary across sub-tasks: Gemini-3-pro secured the highest interval in Verification [93.14, 95.29],
+whereas GPT-5 maintained a statistically significant lead in Calculation [67.58, 71.22] and Reasoning [59.99,
+64.77]. This divergence suggests that frontier models possess distinct specialized strengths in factual grounding
+versus numerical logic.
+23
+
+
+[Page 24]
+Deep Insight Track (Figure 9)Kimi-K2 led this track with an average CI of [90.48, 92.69], with GLM-4.6,
+Doubao-Seed-1.8, and Claude-sonnet-4.5 following closely. The high concentration and narrow width of these
+intervals indicate that their analytical depth is robust against sample fluctuations. Within theJustification &
+Causal Depthcategory, the CI lower bounds for these top-tier models consistently approached or exceeded 94,
+underscoring their steady superiority in constructing complex causal chains.
+Overall, the bootstrap analysis underscores that model superiority is highly track-dependent. The complete
+separation of confidence intervals provides strong empirical support for the performance gaps between frontier
+models, while overlapping intervals highlight where competitive gradients remain marginal.
+Figure 9: Bootstrap 95% confidence intervals across Deep Insight.
+E Failure studies
+In this section, we provide an in-depth exploration of failure patterns across models within theFinReasoning
+benchmark to identify core capability bottlenecks in current Large Language Models (LLMs) when executing
+financial research tasks. In Section E.1, we present representative failure cases for each evaluation track—
+Semantic Consistency, Data Alignment, and Deep Insight—to qualitatively illustrate model limitations in
+semantic reliability, numerical grounding, and analytical depth. Following this, Section E.2 establishes a rigorous
+Failure Mode Taxonomy. By synthesizing quantitative statistics and qualitative analysis, we systematically
+dissect performance deficiencies in key dimensions, including failures in data query and error explanation, and
+lack of causal reasoning depth. These diagnostic insights provide a clear strategic path for the future targeted
+enhancement of model capabilities in the financial domain.
+E.1 Failure Cases
+E.1.1 SC Failure Case: Factual Relation Error
+SC Track – Factual Relation Error
+Question / Input
+Reference Chunks + Modified Long Text + Question.
+Gold Answer
+Error Exists:Yes
+Identified factual relation errors (3):
+•Refinancing process completed→Refinancing process initiated
+•Decreased by approximately 50% year-on-year→Increased by approximately 50% year-on-year
+•Immediately bought a heavy position→deleted
+Reference explanationThe gold answer identifies three factual relation errors, all of which arise from altered event states, reversed
+data trends, or intensified recommendation strength. These are not stylistic issues; rather, they change the semantic relation between
+facts and therefore directly distort the financial meaning of the passage.
+Model Output
+24
+
+
+[Page 25]
+Error Exists:Yes
+Predicted factual relation errors (4):
+• Decreased by approximately 50% year-on-year → Specific data not provided in external knowledge base; cannot confirm
+• Potential adjustment by the Federal Reserve to the Supplementary Leverage Ratio (SLR) rules → The Federal Reserve
+has adjusted the Supplementary Leverage Ratio (SLR) rules
+•Refinancing review process proceeding as expected→Refinancing review is still ongoing
+• AI hardware creates new demands for functional materials such as thermal management and electromagnetic shielding →
+The impact of AI technology application on the company does not explicitly mention specific demands
+Model explanationThe model attributes most of its error judgments to whether the claimed relation is explicitly supported by an
+external knowledge base. As a result, it shifts the task fromtext-grounded factual relation checkingtoexternal factual verification,
+which leads to both false positives and major omissions relative to the gold standard.
+Failure Pattern Summary
+This case illustrates a representativetask-misalignmentfailure in the SC track. Instead of checking whether the modified text changes
+the factual relation expressed in the source passage, the model repeatedly relies on the absence or presence of support in an external
+knowledge base. This strategy causes it to miss two core gold errors (the event-state shift fromstartedtocompleted, and the added
+recommendationbuy heavily immediately) while introducing three unsupported false positives. The result is a fluent but fundamentally
+misaligned prediction that departs from the intended benchmark objective.
+Objective Metrics
+Metric Group Value Observation
+Ground-truth error count 3 The gold answer contains three factual relation errors.
+Predicted error count 4 The model over-predicts the number of errors.
+Sentence-level F1 0.286 Very low overlap between predicted and gold error sentences.
+Sentence-level Precision 0.250 Most predicted errors are false positives.
+Sentence-level Recall 0.333 The model captures only one out of three gold errors.
+Explanation BERTScore-F1 0.579 The explanation is moderately similar at the surface level, but not well aligned in substance.
+Corrected-text BERTScore-F1 0.538 The revised text diverges substantially from the gold correction target.
+Corrected-text SimCSE 0.314 Semantic similarity is low, indicating correction drift.
+LLM-as-a-Judge Evaluation
+Dimension Error Reasoning Corrected Text
+Score Explanation Score Explanation
+Correctness 4.0 The model’s identified errors and justifications
+deviate substantially from the gold answer. It
+treats knowledge-base absence as the main basis
+for judging factual relation errors, which leads to
+incorrect decisions on several key cases.
+5.0 The revised text partially fixes one relation error,
+but several corrections either contradict the gold
+answer or replace precise facts with vague fallback
+statements.
+Reasoning
+Rigor
+3.0 The reasoning chain is weak because it is built
+on a flawed premise: “not found in the external
+knowledge base” is treated as evidence of error.
+This does not match the intended relation-checking
+task.
+4.0 The revised text is consistent with the model’s own
+faulty reasoning, but that reasoning itself is not
+rigorous under the benchmark definition.
+Relevance 6.0 The explanations are mostly related to the model’s
+predicted error points, but several of those points
+are themselves off-target with respect to the true
+benchmark objective.
+7.0 The revisions remain focused on the model’s
+own predicted errors, with little irrelevant editing,
+but they are only partially relevant to the gold
+corrections.
+Completeness 2.0 The model misses two central gold errors while
+adding multiple unsupported ones, resulting in very
+poor coverage of the true factual relation changes.
+3.0 The revised text leaves key gold errors unresolved
+and therefore remains incomplete from the perspec-
+tive of the reference answer.
+E.1.2 DA Failure Case: Reasoning Error
+DA Track – KDJ Rule Misexecution
+Question / Input
+Structured financial reasoning over database records: given the queried OHLC data and the benchmark rule KDJ003, determine
+whether a bullish KDJ golden-cross signal exists for Shenzhen Guohua Network Security Technology Co., Ltd. from 2023-06-26 to
+2023-08-03, using 20 days of historical context.
+Gold Answer
+Expected Answer:No
+Gold rule condition:
+•CurrentK <30
+•CurrentK > D
+•Previous-dayK < D
+Gold explanationThe benchmark computes the full KDJ sequence from the required historical window and evaluates the rule only at
+the final decision point. The final condition isFalse, so the correct answer isNo. Although the series fluctuates during the interval, the
+last point does not satisfy the complete bullish-crossover rule.
+Model Output
+25
+
+
+[Page 26]
+Model Answer:Yes
+Model’s claimed reasoning:
+• Uses standard KDJ formulas and states that it searches for a golden-cross signal within the interval.
+• Claims that on2023-06-29,Kcrossed aboveDand therefore a bullish opportunity exists.
+• Final cited data only contains2 IDs(569572,574591), far fewer than the full sequence required for rule execution.
+Model explanationThe model presents a detailed-looking technical-analysis derivation, but its reasoning is not aligned with the
+benchmark objective. Instead of performing final-point rule judgment over the full required sequence, it rewrites the task into searching
+for whether any crossover occurred inside the interval, and supports this conclusion with severely insufficient data grounding.
+Failure Pattern Summary
+This case illustrates a representativetask-misalignmentfailure in the DA track. The model does not simply make a numerical mistake; rather, it changes the
+task fromfinal-state rule verificationtointerval-wide event search. At the same time, its query-planning stage is broadly reasonable, but its final answer uses
+only two data rows, creating a sharp disconnect between retrieval and reasoning. The result is apseudo-preciseexplanation: the output looks mathematically
+rigorous, yet it is unsupported by the data actually used and does not execute the gold rule faithfully.
+Objective Metrics
+Metric Group Value Observation
+Answer Match False The gold answer isNo, but the model predictsYes.
+Fields Match True The model correctly identifies the required fields:daily_high,daily_low, anddaily_close.
+Field Precision 1.000 No irrelevant pricing fields are used in the final structured answer.
+Field Recall 1.000 All required pricing fields are covered.
+Data IDs Match False The retrieved/used IDs do not align with the benchmark-required data span.
+Data ID Precision 1.000 The two explicitly cited IDs are valid records, but coverage is extremely narrow.
+Data ID Recall 0.069 Only 2 out of 29 required records are actually used, indicating severe under-retrieval in the final reasoning stage.
+Queried Rows 43 Stage-1 retrieval window is broad enough, but the final reasoning fails to use it faithfully.
+Structured Failure Diagnosis
+Failure Mode Manifestation in This Case
+Temporal Semantic Drift The benchmark requires a final-point decision, whereas the model reformulates the task as checking whether
+a crossover happened at any point in the interval.
+Retrieval–Reasoning Decoupling The query plan broadly retrieves the correct time window, but the final answer cites only two data IDs,
+which is insufficient to reconstruct the required KDJ sequence.
+Pseudo-precise Reasoning The model outputs detailed formulas and seemingly exact numerical claims, yet these calculations are not
+supported by the data explicitly used in the answer.
+Rule Misexecution The gold rule requires three constraints to hold jointly, especially the oversold condition at the final point;
+the model instead relies on a generic crossover template.
+E.1.3 DI Failure Case: Completeness & Comparative Analysis
+DI Track – Completeness & Comparative Analysis
+Evidence
+Regarding the energy storage industry, the research report notes that eight departments, including the Ministry of Industry and
+Information Technology, have released the “Action Plan for High-Quality Development of the New Energy Storage Manufacturing
+Industry." The plan requires that by 2027, the scale of the new energy storage manufacturing industry and downstream demand be
+essentially matched, and that three to five ecologically dominant enterprises be cultivated. The plan aims to guide the optimization of
+the industry landscape and achieve high-quality development, and it suggests paying attention to leading energy storage companies as
+well as the supercapacitor, sodium battery, and liquid flow battery industrial chains. Meanwhile, the report explicitly highlights in its
+risk disclosures that energy storage installation demand may fall short of expectations, the pace of new technology iteration may fail to
+meet expectations, and industry competition may intensify.
+Question
+Based on the factual background presented above, please conduct a dialectical analysis: What inherent conflict exists between
+the positive expectation of policy-guided “high-quality development" and “landscape optimization" and the potential constraint of
+“intensified industry competition" as highlighted in the risk disclosures? Under what market conditions might the risk of “intensified
+competition" significantly weaken or even overturn the optimistic prospect of “landscape optimization"?
+26
+
+
+[Page 27]
+Gold Answer.
+There is a typical “goal-path” tension between policy vision and market
+reality. The analysis is as follows:
+1. Nature of the Conflict: Idealized Concentration vs. Unrestrained
+Competition in Reality
+Policy Goal:By setting technical standards, encouraging innovation, and
+setting the goal of cultivating “ecosystem-dominant enterprises,” the policy
+aims to steer the industry away from the current state of homogenization
+and price wars, toward a stage of healthy competition driven by technol-
+ogy, branding, and scale. Ultimately, this is meant to achieve “landscape
+optimization” (i.e., concentration of market share among leading firms).
+Risk Reality:“Intensified industry competition” is precisely the most
+prominent feature of the industry now and for the foreseeable future. A
+large number of companies are entering the energy storage sector, leading
+to rapid capacity expansion. Against a backdrop of potentially weaker-
+than-expected downstream demand (another risk factor), supply-demand
+imbalances will intensify price competition. To survive and capture market
+share, companies may be forced into fierce price wars, eroding overall
+industry profitability.
+Inherent Conflict:The policy seeks to guide the industry toward sur-
+vival of the fittest through “high-quality development” (e.g., technological
+upgrades, product differentiation). However, the intense price competi-
+tion may force all companies—including potential leaders—to prioritize
+survival-driven price cuts over long-term R&D. This runs counter to the
+path of “high-quality development.”
+2. Key Market Conditions That Would Falsify the “Landscape Opti-
+mization” Outlook
+Condition 1: Demand growth persistently lags behind capacity expan-
+sion.This is the most critical falsifying condition. If energy storage in-
+stallation demand (whether grid-side, generation-side, or user-side) grows
+slowly due to economic viability, policy implementation pace, or grid
+absorption issues, the industry will remain in long-term oversupply. Under
+the pressure to “stay alive,” technologically leading companies may fail
+to translate technical advantages into pricing power and profits. Industry
+consolidation will be delayed, and there may even be a “bad money drives
+out good” phenomenon.
+Condition 2: Rapid iteration of technology pathways without stan-
+dardization.The policy encourages multiple technology pathways (super-
+capacitors, sodium-ion, flow batteries, etc.). If technological iteration is
+too rapid and no stable mainstream technical standards or supply chains
+emerge, the market will become fragmented. Companies’ prior invest-
+ments may quickly become obsolete, making it difficult for any single firm
+to establish durable technological barriers and economies of scale—thus
+hindering stable growth into an “ecosystem-dominant enterprise.”
+Condition 3: Distortions from non-market factors (e.g., local protec-
+tionism, low-price bidding).In fierce competition, non-technical and
+non-brand factors may distort the competitive landscape. For example,
+local protectionism can hinder the market expansion of national champi-
+ons. Some project tenders may overemphasize initial investment costs
+(low-price wins) while neglecting life-cycle costs and quality, which does
+not favor leading companies focused on R&D and quality.
+3. Comparative and Balanced Perspective
+Historical Comparison:Similar evolution can be observed in industries
+such as photovoltaics and power batteries. Those industries went through
+policy-driven phases, overcapacity, price wars, and industry shakeouts
+before gradually forming relatively stable competitive landscapes. The
+energy storage industry is likely repeating this process. Policy acts as an
+accelerator but cannot skip the painful phase of market cleansing.
+Balanced Argument:Policy charts the direction for long-term healthy
+industry development and may accelerate the exit of inefficient capacity
+through measures such as setting access thresholds. However, in the
+short to medium term, “intensified competition” is a highly certain reality.
+Investors need to focus on companies’ genuine technological moats, cost
+control capabilities, and cash flow—not rely solely on linear expectations
+of policy-driven champions. Genuine “landscape optimization” will only
+happen for companies that can survive brutal competitive cycles while
+sustaining effective R&D and operations.
+ConclusionThe optimistic outlook of “landscape optimization” and the
+risk of “intensified competition” are not entirely opposed, but the latter
+poses a severe test for the former. Under conditions of weaker-than-
+expected demand, chaotic technology pathways, or non-market competition
+environments, the industry may fall into prolonged low-profit battles. The
+process of “landscape optimization” could be significantly delayed, and
+even a “de-concentration” phenomenon (many small firms surviving on
+low prices) contrary to policy goals may emerge. Therefore, analysis
+of the energy storage industry must dynamically assess supply-demand
+relationships, technology evolution paths, and actual competitive intensity,
+rather than statically interpreting policy objectives.
+Model Answer
+1. Positive Expectations Under Policy Guidance
+The high-quality development and landscape optimization of the energy
+storage industry under policy guidance are mainly reflected in the following
+aspects:
+Alignment of scale and demand:By 2027, the scale of the new-type
+energy storage manufacturing industry will basically match downstream
+demand, which helps avoid overcapacity or shortage and ensures sustain-
+able industry development.Cultivation of enterprises:Cultivate 3–5
+ecosystem-dominant enterprises. These firms, holding leading positions in
+technology and markets, can guide industry development, promote tech-
+nological innovation, and drive industrial upgrading.Industry standards
+and regulations:Policy guidance helps establish and improve industry
+standards, enhance product quality and safety, reduce safety hazards, and
+boost consumer confidence.International cooperation:Through policy
+support, promote international exchanges and cooperation in energy stor-
+age technology, enhancing the global competitiveness of China’s energy
+storage industry.
+2. Intensified Industry Competition as a Risk Factor
+Intensified industry competition may bring the following challenges:
+Market share battles:As more firms and capital enter the energy stor-
+age sector, market competition will become fiercer, potentially leading
+to price wars and compressing corporate profit margins.Pressure for
+technological innovation:To stand out in competition, companies need to
+continuously invest in R&D, accelerate technology iteration, and bear in-
+creasing cost burdens.Supply chain instability:Intense competition may
+complicate supply chain management, causing shortages or price hikes of
+raw materials, thereby affecting production efficiency and product qual-
+ity.Policy environment uncertainty:Policy changes (e.g., adjustments
+in subsidy policies, stricter environmental regulations) can significantly
+impact the industry, increasing operational risks for enterprises.
+3. Inherent Conflict
+The inherent conflict between positive expectations and potential con-
+straints mainly manifests in the following ways:
+Uneven resource allocation:The goal of high-quality development re-
+quires substantial resource inputs, including capital, talent, and technol-
+ogy. If resources are overly concentrated in a few firms, other small and
+medium-sized enterprises may struggle to survive, hindering the healthy
+development of the entire industry.Innovation vs. competition paradox:
+Policy encourages technological innovation and high-quality development,
+but excessive competitive pressure may drive firms to pursue short-term
+gains at the expense of long-term R&D, creating a vicious cycle.Market
+entry barriers:Industry optimization under policy guidance may establish
+high market entry barriers, making it difficult for new entrants to break
+through, further entrenching incumbents’ market positions and suppressing
+the growth of emerging forces.
+4. Risk Amplification Effects Under Market Conditions
+Under the following market conditions, the risk of “intensified competi-
+tion” may significantly weaken or even overturn the optimistic outlook for
+“landscape optimization”:
+Macroeconomic recession:An economic downturn may shrink market
+demand, reduce corporate profitability, intensify price competition, weaken
+firms’ R&D investment capacity, and delay technological progress.Sud-
+den policy environment shifts:Weakened government support for the
+energy storage industry (e.g., subsidy cuts, stricter environmental stan-
+dards) would directly dampen corporate investment incentives and disrupt
+the industry’s ecological balance.Technology pathway divergence:The
+diversified development of energy storage technologies, with intensified
+competition among different pathways (e.g., lithium-ion, sodium-ion, flow
+batteries), may lead to fragmented resources and prevent the formation
+of unified technical standards and market consensus.Supply chain dis-
+ruptions:Interruptions in the supply of key raw materials or sharp price
+fluctuations would seriously affect production continuity and cost con-
+trol, forcing firms to lower product quality or exit the market, thereby
+undermining industry stability.
+Conclusion
+There exists a complex interaction between the high-quality development
+and landscape optimization of the energy storage industry under policy
+guidance, on one hand, and the risk of intensified industry competition,
+on the other. In ideal circumstances, policy can effectively guide rational
+resource allocation, promote technological innovation, and drive industrial
+upgrading. However, in real-world market environments, uncertainties
+in macroeconomics, policy frameworks, and technology pathways may
+amplify competitive risks and threaten the gains from industry optimiza-
+tion. Therefore, a comprehensive consideration of multiple factors and
+the formulation of flexible coping strategies are necessary to ensure the
+healthy and sustainable development of the industry.
+Total Score 54.0
+Subdimension Scores
+27
+
+
+[Page 28]
+Subdimension Score Reason
+Critical Thinking 3 The response identifies conflict points such as resource allocation, the innovation paradox, and entry barriers, and
+enumerates risk conditions including macroeconomic downturn, sudden policy changes, technological divergence,
+and supply chain disruptions, demonstrating the ability to recognize boundaries/risks. However, the depth of analysis
+is insufficient. Unlike the reference answer, it fails to precisely reveal the core tension of “idealized concentration
+increase vs. real-world disordered competition," nor does it deeply examine the key conflict mechanism of “profit
+erosion due to price wars, forcing firms to prioritize survival over R&D."
+Comparative per-
+spective
+2 The response implies a hedging analysis in the “technological divergence" part, noting that diversified technology
+paths may lead to resource fragmentation and difficulty in standard unification, which bears resemblance to
+“Condition 2" in the reference answer. Nevertheless, it lacks the explicit historical comparisons found in the
+reference answer (e.g., the evolution of the photovoltaic and power battery industries), and fails to systematically
+compare different market conditions (e.g., demand growth, technological iteration, non-market factors) as specific
+variables that hedge against the prospect of “landscape optimization."
+Argument bal-
+ance
+3 The response structurally balances positive expectations and risk constraints, and its conclusion notes the need to
+consider multiple factors, reflecting an intention to be objective and neutral. However, in its detailed discussion,
+the analysis of how “intensified competition" might concretely overturn “landscape optimization" (e.g., leading
+to “de-concentration" or delayed consolidation) is relatively weak. Unlike the reference answer, it does not clearly
+emphasize the severity that intensified competition is a highly certain reality and policy cannot bypass the market
+cleansing phase. The overall balance leans more toward description than critical depth.
+E.2 Failure Mode Taxonomy
+E.2.1 Semantic Consistency
+To obtain a finer-grained understanding of the limitations of current large language models on complex financial
+texts, we conduct a systematic failure-mode analysis on the Semantic Consistency (SC) track. Under the
+fine-grained human-like evaluation framework of our LLM-as-a-Judge module, we focus on two subtasks: Error
+Reasoning, which evaluates whether the model can correctly explain the semantic inconsistency, and Corrected
+Text, which evaluates whether the model can produce a faithful and valid correction. Based on the 0–10 scores
+of these two subtasks, we categorize model outputs into five representative result patterns: Both Fail, Explain but
+Not Fix, Fix but Not Explain, Partial Success, and Complete Success. Here, Both Fail indicates that the model
+neither identifies the inconsistency correctly nor provides a valid correction, while Complete Success denotes
+high-quality reasoning and correction under both criteria.
+Table 14 reports the average distribution of failure modes across the three SC dimensions. TheFactdimension
+shows a relatively balanced distribution, with Both Fail (33.2%) and Complete Success (32.9%) occurring
+at nearly the same frequency, alongside a non-trivial proportion of Partial Success (20.9%). This suggests
+that models possess some basic capacity for factual relation checking, but still frequently diverge in precise
+localization and faithful correction. TheLogicdimension yields the highest Complete Success rate (39.0%),
+yet also a relatively high Both Fail rate (31.6%), indicating strong polarization: top-performing models can
+handle multi-hop logical constraints in long contexts, whereas weaker models often fail entirely when faced with
+conflicting conditions. In contrast, Terminology is the most challenging dimension, with the lowest Complete
+Success rate (16.1%) and the highest Both Fail rate (48.0%). This pattern suggests that although models often
+detect semantic variation near a target term, they struggle to preserve strict local definitions and terminological
+boundaries in financial discourse, and therefore tend to replace the original term with superficially plausible but
+structurally mismatched alternatives.
+Table 14: Average distribution of failure modes across the three dimensions of the Semantic Consis-
+tency track (%).
+Dimension Both Fail Complete Success Fix but Not Explain Explain but Not Fix Partial Success
+Fact 33.2 32.9 9.4 3.6 20.9
+Logic 31.6 39.0 10.1 6.4 13.0
+Terminology 48.0 16.1 13.5 3.6 18.8
+As shown in Figure 10, Complete Success is achieved primarily by frontier closed-source models. In particular,
+GPT-5 reaches a complete-success rate of 91.7%, substantially outperforming both comparable general-purpose
+models and most domain-specialized financial models. By contrast, smaller models and several finance-specific
+models exhibit much higher Both Fail rates, suggesting that the upper bound of performance on SC is still
+determined largely by the underlying base model’s ability to control long-context constraints, preserve local
+semantic boundaries, and perform high-fidelity revision.
+A closer dimension-wise analysis further highlights distinct challenges. ForTerminology, the combination of the
+lowest Complete Success rate and the highest Both Fail rate indicates that precise financial terminology requires
+strict adherence to local definitions, whereas models frequently substitute terms with seemingly reasonable
+but structurally inconsistent near-synonyms. ForLogic, the high complete-success rate coexists with severe
+polarization, suggesting that logical consistency is handled well only by models with sufficiently strong long-
+context reasoning capabilities. ForFact, the distribution is more balanced, reflecting that factual relation checking
+28
+
+
+[Page 29]
+Figure 10: Failure Modes Distribution by Model.
+is neither uniformly easy nor uniformly difficult, but instead highly sensitive to whether the model can maintain
+alignment between evidence, relation type, and correction target.
+It is also worth noting that different models exhibit distinct failure profiles. For example, GPT4o shows a
+relatively high proportion of Explain but Not Fix (20.0%). This indicates that the model can often recognize
+factual inconsistency at the explanation level, but still fails to reintegrate the relevant variables into a structurally
+coherent and grammatically valid corrected sentence. Such a pattern highlights that the difficulty of SC lies not
+only in detecting inconsistencies, but also in performing high-fidelity revision without violating the original
+discourse structure.
+Representative case analysis.The Factual Relation Error example in Section E.1.1 provides a represen-
+tative illustration of SC failure. The main problem of the model is not merely an occasional misclassification,
+but a deeper task-level misalignment. The intended task is to detect whether factual relations in the long text
+have been altered with respect to the provided evidence. However, the model instead replaces this objective with
+a different decision rule: if a claim is not explicitly supported by the external knowledge base, it is treated as
+unverifiable or erroneous. This is a form ofknowledge-absence-driven negative reasoning, rather than genuine
+factual relation checking. Concretely, the model fails to capture the clearest state-relation error—rewriting “still
+under review” as “already completed” in the refinancing process—while incorrectly flagging statements such as
+“the review process is progressing as expected,” which are interpretive rather than hard relational distortions.
+It also produces “cannot be confirmed” as a so-calledcorrect_content, which is not a legitimate correction
+target but a meta-level refusal. In addition, its judgments on the SLR-related sentence and the AI-hardware
+demand sentence exhibit a strong tendency toward over-detection. This case therefore illustrates a core SC
+failure mode: the substitution oftext-grounded relation checkingwithexternal factual verification.
+Correlation Analysis: Objective Metrics vs. LLM-as-a-Judge.Finally, we examine the correlation
+between traditional automatic metrics and LLM-as-a-Judge scores in order to validate the latter at scale. On the
+SC track, Sentence-F1 (localization accuracy) shows a strong positive correlation with the judge’s Explanation
+Correctness score, with Pearson’sr≈0.84 . Meanwhile, semantic repair metrics such as SimCSE exhibit an
+even stronger correlation with the judge’s Correct Content score, with Pearson’sr≈0.91 . These results suggest
+that traditional objective metrics can capture robust alignment in semantic and positional dimensions, whereas
+the multi-dimensional scoring paradigm enabled by LLM-as-a-Judge provides a more scalable and interpretable
+framework for analyzing failure patterns in generated outputs.
+E.2.2 Data Alignment
+To systematically analyze the sources of model failures in this track, we abstract the error patterns beyond
+single-metric inaccuracies into four answer-alignment families. This classification considers both whether the
+final answer is correct, and whether the data IDs and fields referenced by the model align with the ground truth.
+29
+
+
+[Page 30]
+Distribution of weak dimensions.We categorize the failure modes into the following four types: (1)
+Correct answer with evidence mismatch, where the model produces the correct answer but the referenced
+data ID or field deviates from the ground truth; (2)Wrong answer despite partial/full evidence match, where
+the model at least partially locates the correct evidence yet still arrives at an incorrect final answer; (3)Wrong
+answer with evidence mismatch, where both the answer and the evidence alignment fail; (4)Execution failure,
+where the model fails during the execution pipeline and does not produce an evaluable result. Fully correct
+samples are tallied separately and are not considered part of the failure families.
+Figure 11: Distribution of failure mode families in the data alignment track.
+The data alignment track comprises a total of 34,200 model-sample evaluation records. As shown in Figure 11,
+the most prevalent failure type is Correct answer with evidence mismatch, accounting for 11,027 instances, or
+32.24% of all samples. This indicates that a considerable proportion of models are capable of producing correct
+answers while referencing data IDs or fields that do not perfectly match the ground truth. For financial data
+question answering, such errors are particularly significant, as the model appears to answer correctly, yet the
+supporting evidence chain is not fully traceable, potentially compromising the auditability and trustworthiness of
+the results.
+The second largest error category is Wrong answer despite partial/full evidence match, with 6,870 instances,
+representing 20.09% of the samples. This type of error suggests that the model has partially or fully identified the
+correct evidence but still makes mistakes during computation, comparison, or rule-based reasoning. Consequently,
+the challenge of the data alignment track lies not only in retrieving the correct data, but also in performing stable
+numerical computation and multi-step reasoning based on the retrieved data. Wrong answer with evidence
+mismatch accounts for 10.91% of the samples, representing cases where both the answer and the evidence
+localization fail. Execution failure constitutes 8.21%, reflecting model instability in structured output generation,
+query construction, or execution flow.
+Figure 12: Model-wise counts of failure mode families, excluding fully correct cases.
+30
+
+
+[Page 31]
+Performance differences across models and tasks.From the model perspective, Figure 12 presents
+the distribution of the four failure families across different models. This figure excludes fully correct samples,
+thereby allowing for a more direct comparison of the failure structures among models. It can be observed that
+different models exhibit distinct error sources: some models predominantly fall into the evidence mismatch
+category, where the answer may be correct but the data references are unstable; others have a higher proportion
+of execution failures or wrong answers with evidence mismatch, indicating notable deficiencies in procedural
+stability or foundational data retrieval.
+Figure 13: Failure mode distribution across verification, calculation, and reasoning tasks.
+From the task perspective, Figure 13 shows that Verification tasks achieve the highest proportion of fully correct
+samples at 61.76%, with failures mainly stemming from minor evidence mismatches and answer errors. For
+Calculation tasks, Correct answer with evidence mismatch accounts for 43.56% of the samples, suggesting that
+in complex numerical computation scenarios, models often arrive at correct results but struggle to precisely
+align the data sources they rely on. Reasoning tasks exhibit a higher risk of dual failures in both reasoning
+and evidence, with Wrong answer with evidence mismatch comprising 19.70% and Execution failure 13.05%,
+indicating that rule consistency and multi-step conditional judgments simultaneously amplify challenges in
+evidence selection, reasoning chains, and execution stability.
+Representative case analysis.We further examine a representative failure case from the Data Alignment
+track(E.1.2), where the model is asked to determine whether a bullish KDJ golden-cross signal is present under
+the KDJ003 rule. At first glance, the response appears highly structured: it selects the relevant fields such as
+daily_high, daily_low, daily_close, and dt, states the standard RSV ,K, D, and J formulas, and provides
+a seemingly detailed calculation procedure. A closer inspection, however, shows that the error is not a local
+numerical mistake. The failure originates from a misalignment between the task semantics, the rule definition,
+and the actual data used for reasoning.
+The gold reasoning treats the task as a target-point rule verification problem. Under KDJ003, the model should
+verify whether the final decision point satisfies the complete signal definition: the currentKvalue is below 30,
+the current K is greater than D, and the previous-day K is less than D. The model instead reformulates the
+problem as an interval-level event search, looking for any date within the queried window where K crosses
+above D. It therefore reports a golden cross on 2023-06-29 and answers “Yes”, while the gold answer is “No”.
+This is a temporal semantic drift: a terminal condition check is converted into a historical event retrieval task.
+The second layer of failure lies in the separation between retrieval planning and answer generation. In the
+query-planning stage, the model appears to recognize that KDJ computation requires a historical window, and it
+expands the date range accordingly. This behavior is reasonable in principle, since KDJ cannot be computed
+from a single trading day. Yet in the final answer, the explicitly cited data_used records cover only a small
+fraction of the sequence required by the gold derivation. The model therefore exhibits retrieval–reasoning
+decoupling: it plans for a sequence-based calculation, but the final reasoning is not grounded in the full retrieved
+sequence.
+This mismatch is made more problematic by the model’s pseudo-precise calculation. The response lists the
+standard KDJ formulas and gives concrete numerical claims about a specific crossing point, creating the
+appearance of a rigorous technical analysis. Such precision is misleading. Without using the complete historical
+sequence needed to reconstruct the rolling RSV values and recursively derive K and D, the asserted crossing
+path cannot be reliably verified. The model does not merely calculate incorrectly; it fabricates a detailed
+computation trace under insufficient data support.
+The rule execution is also incomplete. The benchmark rule is not a generic KDJ golden-cross heuristic. It
+requires the crossing to occur near the oversold region, withK <30 , and it also requires a specific previous-day-
+to-current-day state transition. The model mainly focuses on the crossing relation K < D→K > D , while
+31
+
+
+[Page 32]
+failing to bind the oversold threshold and the target-point constraint to the final decision. In effect, it invokes a
+loose financial concept rather than executing the exact rule specified by the benchmark.
+This case reveals a characteristic Data Alignment failure: the model is well aligned at the level of format, field
+selection, and formula presentation, but misaligned along the core semantic chain ofquestion interpretation–rule
+binding–temporal scope–data usage–final judgment. The response is therefore not a simple calculation error or
+a formatting failure, but a compound reasoning failure in which several structured components appear correct
+while the underlying decision process is wrong. For financial analysis, this pattern is particularly risky: the
+output looks auditable and professionally grounded, yet its conclusion is produced by reasoning over the wrong
+task.
+Overall, this taxonomy reveals two core failure mechanisms in the data alignment track: first, “correct answer but
+non-traceable evidence," and second, “partially correct evidence but reasoning failure." The former underscores
+that relying solely on final answer accuracy overestimates model reliability in financial scenarios; the latter
+demonstrates that financial question answering systems require not only accurate data retrieval but also stable
+computational and rule-based reasoning capabilities. Therefore, LLM evaluation in the financial domain should
+simultaneously examine answer correctness, data ID alignment, and field alignment, rather than focusing
+exclusively on whether the final answer matches the ground truth.
+E.2.3 Deep Insight
+The DI track is designed to evaluate whether models can penetrate underlying business mechanisms and
+produce critically grounded analysis under complex evidence. Our experimental results show that this capability
+constitutes a key dividing line between frontier foundation models and domain-specialized fine-tuned models.
+Based on quantitative statistics over the four DI dimensions and their underlying error patterns, we construct a
+detailed taxonomy of failure modes. Concretely, we identify low-scoring cases from all model outputs using
+the criterion that either total_score<70 or at least one subdimension_score<3 . This yields 7,490
+low-scoring instances in total, accounting for 32.9% of all evaluated DI samples.
+Distribution of weak dimensions. (Figure 14)Our statistics show that Justification Plausibility &
+Causal Depth (30.4%) and Completeness & Comparative Analysis (26.8%) are the two most failure-prone
+dimensions among low-scoring cases. By contrast, deductions caused by more surface-level features, such as
+Argument Richness & Structural Rigor, account for only 17.7%. This suggests that contemporary LLMs have
+largely mastered the formal discourse template of financial research reports, yet their reasoning remains highly
+formulaic: they often fail to couple general analytical rules with the specific business context under discussion.
+Figure 14: Distribution of weak dimensions.
+Diagnosis of high-frequency error patterns. (Figure 15)Among cases with subdimension_score
+<3 , the two most frequent error types are Missing Comparative Perspective (1,816 occurrences) and Insufficient
+Computational Rigor (1,608 occurrences). When analyzing a specific industry, models exhibit a severe lack
+of horizontal mapping ability, either across peer competitors or across historical cycles, and their reasoning
+often collapses into linear and isolated argumentation. In addition, failures in Causal Depth (1,520 occurrences)
+and Contextual Analysis (1,469 occurrences) are also highly prominent. Most models remain at the level of
+superficial associations, failing to construct the finance-specificmechanism → impactchain that underlies
+rigorous analytical reasoning. Their responses are often mechanically templated and insufficiently adapted to the
+particular market constraints described in the research report.
+Performance differences across model tiers. (Figure 16)The experimental results reveal a marked
+pattern of polarization. Frontier foundation models represented by GPT-5, Doubao-Seed-1.8, and Kimi-K2
+32
+
+
+[Page 33]
+Figure 15: Diagnosis of high-frequency error patterns.
+demonstrate decisively superior logical robustness on the DI task. In sharp contrast, many open-source financial
+models built on bases such as Llama-3.1-8B or Qwen2.5 (e.g., TouchstoneGPT) perform poorly across the
+DI track and are nearly uniformly below the passing threshold. The stacked distribution further shows that as
+overall model capability improves, failures related to Causal Depth and Comparative Analysis shrink the slowest.
+This finding strongly suggests that, for highly complex financial reasoning tasks, domain-specific supervised
+fine-tuning (SFT) on financial corpora can at best enhance the professional tone of the generated language, but
+cannot compensate for deficiencies in the underlying logical inference chain of the base model.
+However, it is noteworthy that Fin-R1 and DianJin-R1-7B, despite being far smaller than Qwen3-235B, display
+significant competitive advantages. Both models adopt reasoning-enhancement strategies similar to those of
+DeepSeek-R1, aiming to improve logical depth through Chain-of-Thought. Fin-R1 employs reinforcement
+learning with the GRPO (Group Relative Policy Optimization) algorithm, while DianJin-R1-7B introduces
+Fin-PRM, a domain-specific process reward mechanism that provides finer-grained feedback on the correctness
+of each intermediate reasoning step. The success of these two models suggests that, in professional financial
+analysis, high-quality domain logic distillation and reward mechanisms that explicitly strengthen the reasoning
+process are more decisive than merely increasing parameter scale.
+Representative case analysis.To illustrate the above statistical findings more concretely, we select a
+representative failure case of Fin-R1 in the Completeness & Comparative Analysis category(E.1.3). Although
+the model can generate structurally well-organized and terminology-dense text, it exhibits clear limitations in
+Critical Thinking. In particular, it merely enumerates broad notions such as “uneven resource allocation” without
+penetrating the underlying commercial mechanism to identify the core conflict, namely, the crowding-out effect
+of survival-driven price cuts on long-term R&D investment.
+Moreover, the model also shows substantial weakness in both precise causal derivation (Causal Depth) and
+cross-cycle comparative reasoning (Comparative Perspective). When explaining the trigger conditions under
+which competitive risk could overturn the expected market structure, the model tends to resort to generic macro
+narratives such as “macroeconomic fluctuations,” rather than adapting its reasoning to the specific market
+constraints described in the report. This lack of what may be termedhistorical mappingprevents the model from
+introducing analogous evidence—for example, capacity-clearing episodes in the photovoltaic or lithium-battery
+industries—as a basis for comparative argumentation, thereby revealing a broader weakness in long-context
+relational reasoning. This failure mode directly justifies the inclusion of the DI track in FinReasoning: neither
+larger model scale nor the mere injection of domain knowledge automatically yields deep analytical capability.
+Genuine research-grade financial reasoning remains one of the most critical capability gaps between current
+frontier models and the demands of specialized financial tasks.
+E.3 Full Experiment Results
+We further report the detailed evaluation results under each benchmark track and category in Ta-
+ble 15,16,17,18,19,20,21 to provide a more fine-grained view of model performance. Instead of relying
+only on aggregate scores, these tables decompose model behavior into rubric-level indicators, allows us to
+examine not only which models achieve higher overall scores, but also where their strengths and weaknesses
+arise across different financial reasoning requirements.
+33
+
+
+[Page 34]
+Figure 16: Performance differences across model tiers.
+Table 15: Semantic Consistency evaluation results of theTerminologycategory. This table reports
+model performance on each evaluation rubric and the overall score (Best in bold, second best
+underlined).
+Models Error Location
+Accuracy
+Error Explanation Correct Content Overall
+Score
+BERTScore SimCSE LLM-as-a-Judge BERTScore SimCSE LLM-as-a-Judge
+Close-Source
+GPT-5 41.82 67.83 73.9685.0969.81 68.68 88.12 64.33
+GPT-4o 11.68 64.65 63.82 48.24 30.39 28.94 50.34 35.71
+Gemini-3-pro 43.39 69.1776.0979.00 66.42 65.10 82.17 63.13
+Claude-sonnet-4.5 26.9869.3373.51 80.65 53.78 52.10 83.82 54.90
+GLM-4.6 41.34 69.20 74.65 67.91 63.78 62.19 69.45 59.02
+Qwen3-Max 27.20 68.41 73.88 62.20 55.24 54.32 64.78 51.16
+Kimi-K2 26.36 65.63 68.47 63.16 52.47 51.04 65.46 49.48
+Doubao-Seed-1.847.9269.31 74.18 71.5371.53 70.7773.69 63.86
+Open-Source General
+DeepSeek-R1 32.80 69.10 72.62 58.22 53.57 52.63 59.48 51.56
+DeepSeek-V3 21.12 65.95 63.82 44.87 45.40 44.12 47.97 41.72
+Intern-S1 18.26 67.76 69.73 50.81 30.88 30.22 50.87 39.45
+Qwen3-8B 8.37 67.23 69.32 48.81 15.94 15.18 49.66 32.36
+Qwen3-32B 15.45 67.81 70.43 51.53 28.41 27.24 50.66 38.05
+Qwen3-235B 17.41 67.41 69.99 51.28 34.98 34.05 52.87 40.31
+Llama-3.1-8B 3.68 63.13 59.28 13.49 8.93 7.42 11.66 19.44
+Llama-3.1-70B 3.45 63.22 59.57 16.39 8.85 8.02 10.97 19.71
+Open-Source Financial
+Fin-R1 1.84 63.78 62.11 26.73 4.57 4.13 26.04 21.43
+TouchstoneGPT 0.73 50.81 48.45 2.88 0.73 0.50 2.36 11.99
+DianJin-R1-7B 0.85 63.61 58.37 25.59 2.21 2.23 17.34 19.10
+34
+
+
+[Page 35]
+Table 16: Semantic Consistency evaluation results ofFactcategory. This table reports model
+performance on each evaluation rubric and the overall score(Best in bold, second best underlined).
+Models Error Location
+Accuracy
+Error Explanation Correct Content Overall
+Score
+BERTScore SimCSE LLM-as-a-Judge BERTScore SimCSE LLM-as-a-Judge
+Close-Source
+GPT-5 63.47 68.33 76.77 80.14 72.43 72.41 82.38 71.43
+GPT-4o 36.41 62.69 63.68 60.08 63.88 62.01 62.74 53.81
+Gemini-3-pro 62.59 69.41 77.84 81.43 71.19 69.08 83.35 71.12
+Claude-sonnet-4.5 53.8870.2778.16 82.1272.17 71.1985.2268.97
+GLM-4.6 67.04 69.88 77.39 78.74 76.97 75.43 80.78 73.37
+Qwen3-Max 57.61 69.1278.9776.00 76.65 75.15 81.62 70.04
+Kimi-K2 55.87 65.88 71.14 72.43 71.80 70.02 74.68 65.95
+Doubao-Seed-1.869.3368.18 76.67 80.1977.66 76.8782.3674.44
+Open-Source General
+DeepSeek-R1 59.70 68.97 76.27 70.46 68.41 66.85 71.61 66.85
+DeepSeek-V3 55.86 63.92 66.62 67.11 67.09 64.34 71.19 63.09
+Intern-S1 44.65 67.29 73.24 64.58 55.39 53.80 65.88 57.13
+Qwen3-8B 25.78 65.72 70.73 60.70 39.74 38.82 61.55 46.07
+Qwen3-32B 37.48 66.45 73.94 68.10 53.33 52.03 68.09 54.93
+Qwen3-235B 39.87 66.56 72.11 61.48 67.02 65.10 67.17 57.67
+Llama-3.1-8B 6.60 59.22 56.28 11.94 16.22 14.98 11.30 21.08
+Llama-3.1-70B 14.51 60.10 58.01 22.70 30.41 29.14 15.02 28.77
+Open-Source Financial
+Fin-R1 4.12 61.76 62.89 23.44 10.67 10.01 22.31 22.60
+TouchstoneGPT 1.42 47.20 47.57 2.71 2.09 1.90 2.05 11.98
+DianJin-R1-7B 4.39 60.25 58.36 31.69 9.26 8.90 22.39 22.67
+Table 17: Semantic Consistency evaluation results of theLogiccategory. This table reports model
+performance on each evaluation rubric and the overall score (Best in bold, second best underlined).
+Models Error Location
+Accuracy
+Error Explanation Correct Content Overall
+Score
+BERTScore SimCSE LLM-as-a-Judge BERTScore SimCSE LLM-as-a-Judge
+Close-Source
+GPT-5 37.21 64.45 72.32 87.89 45.38 45.80 90.47 57.55
+GPT-4o 14.44 60.72 55.54 67.15 21.48 21.30 68.71 37.58
+Gemini-3-pro 28.35 64.87 71.59 87.15 28.27 26.51 88.32 50.19
+Claude-sonnet-4.5 24.3766.47 72.52 89.7636.55 36.3791.8251.84
+GLM-4.6 49.83 65.29 69.70 83.2355.3354.30 84.88 62.47
+Qwen3-Max 36.80 64.57 70.72 84.29 48.97 48.46 86.74 57.13
+Kimi-K2 45.70 61.81 64.78 82.63 51.58 50.54 83.26 59.08
+Doubao-Seed-1.850.4965.35 71.78 84.33 55.27 55.1486.5663.32
+Open-Source General
+DeepSeek-R1 29.20 65.25 68.59 67.54 32.21 31.02 68.25 46.72
+DeepSeek-V3 42.25 63.11 60.43 69.79 48.24 45.93 72.05 54.03
+Intern-S1 10.72 62.36 64.20 66.39 13.01 12.53 68.17 35.43
+Qwen3-8B 12.99 61.98 57.01 67.46 22.00 21.09 69.97 37.61
+Qwen3-32B 6.77 62.52 65.23 70.33 10.50 10.29 68.34 34.17
+Qwen3-235B 5.86 62.77 65.88 67.10 8.57 8.28 66.63 32.98
+Llama-3.1-8B 2.51 56.64 50.04 17.14 5.39 5.20 10.48 16.94
+Llama-3.1-70B 4.37 59.59 52.87 25.10 8.41 8.22 16.65 20.44
+Open-Source Financial
+Fin-R1 3.29 62.18 62.80 36.39 8.06 7.82 30.97 24.23
+TouchstoneGPT 2.88 46.93 41.91 1.93 1.91 1.45 1.95 11.64
+DianJin-R1-7B 0.47 59.28 54.02 37.66 0.90 0.87 28.15 20.26
+35
+
+
+[Page 36]
+Table 18: Data Alignment evaluation results of theVerificationcategory. This table reports model
+performance on each evaluation rubric and the overall score (Best in bold, second best underlined).
+Models Success Rate Answer Accuracy Data IDs F1 Fields F1 Overall Score
+Close-Source
+GPT-5100.0081.50 99.86 83.50 88.29
+GPT-4o100.0081.83100.0089.35 90.39
+Gemini-3-pro100.00 87.17 100.00 95.82 94.33
+Claude-sonnet-4.5 92.83 86.54 99.84 89.27 85.30
+GLM-4.6100.0079.17100.0088.99 89.39
+Qwen3-Max100.0081.33100.0095.66 92.33
+Kimi-K2100.0082.67 99.74 88.20 90.20
+Doubao-Seed-1.8100.0085.83 99.96 94.70 93.50
+Open-Source General
+DeepSeek-R1100.0023.50 28.12 25.62 25.75
+DeepSeek-V3100.0085.33 99.83 90.32 91.83
+Intern-S1100.0079.67100.0086.69 88.79
+Qwen3-8B 97.33 77.05 96.10 84.13 83.48
+Qwen3-32B 99.50 84.25100.0091.99 91.62
+Qwen3-235B 99.00 83.84100.0089.23 90.11
+Llama-3.1-8B 97.33 67.47 94.52 79.55 78.37
+Llama-3.1-70B 99.67 80.10 98.79 86.65 88.22
+Open-Source Financial
+Fin-R1 84.00 70.44100.0063.26 65.43
+TouchstoneGPT 75.00 48.00 0.00 47.13 23.78
+DianJin-R1-7B 74.67 82.37 99.33 82.92 65.86
+Table 19: Data Alignment evaluation results of theCalculationcategory. This table reports model
+performance on each evaluation rubric and the overall score (Best in bold, second best underlined).
+Models Success Rate Answer Accuracy Data IDs F1 Fields F1 Overall Score
+Close-Source
+GPT-5100.0072.25 81.3264.74 72.77
+GPT-4o100.0048.63 76.23 58.17 61.01
+Gemini-3-pro100.00 73.1376.14 60.42 69.90
+Claude-sonnet-4.5 95.63 64.24 78.25 60.28 64.63
+GLM-4.6 98.75 71.15 74.92 58.95 67.49
+Qwen3-Max100.0067.00 79.88 54.46 67.11
+Kimi-K2 99.88 63.69 74.6569.8069.29
+Doubao-Seed-1.8 98.88 67.05 73.62 61.35 66.58
+Open-Source General
+DeepSeek-R1 98.13 70.28 75.86 64.49 68.90
+DeepSeek-V3100.0063.50 72.04 55.56 63.70
+Intern-S1 91.00 69.71 73.95 63.57 62.86
+Qwen3-8B 85.25 59.22 75.88 47.36 51.85
+Qwen3-32B 86.63 61.02 76.85 54.90 55.66
+Qwen3-235B 99.63 58.04 76.40 55.45 63.06
+Llama-3.1-8B 87.50 53.77 67.52 47.20 49.14
+Llama-3.1-70B100.0058.25 72.20 53.34 61.26
+Open-Source Financial
+Fin-R1 74.63 52.49 72.33 38.41 40.60
+TouchstoneGPT 72.38 49.89 0.00 24.48 17.94
+DianJin-R1-7B 33.38 62.71 64.15 53.57 20.07
+36
+
+
+[Page 37]
+Table 20: Data Alignment evaluation results of theReasoningcategory. This table reports model
+performance on each evaluation rubric and the overall score (Best in bold, second best underlined).
+Models Success Rate Answer Accuracy Data IDs F1 Fields F1 Overall Score
+Close-Source
+GPT-5100.0063.00 64.6777.80 68.49
+GPT-4o100.0057.00 62.31 69.85 63.05
+Gemini-3-pro100.0060.75 38.62 71.09 56.82
+Claude-sonnet-4.5 99.50 60.80 52.18 75.99 62.68
+GLM-4.6100.0055.75 46.75 72.69 58.40
+Qwen3-Max 99.50 60.80 62.97 76.14 66.30
+Kimi-K2100.0055.50 58.32 75.85 63.22
+Doubao-Seed-1.8 99.25 49.75 53.11 65.27 55.63
+Open-Source General
+DeepSeek-R1 38.75 60.65 48.98 64.62 22.51
+DeepSeek-V3 96.5064.5156.04 67.13 60.37
+Intern-S1 91.00 58.52 48.21 71.07 53.93
+Qwen3-8B 89.50 56.42 67.28 57.99 54.21
+Qwen3-32B 99.00 62.12 67.85 67.15 65.05
+Qwen3-235B 89.75 51.53 60.82 68.78 54.19
+Llama-3.1-8B 83.25 47.45 67.43 38.76 42.63
+Llama-3.1-70B 99.25 46.10 71.66 67.60 61.32
+Open-Source Financial
+Fin-R1 59.75 60.6780.4152.96 38.65
+TouchstoneGPT 91.00 33.52 0.00 8.15 12.64
+DianJin-R1-7B 16.00 51.56 43.97 34.05 6.91
+Table 21: Deep Insight evaluation results across four categories:Justification & Causal Depth,
+Factuality & Context,Completeness & Comparative Analysis, andArchitecture Richness &
+Strictness. The abbreviated rubrics are defined as follows: RC = Reasoning Chain, CD = Causal
+Depth, Prof. = Professionalism, FD = Factual Density, CR = Computational Rigor, CA = Contextual
+Analysis, CT = Critical Thinking, CP = Comparative Perspective, AB = Argument Balance, FC =
+Framework Completeness, LH = Logical Hierarchy, and EG = Expression Granularity. This table
+reports model performance on each rubric and the overall category score (Best in bold, second best
+underlined).
+Models
+Justification &
+Causal Depth
+Factuality &
+Context
+Completeness &
+Comparative Analysis
+Architecture Richness &
+Strictness
+Score RC CD Prof. Score FD CR CA Score CT CP AB Score FC LH EG
+Close-Source
+GPT-5 81.80 32.29 24.18 24.78 84.58 32.80 25.36 26.42 86.71 35.39 24.24 27.08 92.39 36.99 27.74 27.66
+GPT-4o 76.93 31.95 21.52 23.46 77.64 31.84 22.08 23.72 74.78 31.52 19.62 23.64 79.96 32.00 23.98 23.98
+Gemini-3-pro 80.67 33.73 21.62 25.32 79.01 32.21 22.16 24.64 76.65 32.43 20.38 23.84 82.14 32.88 24.66 24.60
+Claude-sonnet-4.5 96.17 38.13 28.54 29.5087.07 34.11 25.94 27.02 84.51 34.85 23.48 26.18 92.19 36.93 27.72 27.54
+GLM-4.6 96.06 38.16 28.54 29.36 88.10 34.2425.3828.4887.33 36.03 23.88 27.42 92.58 37.04 27.78 27.76
+Qwen3-Max 82.89 35.31 22.00 25.58 75.95 31.39 21.42 23.14 75.78 31.68 20.14 23.96 85.80 34.40 25.80 25.60
+Kimi-K296.27 38.19 28.58 29.5087.42 33.6826.8226.9289.47 36.77 25.04 27.6693.38 37.20 28.04 28.14
+Doubao-Seed-1.8 95.7338.19 28.5828.96 87.15 33.87 26.12 27.16 86.17 35.41 23.88 26.8893.52 37.36 28.1028.06
+Open-Source General
+DeepSeek-R1 89.76 35.76 26.72 27.28 84.63 33.09 25.52 26.02 80.03 33.15 21.86 25.02 88.03 35.23 26.42 26.38
+DeepSeek-V3 86.36 34.32 25.58 26.46 81.03 32.13 23.76 25.14 77.89 32.21 21.42 24.26 81.99 32.83 24.56 24.60
+Intern-S1 88.00 34.88 26.02 27.10 82.08 32.40 24.30 25.38 81.59 33.57 22.70 25.32 84.36 33.76 25.30 25.30
+Qwen3-8B 57.37 27.39 14.90 15.08 51.09 23.49 13.22 14.38 53.85 23.25 12.70 17.90 69.33 29.65 22.28 17.40
+Qwen3-32B 65.70 30.64 17.04 18.02 61.67 27.49 16.56 17.62 60.29 25.87 14.66 19.76 73.61 30.85 23.18 19.58
+Qwen3-235B 67.48 31.12 17.38 18.98 63.79 28.19 17.22 18.38 63.65 26.99 15.88 20.78 75.38 31.28 23.48 20.62
+Llama-3.1-8B 32.13 16.27 7.34 8.52 30.83 15.79 6.68 8.36 31.33 14.21 6.12 11.00 39.09 17.49 12.44 9.16
+Llama-3.1-70B 36.84 17.68 8.96 10.20 36.47 18.21 8.58 9.68 34.73 15.65 7.06 12.02 42.64 18.56 13.34 10.74
+Open-Source Financial
+Fin-R1 71.47 31.09 18.90 21.48 71.83 30.43 19.06 22.34 73.53 31.23 18.84 23.46 77.90 31.36 23.36 23.18
+TouchstoneGPT 34.22 16.56 8.32 9.34 28.70 7.12 2.78 4.26 30.78 14.16 6.02 10.60 38.33 16.99 12.18 9.16
+DianJin-R1-7B 69.14 29.92 18.42 20.80 63.61 27.01 16.66 19.94 73.27 31.01 18.96 23.30 77.14 31.04 23.16 22.94
+37
+
+
+[Page 38]
+F Detailed Instructions and Prompts
+In this section, we provide the complete system of prompts and instructions employed during the construction
+and evaluation of the FinReasoning benchmark to ensure procedural transparency and methodological rigor. In
+Section F.1, we detail the data generation prompts, covering corpus synthesis, fine-grained error injection, and
+rule-based QA construction. Section F.2 presents the standardized evaluation prompts used to probe the reasoning
+capabilities of various LLMs. Finally, in Section F.3, we specify the instructions for LLM-as-a-Judge evaluation.
+These documented prompts serve as a standardized reference for reproducing experiments, diagnosing model
+behaviors, and extending the benchmark to new financial analytical scenarios.
+F.1 Data Generation Instructions and Prompts
+This subsection presents the prompts used for benchmark data construction. The prompts are designed to
+transform raw financial reports, structured records, and expert-written materials into standardized benchmark
+instances with explicit supervision signals. Depending on the task setting, the generation prompts are used to
+identify salient evidence spans, introduce controlled perturbations, construct structured question–answer pairs,
+or produce reference outputs in JSON format.
+F.1.1 Semantic Consistency
+The prompts in this section are designed for theTerminology Confusionerror under theTerminologycategory.
+For this track, the prompts used to inject each error type vary slightly in content depending on the category, but
+their overall structure remains similar.
+You are a financial language expert and a text generation model. Your task is to inject
+"terminology confusion" type errors into the input long text in a controlled manner while
+preserving the overall logical coherence, natural readability of the sentences, and the
+original discourse structure as much as possible. You must not explain the task, provide
+examples, or supplement any definitions. Simply perform the error injection directly and
+return the result.
+"Terminology confusion" refers to replacing an originally correct professional term in the
+current context with another term that is semantically similar but differs in definition,
+scope of application, or conceptual hierarchy, thereby creating conceptual confusion
+without making the sentence obviously distorted or unnatural.
+You must ensure that:
+- only the parts involving professional terminology are modified;
+- the overall logic, tone, writing style, and linguistic naturalness of the original text
+are preserved, and no irrelevant polishing, deletion, expansion, or reorganization is
+allowed;
+- 1--3 terminology confusion errors are injected into the text, and these errors should be
+distributed across different sentences or paragraphs;
+- the injected errors must appear superficially plausible and naturally concealed, yet
+still be identifiable as incorrect by readers with domain expertise;
+- except for the local positions where terminology substitutions are made, all other
+content must remain unchanged as much as possible, ideally word for word;
+- the returned result must strictly follow the JSON structure below, and no additional
+explanation or example may be added:
+{{
+"errors": [
+{{
+"error_type": "Terminology Confusion",
+"original_term": "the original correct term or expression",
+"wrong_term": "the injected confusing term or expression",
+"context": "the complete sentence containing the incorrect term",
+"reason": "briefly explain why this term does not fit the current context and what
+the correct concept should be"
+}}
+],
+"modified_text": "the full text after error injection"
+}}
+Original text:
+{text}
+F.1.2 Data Alignment
+To ensure that model reasoning is grounded in verifiable financial data, the Data Alignment track implements a
+suite of predefined executable rules and derived indicator formulas. We list 20 derived indicator calculations and
+5 reasoning rules among them below.
+38
+
+
+[Page 39]
+Derived Indicator CalculationsTo support composite metric computation in the Data Alignment track,
+we operationalize a set of derived financial indicators that combine multiple base fields from the A-share market
+database. Each formula is executed automatically against structured records, ensuring that every computed value
+is deterministically traceable to the underlying data. These indicators span fundamental analysis, valuation
+assessment, capital flow measurement, and intraday price dynamics. We present the complete set of 19 derived
+indicators below, organized by functional category.
+Fundamental and Solvency IndicatorsThese indicators assess a firm’s financial health, earnings quality,
+and capital structure using fiscal-period data.
+Cash-flow Coverage Ratio.This metric measures a firm’s ability to cover its current liabilities with internally
+generated operating cash flow. Operating cash flow is proxied by per-share operating cash flow multiplied by
+total A-share capital, and the result is scaled by current liabilities:
+Cash-flow Coverage= s_fa_ocfps×total_ashares
+tot_cur_liab .(1)
+Quality of Earnings.This indicator captures the proportion of reported net profit that is backed by actual
+operating cash flow, reflecting earnings quality. It is computed as the ratio of operating cash flow to net profit
+excluding minority interest:
+Quality of Earnings= s_fa_ocfps×total_ashares
+net_profit_excl_min_int_inc .(2)
+Net Operating Liabilities.This metric quantifies the net short-term operating obligations of a firm by subtracting
+current assets from current liabilities:
+Net Operating Liabilities=tot_cur_liab−tot_cur_assets.(3)
+Net Debt to Market Value.This leverage indicator normalizes net operating liabilities by the firm’s total market
+value, providing a market-based assessment of debt burden:
+Net Debt to MV= tot_cur_liab−tot_cur_assets
+s_val_mv .(4)
+Core Profit Margin.This profitability metric isolates the proportion of core operating profit relative to total
+revenue. It is defined as deducted profit divided by operating revenue:
+Core Profit Margin= s_fa_deductedprofit
+oper_rev .(5)
+Operating Leverage.This indicator captures the sensitivity of operating profit growth to revenue growth,
+reflecting the degree of fixed-cost exposure in a firm’s cost structure. It is computed as the quarterly growth rate
+of operating profit divided by the quarterly growth rate of operating revenue:
+Operating Leverage= fin_growth_q_operprofitgrowrate
+fin_growth_q_torgrowrate .(6)
+Valuation and Market-Based IndicatorsThese indicators relate financial performance to market valua-
+tion, supporting cross-sectional comparison and investment analysis.
+Revenue to Market Value.This indicator inverts the conventional price-to-sales ratio, expressing operating
+revenue relative to market value. A higher ratio indicates greater revenue per unit of market capitalization.
+Revenue to MV= oper_rev
+s_val_mv .(7)
+Market-Cap-Weighted ROE.This indicator scales return on equity by firm size, computed as the product of
+ROE and total market value. It is designed to support portfolio-level aggregation and cross-sectional weighting:
+Market-Cap-Weighted ROE=fin_profit_roe×s_val_mv.(8)
+Free-Float Turnover Value.This metric estimates the total monetary value of shares traded among freely
+floating shares. It is defined as the product of the turnover rate of free shares, the number of free-float shares,
+and the share price proxied by total market value divided by total A-share capital:
+Free-Float Turnover Value=turn_freeshares×free_float_shares× s_val_mv
+total_ashares .(9)
+39
+
+
+[Page 40]
+Operating Asset and Return ProxiesThese indicators construct proxy measures for operating assets and
+the corresponding return on invested capital, enabling analysis when detailed segment data are unavailable.
+Operating Assets Proxy.This metric approximates the value of operating assets by combining tangible
+assets ( s_fa_tangibleasset) with net working capital, defined as the difference between current assets
+(tot_cur_assets) and current liabilities (tot_cur_liab):
+Operating Assets Proxy=s_fa_tangibleasset+ (tot_cur_assets−tot_cur_liab).(10)
+ROIC Proxy.This indicator estimates return on invested capital by dividing net profit excluding minority
+interest (net_profit_excl_min_int_inc) by the operating assets proxy defined above:
+ROIC Proxy= net_profit_excl_min_int_inc
+s_fa_tangibleasset+ (tot_cur_assets−tot_cur_liab) .(11)
+Intraday Price Dynamics IndicatorsThese indicators decompose daily price movements using open,
+high, low, close, and pre-close prices, capturing intraday patterns, overnight effects, and trading efficiency.
+Intraday Return.This metric captures the return generated during regular trading hours, measured from the
+daily open to the daily close:
+Intraday Return= daily_close−daily_open
+daily_open .(12)
+Overnight Return (Opening Gap).This indicator measures the return attributable to overnight information
+accumulation, computed as the change from the previous close to the current open:
+Overnight Return= daily_open−daily_preclose
+daily_preclose .(13)
+Full-Day Return.This metric captures the total daily return from the previous close to the current close,
+encompassing both overnight and intraday components:
+Full-Day Return= daily_close−daily_preclose
+daily_preclose .(14)
+Price Efficiency Ratio (Real Body Strength).This indicator quantifies the proportion of the daily price range
+represented by the real body, measuring how efficiently price movement translates into a net directional close. It
+is defined as the absolute distance from open to close scaled by the full high–low range:
+Price Efficiency Ratio= daily_close−daily_open
+daily_high−daily_low .(15)
+Upper Shadow Ratio.This metric measures the relative length of the upper shadow as a proportion of the total
+daily price range, capturing the extent of intraday selling pressure that reversed from the high:
+Upper Shadow Ratio= daily_high−max(daily_open,daily_close)
+daily_high−daily_low .(16)
+Lower Shadow Ratio.This metric measures the relative length of the lower shadow as a proportion of the total
+daily price range, capturing the extent of intraday buying support that reversed from the low:
+Lower Shadow Ratio= min(daily_open,daily_close)−daily_low
+daily_high−daily_low .(17)
+Close Relative Position.This indicator locates the closing price within the day’s high–low range, providing a
+normalized measure of closing strength. Values near 1 indicate a close near the high, while values near 0 indicate
+a close near the low:
+Close Relative Position= daily_close−daily_low
+daily_high−daily_low .(18)
+Volume-Price Interaction IndicatorsThese indicators relate price changes to trading volume, offering
+insight into the intensity and efficiency of market participation.
+Average Trade Amount.This metric estimates the average monetary value per transaction by dividing total
+daily turnover amount by the number of transactions:
+Avg. Trade Amount= daily_amount
+daily_tnum .(19)
+Price Change per Unit Volume.This indicator measures the marginal price impact per unit of trading volume,
+computed as the daily price change divided by total daily volume:
+Price Change per V olume= daily_close−daily_preclose
+daily_volume .(20)
+40
+
+
+[Page 41]
+Executable Reasoning RulesThe reasoning rules in the Data Alignment track encode established financial
+analysis practices and industry heuristics into atomic, executable steps. Each rule is grounded in a recognized
+financial principle, operates over structured database fields, and is decomposed into a sequence of calculator-level
+operations. All rules produce a binary output that can be objectively verified against the database. Below we
+present representative examples drawn from the full set of 61 rules spanning capital flow analysis, technical
+signal detection, valuation assessment, and fundamental quality screening.
+Chaikin Money Flow Zero-Line CrossoverThis rule determines whether the Chaikin Money Flow
+(CMF) indicator signals net capital inflow over the evaluation window. It is grounded in the zero-line crossover
+principle of CMF interpretation: CMF>0 indicates net capital inflow with the market dominated by buying
+pressure. When the condition holds, the rule concludes that net capital inflow is present, buying power dominates
+the market, and buyers exhibit strong willingness to initiate purchases. Acceptable phrasings of this conclusion
+include “net capital inflow; the market is dominated by buyers,” “buying pressure dominates the market,” “capital
+is flowing in on a net basis,” “the market is in a state of capital inflow,” and “buyers exhibit strong willingness to
+initiate purchases.”
+Required Metrics.daily_high, daily_low, daily_close, daily_volume
+The rule proceeds through the following atomic steps:
+1.Money Flow Multiplier.For each trading daytin the 20-day window, compute:
+MFMt = (Closet −Low t)−(High t −Close t)
+Hight −Low t
+.(21)
+This multiplier ranges from+1(close at high, strong buying) to−1(close at low, strong selling).
+2.Money Flow Volume.Scale the period’s volume by the money flow multiplier:
+MFVt =MFM t ×V olumet.(22)
+3.Chaikin Money Flow.Aggregate money flow volume over 20 days and normalize by total volume:
+CMF=
+P20
+t=1 MFVt
+P20
+t=1 V olumet
+.(23)
+4.Decision Rule.Evaluate the zero-line condition:
+CMF>0.(24)
+RSI Overbought SignalThis rule determines whether the Relative Strength Index (RSI) indicates an
+overbought condition over the evaluation window. It is grounded in the traditional RSI threshold principle:
+RSI>70 signals that the market may be overbought, prices have risen too rapidly, and there is elevated
+risk of a short-term pullback. When the condition holds, the rule concludes that the market is overbought
+with increased probability of a near-term correction. Acceptable phrasings of this conclusion include “RSI
+indicates an overbought condition with short-term pullback risk,” “the relative strength index signals overbought,
+cautioning against a technical correction,” “the market is overheated in the short term with rising adjustment
+probability,” and “RSI overbought signal warns of near-term risk.”
+Required Metrics.daily_close
+The rule proceeds through the following atomic steps:
+1. Price Changes.For each of the most recent 14 trading days t, compute the daily price change relative to the
+previous close:
+∆Pt =Close t −Close t−1.(25)
+2. Average Gain and Average Loss.Separate the price changes into gains ( Ut) and losses (Dt), then compute
+their 14-day exponential moving averages:
+Ut = max(∆Pt,0), D t = max(−∆Pt,0),(26)
+AvgGain= 1
+14
+14X
+i=1
+Ui,AvgLoss= 1
+14
+14X
+i=1
+Di.(27)
+3.Relative Strength and RSI.Compute the relative strength ratio and the RSI value:
+RS= AvgGain
+AvgLoss,RSI= 100× AvgGain
+AvgGain+AvgLoss = 100− 100
+1 +RS .(28)
+4.Decision Rule.Evaluate the overbought threshold condition:
+RSI>70.(29)
+41
+
+
+[Page 42]
+KDJ Overbought SignalThis rule determines whether the KDJ stochastic oscillator indicates an overbought
+condition over the evaluation window. It is grounded in the traditional stochastic oscillator threshold principle:
+K >80 and D >80 jointly signal that the indicator is in the overbought zone, suggesting that price appreciation
+may be excessive and the risk of a short-term pullback is elevated. When the condition holds, the rule concludes
+that the market is overbought according to KDJ with a heightened probability of near-term correction. Acceptable
+phrasings of this conclusion include “KDJ indicates an overbought condition with elevated short-term pullback
+risk,” “the stochastic oscillator signals overbought, cautioning against a price correction,” “both K and D values
+are at elevated levels, signaling an overheated market,” “KDJ overbought zone suggests reducing positions or
+staying on the sidelines,” and “technical indicators suggest limited short-term upside potential.”
+Required Metrics.daily_high, daily_low, daily_close
+The rule proceeds through the following atomic steps:
+1. Raw Stochastic Value (RSV).For the most recent trading day, compute the RSV over a 9-day lookback
+window:
+RSV= 100× Close−Lowest 9
+Highest9 −Lowest 9
+,(30)
+where Lowest9 and Highest9 denote the minimum low and maximum high over the preceding 9 trading days,
+respectively.
+2. Fast %K.Compute the current K value as an exponentially weighted moving average of the RSV sequence.
+Under the standard 3-period smoothing with factor1/3, the recursive formulation is:
+Kt = 2
+3 Kt−1 + 1
+3 RSVt.(31)
+3. Slow %D.Compute the current D value as a smoothed version of the K line under the same weighting
+scheme:
+Dt = 2
+3 Dt−1 + 1
+3 Kt.(32)
+4.Decision Rule.Evaluate the joint overbought threshold condition:
+K >80∧D >80.(33)
+Moving Average Bullish AlignmentThis rule determines whether the 5-day, 10-day, and 20-day simple
+moving averages (MA5, MA10, MA20) exhibit a bullish alignment pattern. It is grounded in the classical
+moving average alignment principle: MA5>MA10>MA20 indicates that short-term price momentum
+exceeds medium-term momentum, which in turn exceeds long-term momentum, signaling a strong and stable
+uptrend with robust bullish continuation. When the condition holds, the rule concludes that the market is in a
+strong upward trend with firmly established technical strength and a clear directional bias. Acceptable phrasings
+of this conclusion include “the market is in a strong uptrend with a powerful bullish continuation signal,” “short-,
+medium-, and long-term moving averages are bullishly aligned, confirming technical strength,” and“the moving
+average system exhibits a perfect upward structure with clear trend direction.”
+Required Metrics.daily_close
+The rule proceeds through the following atomic steps:
+1. Simple Moving Averages.For the most recent trading day t, compute the SMA values over three rolling
+windows from the daily closing prices:
+MA5t = 1
+5
+4X
+i=0
+Closet−i,(34)
+MA10t = 1
+10
+9X
+i=0
+Closet−i,(35)
+MA20t = 1
+20
+19X
+i=0
+Closet−i.(36)
+To ensure robustness of the MA20 computation, the evaluation window requires at least 25 prior closing
+prices, allowing the 20-period SMA to stabilize without relying on the target day as the sole terminal point.
+2.Bullish Alignment Check.Verify that the three moving averages satisfy a strict descending order:
+MA5t >MA10 t >MA20 t.(37)
+42
+
+
+[Page 43]
+3.Decision Rule.Confirm that all pairwise inequalities jointly hold:
+MA5t >MA10 t,(38)
+MA10t >MA20 t.(39)
+The conjunction of these two conditions is logically equivalent to the full bullish alignment criterion.
+MACD Golden CrossThis rule determines whether a MACD golden cross has occurred at the most recent
+decision point. It is grounded in the classical MACD crossover principle: a golden cross occurs when the DIF
+line (fast) crosses above the DEA line (slow) from below, signaling that upward momentum is strengthening and
+a buy signal is triggered. A minimum crossover magnitude of 0.02 is enforced to filter out insignificant crossings
+caused by noise. When the condition holds, the rule concludes that a buy signal is confirmed, upward momentum
+is building, and a bullish trend may be initiating. Acceptable phrasings of this conclusion include “a buy signal is
+present with strengthening upward momentum,” “MACD golden cross confirmed, signaling near-term technical
+improvement,” “upward momentum is beginning to accumulate,” “MACD issues a buy signal as bullish forces
+strengthen,” and “an uptrend may be starting.”
+Required Metrics.daily_close
+The rule proceeds through the following atomic steps:
+1. Exponential Moving Averages.For each trading day t in a 30-day window, compute the 12-period and
+26-period exponential moving averages from the daily closing prices. Under the standard EMA recursion
+with smoothing factorα= 2
+n+1 , we have:
+EMA12t = 2
+13 ·Close t + 11
+13 ·EMA12 t−1,(40)
+EMA26t = 2
+27 ·Close t + 25
+27 ·EMA26 t−1.(41)
+A 30-day lookback window is required to ensure stable initialization of both EMA sequences.
+2.DIF Line.Compute the DIF (fast) line as the difference between the short- and long-period EMAs:
+DIFt =EMA12 t −EMA26 t.(42)
+3. DEA Line.Compute the DEA (slow) line as a 9-period EMA of the DIF sequence, with smoothing factor
+β= 2
+9+1 = 0.2:
+DEAt = 0.2·DIF t + 0.8·DEA t−1.(43)
+4. Crossover Detection.Check whether DIF has crossed above DEA at the current time point relative to the
+preceding day:
+DIFt−1 <DEA t−1 ∧DIF t >DEA t.(44)
+5. Magnitude Filter.To suppress noise-induced false signals from minuscule crossovers, require that the
+absolute post-cross separation exceeds a minimum threshold:
+|DIF t −DEA t | ≥0.02.(45)
+6.Decision Rule.The golden cross is confirmed only when both conditions are jointly satisfied:
+ 
+DIFt−1 <DEA t−1 ∧DIF t >DEA t
+
+∧
+ 
+|DIF t −DEA t | ≥0.02
+
+.(46)
+F.1.3 Deep Insight
+You are a top-tier financial analyst and also a professional AI benchmark designer. Your
+task is to transform a piece of original text describing a specific financial event into a
+high-quality evaluation data that can rigorously test and effectively differentiate
+downstream AI models in [category].
+You must strictly follow all the rules below. The quality of your output will be judged by
+whether it can enable a strong AI model to achieve a high score in subsequent evaluations.
+I. Core Task Definition
+Identify the core “event” in the original text, design an open-ended analytical question
+around that event, and provide a “model ground-truth answer” (Gold Answer). This answer
+must not only be correct, but also demonstrate outstanding analytical quality.
+II. Output Format Rules
+1. Your only output must be a valid JSON object containing exactly one key, "qa_pairs",
+whose value is a list.
+2. Each element in the list must be a dictionary containing the three keys: "question",
+"evidence", and "ground_truth".
+43
+
+
+[Page 44]
+III. Content Generation Rules
+1. evidence:
+- It must be a long passage copied verbatim from the original text without deletion;
+- The passage should fully describe one event;
+- Its purpose is to provide sufficient yet somewhat redundant context, forcing
+downstream models to read, understand, and distill the information.
+2. question:
+- It must be an open-ended analytical instruction;
+- The question should guide the model to produce a deep, comprehensive, and
+well-structured response, rather than merely extracting information.
+3. gold_answer:
+- It must be a structured, in-depth analytical essay with critical thinking, rather
+than a simple list of bullet points;
+- It must be a single string;
+- Its internal arguments must be organized using numbered points, such as “1. ... 2.
+... 3. ...”.
+- [prompts_for_categories](Table 6)
+IV. Quality and Quantity Control
+1. A data point should only be created when the event described in the evidence is
+suitable for deep analysis.
+2. For a single report, generating 1 to 3 truly high-quality analytical data points is
+ideal.
+3. Never sacrifice analytical depth, structural completeness, or critical thinking for the
+sake of quantity.
+V. Reference Style Guidance
+A high-quality ground_truth should generally have the following characteristics: it first
+summarizes the nature of the event, then analyzes its positive impacts, mechanisms of
+influence, and transmission paths to market or financial outcomes in numbered points, and
+further discusses potential risks, execution uncertainty, or common misinterpretations,
+before ending with a balanced concluding judgment.
+Now, act as this top-tier benchmark designer and begin your work based on the following
+research report content:
+--- Report Begins ---
+{report_content}
+--- Report Ends ---
+F.2 Benchmark Evaluation Prompts
+This subsection provides the prompts used to query models during benchmark evaluation. Unlike the data
+generation prompts, these prompts serve as the actual task instructions given to the evaluated models at inference
+time. They are designed to elicit task-specific responses under standardized conditions, including error detection
+and correction, structured data reasoning, and evidence-grounded financial analysis. To improve comparability
+across models, the prompts explicitly define the required role, the available input context, and the expected
+output format, often with strict JSON constraints for automatic parsing and scoring.
+F.2.1 Semantic Consistency
+The prompts in this section are designed for theTerminologycategory. For this track, the prompts used to
+evaluate each category vary slightly in content, but their overall structure remains similar, as illustrated below.
+You are a professional financial fact-checking expert specializing in identifying factual
+errors in text. Please analyze the text strictly based on the given question and return
+the result only in valid JSON format. Do not output any additional explanation,
+commentary, or examples.
+If errors are detected, you must strictly return the result in the following format:
+{
+"error_exists": "Yes",
+"errors": [
+{
+"error_location": "the complete sentence containing the error",
+"wrong_content": "the incorrect term or expression",
+"correct_content": "the correct term or expression",
+"error_type": "Terminology Confusion Error",
+"reason": "an explanation of why the term does not fit the current context and what
+the correct concept should be"
+}
+],
+44
+
+
+[Page 45]
+Table 22: Dimension-specific gold-answer design principles for the Deep Insight track.
+Dimension Design Principles
+Justification and causal
+depth
+Thinking Model:Multi-stage transmission path analysis.
+Task Objective:Identify the initial driving variable in the report and require the model to infer its downstream
+impact on the firm’s financial performance or industry position.
+Prompting Technique:The instruction should force the model to build a long reasoning chain of Variable A
+→Intermediate Mechanism B→Financial Outcome C.
+Question Design Requirement:The background facts should include driving factors, such as policy changes
+or technological breakthroughs. The instruction should ask how such a factor penetrates the business layer
+and is ultimately reflected in the financial statements.
+Answer Scoring Rubric (100-point scale):[40] Logical chain: whether a clear and closed A →B→C chain
+is established without logical jumps. [30] Causal depth: whether the answer explains why the transmission is
+necessary or highly probable. [30] Professionalism: whether the terminology is precise and consistent with
+CFA-style analytical reporting.
+Factuality and contextu-
+alization
+Thinking Model:Data anchoring and quantitative verification.
+Task Objective:Evaluate the model’s ability to extract, understand, and apply hard data from the report.
+Prompting Technique:The instruction should require the model to use specific numerical values in the
+background facts, such as gross margin, CAGR, order amount, or market share, for secondary calculation or
+logical argumentation.
+Question Design Requirement:The background facts must contain at least 3–5 groups of core financial
+or operational data. The instruction should include requirements such as “quantitatively assess the extent to
+which ... is supported by the above data” or “compare and analyze the marginal changes in ...”.
+Answer Scoring Rubric (100-point scale):[40] Fact density: whether all key numerical values in the question
+are accurately cited and interpreted. [30] Computational rigor: whether the accounting and quantitative
+relations across data points are correct. [30] Contextual analysis: whether the answer explains the meaning of
+the data under the relevant industry context.
+Completeness and com-
+parative analysis
+Thinking Model:Dialectical conflict and margin-of-safety analysis.
+Task Objective:Identify the tension between optimistic expectations and potential constraints in the report,
+and evaluate the model’s critical thinking ability.
+Prompting Technique:The instruction should force the model to identify risk disclosures, prerequisite
+conditions, or threats from competitors in the report.
+Question Design Requirement:The background facts must include both positive and negative information,
+such as new capacity expansion versus slowing industry demand growth. The instruction should ask the model
+to evaluate under what conditions the positive logic would be falsified.
+Answer Scoring Rubric (100-point scale):[40] Critical thinking: whether the answer identifies boundary
+conditions or downside risks under which the conclusion may fail. [30] Comparative perspective: whether
+horizontal peer comparison or vertical historical comparison is conducted. [30] Argument balance: whether
+the answer remains objective and avoids blind optimism.
+Architectural richness
+and strictness
+Thinking Model:Systematic industry analysis framework.
+Task Objective:Reorganize fragmented facts into a highly professional and structurally rigorous industry
+analysis.
+Prompting Technique:The instruction should require the model to use professional analytical frameworks,
+such as SWOT, Porter’s Five Forces, PEST, or the BCG Matrix, for integrated discussion.
+Question Design Requirement:The background facts should cover multi-dimensional information. The
+instruction should explicitly ask the model to provide a systematic and in-depth analysis using a professional
+analytical framework.
+Answer Scoring Rubric (100-point scale):[40] Framework completeness: whether an appropriate analytical
+framework is adopted and whether the coverage of dimensions is comprehensive. [30] Logical hierarchy:
+whether the response follows a clear overall–particular–overall structure with explicit nesting. [30] Granularity
+of expression: whether concepts are defined with sufficient depth and rigor, reaching the standard of top-tier
+institutions.
+"explanation": "a comprehensive explanation of all terminology confusion errors in the
+text",
+"corrected_text": "the fully corrected text"
+}
+If no terminology confusion errors are detected, you must strictly return the result in
+the following format:
+{
+"error_exists": "No",
+"errors": [],
+"explanation": "No terminology confusion errors were found in the text.",
+"corrected_text": "the original text"
+}
+Please begin your analysis based on the following question:
+{question}
+F.2.2 Data Alignment
+Prompts for step 1: query data.
+45
+
+
+[Page 46]
+You are a financial data analysis assistant. To answer a question, you need to determine
+which data should be queried from the database.
+Company Information
+{company_info_text}
+Description of Database Fields
+{field_descriptions_text}
+Description of Database Table Schema
+Main table: stock_jbm_factors
+- Main fields: id (row ID), stcode (stock code), dt (trading date), and 90+ other
+financial and valuation indicator fields
+- Each company has multiple records, and each record corresponds to one trading day
+(field: dt)
+- The query will automatically use the current company's stcode: {stcode}
+Question
+{question}
+Task
+Please analyze this question and decide what data needs to be queried in order to answer
+it. Please consider:
+1. Which fields (indicators) need to be queried? Please provide a list of field names.
+2. What date range or specific dates need to be queried?
+Please strictly return your query plan in the following JSON format, without adding any
+other explanatory text:
+```json
+{{
+"fields_to_query": ["List of fields to query, for example:
+[\"fin_valuation_ep_ttm_1y_quantile\", \"fin_profit_roe\", \"s_fa_roe\"]"],
+"date_range": {{
+"start_date": "Start date in YYYY-MM-DD format. Fill this if a date range is needed;
+otherwise null",
+"end_date": "End date in YYYY-MM-DD format. Fill this if a date range is needed;
+otherwise null",
+"specific_dates": ["List of specific dates in YYYY-MM-DD format. Fill this if specific
+dates are needed; otherwise null or an empty array"]
+}},
+"reasoning": "Explain why these data fields are needed and why this date range or these
+specific dates were chosen"
+}}
+Important Notes:
+- fields_to_query must be an array of strings containing all field names to be queried
+- If only specific dates are needed, fill in the specific_dates array (for example:
+["2020-01-15", "2020-06-30"]), and set start_date and end_date to null
+- If a date range is needed, fill in start_date and end_date (for example: start_date:
+"2020-01-01", end_date: "2020-12-31"), and set specific_dates to null or an empty array
+- You must not use both a date range and a list of specific dates at the same time
+- The date format must be YYYY-MM-DD
+Please ensure that the returned result is valid JSON and can be parsed directly.
+Prompts for step 2: answer questions.
+You are a financial data analysis assistant. Please answer the following question based on
+the provided data.
+Company Information
+{company_info_text}
+Field Descriptions
+{field_descriptions_text}
+Data Table
+{json.dumps(data_records, ensure_ascii=False, indent=2)}
+Question
+{question}
+Requirements
+Please strictly return your answer in the following JSON format, without adding any other
+explanatory text:
+```json
+{{
+"answer": "\"Yes\" or \"No\"",
+46
+
+
+[Page 47]
+"calculation_process": "A detailed explanation of the calculation steps, showing each
+step of the calculation process",
+"formulas_used": [
+{{
+"formula": "Formula expression",
+"description": "Explanation of what the formula means"
+}}
+],
+"data_used": [
+{{
+"id": "Row ID",
+"field": "Field name",
+"value": "Field value",
+"stcode": "Stock code"
+}}
+]
+}}
+Important Notes:
+- The answer field must be "Yes" or "No"
+- The "calculation_process" field should describe the calculation steps in detail
+- "formulas_used" must be an array containing all formulas used
+- "data_used" must be an array containing all data used, and each item must include the
+fields id, field, value, and stcode
+- Please ensure that the returned result is valid JSON and can be parsed directly
+F.2.3 Deep Insight
+You are a professional financial analyst. Please analyze and answer the given question
+strictly based on the provided background facts. Your response should draw on the key
+information in the background facts, demonstrate analytical reasoning, and remain
+accurate, relevant, and evidence-based. Do not make unsupported extensions beyond the
+provided facts.
+[Background Facts]
+{evidence}
+[Analytical Question]
+{question}
+F.3 LLM-as-a-Judge Evaluation Prompts
+This subsection describes the prompts used in the LLM-as-a-Judge evaluation framework. These prompts are
+designed to assess model outputs by comparing candidate answers against reference answers under explicitly
+defined scoring rubrics. This structured prompting strategy enables the judge model to produce transparent,
+fine-grained, and reproducible assessments of analytical quality, factual grounding, critical comparison, and
+discourse organization.
+F.3.1 Semantic Consistency
+You are a professional evaluation expert, specializing in assessing text quality from
+multiple dimensions. Please carefully analyze the given content and provide a detailed
+evaluation according to the requirements below. Based on the model's complete output and
+the reference answer provided below, conduct a comprehensive evaluation of the model.
+The model's complete output (including error judgment, error list, error reasons, and
+corrected text):
+{model_json}
+Reference answer (including error list, error explanations, and corrected text):
+{ref_json}
+Description of evaluation dimensions:
+Please score the error reasoning and corrected content separately across the following
+four dimensions (each on a scale of 0–10, rounded to one decimal place), and provide a
+detailed explanation for each dimension:
+1. Correctness: Evaluate whether the model accurately understood the error and whether it
+provided the correct reason or correction. This measures the degree of alignment with the
+reference answer.
+2. Reasoning Rigor: Examine whether the reasoning process is clear, the logic is coherent,
+the argumentation is sufficient, and whether the correction is supported by sound
+reasoning.
+47
+
+
+[Page 48]
+3. Relevance: Evaluate whether the explanation or correction directly addresses the
+specific error, whether it is closely related to the erroneous content, and whether there
+is any irrelevant or off-topic content.
+4. Completeness: Check whether all important error points or correction points are
+covered, and whether any key information affecting the conclusion is omitted.
+Evaluation targets:
+1. The model's error reasoning ("explanation"): Evaluate it across the four dimensions by
+considering both the error list identified by the model and its corresponding
+explanations.
+2. The model's corrected content ("corrected_text"): Evaluate the fully corrected text
+across the same four dimensions.
+Please strictly return the result in the following JSON format, without adding any extra
+explanation:
+{{
+"error_reasoning": {{
+"correctness": {{ "score": score, "explanation": "Explanation of the correctness
+evaluation" }},
+"reasoning_rigor": {{ "score": score, "explanation": "Explanation of the reasoning
+rigor evaluation" }},
+"relevance": {{ "score": score, "explanation": "Explanation of the relevance
+evaluation" }},
+"completeness": {{ "score": score, "explanation": "Explanation of the completeness
+evaluation" }}
+}},
+"corrected_text": {{
+"correctness": {{ "score": score, "explanation": "Explanation of the correctness
+evaluation" }},
+"reasoning_rigor": {{ "score": score, "explanation": "Explanation of the reasoning
+rigor evaluation" }},
+"relevance": {{ "score": score, "explanation": "Explanation of the relevance
+evaluation" }},
+"completeness": {{ "score": score, "explanation": "Explanation of the completeness
+evaluation" }}
+}}
+}}
+Please begin the evaluation:
+F.3.2 Deep Insight
+In this section, we detail the category-specific evaluation criteria used in the Deep Insight track. Each category is
+further decomposed into three sub-dimensions with explicit scoring rubrics, enabling the judge model to perform
+fine-grained and structured assessment of analytical depth, factual grounding, critical comparison, and discourse
+organization.
+You are a strict financial evaluation expert. Score the Candidate Answer by comparing it
+against the Reference Answer.
+Scoring Criteria
+{rubric_prompt_template}
+Question Information
+Question: {question}
+Reference Answer: {gold_answer}
+Candidate Answer
+{model_answer}
+Important Notes
+- Output JSON only, and do not include any other content
+- The explanation must be based on the scoring criteria and should identify the key
+reasons for the score
+- The explanation must not exceed 3 sentences
+- The score must be an integer from 0 to 5
+48
+
+
+[Page 49]
+Table 23: Category-specific scoring rubric for Justification and Causal Depth.
+Sub-dimension Weight Scoring Criteria (0–5)
+Logical chain 40% 0: No logical structure at all; statements are disconnected; reasoning does not hold.
+1: Only an A→B pattern appears, but without actual derivation; severe logical jumps; incomplete reasoning.
+2: A rudimentary A→B→C chain appears, but it is loose; key logic is missing; explanation is insufficient.
+3: A basic A→B→C closed loop is formed; the logic is clear but limited in depth.
+4: The A→B→C structure is complete and rigorous; causal progression is natural; no obvious flaws.
+5: Multi-layer reasoning chains (e.g., A→B→C→D); internally coherent; identifies premises and implicit
+assumptions; demonstrates a professional reasoning system.
+Causal depth 30% 0: The causal relation is wrong or nonexistent; correlation is mistaken for causation.
+1: Only phenomena are described; no causal explanation is provided.
+2: Provides a preliminary causal mechanism, but lacks an argument for necessity; remains at the surface level.
+3: Clearly explains the mechanism by which A leads to B, but does not analyze conditions, boundaries, or
+constraints.
+4: Explains causal necessity; includes triggering conditions, mechanism paths, and boundary conditions.
+5: Professional-grade causal analysis; explicitly identifies sufficient conditions and uses counterfactual reasoning
+(e.g., what would happen if A did not occur).
+Professionalism 30% 0: Professional concepts are incorrect; violates basic financial or investment-research common sense.
+1: Terminology is only partially correct; the reasoning is detached from professional practice.
+2: Terminology and logic are basically correct, but professional depth is limited.
+3: Overall consistent with investment-research and financial-statement analysis logic; concepts are used accurately.
+4: Demonstrates CFA-level rigor; shows risk awareness, clear premises, and disciplined reasoning.
+5: Reaches the professionalism of an investment institution or sell-side analyst; expression is rigorous; concept
+definitions are precise; judgments are standardized.
+Table 24: Category-specific scoring rubric for Factuality and Contextualization.
+Sub-dimension Weight Scoring Criteria (0–5)
+Fact density 40% 0: Data are wrong, fabricated, or completely irrelevant to the question.
+1: Only a very small number of facts are cited; key data are missing; relevance is weak.
+2: Some key facts are cited, but coverage is incomplete; there are minor inaccuracies or a lack of context.
+3: The cited information is broadly accurate and covers the main points, but more comprehensive data support
+is still lacking.
+4: Factual references are comprehensive and accurate; key financial indicators or core evidence are included;
+information density is high.
+5: Data references are precise and rich; they cover core indicators, supporting indicators, trend facts, and so on;
+the answer reaches the level of a professional analytical report.
+Computational rigor 30% 0: Calculation results are wrong; accounting or logical relations are clearly inconsistent; calculation is
+essentially absent.
+1: There is some attempt at calculation or relational judgment, but most of it is not rigorous or lacks necessary
+steps.
+2: Calculations are basically correct, but formulas, derivations, or numerical support are insufficient; minor
+flaws remain.
+3: The overall calculation process is reasonable; accounting relations are basically consistent; only occasional
+omissions exist.
+4: Calculations are rigorous; key accounting chains (e.g., YoY/MoM, profit structure, cash-flow relations) are
+internally consistent.
+5: Demonstrates professional-grade rigor; actively validates accounting relations; numerical derivations are
+solid; there are no logical contradictions.
+Contextual analysis 30% 0: No contextualized explanation is provided; the answer is inconsistent with the industry or firm background.
+1: Only superficial background information is given; no real contextual linkage is formed.
+2: Provides a preliminary explanation based on industry characteristics, but the linkage is weak or lacks depth.
+3: Offers contextual analysis related to the industry or company; the explanation has some depth.
+4: Contextual analysis is in-depth; it combines data, structure, and industry logic to explain the implications.
+5: Demonstrates professional-grade contextual reasoning; precisely connects industry mechanisms, corporate
+strategy, and cyclical logic, and explains the meaning and implications behind the data.
+49
+
+
+[Page 50]
+Table 25: Category-specific scoring rubric for Completeness and comparative Analysis.
+Sub-dimension Weight Scoring Criteria (0–5)
+Critical thinking 40% 0: No critical discussion; no risks or assumption limits are identified.
+1: Merely repeats information mechanically; lacks awareness of risks or boundary conditions.
+2: Identifies some risks or limitations, but only at a surface level; lacks structured logic.
+3: Points out key assumptions, boundaries, or sources of risk; shows a basic critical perspective.
+4: Systematically analyzes risks and limitations; proposes insightful counterexamples or hedging logic.
+5: Demonstrates professional research- or investment-grade critical thinking; actively examines
+assumptions, boundaries, and reverse scenarios, and provides rigorous rebuttals and limitation analysis.
+Comparative perspective 30% 0: No comparative or hedging perspective at all.
+1: Mentions the name of a comparison object only, but provides no comparative logic.
+2: Some comparison exists, but it remains superficial (e.g., “higher/lower”) and lacks explanation.
+3: Provides valid comparative dimensions (e.g., peers, cycles, strategic differences), and the logic is
+basically clear.
+4: Analyzes multiple comparative dimensions (e.g., structural, cyclical, hedging strategy); conclusions are
+reasonable and fairly deep.
+5: Demonstrates professional multi-angle comparison; identifies structural differences, behavioral
+differences, and risk-hedging paths, and provides a rigorous explanatory framework.
+Argument balance 30% 0: Obviously biased or one-sided; no balance at all. 1: Presents only a single viewpoint; no
+counterarguments or neutrality.
+2: Mentions other viewpoints but does not develop them; balance is insufficient.
+3: Presents both positive and negative sides; maintains basic objectivity.
+4: Structurally presents multiple lines of argument; strongly reflects neutrality, balance, and reasonable
+trade-offs.
+5: Reaches analyst-level balance; weighs how conclusions change under different scenarios or assumptions,
+and provides clear conditional judgments.
+Table 26: Category-specific scoring rubric for Architectural richness and strictness (ARS).
+Sub-dimension Weight Scoring Criteria (0–5)
+Framework completeness 40% 0: No structure; content is chaotic; no analytical framework is presented.
+1: There are scattered points, but they are unrelated to one another; the answer lacks even a basic structure.
+2: A preliminary framework is formed, but coverage is incomplete; key analytical dimensions are missing.
+3: The framework is relatively clear and covers the main dimensions; the overall structure is
+understandable.
+4: The framework is complete and systematic; dimensional coverage is comprehensive; the answer
+presents a professional analytical structure.
+5: Reaches the framework quality of consulting or investment-research reports; multiple dimensions are
+systematically linked; the structure is highly rigorous with clearly differentiated functional sections.
+Logical hierarchy 30% 0: No logical hierarchy; content is presented as an undifferentiated pile.
+1: There are simple bullet points, but the hierarchy is unclear; paragraphs lack logical connections.
+2: Some hierarchical structure exists, but progression is weak; the organization remains loose.
+3: Shows clear layering (e.g., overall-to-specific); logical relations are basically clear.
+4: The structure is rigorously layered; includes nested hierarchy (e.g., overall-part-subpart); logical
+progression is natural.
+5: Demonstrates professional-grade structural design; hierarchical progression and nesting are clear; the
+overall argument is rigorous and well organized.
+Expression granularity 30% 0: Concepts are vague; expression is rough; there is no meaningful detail support.
+1: Expression is basically accurate, but granularity is extremely coarse; key definitions or details are
+missing.
+2: Conceptual expression is correct but not rigorous enough; detail coverage is limited.
+3: Granularity is moderate; key concepts are explained correctly; detail support is fairly adequate.
+4: Expression is rigorous and concept definitions are accurate; details are in place and the argument is
+solid.
+5: Reaches the standard of a professional analyst; concepts are defined precisely; details are rich without
+being excessive; reasoning is finely grained and highly reliable.
+50

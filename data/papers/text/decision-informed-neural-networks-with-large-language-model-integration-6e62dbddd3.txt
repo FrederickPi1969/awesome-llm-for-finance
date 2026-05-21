@@ -1,0 +1,2057 @@
+[Page 1]
+February 4, 2025 arxiv main
+Decision-informed Neural Networks with Large
+Language Model Integration for Portfolio Optimization
+Yoontae Hwang1, Yaxuan Kong 1, Stefan Zohren 1, Yongjae Lee 2
+1University of Oxford 2Ulsan National Institute of Science and Technology(UNIST)
+(Jan 31, 2025 )
+This paper addresses the critical disconnect between prediction and decision quality in portfolio optimiza-
+tion by integrating Large Language Models (LLMs) with decision-focused learning. We demonstrate both
+theoretically and empirically that minimizing the prediction error alone leads to suboptimal portfolio de-
+cisions. We aim to exploit the representational power of LLMs for investment decisions. An attention
+mechanism processes asset relationships, temporal dependencies, and macro variables, which are then
+directly integrated into a portfolio optimization layer. This enables the model to capture complex mar-
+ket dynamics and align predictions with the decision objectives. Extensive experiments on S&P100 and
+DOW30 datasets show that our model consistently outperforms state-of-the-art deep learning models. In
+addition, gradient-based analyses show that our model prioritizes the assets most crucial to decision mak-
+ing, thus mitigating the eﬀects of prediction errors on portfolio performance. These ﬁndings underscore
+the value of integrating decision objectives into predictions for more robust and context-aware portfolio
+management.
+Keywords: Portfolio Optimization, Large Language Models, Decision-Focused Learning, Estimation
+Error
+JEL Classiﬁcation: G11, G17, G45, G61, C53
+1. Introduction
+The estimation of parameters for portfolio optimization has long been recognized as one of the most
+challenging aspects of implementing modern portfolio theory (Michaud 1989, DeMiguelet al. 2009).
+While Markowitz’s mean-variance framework (Markowitz 1952) provides an elegant theoretical
+foundation for portfolio selection, its practical implementation has been persistently undermined by
+estimation errors in input parameters. (Chopra and Ziemba 1993, Chung et al. 2022) demonstrate
+that small changes in estimated expected returns can lead to dramatic shifts in optimal, while
+(Ledoit and Wolf 2003, 2004) show that traditional sample covariance estimates become unreliable
+as the number of assets grows relative to the sample size.
+These estimation challenges are exacerbated by a fundamental limitation in the conventional ap-
+proach to portfolio optimization: the reliance on a sequential, two-stage process where parameters
+are ﬁrst estimated from historical data, and these estimates are then used as inputs in the optimiza-
+tion problem. This methodology, while computationally convenient, creates a profound disconnect
+between prediction accuracy and decision quality. Recent evidence suggests that even substantial
+Email: yoontae.hwang@eng.ox.ac.uk
+Email: yaxuan.kong@eng.ox.ac.uk
+Corresponding author. Email: stefan.zohren@eng.ox.ac.uk
+Corresponding author. Email: yongjaelee@unist.ac.kr
+1
+arXiv:2502.00828v1  [q-fin.PM]  2 Feb 2025
+
+
+[Page 2]
+February 4, 2025 arxiv main
+improvements in predictive accuracy may not translate to better investment decisions. For exam-
+ple, (Gu et al. 2020, Cenesizoglu and Timmermann 2012) demonstrate that while machine learning
+methods can signiﬁcantly improve the prediction of asset returns, these improvements do not con-
+sistently translate into superior portfolio performance. Similarly, Elmachtoub and Grigas (2022)
+show that this disconnect can lead to substantially suboptimal investment decisions, even when
+the parameter estimates appear highly accurate by traditional statistical measures. This disconnect
+raises a profound question: Are we optimizing for the wrong objective? The conventional wisdom
+of training models to minimize prediction error(commonly measured in mean squared error), while
+ignoring how these predictions inﬂuence downstream investment decisions, may be fundamentally
+ﬂawed.
+The signiﬁcance of this prediction-decision gap has become increasingly acute in modern ﬁnancial
+markets, characterized by growing complexity, non-stationary relationships (Bekaert et al. 2002),
+and regime shifts (Guidolin and Timmermann 2007). Due to these market dynamics, traditional
+estimation methods often fail to capture the characteristics of evolving ﬁnancial relationships. Even
+modern machine learning approaches struggle to incorporate the complex interplay between macro
+variables and asset returns (Kelly et al. 2019, Hwang et al. 2024). The limitations of conventional
+approaches have created an urgent need for more sophisticated methodologies capable of captur-
+ing the intricate dynamics of contemporary ﬁnancial markets. Recent advances in Large Language
+Models (LLMs) have introduced promising new directions for addressing these challenges by poten-
+tially capturing complex market relationships and incorporating unstructured information. While
+these approaches have shown remarkable success in time series forecasting across various domains
+(Jin et al. 2024, Ansari et al. 2024), their application to ﬁnancial parameter estimation remains
+largely unexplored. Moreover, existing attempts to leverage LLMs for ﬁnancial forecasting con-
+tinue to follow the traditional sequential approach, focusing solely on prediction accuracy without
+considering the downstream impact on portfolio decisions (Romanko et al. 2023, Nie et al. 2024).
+Despite their enhanced capabilities in capturing patterns in data, LLMs alone do not address the
+core problem of bridging the gap between predictive modeling and optimal portfolio construction.
+A more comprehensive approach is needed to integrate prediction and optimization stages in port-
+folio management. A more promising direction lies in decision-focused learning frameworks (Mandi
+et al. 2024), which represent a signiﬁcant departure from traditional approaches by directly integrat-
+ing the prediction and optimization stages. The emergence of decision-focused learning frameworks
+represents a signiﬁcant departure from this approach by integrating the prediction and optimiza-
+tion stages. While these frameworks have shown promise in combinatorial optimization problems
+(Amos and Kolter 2017, Agrawal et al. 2019), their application to portfolio optimization has been
+limited. Early attempts in ﬁnance have primarily focused on simple linear models (Butler and Kwon
+2023), leaving the potential of decision-focused learning in complex portfolio optimization largely
+untapped. For instance, Elmachtoub and Grigas (2022) demonstrate the beneﬁts of integration in
+linear optimization problems, but extending these insights to the non-linear, dynamic nature of
+portfolio optimization remains a signiﬁcant challenge. The development of techniques for diﬀeren-
+tiating through convex optimization problems (Amos and Kolter 2017, Agrawal et al. 2019) has
+created theoretical possibilities for more sophisticated applications, yet their practical implemen-
+tation in portfolio management continues to face substantial computational and methodological
+challenges.
+This paper proposes a framework that bridges the gap between advanced representation learning
+and decision-focused optimization in portfolio management. Our approach integrates the repre-
+sentational power of LLMs with the principles of decision-focused learning, creating an decision
+informed neural network architecture that simultaneously captures complex market relationships
+and optimizes for portfolio decisions. By developing attention mechanisms that incorporate both
+cross-sectional asset relationships and temporal dependencies, we enable the model to learn repre-
+sentations that are both predictively accurate and decision-aware. Furthermore, our proposed loss
+function simultaneously optimizes for statistical accuracy and portfolio performance, ensuring the
+model’s predictions directly translate into better investment decisions.
+2
+
+
+[Page 3]
+February 4, 2025 arxiv main
+The main contributions of this paper are as follows:
+• We develop a decision-informed neural network framework that integrates LLMs for portfolio
+optimization. Our approach carefully considers the unique characteristics of ﬁnancial markets
+by incorporating multiple data dimensions: cross-sectional relationships between assets, tem-
+poral market dynamics, and the inﬂuence of macroeconomic variables. This comprehensive
+modeling approach ensures that the LLM’s powerful representation capabilities are properly
+adapted to the speciﬁc challenges of portfolio optimization.
+• We introduce an attention mechanism that selectively processes three crucial aspects of ﬁ-
+nancial markets through learned representations from Large Language Models (LLMs): asset-
+to-asset relationships, temporal dependencies, and external macro variables. This mechanism
+implements an eﬃcient ﬁltering strategy that identiﬁes and extracts only the most relevant
+information from the rich LLM representations, signiﬁcantly reducing computational over-
+head while preserving essential market insights. By selectively attending to the most relevant
+features within each aspect, our model achieves both superior computational eﬃciency and
+enhanced interpretability in capturing complex market interactions.
+• We propose a hybrid loss function that bridges the gap between statistical prediction accu-
+racy and decision-focused learning for portfolio optimization objectives. This function com-
+bines traditional prediction metrics with portfolio performance measures, ensuring that the
+model learns parameters that are both statistically sound and economically meaningful. Our
+approach directly addresses the prediction-decision gap while maintaining the model’s ability
+to capture complex market relationships. To the best of our knowledge, this is the ﬁrst study
+to combine LLM and DFL from a portfolio optimization perspective.
+2. Related work
+In this section, we review two key research streams relevant to our work: parameter estimation
+in portfolio optimization and deep learning applications in ﬁnancial forecasting. The ﬁrst stream
+examines traditional and robust estimation techniques, while the second explores how modern
+machine learning approaches have transformed ﬁnancial prediction.
+2.1. Parameter estimation in portfolio optimization
+The foundation of modern portfolio theory rests upon accurate parameter estimation, particularly
+for expected returns and covariance matrices. Since Markowitz (1952) seminal work establishing
+the mean-variance optimization framework, researchers have grappled with the challenge of reliably
+estimating these crucial parameters from historical data Tan and Zohren (2020), Firoozye et al.
+(2023). This challenge has become central to the ﬁeld of quantitative ﬁnance, as the performance
+of optimal portfolios heavily depends on the quality of these estimates.
+The extensive reliance on historical ﬁnancial data for parameter estimation has proven instru-
+mental in advancing modern ﬁnancial theory and practice. Historical data provides the empirical
+foundation for estimating critical parameters including expected returns, volatility, and covariance
+matrices—essential inputs that drive portfolio optimization, risk management, and asset pricing
+models. This approach has led to breakthrough developments in ﬁnancial modeling, most notably
+the Capital Asset Pricing Model (CAPM) (Sharpe 1964, Lintner 1975) and the Fama-French fac-
+tor models (Fama and French 1993, 2015). This mean-variance optimization framework, however,
+revealed signiﬁcant challenges in parameter estimation. The sensitivity of portfolio optimization to
+parameter estimates was ﬁrst systematically documented by Michaud (1989), who characterized
+mean-variance optimization as ”error maximization.” This insight was further developed by Best
+and Grauer (1991), who demonstrated the hypersensitivity of optimal portfolio weights to changes
+in mean estimates. (Chopra and Ziemba 1993, Chung et al. 2022) provided crucial quantitative
+3
+
+
+[Page 4]
+February 4, 2025 arxiv main
+evidence, showing that errors in mean estimates have approximately ten times the impact of errors
+in variance estimates on portfolio performance.
+In response to these challenges, researchers developed increasingly sophisticated estimation tech-
+niques. Early eﬀorts focused primarily on improving covariance matrix estimation. (Chan et al.
+1999, L¨ oﬄer 2003) proposed utilizing high-frequency data for enhanced volatility forecasts, while
+(Jagannathan and Ma 2003) made the crucial observation that imposing portfolio constraints could
+eﬀectively shrink extreme covariance estimates. The recognition of parameter uncertainty led to
+more sophisticated approaches, such as the shrinkage method (Ledoit and Wolf 2003, 2004, Kour-
+tis et al. 2012), which combines sample estimates with structured estimators to reduce estimation
+error. As understanding of estimation challenges deepened, robust estimators gained prominence,
+including the minimum covariance determinant (MCD) estimator (Rousseeuw and Driessen 1999)
+and the minimum volume ellipsoid (MVE) estimator (Van Aelst and Rousseeuw 2009). A signif-
+icant advancement came with Gerber et al. (2022) introduction of the Gerber statistic, a robust
+co-movement measure that extends Kendall’s Tau by capturing meaningful co-movements while
+remaining insensitive to extreme values and noise.
+The emergence of machine learning has transformed the landscape of parameter estimation (Kim
+et al. 2021a, 2024). While traditional machine learning approaches typically treated prediction and
+optimization as separate steps, recent research has explored more integrated approaches. Notable
+contributions include the works of Banet al. (2018) and Fenget al. (2020), who demonstrated signif-
+icant improvements over traditional approaches. However, these studies relied on the Sharpe ratio,
+which is an indirect performance measure calculated from returns and volatility after portfolio con-
+struction, rather than directly obtaining optimal portfolio weights through the optimization process
+itself. This indirect approach may not fully capture the actual decision-making process inherent in
+portfolio optimization, where the primary goal is to determine optimal portfolio weights that satisfy
+speciﬁc investment objectives and constraints. Fortunately, technological advances particularly in
+diﬀerentiable optimization have opened new frontiers. The introduction of cvxpylayers (Agrawal
+et al. 2019) and the work of Amos and Kolter (2017) on diﬀerentiable optimization layers have
+enabled end-to-end training of machine learning models that incorporate the portfolio optimization
+step directly into the parameter estimation process. While these approaches represent signiﬁcant
+progress in bridging the gap between prediction and optimization, current implementations often
+rely on simplistic linear models that may not fully capture the complex, non-linear dynamics of
+ﬁnancial markets (Costa and Iyengar 2023, Anis and Kwon 2025). Moreover, these models typically
+focus on a limited set of ﬁnancial variables, potentially overlooking important external factors such
+as macroeconomic condition, stock and sector relationship that can signiﬁcantly impact portfolio
+performance. See Lee et al. (2024) for more detailed review of the evolution from traditional two-
+stage approaches to modern end-to-end learning frameworks, including decision-focused learning
+(DFL) methodologies.
+2.2. Time-series forecasting with deep learning
+The application of deep learning to ﬁnancial time-series forecasting represents a signiﬁcant ad-
+vancement in addressing the parameter estimation challenges. While traditional approaches to
+parameter estimation often struggle with the complex, non-linear relationships inherent in ﬁnan-
+cial markets, deep learning models have demonstrated remarkable capability in capturing these
+dynamics. However, as discussed in our examination of parameter estimation challenges, improved
+predictive accuracy does not necessarily translate to better portfolio decisions.
+Recent advances in deep learning architectures, particularly those based on attention mecha-
+nisms, have revolutionized time-series forecasting across various domains. The Transformer archi-
+tecture and its variants have achieved state-of-the-art performance in various domains through
+innovations in handling long sequences (Zhou et al. 2021), capturing interactions between diﬀerent
+time scales (Zhou et al. 2022), and modeling temporal patterns (Wu et al. 2023). Unlike tradi-
+tional autoregressive predictors such as LSTM, transformer-based models employ generative-style
+4
+
+
+[Page 5]
+February 4, 2025 arxiv main
+decoders as non-autoregressive predictors, facilitating more eﬃcient time series prediction. Notable
+advances include the Crossformer architecture (Zhang and Yan 2023), which explicitly models
+cross-dimensional dependencies, and PatchTST (Nie et al. 2023), which adapts vision Transformer
+techniques to time-series data. The iTransformer (Liuet al. 2024) further enhances this approach by
+treating the temporal dimension as channels, enabling more eﬃcient processing of long sequences.
+Also, The emergence of Large Language Models (LLMs) has introduced new possibilities for fore-
+casting. Recent works such as Chronos (Ansari et al. 2024) and GPT4TS (Zhou et al. 2023a)
+demonstrate that LLMs can eﬀectively capture complex temporal patterns while incorporating
+broader market context. The PAttn framework (Tan et al. 2024) speciﬁcally addresses various
+forecasting problems by combining linguistic and numerical features in a uniﬁed architecture.
+However, these advances in predictive modeling, while impressive, often fall short in addressing
+the fundamental challenges of portfolio optimization. The primary limitation lies in their focus on
+minimizing prediction error rather than optimizing investment decisions. Even when these mod-
+els incorporate ﬁnancial performance metrics like the Sharpe ratio into their loss functions, they
+typically do so in a manner that fails to capture the full complexity of the portfolio optimization
+problem. This disconnect becomes particularly apparent when considering the challenges identiﬁed
+in our parameter estimation analysis (Hwang et al. 2024). While deep learning models may achieve
+superior accuracy in forecasting individual asset returns or volatilities, they often fail to account for
+the complex interplay between estimation errors and portfolio weights that makes the parameter
+estimation problem so challenging. The sensitivity of optimal portfolio weights to small changes in
+input parameters, as demonstrated by (Chopra and Ziemba 1993), suggests that even highly accu-
+rate predictions may lead to suboptimal portfolio decisions if the prediction-optimization interface
+is not properly considered.
+The application of general-purpose time-series models to ﬁnancial markets presents additional
+challenges beyond prediction accuracy. While models like TimesNet (Wuet al. 2023) and Fedformer
+(Zhou et al. 2022) excel in capturing temporal dependencies, they often struggle to incorporate
+broader macroeconomic factors and market conditions that signiﬁcantly inﬂuence asset prices.
+These models typically focus on historical price patterns while failing to account for important
+external factors such as monetary policy changes, real estate prices, or shifts in market sentiment.
+This limitation extends beyond individual models, as most existing research has focused primarily
+on pattern recognition within historical data. A more promising direction may be integrating
+deep learning models with methods that can eﬀectively incorporate broader market context and
+macroeconomic indicators.
+The evolution of deep learning approaches in ﬁnancial time-series forecasting thus mirrors the
+broader challenges in portfolio optimization: while technical capabilities continue to advance, the
+fundamental challenge lies not in improving predictive accuracy, but in developing frameworks
+that directly optimize for investment decisions. This observation reinforces our motivation for
+developing more integrated approaches that combine the representational power of modern deep
+learning architectures with explicit consideration of the portfolio optimization objective.
+3. Decision-informed neural networks with large language model integration for
+portfolio optimization (DINN)
+We introduce a Decision-Informed Neural Network (DINN) that uniﬁes forecasting and portfolio
+selection within a single learning framework. Unlike traditional methods that treat return predic-
+tion and portfolio optimization as separate tasks, DINN merges them via three key components.
+First, an input embedding process captures market dynamics and semantic relationships using
+LLM-based representations, ensuring that both numeric time series and textual context inform the
+model. Second, a cross-attention mechanism fuses these diverse inputs into coherent return fore-
+casts, allowing interactions between multiple data modalities. Finally, a diﬀerentiable optimization
+layer uses these forecasts to produce optimal portfolio weights, enabling the model to reﬁne both
+5
+
+
+[Page 6]
+February 4, 2025 arxiv main
+𝑥𝑡,1
+𝑥𝑡,𝑀 …
+Inter-asset 
+embeddings
+Macroeconomic 
+embeddings 𝐄stocks𝐄macro
+Ξ 𝑚 = 𝜉𝑘 𝑥.,𝑚 𝑘
+(a) Make prompt scripts
+𝑘 = {mean, var, autocorr, patterns}
+(b) Token embedder  
+𝐄macro = 𝑔𝜙 𝑝 𝑝∈𝑃Macro
+𝜙 is the LLM tokenizer
+p is the prompt text
+𝐄stocks= 𝑔𝜙 𝑝 𝑝∈𝑃stocks
+𝜙 is the LLM tokenizer
+p is the prompt text
+Countstock 𝑖, 𝑗
+Stock returns comparison
+Countsector 𝑖, 𝑗
+Sector returns comparison
+Macro-variables 
+descriptive statistics
+𝑟𝑡,1
+𝑟𝑡,𝑁 …
+2-1. LLM-enhanced semantic embeddings
+1. Input data 2-2. Normalization and decomposition
+Long-term mark trend
+𝑟𝑡,𝑖
+′ =
+𝑟𝑡,𝑖−𝜇𝑡,𝑖
+𝜎𝑡,𝑖
+𝜏𝑡,𝑖 = 1
+𝐽 ෍
+𝑗=1
+𝐽
+𝜏𝑡,𝑖
+(𝑗) with 𝜏𝑡,𝑖
+(𝑗) = 1
+𝑘𝑗
+σ𝑙=𝑡−𝑘𝑗
+𝑡−1 𝑟𝑙,𝑖
+′
+Short-term dynamics
+𝜌𝑡,𝑖 = 1
+𝐽 ෍
+𝑗=1
+𝐽
+𝜌𝑡,𝑖
+(𝑗) with 𝜌𝑡,𝑖
+(𝑗) = 𝑟𝑡,𝑖
+′ − 𝜏𝑡,𝑖
+(𝑗)
+3. Decision informed neural network
+CrossAttention (𝐓𝒕, 𝐄macro)
+CrossAttention (𝐑𝒕, 𝐄Stocks)
+𝐓𝒕 = 𝝉𝒕−𝑳+𝟏, . . , 𝝉𝒕−𝟏 ⊤
+𝐑𝐭 = 𝝆𝒕−𝑳+𝟏, . . , 𝝆𝒕−𝟏 ⊤
+Normalization
+Trends and residual
+Pre-trained LLM
+Output projection ( Ƹ𝑟𝑡+ℎ,𝑖
+′ )
+Ƹ𝑟𝑡+ℎ,𝑖 = Ƹ𝑟𝑡+ℎ,𝑖
+′ 𝜎𝑡,𝑖 + 𝜇𝑡,𝑖
+De-normalization
+ෝ𝑤𝑡+ℎ
+Optimization Layer
+Loss function
+ℒloss = 𝛽ℒloss+ (1 − 𝛽) ℒdecision
+Figure 1.Schematic of the proposed Decision-Informed Neural Network (DINN) architecture for uniﬁed return forecasting and
+portfolio selection. The entire system is trained end-to-end to align predictive accuracy with decision quality.
+predictive accuracy and decision quality simultaneously. An overview of the DINN architecture is
+illustrated in Figure 1. By jointly training all components, DINN directly aligns return predictions
+with end-to-end portfolio performance.
+3.1. Preliminaries
+Throughout this paper, let N∈ N denote the number of risky assets in the portfolio. We consider a
+discrete-time ﬁnancial market with a ﬁnite horizonT∈ N. Let{rt}T
+t=1 be a sequence of asset excess
+returns, where rt∈ RN and rt,i is the excess return of asset i at time t. Let rt,i = Pt,i−Pt−1,i
+Pt−1,i
+−rf,
+wherePt,i denotes the price of asseti at timet andrf is the risk-free rate. We assumerf is a known,
+time-invariant constant. Deﬁne wt∈ RN as the portfolio weight vector at time t. Let W ⊆RN
+be the feasible set of portfolio weights, for example W ={w∈ RN : wi≥ 0, ∑N
+i=1wi = 1}. For
+a given lookback length L∈ N, consider historical returns and macroeconomic variables over the
+period{t−L,...,t − 1}:
+rt−L:t−1 = (rt−L,...,r t−1)∈ RL×N, x t−L:t−1 = (xt−L,...,x t−1)∈ RL×M (1)
+where xt∈ RM encapsulates M macroeconomic features observed at time t.
+We consider a forecasting model fθ parameterized by θ. This model, given historical data and
+macroeconomic features, produces predicted returns ˆrt+1:t+H = (ˆrt+1, ˆrt+2,..., ˆrt+H) but also of
+the corresponding predicted portfolio weights ˆwt+1:t+H = ( ˆwt+1, ˆwt+2,...,w t+H) over a forecast
+horizon H∈ N. Formally, we have:
+ˆrt+1:t+H =fθ (rt−L:t−1,xt−L:t−1) (2)
+where ˆrt+1:t+H =
+(
+ˆrt+1, ..., ˆrt+H
+)
+∈ RH×N. The vector ˆrt+h∈ RN thus represents the predicted
+excess returns for the N assets at time t +h.
+6
+
+
+[Page 7]
+February 4, 2025 arxiv main
+Once ˆrt+1:t+H is obtained, the corresponding portfolio weights ˆwt+1:t+H =
+(
+ˆwt+1,..., ˆwt+H
+)
+are
+determined by solving a suitable optimization problem that incorporates risk-return trade-oﬀs over
+the forecast horizon H. We defer the precise formulation to Section 3.3.3. The predicted returns
+ˆrt+h act as inputs to a diﬀerentiable optimization layer that selects an optimal allocation ˆwt+h to
+balance risk and reward under model predictions.
+If we hypothetically had complete knowledge of the future, i.e. the “true” future returns r⋆
+t+H,
+true expected returns µ⋆
+t+H, and covariance Σ⋆
+t+H, we could compute the ex-post optimal portfolio
+weightsw⋆
+t+H by substituting the actual (rather than predicted) parameters into the same portfolio
+optimization problem. Formally:
+w⋆
+t+H = arg min
+w∈W
+[
+λ
+L⋆
+t+Hw
+
+2 − (µ⋆
+t+H)⊤w
+]
+where Σ ⋆
+t+H =L⋆
+t+H
+(
+L⋆
+t+H
+)⊤. (3)
+The diﬀerence between the performance of ˆwt+H (obtained via predicted returns) andw⋆
+t+H (with
+full foresight) will later be used to evaluate the “decision quality” of the forecasting pipeline. Al-
+though we distinguish between predicted returns ˆrt+1:t+H and the corresponding weights ˆwt+1:t+H
+for notational clarity, the DINN framework integrates these components into a uniﬁed, end-to-end
+pipeline. That is, the forecast of ˆrt+1:t+H directly informs the subsequent portfolio choice, and the
+model is trained with awareness that its predictions will drive the ultimate decision.
+3.2. Input embeddings
+Our input embedding process is designed to systematically incorporate temporal patterns, asset
+interactions, and textual context before generating forecasts. First, we normalize time series data
+to stabilize training and ensure comparability across assets. Next, kernel-based trend-residual de-
+compositions separate persistent market trends from shorter-term ﬂuctuations, highlighting both
+low-frequency and high-frequency signals. Finally, LLM-enhanced semantic embeddings integrate
+sector-level yields and pairwise asset relationships into the model, thereby capturing broader eco-
+nomic and inter-asset context. These structured embeddings may provide a strong foundation for
+subsequent attention-based modeling and decision-focused optimization.
+3.2.1. Time-series normalization and decomposition. We begin by transforming the raw
+input data into a structured representation well-suited for accurate forecasting and decision-focused
+optimization. Let{rt}T
+t=1 be a sequence of excess returns for N assets, where rt∈ RN. To ensure
+numerical stability and promote eﬀective learning, we ﬁrst normalize the historical returns. For each
+asseti∈{ 1,...,N } over a lookback window of length L, deﬁne the sample mean µi, and standard
+deviation σi as µt,i = 1
+L
+∑t−1
+k=t−Lrk,i, σt,i =
+√
+1
+L
+∑t−1
+k=t−L(rk,i−µt,i)2 +ϵ, respectively. Here ϵ >0
+is a small constant to avoid division by zero. And then, we can get the normalized returns (i.e.,
+r′
+t,i = rt,i−µt,i
+σt,i
+). This normalization step(Kim et al. 2021b) ensures that diﬀerences among assets
+are measured relative to their historical scales, improving training stability and preventing certain
+assets from dominating the optimization process solely due to larger raw magnitudes.
+Next, we apply a multi-scale decomposition (Wu et al. 2021, Zhou et al. 2022) to the normalized
+returns to capture both persistent trends and transient ﬂuctuations. Let {kj}J
+j=1 be a collection of
+kernel sizes. For each j, we can deﬁne as τ (j)
+t,i = 1
+kj
+∑t−1
+ℓ=t−kj
+r′
+ℓ,i, ρ(j)
+t,i = r′
+t,i−τ (j)
+t,i . By aggregating
+across all scales, we can obtain
+τt,i := 1
+J
+J∑
+j=1
+τ (j)
+t,i , ρ t,i := 1
+J
+J∑
+j=1
+ρ(j)
+t,i (4)
+This approach allows the model to focus separately on the long-term market trend (captured by
+7
+
+
+[Page 8]
+February 4, 2025 arxiv main
+τt) and short-term dynamics (captured by ρt), where ρt represents the remaining variations after
+extracting the trend component, potentially enhancing forecasting accuracy and stability.
+3.2.2. LLM-enhanced semantic embeddings. While normalized and decomposed returns
+oﬀer valuable insights into market structures, their representational capacity can be signiﬁcantly
+enriched by incorporating Large Language Model (LLM)-based embeddings (Zhou et al. 2023b, Jin
+et al. 2024, Cao et al. 2024). To achieve this, we integrate two distinct types of LLM-based embed-
+dings: one capturing inter-asset relationships, and another encoding macroeconomic information.
+Inter-asset embeddings: Consider a set of assets indexed by i∈{ 1,...,N }, each mapped
+to a sector S(i) drawn from a ﬁnite set S. Using large language model (LLM)-based textual
+descriptions, we establish a mapping from each asset to its corresponding sector. Once this mapping
+is determined, we construct sector-level returns over a historical lookback period to complement
+asset-level historical returns.
+More speciﬁcally, letL∈ N be the lookback length, and consider the historical returns{rt,i}t−1
+t=t−L
+for each asseti. The sector-level yield at time u∈{t−L,...,t − 1} for a sector s∈S is deﬁned as:
+rsector
+u,s = 1
+|A(s)|
+∑
+i∈A(s)
+ru,i (5)
+where A(s) = {i ∈ {1,...,N } : S(i) = s}. This produces, for each sector, a time series
+{rsector
+u,s }t−1
+u=t−L that may reveal common patterns, systemic shifts, or sectoral performance trends
+during the lookback window.
+Next, to capture direct relationships among individual assets, for each pair ( i,j ) with i̸= j,
+we measure relative historical performance by counting how frequently one asset outperforms the
+other:
+Countstock(i,j ) =
+⏐⏐⏐
+{
+u∈ [t−L,t− 1]: ru,i>r u,j
+}⏐⏐⏐. (6)
+Similarly, we deﬁne a sector-level outperformance count to capture how often the sector of asset
+i outperforms the sector of asset j:
+Countsector(i,j ) =
+⏐⏐⏐
+{
+u∈ [t−L,t− 1]: rsector
+u,S(i)>r sector
+u,S(j)
+}⏐⏐⏐. (7)
+To encode these pairwise relationships into a form suitable for LLM-based embeddings, we gen-
+erate textual prompts that synthesize the computed statistics. Let pi,j be a prompt-generating
+function that takes as input the historical returns {rt−L:t−1,i,rt−L:t−1,j}, sector assignments
+(S(i),S (j)), sector-level yields{rsector
+u,S(i)}t−1
+u=t−L,{rsector
+u,S(j)}t−1
+u=t−L, and the pairwise performance statis-
+tics Countstock(i,j ) and Count sector(i,j ). This function produces a textual prompt describing the
+relative performance and sectoral context of the two assets.
+Collecting such prompts for all pairs ( i,j ) with i̸=j yields:
+PStocks =
+{
+pi,j
+(
+[Countstock(i,j ), Countsector(i,j )]
+)
+:i̸=j
+}
+, (8)
+where [a, b] denotes the concatenation of inputs into a single composite prompt forpi,j. The prompt-
+generation function pi,j is a function that maps T to the space of text descriptions.
+Each prompt inPStocks is mapped to a token-level representation via the LLM embedding function
+gφ(·). We then stack or concatenate these token embeddings across all prompts, yielding
+Estocks =
+{
+gφ(p)
+}
+p∈PStocks
+∈ RMstocks×dLLM, (9)
+8
+
+
+[Page 9]
+February 4, 2025 arxiv main
+where Mstocks represents the total token count across all stock-related prompts. This embedding
+Estocks encodes both asset-level relationships, drawn from pairwise performance statistics, and
+sector-level relationships, informed by aggregated sector yields and asset-to-sector mappings.
+Macroeconomic embeddings: While the above embeddings capture asset-level interactions
+and sectoral dynamics, they do not fully account for the broader macroeconomic environment.
+Macroeconomic factors often shape market conditions, inﬂuencing correlations among assets and
+risk-return proﬁles. However, macroeconomic indicators are frequently observed at irregular inter-
+vals and may not align with the regular sampling of ﬁnancial returns. Directly integrating these
+irregular observations can pose signiﬁcant technical and modeling challenges. To address this, we
+map macroeconomic data into textual descriptions that summarize their key characteristics. Let
+xt∈ RM denote a vector ofM macroeconomic variables observed at timet. Since not all indicators
+are observed at every time point, letTm ={t(m)
+1 ,t (m)
+2 ,...,t (m)
+|Tm|} be the set of observation times for
+the m-th variable.
+Following (Jin et al. 2024), we extend this approach to handle irregularly sampled variables
+explicitly. Deﬁne a set of transformations Ξ = {ξmean,ξ var,ξ autocorr,ξ pattern}, each capable of ex-
+tracting salient features from the irregularly sampled observations {xt,m :t∈T m}:
+Ξ(m) ={ξmean(x·,m), ξvar(x·,m), ξautocorr(x·,m), ξpattern(x·,m)} (10)
+where x·,m denotes all observed values of the m-th macroeconomic variable. Each ξ· operator is
+deﬁned to accommodate irregular time intervals, ensuring accurate representation of the under-
+lying statistical properties. An illustration of this prompt-generation and embedding process for
+macroeconomic features is shown in Figure 2.
+Ξ 𝑚 = 𝜉mean 𝑥.,𝑚 , 𝜉var 𝑥.,𝑚 , 𝜉autocorr 𝑥.,𝑚 , 𝜉pattern 𝑥.,𝑚
+<|start_prompt|> 
+Dataset Description: The dataset includes macroeconomic variables 
+that influence the stock market. These variables are: ICSA, UMCSENT, 
+HSN1F, UNRATE, HYBS. [We can provide more details here]
+Task Description: Analyze the characteristics of each macroeconomic 
+variable over a period of 30 days to understand their impact on the 
+market. [We can provide more details here]
+Macro Variable Statistics: 
+ICSA: 
+- Impact: has a more positive impact as it falls 
+- Min: -2.62, Max: 2.22 - Median: -0.09, Mean: 0.04, StdDev: 0.95 
+- Trend (based on diff sum): upward 
+- Top 5 Lags (ACF): 1, 2, 3, 4, 5 
+…
+HYBS: 
+- Impact: has a more positive impact as it falls
+- Min: -2.46, Max: 2.83 - Median: -0.02, Mean: 0.00, StdDev: 1.10
+- Trend (based on diff sum): upward 
+- Top 5 Lags (ACF): 1, 2, 3, 4, 5
+ <|end_prompt|> 
+Convert Ξ 𝑚  
+to string format 
+Convert 
+metadata (𝒱(𝑚)) 
+to string format
+Name Description Start End Frequency
+ICSA Initial Claims 
+(Seasonally 
+Adjusted)
+2010-01-01 2020-01-15 8
+UNRATE Unemployment 
+Rate
+2020-01-01 2020-01-20 20
+…
+HYBS High Yield 
+Bond Spread
+2020-01-15 2020-01-27 5
+Metadata (𝒱(𝑚))
+(b) Prompt example(a) Metadata and statical description example
+Figure 2.Illustration of LLM-based prompt generation from pairwise outperformance statistics and macroeconomic summaries.
+For each asset pair, relative performance and sector-level yields are synthesized into textual prompts that capture inter-
+asset relationships, while similarly constructed macro-level prompts summarize irregularly observed economic indicators. These
+textual prompts are embedded by the LLM and subsequently integrated, via the cross-attention mechanism, into the DINN
+architecture.
+Now, for each variable m, let qm be a prompt-generating function qm : ({xt,m}t∈Tm,V(m))→T
+whereV(m) denotes any auxiliary metadata for variable m, andT is the space of textual descrip-
+tions. The functionqm synthesizes the extracted statistics Ξ(m) and metadataV(m) into a coherent
+9
+
+
+[Page 10]
+February 4, 2025 arxiv main
+textual summary. This textual prompt could, for example, note that a given macroeconomic vari-
+able has been trending upward, showing seasonal patterns or strong autocorrelation. The function
+qm synthesizes the extracted statistics Ξ(m) and metadataV(m) into a coherent textual summary.
+This textual prompt could, for example, note that a given macroeconomic variable has been trend-
+ing upward, showing seasonal patterns or strong autocorrelation. Collecting these prompts across
+all M macroeconomic variables:
+PMacro ={qm({xt,m}t∈Tm,V(m)) :m = 1,...,M } (11)
+Let gφ(·) be the same pretrained LLM embedding function used for the inter-asset relationship
+embeddings. Applying it to each prompt inPMacro yields a sequence of token-level representations,
+which we then stack to form
+Emacro =
+{
+gφ(p)
+}
+p∈PMacro
+∈ RMmacro×dLLM, (12)
+where Mmacro denotes the total token count across all macro prompts. The resulting embed-
+ding, Emacro, captures broader economic context complementary to the asset-level embeddings. By
+reﬂecting trends, volatility, and structural patterns of macroeconomic variables through natural-
+language prompts, it enriches the overall representational scope of the model. Unlike previous
+methods relying solely on return-based factor structures extracted from asset movements (Zhang
+et al. 2021, Giglio et al. 2022, Chen et al. 2024), our approach integrates macroeconomic context
+through semantic embeddings grounded in LLMs.
+3.3. Decision-informed neural network
+In this section, we present our neural network that integrates multi-modal information for portfolio
+optimization. The architecture consists of four key components: (1) a cross-attention mechanism
+that fuses temporal patterns with LLM-derived semantic embeddings, (2) a pretrained large lan-
+guage model for return forecasts, (3) a diﬀerentiable optimization layer that converts predictions
+into portfolio weights, and (4) a hybrid training objective combining forecasting and decision-
+focused losses.
+3.3.1. Eﬃcient Dual-Modality Integration via Prob-Sparse Cross-Attention. Given
+the decomposed normalized returns and LLM-based embeddings, we employ a prob-sparse cross-
+attention mechanism (Zhou et al. 2021) to integrate temporal and semantic information eﬃciently.
+In a naive full attention framework (Waswani et al. 2017), the computational cost scales propor-
+tionally to the product of query and key lengths in the simplest case), which becomes prohibitively
+large for long sequences of textual embeddings or when N and M grow signiﬁcantly. By contrast,
+prob-sparse attention uses a sampling-based approximation that retains only the most relevant keys
+for each query. Speciﬁcally, for each query, it selects a subset of key positions whose dot-products
+are likely to dominate the attention distribution, thereby reducing the eﬀective number of terms
+in the softmax normalization. This approach substantially lowers the computational complexity
+under common parameter choices), while preserving the representational capacity and accuracy of
+attention-based models.
+We employ prob-sparse attention for two main reasons. First, it alleviates computational and
+memory burdens that arise from large collections of textual or macroeconomic embeddings, ensuring
+scalability for real-world ﬁnancial datasets with many assets and extended textual descriptions.
+Second, this approximation focuses model capacity on salient interactions, often leading to improved
+eﬃciency during training without sacriﬁcing forecast ﬁdelity.
+10
+
+
+[Page 11]
+February 4, 2025 arxiv main
+Let Tt∈ RL×N and Rt∈ RL×N denote the trend and residual components respectively, where
+Tt = [τt−L+1,τt−L+2,...,τ t−1]⊤ and Rt = [ρt−L+1,ρt−L+2,...,ρ t−1]⊤. The LLM-based semantic
+embeddings are represented as Estocks∈ RMstocks×dLLM and Emacro∈ RMmacro×dLLM, where dLLM de-
+notes the embedding dimension, and Mstocks,M macro represent the respective sequence lengths of
+the textual embeddings. We deﬁne a cross-attention operation CrossAttn(X, Y) that maps tempo-
+ral patterns X∈ RL×N and textual embeddings Y∈ RM×dLLM into an integrated representation in
+RN×dLLM. First, we transpose the temporal input to X′ = X⊤∈ RN×L to align the asset dimension
+with the attention mechanism. Next, we compute query, key, and value representations through
+learnable linear transformations:
+Q = X′WQ, K = YWK, V = YWV, (13)
+where WQ, WK, WV ∈ RdLLM×dLLM are learnable parameters. To enhance representational ca-
+pacity, we employ multi-head attention withB heads, each of dimensiondb such thatB×db =dLLM.
+The matrices Q, K, V are split across heads:
+Q→ [Q1,..., QB], K→ [K1,..., KB], V→ [V1,..., VB], (14)
+where Qb∈ RN×db and Kb, Vb∈ RM×db for each head b∈{ 1,...,B }.
+Following the prob-sparse attention mechanism (Zhou et al. 2021), we compute a sparse ap-
+proximation of the attention weights. Let c > 0 be a constant and deﬁne Ub = c⌈logM⌉ as the
+number of sampled key positions. For each query position i∈ {1,...,N }, we sample a subset
+Sb(i)⊆{ 1,...,M } of size Ub. The attention weights for head b are:
+αb,i,j =
+
+
+
+exp
+(
+(Qb )i,: (Kb )⊤
+j,:√
+db
+)
+∑
+j′∈Sb (i) exp
+(
+(Qb )i,: (Kb )⊤
+j′ ,:√
+db
+) if j∈S b(i),
+0 otherwise .
+(15)
+So, the output for each head is computed as:
+(Zb)i,: =
+∑
+j∈Sb(i)
+αb,i,j(Vb)j,:, (16)
+and the ﬁnal output is obtained by concatenating across heads and applying a linear projection:
+Z = [Z1;... ; ZB]WO∈ RN×dLLM, (17)
+where WO∈ R(Bdb)×dLLM is a learnable parameter matrix. Then, we apply this cross-attention
+mechanism separately to integrate market-level and stock-speciﬁc information:
+Cmarket = CrossAttn(Tt, Emacro)∈ RN×dLLM,
+Cstock = CrossAttn(Rt, Estocks)∈ RN×dLLM.
+(18)
+The resulting representations Cmarket and Cstock capture the alignment between temporal pat-
+terns and semantic embeddings at both market and individual stock levels. This dual representation
+in a common dLLM-dimensional space can facilitates the subsequent joint modeling of returns and
+portfolio optimization.
+11
+
+
+[Page 12]
+February 4, 2025 arxiv main
+3.3.2. Pretrained large language model for prediction. With the integrated represen-
+tations from the cross-attention mechanism, we leverage a pretrained large language model to
+generate return forecasts. Let gφ : RN×dLLM→ RN×dLLM be the pretrained LLM with frozen pa-
+rameters φ. It serves as a ﬁxed contextual encoder that maps integrated embeddings into a more
+semantically enriched space. Given Cmarket, Cstock∈ RN×dLLM, we process them through the LLM:
+Zmarket =gφ(Cmarket), Zstock =gφ(Cstock) (19)
+where Zmarket, Zstock∈ RN×dLLM. The LLM reﬁnes these embeddings by capturing higher-order
+dependencies among assets through its attention mechanisms while preserving the semantic infor-
+mation encoded in the original representations.
+To combine the market-level and stock-speciﬁc information, we employ an additive fusion Z =
+Zmarket +Zstock∈ RN×dLLM, where the addition is performed element-wise. This operation assumes
+both embeddings reside in a common semantic space and that their contributions to the ﬁnal
+representation are complementary.
+To generate normalized return forecasts over the horizon H, we project the fused embeddings
+through a learned linear transformation ˆr′
+t+1:t+H = (ZWF )⊤, where WF∈ RdLLM×H is a trainable
+weight matrix and ˆr′
+t+1:t+H∈ RH×N. To recover the returns in their original scale, we apply the
+inverse of the normalization transformation introduced in Section 3.2.1. For each asseti and horizon
+h, we denormalize the predictions using the historical statistics:
+ˆrt+h,i = ˆr′
+t+h,iσt,i +µt,i (20)
+whereµt,i andσt,i are the sample mean and standard deviation computed over the lookback window
+[t−L,t− 1] as deﬁned previously.
+The ﬁnal return predictions can be organized into a matrix ˆ rt+1:t+H = [ˆrt+1, ˆrt+2,..., ˆrt+H]∈
+RH×N, where each ˆrt+h∈ RN represents the predicted returns across all assets at time t +h.
+While employing the latest pretrained LLMs can signiﬁcantly boost predictive performance, it
+also raises a critical concern of data leakage in empirical evaluations. Because some LLMs (e.g.,
+GPT-4o (Achiam et al. 2023), LLAMA (Dubey et al. 2024)) were trained on vast text corpora—
+potentially including ﬁnancial data, news reports, or research materials overlapping with one’s test
+set—there is a nontrivial risk that information from the true “future” may already reside within
+the LLM’s parameters. Consequently, evaluating forecasts on a test period that the LLM might
+have indirectly “seen” during pretraining can yield overly optimistic results. Therefore, we used the
+GPT-2, which is a relatively old model with suﬃcient representation power, as the default LLM
+model to avoid the issue of data leakage.
+3.3.3. Optimization layer. The optimization layer converts predicted returns into optimal
+portfolio weights by solving a convex optimization problem that balances expected returns and
+portfolio risk. Given predicted returns ˆrt+1:t+H∈ RH×N and historical returns r⋆
+t−K:t−1∈ RK×N,
+we estimate covariance matrices ˆΣt+h by combining historical and predicted return as ˆΣt+h =
+Cov
+(
+r⋆
+t−K:t−1∪ ˆrt+1:t+h
+)
+. In this study, we use the past three months of historical returns for stable
+covariance estimation. Assuming ˆΣt+h is positive deﬁnite, we perform a Cholesky decomposition
+ˆΣt+h = ˆLt+h ˆL⊤
+t+h. Let λ> 0 be the risk-aversion parameter. For each time step t +h, we solve:
+12
+
+
+[Page 13]
+February 4, 2025 arxiv main
+min
+wt+h
+λs2
+t+h− ˆµ⊤
+t+hwt+h
+s.t. ∥ˆLt+hwt+h∥2≤st+h,
+st+h≥ 0,
+N∑
+i=1
+wt+h,i = 1,
+0≤wt+h,i≤ 1 ∀i∈{ 1,...,N }.
+(21)
+Here,st+h represents the portfolio volatility, and the full-investment, long-only constraints ensure
+that ∑
+iwt+h,i = 1 with wt+h,i≥ 0. This second-order cone formulation is equivalent to solving a
+mean–variance trade-oﬀ problem, where λ modulates the level of risk-aversion, and ˆµt+h encodes
+the expected return estimates. Solving this second-order cone optimization problem for each h
+yields:
+ˆwt+1:t+H =
+(
+ˆwt+1, ˆwt+2,..., ˆwt+H
+)
+(22)
+3.3.4. Training. Training aims to align the model’s parameters so that the predicted returns
+and the resulting decision-making process closely approximate their true counterparts. To achieve
+this, we combine a forecasting loss and a decision-focused loss into a single objective function. Let
+ˆrt:t+H be the predicted returns over the horizonH, andrt:t+H be the corresponding actual returns.
+The ﬁrst loss term, which we denote as the forecasting loss, is the mean squared error (MSE)
+computed over the forecast horizon:
+LMSE = 1
+NH
+H∑
+h=1
+∥ˆrt+h−rt+h∥2
+2 (23)
+The decision-focused loss measures how prediction errors degrade portfolio quality. Consider opti-
+mal weightsw⋆
+t+1:t+h obtained from actual returns and ˆwt+1:t+h from predicted returns. With L⋆
+t+h
+the Cholesky factor of the actual covariance Σ ⋆
+t+h, deﬁne:
+J⋆
+t+h =λ
+L⋆
+t+hw⋆
+t+h
+
+2−µ⋆⊤
+t+hw⋆
+t+h,
+ˆJt+h =λ
+L⋆
+t+h ˆwt+h
+
+2−µ⋆⊤
+t+h ˆwt+h
+(24)
+Intuitively, these performance measures quantify how inaccuracies in predicted returns trans-
+late into suboptimal portfolio decisions. Unlike approaches such as those in (Costa and Iyengar
+2023), which optimize for metrics like the Sharpe ratio, the proposed decision-focused loss di-
+rectly measures the regret incurred by substituting predicted returns for actual ones. Consequently,
+∆Jt+h = ˆJt+h−J⋆
+t+h reﬂects the additional cost induced by prediction errors on the portfolio’s
+true risk-return proﬁle. Then the decision-focused loss is the average absolute regret as here:
+LDecision = 1
+NH
+H∑
+h=1
+|∆Jt+h|. (25)
+where ∆Jt+h is the discrepancy between the performance of the predicted and true portfolios.
+13
+
+
+[Page 14]
+February 4, 2025 arxiv main
+Finally, we combine the two losses into a single training objective using a weighting parameter
+β∈ [0, 1], which balances between predictive accuracy and decision robustness:
+Lloss =βLMSE + (1−β)LDecision (26)
+By adjusting β, we can control the relative importance of minimizing forecast errors versus mini-
+mizing decision regret. We set β = 0.4 as the default value in this study.
+3.4. Gradient for optimization problem
+Consider the decision-focused loss LDecision, which measures how predictive inaccuracies translate
+into suboptimal portfolio choices. This loss depends on the model parameters θ through the pre-
+dicted returns. Since the predicted returns determine ˆ µt+h and ˆLt+h, the optimal weights ˆwt+h
+obtained from the optimization layer also depend implicitly on θ.
+Deﬁne ∆Jt+h = ˆJt+h−J⋆
+t+h, where J⋆
+t+h = λ∥L⋆
+t+hw⋆
+t+h∥2−µ⋆⊤
+t+hw⋆
+t+h is the benchmark per-
+formance using true returns and true covariance, and ˆJt+h = λ∥L⋆
+t+h ˆwt+h∥2−µ⋆⊤
+t+h ˆwt+h is the
+performance under predicted quantities and weights. Since J⋆
+t+h does not depend on θ, its gradient
+is zero. Thus, the gradient of LDecision with respect to θ reduces to the gradient of ˆJt+h.
+Ignoring non-diﬀerentiability at zero for the absolute value and assuming a diﬀerentiable approx-
+imation if needed, the derivative of ˆJt+h with respect to ˆwt+h is
+∇ ˆwt+h
+ˆJt+h =∇ ˆwt+h
+(
+λ∥L⋆
+t+h ˆwt+h∥2−µ⋆⊤
+t+h ˆwt+h
+)
+=∇ ˆwt+h
+(
+λ∥L⋆
+t+h ˆwt+h∥2
+)
+−∇ ˆwt+h
+(
+µ⋆⊤
+t+h ˆwt+h
+)
+=λ∇ ˆwt+h
+√
+(L⋆
+t+h ˆwt+h)⊤(L⋆
+t+h ˆwt+h)−µ⋆
+t+h
+=λ L⋆⊤
+t+h(L⋆
+t+h ˆwt+h)√
+(L⋆
+t+h ˆwt+h)⊤(L⋆
+t+h ˆwt+h)
+−µ⋆
+t+h
+=λL⋆⊤
+t+h(L⋆
+t+h ˆwt+h)
+∥L⋆
+t+h ˆwt+h∥2
+−µ⋆
+t+h.
+(27)
+This gradient provides the directional sensitivity of the performance measure ˆJt+h to changes in
+the predicted weights.
+Because ˆwt+h solves a parametric optimization problem whose parameters ˆ µt+h and ˆLt+h de-
+pend on θ, the chain rule must be applied to propagate gradients through the optimization layer.
+Formally, letLDecision be deﬁned as an average over the forecast horizon:
+∇θLDecision = 1
+NH
+H∑
+h=1
+(
+∂LDecision
+∂ ˆwt+h
+∂ ˆwt+h
+∂ˆµt+h
+∂ˆµt+h
+∂θ + ∂LDecision
+∂ ˆwt+h
+∂ ˆwt+h
+∂ ˆLt+h
+∂ ˆLt+h
+∂θ
+)
+(28)
+Here, ∂ ˆwt+h/∂ˆµt+h and ∂ ˆwt+h/∂ ˆLt+h quantify the sensitivities of the optimal weights to per-
+turbations in predicted means and covariance factors, respectively. These can be derived via the
+implicit function theorem or through established results in parametric optimization. The terms
+∂ˆµt+h/∂θ and ∂ ˆLt+h/∂θ capture how the predictive model’s parameters θ aﬀect the predicted
+inputs to the optimization layer.However, While computing the sensitivity terms ∂ ˆwt+h/∂ˆµt+h
+and ∂ ˆwt+h/∂ ˆLt+h is computationally challenging due to the implicit nature of the optimization
+14
+
+
+[Page 15]
+February 4, 2025 arxiv main
+problem’s solution, these derivatives provide valuable information about how estimation errors in
+predicted moments aﬀect optimal portfolio weights. As demonstrated in Theorems 1 and Theorems
+2, under appropriate regularity conditions, these sensitivities can be characterized using the im-
+plicit function theorem applied to the KKT conditions, enabling eﬃcient gradient-based learning
+through the optimization layer.
+Theorem 1 (Sensitivity of optimal portfolio weights w.r.t. predicted returns)Consider
+the following portfolio optimization problem at each time step t +h for{h = 1,··· ,H}:
+min
+ˆwt+h
+λs2
+t+h− ˆµ⊤
+t+h ˆwt+h
+subject to ∥ˆLt+h ˆwt+h∥2 =st+h,
+N∑
+i=1
+ˆwt+h,i = 1,
+(29)
+whereλ> 0, ˆwt+h∈ RN denotes the portfolio weights, ˆµt+h∈ RN are the predicted returns, and
+ˆLt+h∈ RN×N is a lower-triangular Cholesky factor such that ˆΣt+h = ˆLt+h ˆL⊤
+t+h is the covariance
+matrix of returns. Assume ˆΣt+h is invertible.
+Then the derivative of the optimal solution ˆwt+h with respect to the predicted returns ˆµt+h is
+given by:
+∂ ˆwt+h
+∂ˆµt+h
+= ˆΣ−1
+t+h −
+ˆΣ−1
+t+h11⊤ ˆΣ−1
+t+h
+1⊤ ˆΣ−1
+t+h1
+, (30)
+where 1 is an N-dimensional vector of ones.
+Proof: Refer to Appendix A.1 for a detailed derivation, which follows from applying Lagrangian
+duality and diﬀerentiating the resulting Karush-Kuhn-Tucker (KKT) conditions with respect to
+ˆµt+h.
+Theorem 2 (Sensitivity of optimal portfolio weights w.r.t. cholesky factor) Under the
+same setting and assumptions as in Theorem 1, let
+p := 1⊤ ˆΣ−1
+t+hˆµt+h− 1
+1⊤ ˆΣ−1
+t+h1
+(31)
+Then the derivative of the optimal solution ˆwt+h with respect to the cholesky factor ˆLt+h is given
+by:
+∂ ˆwt+h
+∂ ˆLt+h
+=−2 ˆΣ−1
+t+h(ˆµt+h−p1)ˆΣ−1
+t+h ˆLt+h − 2 ˆΣ−1
+t+h
+( ∂p
+∂ ˆΣt+h
+1
+)
+ˆLt+h, (32)
+where ∂p
+∂ ˆΣt+h
+=
+−ˆΣ−1
+t+h1ˆµ⊤
+t+h
+ˆΣ−1
+t+hz + (1⊤ ˆΣ−1
+t+hˆµt+h−1)ˆΣ−1
+t+h11⊤ ˆΣ−1
+t+h
+z2 and z = 1⊤ ˆΣ−1
+t+h1.
+Proof: Refer to Appendix A.1 for a detailed proof, which follows by applying the chain rule
+to the Markowitz optimization problem and carefully diﬀerentiating with respect to the Cholesky
+factor ˆLt+h. These expressions provide explicit formulas for the sensitivities needed to eﬃciently
+implement gradient-based learning through the optimization layer, enabling a deeper understanding
+of how inaccuracies in predicted inputs inﬂuence optimal decision-making.
+15
+
+
+[Page 16]
+February 4, 2025 arxiv main
+4. Experiment
+We now present the experimental results that comprehensively demonstrate the performance of
+DINN on real-world benchmark datasets. To facilitate transparency and reproducibility, the code
+and conﬁguration details are available at Anonymous Github.
+4.1. Implementation details
+In this section, we describe the datasets, evaluation metrics, baseline models, and hyperparameter
+settings used in our empirical study.
+4.1.1. Dataset description. This study analyzes a comprehensive dataset spanning January
+2010 to December 2023, encompassing both the post-ﬁnancial crisis recovery and the COVID-19
+pandemic period. Our primary data consists of equity returns from two major indices: the DOW
+30 and a market-cap-weighted subset of 50 constituents from the S&P 100. To address poten-
+tial survivorship bias, we include only companies that maintained consistent index membership
+throughout the study period. The ﬁnancial data, obtained from WRDS, is complemented by ﬁve
+macroeconomic indicators from FRED, selected based on their documented predictive power in
+asset pricing: weekly initial jobless claims (ICSA), consumer sentiment (UMCSENT), new home
+sales (HSN1F), unemployment rate (UNRATE), and high-yield bond spread (HYBS). These vari-
+ables may capture diﬀerent aspects of economic conditions that inﬂuence asset returns through
+both systematic risk channels and behavioral mechanisms.
+4.1.2. Evaluation Metrics. We evaluate each model using eight key metrics designed to
+capture both return characteristics and various dimensions of risk. These include:
+(i) Annualized Return (Ret): Reﬂects the average annual growth of the portfolio without
+subtracting any risk-free component.
+(ii) Annualized Standard Deviation (Std) : Gauges the volatility of returns, serving as a
+basic measure of risk.
+(iii) Sharpe Ratio (SR) : Examines excess returns (portfolio return minus the risk-free rate)
+per unit of total volatility.
+(iv) Sortino Ratio (SOR): Focuses on downside volatility, isolating harmful ﬂuctuations from
+benign ones.
+(v) Maximum Drawdown (MDD): Captures the largest observed loss from a prior portfolio
+high, providing a measure of potential capital erosion.
+(vi) Value at Risk (VaR) at 95% (monthly): Indicates the worst likely loss over a speciﬁc
+time horizon under normal market conditions.
+(vii) Return Over VaR (RoV): Scales the portfolio’s excess monthly returns relative to VaR,
+highlighting returns per tail-risk unit.
+(viii) Terminal Wealth (Wealth): Reﬂects the ﬁnal cumulative portfolio value, integrating the
+impact of both returns and compounding.
+4.1.3. Baseline Models and Hyperparameter Selection. We compare DINN against sev-
+eral state-of-the-art deep learning architectures tailored to ﬁnancial time series, including both
+Transformer-based and large language model (LLM)-based methods:
+• Transformer-based methods: iTransformer (Liu et al. 2024), PatchTST (Nie et al. 2023),
+TimesNet (Wu et al. 2023), and Crossformer (Zhang and Yan 2023).
+16
+
+
+[Page 17]
+February 4, 2025 arxiv main
+• LLM-based methods: PAttn (Tan et al. 2024), Chronos (Ansari et al. 2024), and GPT4TS
+(Zhou et al. 2023a).
+All baseline models are implemented using their original architectures and recommended hy-
+perparameters, with minor reﬁnements to accommodate the speciﬁcs of our ﬁnancial data. We
+provide the detailed hyperparameter settings for DINN in Appendix A.3., ensuring reproducibility
+and clarity.
+4.2. Can DINN exceed standard deep learning models for portfolio optimization?
+Standard deep learning approaches often focus on minimizing forecasting error without directly
+addressing the inherent fragility of portfolio selection when faced with small parameter estimation
+errors. Accordingly, even substantial gains in predictive accuracy may not translate into robust
+improvements in actual investment outcomes. By contrast, DINN integrates portfolio optimization
+as a learnable module, aligning model parameters not merely to predict returns accurately but also
+to optimize the ﬁnal portfolio decision.
+Table 1 report the eight core performance metrics—annualized return, standard deviation,
+Sharpe ratio, Sortino ratio, maximum drawdown, Value-at-Risk, Return over VaR, and termi-
+nal wealth—across two datasets (S&P 100 and DOW 30). These indicators each oﬀer a unique
+perspective on risk and reward.
+The empirical evidence demonstrates that DINN consistently outperforms standard deep learning
+models across multiple dimensions of portfolio performance, particularly in metrics that capture
+the quality of investment decisions. This superiority manifests in both return generation and risk
+management, with notably smaller performance variability across experimental trials. In terms of
+return generation, DINN achieves markedly higher annualized returns of 43.53% (± 1.45%) for the
+S&P 100 and 63.25% (± 0.43%) for the DOW 30, substantially exceeding the next best performers
+(TimesNet at 33.28% ± 22.54% and 36.72% ± 21.64%, respectively). More importantly, DINN
+exhibits relatively low variability in these returns, indicating consistently superior performance
+rather than sporadic success. This consistency extends to risk-adjusted performance measures,
+where DINN achieves the highest Sharpe ratios (1.04 ± 0.04 and 1.29 ± 0.01) and Sortino ratios
+(1.50± 0.05 and 1.94 ± 0.01) across both datasets, again with minimal variability among all
+models.
+The risk management capabilities of DINN reveal a nuanced picture. While GPT4TS achieves
+marginally lower maximum drawdowns (33.91% versus DINN’s 39.51% for S&P 100), DINN demon-
+strates remarkably stable risk characteristics, showing the lowest standard deviation in drawdown
+measures (± 0.64% for S&P 100, compared to GPT4TS’s ± 3.68%). This stability is particularly
+evident in the Value-at-Risk (VaR) metrics, where DINN maintains competitive levels (12.33% for
+S&P 100 and 13.91% for DOW 30) while exhibiting very small variability (± 0.04% and± 0.15%,
+respectively).
+Most notably, DINN excels in translating its advantages into tangible investment outcomes. The
+model achieves the highest Return over VaR (19.87% for S&P 100 and 27.72% for DOW 30)
+and terminal wealth (3.0213 and 4.4715, respectively) for both datasets, with substantially lower
+variability than competing approaches. This superior wealth accumulation, combined with consis-
+tent risk-adjusted performance metrics, suggests that DINN’s decision-informed architecture more
+eﬀectively bridges the gap between predictive accuracy and portfolio optimization. These empir-
+ical results collectively imply that DINN more eﬀectively reconciles predictive accuracy with the
+practical objectives of portfolio management, yielding robust and reliable performance gains.
+4.3. Why does prediction based loss function misalign with investment objectives?
+A purely prediction-based loss function (e.g., minimizing mean-squared error) presumes that accu-
+rate forecasts of expected returns alone suﬃce for optimal investment decisions. In reality, portfolio
+17
+
+
+[Page 18]
+February 4, 2025 arxiv main
+Panel A. S&P 100 Dataset
+Measure Ret ( ↑) Std ( ↓) SR ( ↑) SOR ( ↑)
+Crossformer 0.3337 ± 0.3557 0.4529 ± 0.0789 0.6468 ± 0.6428 1.0090 ± 1.0336
+PatchTST 0.0025 ± 0.0810 0.4641 ± 0.0400 -0.0227 ± 0.1832 -0.0310 ± 0.2712
+iTransformer 0.2264 ± 0.3356 0.4320 ± 0.0611 0.5725 ± 0.7929 0.8710 ± 1.1410
+TimesNet 0.3328 ± 0.2254 0.3719 ± 0.0233 0.8903 ± 0.6805 1.2380 ± 0.9839
+PAttn -0.0815 ± 0.0466 0.4646 ± 0.0259 -0.2019 ± 0.1047 -0.3015 ± 0.1554
+Chronos (Base) 0.1000 ± 0.1283 0.3245 ± 0.1051 0.2283 ± 0.4311 0.3732 ± 0.6620
+Chronos (Large) 0.1608 ± 0.0976 0.2849± 0.0227 0.5372 ± 0.3553 0.7713 ± 0.5199
+GPT4TS 0.2166 ± 0.0694 0.3575 ± 0.0048 0.5758 ± 0.1991 0.8059 ± 0.2943
+DINN (ours) 0.4353± 0.0145 0.4103± 0.0005 1.0355 ± 0.0358 1.5008 ± 0.0521
+Measure MDD ( ↓) V aR ( ↓) RoV ( ↑) W elath ( ↑)
+Crossformer 0.6084 ± 0.0538 0.1602 ± 0.0336 0.1109 ± 0.1029 1.2204 ± 0.5301
+PatchTST 0.7147 ± 0.0841 0.1894 ± 0.0108 -0.0275 ± 0.0389 0.6717 ± 0.1987
+iTransformer 0.5077 ± 0.2865 0.1556 ± 0.0545 0.1186 ± 0.1627 2.0745 ± 1.5459
+TimesNet 0.5107 ± 0.1052 0.1289 ± 0.0209 0.1760 ± 0.1357 2.7133 ± 1.9920
+PAttn 0.7700 ± 0.0444 0.1822 ± 0.0007 -0.0708 ± 0.0192 0.4673 ± 0.0863
+Chronos (Base) 0.4365 ± 0.1739 0.1059 ± 0.0298 0.0333 ± 0.1021 1.2204 ± 0.5301
+Chronos (Large) 0.3675 ± 0.0920 0.1131 ± 0.0321 0.0915 ± 0.0814 1.5877 ± 0.5051
+GPT4TS 0.3391± 0.0368 0.1049± 0.0054 0.1151 ± 0.0407 1.7164 ± 0.3758
+DINN (ours) 0.3951 ± 0.0064 0.1233± 0.0004 0.1987 ± 0.0078 3.0213 ± 0.1218
+Panel B. DOW 30 Dataset
+Measure Ret ( ↑) Std ( ↓) SR ( ↑) SOR ( ↑)
+Crossformer 0.1463 ± 0.2596 0.4522 ± 0.0508 0.3339 ± 0.5713 0.5031 ± 0.8169
+PatchTST 0.1306 ± 0.0758 0.4708 ± 0.0152 0.2552 ± 0.1657 0.4005 ± 0.2622
+iTransformer 0.1463 ± 0.2596 0.4522 ± 0.0508 0.3339 ± 0.5713 0.5031 ± 0.8169
+TimesNet 0.3672 ± 0.2164 0.4064 ± 0.0997 0.8223 ± 0.3277 1.1923 ± 0.6041
+PAttn 0.0692 ± 0.1522 0.4657 ± 0.0231 0.1200 ± 0.3269 0.1897 ± 0.5028
+Chronos (Base) 0.2364 ± 0.0989 0.3155 ± 0.0610 0.7044 ± 0.2519 1.0094 ± 0.3411
+Chronos (Large) 0.0598 ± 0.0676 0.2928± 0.0280 0.1738 ± 0.2425 0.2186 ± 0.3154
+GPT4TS 0.2914 ± 0.1013 0.3579 ± 0.0049 0.7827 ± 0.2820 1.1055 ± 0.3694
+DINN (ours) 0.6325± 0.0043 0.4814± 0.0002 1.2905 ± 0.0091 1.9449 ± 0.0137
+Measure MDD ( ↓) V aR ( ↓) RoV ( ↑) W elath ( ↑)
+Crossformer 0.6617 ± 0.1405 0.1718 ± 0.0388 0.0647 ± 0.1212 1.9403 ± 0.5746
+PatchTST 0.6236 ± 0.0891 0.1660 ± 0.0021 0.0407 ± 0.0465 1.0770 ± 0.3151
+iTransformer 0.6617 ± 0.1405 0.1718 ± 0.0388 0.0647 ± 0.1212 1.4170 ± 1.0613
+TimesNet 0.4742 ± 0.1498 0.1390 ± 0.0637 0.1627 ± 0.0215 2.5758 ± 1.2002
+PAttn 0.7090 ± 0.0957 0.1673 ± 0.0002 0.0036 ± 0.0764 0.9113 ± 0.4215
+Chronos (Base) 0.3565 ± 0.0971 0.0951± 0.0159 0.1635 ± 0.0254 1.9403 ± 0.5746
+Chronos (Large) 0.4280 ± 0.0649 0.0960 ± 0.0244 0.0383 ± 0.0456 1.0796 ± 0.2762
+GPT4TS 0.3022± 0.0206 0.1213 ± 0.0092 0.1534 ± 0.0618 2.1992 ± 0.6330
+DINN (ours) 0.5656 ± 0.0023 0.1391± 0.0015 0.2772 ± 0.0035 4.4715 ± 0.0475
+Table 1. Comparative performance metrics for various time series models applied to the S&P100 and DOW 30 dataset. Each
+entry represents the mean metric value along with the standard deviation. Metrics include Annualised Return (Ret), Annualised
+Standard Deviation (Std), Sharpe Ratio (SR), Sortino Ratio (SOR), Maximum Drawdown (MDD), Monthly 95% Value-at-
+Risk (VaR), Return Over VaR (RoV), and accumulated terminal wealth (Wealth). Higher values are desirable for Ret, SR,
+SOR, RoV, and Wealth; while lower values are preferred for Std, MDD, and VaR. All values are presented as mean± standard
+deviation across experimental trials. Bold values indicate the best performance for each metric, with upward (↑) and downward
+(↓) arrows indicating the desired direction of each measure. Values highlighted in blue represent the lowest standard deviation
+for that metric.
+optimization is highly sensitive to small forecast errors. Minor deviations in the predicted mean
+vector can lead to substantial misallocations of capital, especially when risk preferences and con-
+straints amplify these inaccuracies.
+Figure 1 illustrates this disconnect by comparing standard deviation outcomes for models trained
+only to minimize forecast error (”DFL w/o”) versus those trained with an integrated decision mod-
+ule (”DFL w/”). Notably, the decision-informed approach exhibits a signiﬁcantly lower standard
+deviation across experimental trials, signifying not only enhanced alignment with risk-return ob-
+jectives but also greater robustness in performance. By aligning learned representations directly
+18
+
+
+[Page 19]
+February 4, 2025 arxiv main
+with portfolio-level goals, decision-informed approach may mitigates the volatility that often arises
+when small forecast errors are ampliﬁed within traditional MSE-based frameworks. Hence, reduc-
+ing MSE does not always correlate with mitigating drawdowns, enhancing risk-adjusted returns,
+or boosting terminal wealth. The tighter variability achieved by the decision-focused model under-
+scores that better forecasts do not necessarily translate into better investment outcomes. Instead,
+models must explicitly account for how forecast errors inﬂuence downstream allocation decisions
+in order to optimize both mean returns and risk exposure eﬀectively.
+CrossformerPatchTSTiTransformerTimesNet PAttn GPT4TS
+0.25
+0.00
+0.25
+0.50
+0.75
+1.00
+1.25
+1.50
+1.75
+S&P 100
+SR( )
+CrossformerPatchTSTiTransformerTimesNet PAttn GPT4TS
+1
+2
+3
+4
+5
+Wealth( )
+CrossformerPatchTSTiTransformerTimesNet PAttn GPT4TS
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+MDD( )
+CrossformerPatchTSTiTransformerTimesNet PAttn GPT4TS
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200
+0.225
+VAR( )
+CrossformerPatchTSTiTransformerTimesNet PAttn GPT4TS
+0.25
+0.00
+0.25
+0.50
+0.75
+1.00
+1.25
+1.50
+1.75
+DOW 30
+SR( )
+CrossformerPatchTSTiTransformerTimesNet PAttn GPT4TS
+1
+2
+3
+4
+5
+Wealth( )
+CrossformerPatchTSTiTransformerTimesNet PAttn GPT4TS
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+MDD( )
+CrossformerPatchTSTiTransformerTimesNet PAttn GPT4TS
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200
+0.225
+VAR( )
+DFL (w/o) DFL (w/) EWP
+Figure 3.Comparison of portfolio standard deviation across experimental trials for models trained with prediction-based loss
+only (DFL w/o) versus models incorporating a decision module (DFL w/). The decision-focused approach demonstrates notably
+lower variability in standard deviation outcomes, representing how integrating portfolio-level objectives during training leads
+to more consistent and robust investment performance compared to purely prediction-based optimization.
+Proposition 1 provides a concrete theoretical example of this phenomenon. In a two-asset mean-
+variance problem (Σ = I2 and λ > 0), we construct a sequence of predicted return vectors ˜ µ(k)
+that converges to the true mean µ in ℓ2-norm (i.e., the MSE sense). Nonetheless, the induced
+optimal weights ˆw do not converge to the true optimum w⋆. This result arises because mean-
+variance optimization can magnify small errors in the mean vector, thereby distorting the ﬁnal
+portfolio solution. The implication is that standard predictive metrics—such as MSE—can overlook
+signiﬁcant deviations in the resulting portfolio weights and performance.
+Proposition 1: Letµ∈ Rn be the true expected return vector, and let ˆµ = arg minx∈X∥x−µ∥2
+2.
+Consider the mean-variance optimization problem
+w⋆ = arg maxw∈W{w⊤µ−λw⊤Σw}, (33)
+where λ> 0, Σ≻ 0, andW⊆ Rn. Deﬁne similarly the portfolio
+ˆw = arg maxw∈W{w⊤ˆµ−λw⊤Σw}. (34)
+We show that there exist cases in which
+lim
+∥ˆµ−µ∥2→0
+ˆw̸=w⋆. (35)
+In other words, even though ˆµ converges to µ in mean-squared error, the corresponding optimal
+portfolios need not converge to the true optimal portfolio w⋆. Consequently, a small MSE can lead
+to a large discrepancy in portfolio selection.
+19
+
+
+[Page 20]
+February 4, 2025 arxiv main
+Proof: Consider the two-asset setting (n = 2) with Σ = I2 and λ> 0. Let the feasible set be
+W ={(w1,w 2) :w1 +w2 = 1,w 1,w 2≥ 0}. (36)
+Suppose the true return vector isµ = (µ1,µ 2)⊤ withµ1>µ 2. Then the mean-variance optimization
+problem reduces to
+w⋆ = arg maxw1+w2=1,w 1,w2≥0
+[
+w1µ1 +w2µ2−λ
+(
+w2
+1 +w2
+2
+)]
+. (37)
+Sincew2 = 1−w1, deﬁne L(w1) =w1µ1 + (1−w1)µ2−λ
+[
+w2
+1 + (1−w1)2
+]
+. Then, diﬀerentiating
+L(w1) and setting it to zero gives
+dL
+dw1
+=µ1−µ2−λ
+[
+4w1− 2
+]
+= 0 (38)
+Solving for w1 yields
+µ1−µ2 =λ [4w⋆
+1− 2] = ⇒ w⋆
+1 = 1
+2 + µ1−µ2
+4λ . (39)
+Consequently,w⋆
+2 = 1−w⋆
+1.
+We then construct a speciﬁc sequence ˜ µ(k) that converges to µ but whose induced portfolio
+weights fail to converge to w⋆. Set ˜µ(k) =
+(
+µ1−δ + 1
+k
+µ2
+)
+Whereδ = µ1−µ2
+2 > 0. Clearly, ask→∞ ,
+˜µ(k)→µ in ℓ2-norm because∥˜µ(k)−µ∥2 can be made arbitrarily small.
+To show that the induced weights do not converge to w⋆, substitute ˜µ(k) into the same mean-
+variance formula. the optimal weight w(k)
+1 solves
+(µ1−δ + 1
+k)−µ2 =λ [4w(k)
+1 − 2] (40)
+Hence, w(k)
+1 = 1
+2 +
+(µ1−µ2)−δ+ 1
+k
+4λ . By deﬁnition δ = µ1−µ2
+2 , we get
+w(k)
+1 = 1
+2 +
+µ1−µ2
+2 + 1
+k
+4λ ,
+= 1
+2 + µ1−µ2
+8λ + 1
+4λk.
+(41)
+Meanwhile, the true optimum w⋆
+1 is w⋆
+1 = 1
+2 + µ1−µ2
+4λ . Observe that µ1−µ2
+8λ + 1
+4λk ̸= µ1−µ2
+4λ So,
+limk→∞w(k)
+1 ̸=w⋆
+1. ■
+4.4. Can DINN’s attention mechanism enhance portfolio eﬃciency across varying
+market conditions?
+A central question in applying deep learning models to portfolio management is whether these
+models can systematically identify and emphasize assets that represent the market well while
+delivering favorable risk-adjusted returns under varying conditions. To explore this, we analyze the
+performance of DINN under four distinct macroeconomic regimes: the COVID-19 pandemic (March
+to June 2020), periods of elevated weekly initial jobless claims (ICSA), surges in new home sales
+(HSN1), and extremely low consumer sentiment (UMCS). During each regime, we evaluate four
+20
+
+
+[Page 21]
+February 4, 2025 arxiv main
+asset selection strategies: (1) DINN, using stocks deemed “important” by the prob-sparse attention
+mechanism, (2) Other, consisting of stocks not selected by the attention module, (3) Random,
+constructed with intentionally corrupted embeddings, and (4) Uniform, representing an equal-
+weighted portfolio.
+Panel A. S&P 100 Dataset
+Regime Type SR( ↑) Wealth( ↑) MDD( ↓) VAR( ↓)
+COVID
+DINN 1.1419 1.1576 0.1915 0.0342
+Other 0.5857 1.0598 0.2829 0.0933
+Random 0.6177 1.0096 0.2875 0.0330
+Uniform 0.6279 1.0683 0.2757 0.0883
+ICSA
+DINN 1.5044 1.3299 0.2408 0.0527
+Other 0.8147 1.1502 0.2855 0.0822
+Random 0.6896 1.0971 0.2609 0.0552
+Uniform 0.9632 1.1887 0.2757 0.0755
+HSN1
+DINN 0.6672 1.0672 0.1688 0.0878
+Other 0.3937 1.0332 0.1651 0.0941
+Random 0.2394 0.9673 0.2996 0.1427
+Uniform 0.4757 1.0429 0.1661 0.0923
+UMCS
+DINN 2.2697 1.3505 0.0908 0.0384
+Other 2.0326 1.2937 0.0727 0.0297
+Random 2.0096 1.1312 0.0890 0.0631
+Uniform 2.1596 1.3166 0.0820 0.0332
+Panel B. DOW 30 Dataset
+Regime Type SR( ↑) Wealth( ↑) MDD( ↓) VAR( ↓)
+COVID
+DINN 0.8742 1.0920 0.2723 0.0719
+Other 0.5830 1.0433 0.2845 0.0860
+Random 0.6446 0.9651 0.3204 0.0724
+Uniform 0.6511 1.0548 0.2798 0.0845
+ICSA
+DINN 1.0319 1.2040 0.2669 0.0665
+Other 0.9207 1.1676 0.2471 0.0468
+Random 0.9822 1.1728 0.2915 0.0530
+Uniform 1.0481 1.2108 0.2798 0.0699
+HSN1
+DINN 0.5812 1.0559 0.1726 0.0902
+Other 0.3503 1.0303 0.2103 0.1037
+Random 0.3565 1.0393 0.1839 0.0969
+Uniform 0.5100 1.0461 0.1699 0.0907
+UMCS
+DINN 2.2088 1.3300 0.0868 0.0338
+Other 0.9519 1.1188 0.1004 0.0351
+Random 1.6860 1.1814 0.0916 0.0326
+Uniform 2.1877 1.3206 0.0843 0.0330
+Table 2. Performance comparison of portfolios constructed using diﬀerent stock selection approaches across various market
+regimes from 2020 to 2023. DINN represents portfolios consisting of stocks selected by the prob-sparse attention mechanism,
+Other comprises stocks not selected by the attention mechanism, Random uses intentionally corrupted embedding information,
+and Uniform represents equal-weighted portfolios. Market regimes include: COVID-19 pandemic (March-June 2020), elevated
+initial jobless claims (ICSA ≥ 100,000, March-August 2020), housing market expansion (HSN1 ≥ 500, June-November 2022),
+and low consumer sentiment (UMCS≤ 60, May-December 2022). Performance metrics include Maximum Drawdown (MDD),
+Value at Risk (VaR), Sharpe Ratio (SR), and terminal wealth (Wealth). Arrows indicate whether lower (↓) or higher (↑) values
+are preferred. Bold values represent the best performance for each metric within each regime. Panel A reports results for the
+S&P 100 dataset, while Panel B shows results for the DOW 30 dataset.
+Table 2 presents the results across the S&P 100 (Panel A) and DOW 30 (Panel B) datasets. The
+Sharpe ratios (SR) provide an intriguing perspective on DINN’s performance, suggesting that the
+attention mechanism may prioritize assets that eﬃciently balance risk and return. For instance,
+during the COVID-19 period, DINN-selected portfolios achieve an SR of 1.14 for the S&P 100 and
+0.87 for the DOW 30, exceeding the SR of portfolios formed from non-selected stocks (0.59 and
+0.58, respectively). From an investment opportunity perspectiveKim et al. (2014), these higher SR
+values could indicate that the attention mechanism identiﬁes assets that approximate the eﬃcient
+frontier more closely, potentially allowing for a more eﬀective replication of market dynamics with
+21
+
+
+[Page 22]
+February 4, 2025 arxiv main
+fewer assets. In contrast, portfolios based on Random embeddings perform comparably to Uniform
+portfolios, with Sharpe ratios clustering close to those of simple equal-weighted strategies. This
+result appears to suggest that when embeddings are corrupted, the attention mechanism may lose
+its ability to prioritize meaningful assets eﬀectively, leading to portfolios that do not achieve the
+same level of risk-adjusted returns observed with DINN.
+Other metrics, such as maximum drawdown (MDD) and terminal wealth, provide further obser-
+vations. For example, in the ICSA regime, DINN-selected portfolios demonstrate lower MDD and
+higher terminal wealth compared to other strategies. These patterns suggest that DINN’s attention
+mechanism may adaptively select assets to mitigate downside risks while maintaining portfolio
+growth across diverse conditions. So, the results may indicate that DINN’s attention mechanism
+could contribute to constructing portfolios that more closely approximate the eﬃcient frontier by
+selecting assets that represent the market eﬀectively.
+4.5. How do we interpret ∂ ˆwt+h
+∂ ˆµt+h
+and ∂ ˆwt+h
+∂ ˆ Lt+h
+within DINN’s portfolio decisions?
+Having established in Section 4.4 that DINN’s attention mechanism successfully isolates stocks of
+high importance, we now investigate whether such “importance” translates into an unintuitive
+performance gain in predictive accuracy. Speciﬁcally, we focus on two gradient-based sensitivities:
+(i) ∂ ˆwt+h/∂ˆµt+h from Theorem 1, measuring how small changes in predicted returns ˆ µt+h aﬀect
+the model’s optimal weights ˆwt+h, and (ii) ∂ ˆw/∂ ˆL from Theorem 2, measuring how the Cholesky
+factor ˆLt+h (and thus the predicted covariance ˆΣt+h) impacts ˆwt+h. In principle, one might expect
+that assets whose weights are highly sensitive to errors in ˆµt+h or ˆΣt+h (i.e., large gradients) would
+be more challenging to forecast, thereby yielding higher mean squared error (MSE). However,
+our ﬁndings contradict this conventional wisdom. When using only prediction loss, large gradients
+typically indicate a need for more model updates or suggest diﬃcult-to-predict behavior. However,
+when incorporating decision-focused loss, we observe that these high-sensitivity assets actually
+show lower MSE. This occurs because DINN allocates greater learning capacity to stocks where
+prediction errors would result in higher decision-related costs. As a result, this improves predictive
+accuracy rather than increasing errors.
+In Table 3, we report the diﬀerence in MSE and MAE between “bottom” groups and “top”
+groups of assets, based on the absolute gradient magnitude (|∂ ˆwt+h/∂ˆµt+h|). Speciﬁcally, the “10%”
+column corresponds to
+(
+Bottom 10%− Top 10%
+)
+, meaning we ﬁrst identify the 10% of assets with
+the smallest gradients and the 10% with the largest gradients, compute MSE or MAE for each
+group, and then subtract the top from the bottom. The same logic applies to the 20% and 30%
+columns. Panel A shows these diﬀerences for the S&P 100 dataset, and Panel B for the DOW
+30, spanning four macroeconomic regimes—COVID-19, ICSA, HSN1, UMCS—and the aggregated
+“ALL” period. For example, In Panel A, the S&P 100 COVID-19 row have MSE of 2.4071 in
+the 10% column means that the bottom-10%-gradient group’s MSE is 2.4071 higher than that of
+the top-10%-gradient group. A similar pattern is evident across all regimes (ICSA, HSN1, UMCS)
+and is mirrored in MAE as well, consistently resulting in positive bottom-minus-top diﬀerences.
+Moving to the DOW 30 in Panel B, we observe the same phenomenon—for instance, the HSN1
+regime shows a diﬀerence of 1.3214 in the 10% column, implying the bottom group’s MSE exceeds
+that of the top group by 1.3214.
+We surmise that this arises because the decision-focused nature of DINN (and its training proce-
+dure) allocates additional modeling capacity to precisely those assets where misestimation would
+incur the highest decision-related costs. Consequently, DINN learns these “high-impact” assets more
+thoroughly, leading to lower MSE compared to stocks for which gradient-based sensitivities remain
+modest. Results for|∂ ˆwt+h/∂ ˆLt+h| follow the same pattern (see Appendix A.4. for details).
+22
+
+
+[Page 23]
+February 4, 2025 arxiv main
+Panel A. S&P 100 Dataset
+Regimes Metric 10% 20% 30%
+COVID MSE 2.4071 ± 0.0539 1.8473 ± 0.0064 1.3515 ± 0.0065
+MAE 0.4879 ± 0.0139 0.3680 ± 0.0004 0.2617 ± 0.0030
+ICSA MSE 2.5913 ± 0.0362 1.7386 ± 0.0042 1.2802 ± 0.0043
+MAE 0.5080 ± 0.0091 0.3546 ± 0.0003 0.2593 ± 0.0020
+HSN1 MSE 0.7177 ± 0.0083 1.1894 ± 0.0064 1.0078 ± 0.0104
+MAE 0.2729 ± 0.0029 0.2877 ± 0.0025 0.2223 ± 0.0036
+UMCS MSE 2.4323 ± 0.0270 1.5520 ± 0.0034 1.2154 ± 0.0001
+MAE 0.5560 ± 0.0068 0.3573 ± 0.0021 0.2769 ± 0.0002
+ALL MSE 1.7003 ± 0.0104 1.4622 ± 0.0045 1.1818 ± 0.0024
+MAE 0.4182 ± 0.0019 0.3401 ± 0.0008 0.2750 ± 0.0006
+Panel B. DOW30 Dataset
+Regimes Metric 10% 20% 30%
+COVID MSE 0.6212 ± 0.0003 0.8646 ± 0.0005 0.8274 ± 0.0004
+MAE 0.1904 ± 0.0001 0.2545 ± 0.0002 0.2327 ± 0.0001
+ICSA MSE 0.6744 ± 0.0003 0.9512 ± 0.0002 0.8568 ± 0.0003
+MAE 0.2204 ± 0.0002 0.2846 ± 0.0001 0.2432 ± 0.0001
+HSN1 MSE 1.3214 ± 0.0009 0.7704 ± 0.0007 0.7208 ± 0.0005
+MAE 0.4414 ± 0.0003 0.2478 ± 0.0002 0.2025 ± 0.0002
+UMCS MSE 0.9112 ± 0.0003 0.9274 ± 0.0005 0.8118 ± 0.0004
+MAE 0.3386 ± 0.0001 0.2970 ± 0.0001 0.2518 ± 0.0001
+ALL MSE 1.1749 ± 0.0015 0.9416 ± 0.0042 0.8355 ± 0.0003
+MAE 0.3889 ± 0.0005 0.2884 ± 0.0013 0.2385 ± 0.0001
+Table 3. Diﬀerences in prediction error ( Bottom x%− Top x%) for assets grouped by the absolute gradient
+⏐⏐∂ ˆw/∂ ˆµ
+⏐⏐ under
+four macroeconomic regimes (COVID-19, ICSA, HSN1, UMCS) plus an aggregated “ALL” period. Panel A presents results
+for the S&P 100 and Panel B for the DOW 30. The columns labeled 10%, 20%, and 30% indicate the diﬀerence in mean
+squared error (MSE) or mean absolute error (MAE) between the bottom- x% group (smallest gradients) and the top-x% group
+(largest gradients). Each cell shows the average ± standard deviation computed across multiple training runs (random seeds).
+Positive values imply that high-gradient assets yield lower errors, suggesting that DINN prioritizes forecasting accuracy where
+decision-related costs are greatest.
+5. Conclusion
+This paper addresses a longstanding challenge in quantitative ﬁnance: bridging the gap between
+more accurate forecasts of ﬁnancial variables and truly optimal portfolio decisions. While improved
+prediction accuracy is often cited as the path to superior investment returns, our empirical and
+theoretical ﬁndings demonstrate that purely predictive approaches can fail to yield the best portfolio
+outcomes. Drawing on recent developments in decision-focused learning, we proposed the DINN
+(Decision-Informed Neural Network) framework, which not only advances the state of the art in
+ﬁnancial forecasting by incorporating large language models (LLMs) but also directly integrates a
+portfolio optimization layer into the end-to-end training process.
+From an empirical standpoint, the experiments conducted on two representative equity datasets
+(S&P 100 and DOW 30) suggest three key ﬁndings. First, DINN delivers systematically stronger
+performance across a broad set of metrics—including annualized return, Sharpe ratio, and terminal
+wealth—when compared to standard deep learning baselines, such as Transformer variants and
+other LLM-based architectures that rely solely on traditional prediction losses. Second, the inclusion
+of a prob-sparse attention mechanism may helps the model identify and emphasize a smaller subset
+of assets critical to replicating market dynamics under a variety of macroeconomic conditions.
+This mechanism not only focuses the model on economically signiﬁcant information but also yields
+portfolios with lower drawdowns and higher risk-adjusted performance during stress regimes (e.g.,
+the COVID-19 crisis and spikes in jobless claims). Third, the gradient-based sensitivity analyses
+provide a theoretical framework through which to interpretDINN’s asset allocations: high-sensitivity
+assets, which would inﬂict larger “regret” if incorrectly predicted, exhibit lower mean-squared errors
+than less-sensitive assets. This ﬁnding underscores that DINN “learns what matters” by adjusting
+its representational power to minimize precisely those errors most detrimental to the ultimate
+23
+
+
+[Page 24]
+February 4, 2025 arxiv main
+portfolio objective.
+Methodologically, the paper makes several contributions that advance the intersection of machine
+learning and portfolio optimization. It develops a rigorous pipeline to incorporate LLM represen-
+tations of both inter-asset relationships (e.g., sector-level textual prompts) and macroeconomic
+data (e.g., summary embeddings of irregularly sampled indicators), thereby enriching the model’s
+feature space without overwhelming it with noise. By diﬀerentiating directly through a convex
+optimization layer, DINN closes the prediction-decision gap: improving return forecasts is no longer
+an end in itself but a means to more robust investment decisions.
+Looking ahead, three avenues of future research emerge. First, while the current formulation cen-
+ters on a mean-variance objective with convex risk constraints, extending decision-focused learn-
+ing to alternative objectives—such as value-at-risk or expected shortfall—may further enhance
+real-world robustness. Second, although LLM-driven embeddings capture textual and structured
+macroeconomic signals, ongoing advances in multimodal data ingestion (e.g., satellite imagery or
+social media feeds) could further reﬁne how markets’ evolving information sets are integrated into
+portfolio weights. Lastly, large-scale empirical analyses across broader asset classes, such as ﬁxed in-
+come or commodities, would help validate and generalize the DINN approach beyond equity-centric
+portfolios. In conclusion, this paper shows that bridging the divide between forecasting and portfolio
+choice requires going beyond optimizing for statistical accuracy alone. By merging representation
+learning and end-to-end diﬀerentiable optimization, DINN oﬀers a systematic way to ensure that im-
+provements in predictive modeling directly translate into meaningful gains in investment decisions.
+We hope this framework will serve as a foundation for future work in decision-focused learning for
+ﬁnance, spurring both theoretical advances in diﬀerentiable optimization techniques and innovative
+empirical applications across various market settings.
+References
+Achiam, J., Adler, S., Agarwal, S., Ahmad, L., Akkaya, I., Aleman, F.L., Almeida, D., Altenschmidt, J.,
+Altman, S., Anadkat, S. et al., Gpt-4 technical report. arXiv preprint arXiv:2303.08774 , 2023.
+Agrawal, A., Amos, B., Barratt, S., Boyd, S., Diamond, S. and Kolter, Z., Diﬀerentiable Convex Optimization
+Layers. In Proceedings of the Advances in Neural Information Processing Systems , 2019.
+Amos, B. and Kolter, J.Z., Optnet: Diﬀerentiable optimization as a layer in neural networks. In Proceedings
+of the International conference on machine learning , pp. 136–145, 2017.
+Anis, H.T. and Kwon, R.H., End-to-end, decision-based, cardinality-constrained portfolio optimization. Eu-
+ropean Journal of Operational Research, 2025, 320, 739–753.
+Ansari, A.F., Stella, L., Turkmen, C., Zhang, X., Mercado, P., Shen, H., Shchur, O., Rangapuram, S.S.,
+Arango, S.P., Kapoor, S. et al., Chronos: Learning the Language of Time Series. Transactions on Machine
+Learning Research, 2024.
+Ban, G.Y., El Karoui, N. and Lim, A.E., Machine learning and portfolio optimization. Management Science,
+2018, 64, 1136–1154.
+Bekaert, G., Harvey, C.R. and Lumsdaine, R.L., The dynamics of emerging market equity ﬂows. Journal of
+International money and Finance , 2002, 21, 295–350.
+Best, M.J. and Grauer, R.R., On the sensitivity of mean-variance-eﬃcient portfolios to changes in asset
+means: some analytical and computational results. The review of ﬁnancial studies , 1991, 4, 315–342.
+Butler, A. and Kwon, R.H., Integrating prediction in mean-variance portfolio optimization. Quantitative
+Finance, 2023, 23, 429–452.
+Cao, D., Jia, F., Arik, S.O., Pﬁster, T., Zheng, Y., Ye, W. and Liu, Y., TEMPO: Prompt-based Generative
+Pre-trained Transformer for Time Series Forecasting. In Proceedings of the The Twelfth International
+Conference on Learning Representations, 2024.
+Cenesizoglu, T. and Timmermann, A., Do return prediction models add economic value?.Journal of Banking
+& Finance, 2012, 36, 2974–2987.
+Chan, L.K., Karceski, J. and Lakonishok, J., On portfolio optimization: Forecasting covariances and choosing
+the risk model. The review of Financial studies , 1999, 12, 937–974.
+Chen, L., Pelger, M. and Zhu, J., Deep learning in asset pricing. Management Science, 2024, 70, 714–750.
+24
+
+
+[Page 25]
+February 4, 2025 arxiv main
+Chopra, V.K. and Ziemba, W.T., The eﬀect of errors in means, variances, and covariances on optimal
+portfolio choice. Journal of Portfolio Management , 1993, 19, 6.
+Chung, M., Lee, Y., Kim, J.H., Kim, W.C. and Fabozzi, F.J., The eﬀects of errors in means, variances, and
+correlations on the mean-variance framework. Quantitative Finance, 2022, 22, 1893–1903.
+Costa, G. and Iyengar, G.N., Distributionally robust end-to-end portfolio construction.Quantitative Finance,
+2023, 23, 1465–1482.
+DeMiguel, V., Garlappi, L. and Uppal, R., Optimal versus naive diversiﬁcation: How ineﬃcient is the 1/N
+portfolio strategy?. The review of Financial studies , 2009, 22, 1915–1953.
+Dubey, A., Jauhri, A., Pandey, A., Kadian, A., Al-Dahle, A., Letman, A., Mathur, A., Schelten, A., Yang,
+A., Fan, A. et al., The llama 3 herd of models. arXiv preprint arXiv:2407.21783 , 2024.
+Elmachtoub, A.N. and Grigas, P., Smart “predict, then optimize”. Management Science, 2022, 68, 9–26.
+Fama, E.F. and French, K.R., Common risk factors in the returns on stocks and bonds. Journal of ﬁnancial
+economics, 1993, 33, 3–56.
+Fama, E.F. and French, K.R., A ﬁve-factor asset pricing model. Journal of ﬁnancial economics , 2015, 116,
+1–22.
+Feng, G., Giglio, S. and Xiu, D., Taming the factor zoo: A test of new factors. The Journal of Finance, 2020,
+75, 1327–1370.
+Firoozye, N., Tan, V. and Zohren, S., Canonical portfolios: Optimal asset and signal combination. Journal
+of Banking & Finance , 2023, 154, 106952.
+Gerber, S., Markowitz, H.M., Ernst, P.A., Miao, Y., Javid, B. and Sargen, P., The Gerber Statistic: A
+Robust Co-Movement Measure for Portfolio Optimization.. Journal of Portfolio Management , 2022, 48.
+Giglio, S., Kelly, B. and Xiu, D., Factor models, machine learning, and asset pricing. Annual Review of
+Financial Economics, 2022, 14, 337–368.
+Gu, S., Kelly, B. and Xiu, D., Empirical asset pricing via machine learning.The Review of Financial Studies,
+2020, 33, 2223–2273.
+Guidolin, M. and Timmermann, A., Asset allocation under multivariate regime switching. Journal of Eco-
+nomic Dynamics and Control , 2007, 31, 3503–3544.
+Hwang, Y., Zohren, S. and Lee, Y., Temporal Representation Learning for Stock Similarities and Its Appli-
+cations in Investment Management. arXiv preprint arXiv:2407.13751 , 2024.
+Jagannathan, R. and Ma, T., Risk reduction in large portfolios: Why imposing the wrong constraints helps.
+The journal of ﬁnance , 2003, 58, 1651–1683.
+Jin, M., Wang, S., Ma, L., Chu, Z., Zhang, J.Y., Shi, X., Chen, P.Y., Liang, Y., Li, Y.F., Pan, S. and Wen,
+Q., Time-LLM: Time series forecasting by reprogramming large language models. In Proceedings of the
+International Conference on Learning Representations (ICLR) , 2024.
+Kelly, B.T., Pruitt, S. and Su, Y., Characteristics are covariances: A uniﬁed model of risk and return.Journal
+of Financial Economics , 2019, 134, 501–524.
+Kim, J.H., Lee, Y., Kim, W.C. and Fabozzi, F.J., Mean-variance optimization for asset allocation. Journal
+of Portfolio Management , 2021a, 47, 24–40.
+Kim, J.H., Lee, Y., Kim, W.C., Kang, T. and Fabozzi, F.J., An Overview of Optimization Models for
+Portfolio Management. Journal of Portfolio Management , 2024, 51.
+Kim, T., Kim, J., Tae, Y., Park, C., Choi, J.H. and Choo, J., Reversible instance normalization for accu-
+rate time-series forecasting against distribution shift. In Proceedings of the International Conference on
+Learning Representations, 2021b.
+Kim, W.C., Lee, Y. and Lee, Y.H., Cost of Asset Allocation in Equity Market: How Much Do Investors Lose
+Due to Bad Asset Class Design?. The Journal of Portfolio Management , 2014, 41, 34–44.
+Kourtis, A., Dotsis, G. and Markellos, R.N., Parameter uncertainty in portfolio selection: Shrinking the
+inverse covariance matrix. Journal of Banking & Finance , 2012, 36, 2522–2531.
+Ledoit, O. and Wolf, M., Improved estimation of the covariance matrix of stock returns with an application
+to portfolio selection. Journal of empirical ﬁnance , 2003, 10, 603–621.
+Ledoit, O. and Wolf, M., A well-conditioned estimator for large-dimensional covariance matrices. Journal of
+multivariate analysis, 2004, 88, 365–411.
+Lee, Y., Kim, J.H., Kim, W.C. and Fabozzi, F.J., An Overview of Machine Learning for Portfolio Optimiza-
+tion.. Journal of Portfolio Management , 2024, 51.
+Lintner, J., The valuation of risk assets and the selection of risky investments in stock portfolios and capital
+budgets. In Stochastic optimization models in ﬁnance , pp. 131–155, 1975, Elsevier.
+Liu, Y., Hu, T., Zhang, H., Wu, H., Wang, S., Ma, L. and Long, M., iTransformer: Inverted Transformers Are
+25
+
+
+[Page 26]
+February 4, 2025 arxiv main
+Eﬀective for Time Series Forecasting. The Twelfth International Conference on Learning Representations,
+2024.
+L¨ oﬄer, G., The eﬀects of estimation error on measures of portfolio credit risk.Journal of Banking & Finance,
+2003, 27, 1427–1453.
+Mandi, J., Kotary, J., Berden, S., Mulamba, M., Bucarey, V., Guns, T. and Fioretto, F., Decision-focused
+learning: Foundations, state of the art, benchmark and future opportunities. Journal of Artiﬁcial Intelli-
+gence Research, 2024.
+Markowitz, H., Portfolio Selection. The Journal of Finance , 1952, 7, 77–91.
+Michaud, R.O., The Markowitz optimization enigma: Is ‘optimized’optimal?. Financial analysts journal ,
+1989, 45, 31–42.
+Nie, Y., H. Nguyen, N., Sinthong, P. and Kalagnanam, J., A Time Series is Worth 64 Words: Long-term Fore-
+casting with Transformers. In Proceedings of the International Conference on Learning Representations ,
+2023.
+Nie, Y., Kong, Y., Dong, X., Mulvey, J.M., Poor, H.V., Wen, Q. and Zohren, S., A Survey of Large Language
+Models for Financial Applications: Progress, Prospects and Challenges. arXiv preprint arXiv:2406.11903,
+2024.
+Petersen, K.B., Pedersen, M.S. et al., The matrix cookbook. Technical University of Denmark, 2008, 7, 510.
+Romanko, O., Narayan, A. and Kwon, R.H., Chatgpt-based investment portfolio selection. In Proceedings
+of the Operations Research Forum, Vol. 4, p. 91, 2023.
+Rousseeuw, P.J. and Driessen, K.V., A fast algorithm for the minimum covariance determinant estimator.
+Technometrics, 1999, 41, 212–223.
+Sharpe, W.F., Capital asset prices: A theory of market equilibrium under conditions of risk. The journal of
+ﬁnance, 1964, 19, 425–442.
+Tan, M., Merrill, M.A., Gupta, V., Althoﬀ, T. and Hartvigsen, T., Are language models actually useful for
+time series forecasting?. In Proceedings of the The Thirty-eighth Annual Conference on Neural Information
+Processing Systems, 2024.
+Tan, V. and Zohren, S., Estimation of Large Financial Covariances: A Cross-Validation Approach. arXiv
+preprint arXiv:2012.05757, 2020.
+Van Aelst, S. and Rousseeuw, P., Minimum volume ellipsoid.Wiley Interdisciplinary Reviews: Computational
+Statistics, 2009, 1, 71–82.
+Waswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A., Kaiser, L. and Polosukhin, I.,
+Attention is all you need. In Proceedings of the NIPS, 2017.
+Wu, H., Hu, T., Liu, Y., Zhou, H., Wang, J. and Long, M., TimesNet: Temporal 2D-Variation Modeling for
+General Time Series Analysis. InProceedings of the International Conference on Learning Representations,
+2023.
+Wu, H., Xu, J., Wang, J. and Long, M., Autoformer: Decomposition Transformers with Auto-Correlation for
+Long-Term Series Forecasting. In Proceedings of the Advances in Neural Information Processing Systems,
+2021.
+Zhang, C., Zhang, Z., Cucuringu, M. and Zohren, S., A universal end-to-end approach to portfolio optimiza-
+tion via deep learning. arXiv preprint arXiv:2111.09170 , 2021.
+Zhang, Y. and Yan, J., Crossformer: Transformer Utilizing Cross-Dimension Dependency for Multivariate
+Time Series Forecasting. In Proceedings of the International Conference on Learning Representations ,
+2023.
+Zhou, H., Zhang, S., Peng, J., Zhang, S., Li, J., Xiong, H. and Zhang, W., Informer: Beyond Eﬃcient
+Transformer for Long Sequence Time-Series Forecasting. In Proceedings of the The Thirty-Fifth AAAI
+Conference on Artiﬁcial Intelligence, AAAI 2021, Virtual Conference , Vol. 35, pp. 11106–11115, 2021,
+AAAI Press.
+Zhou, T., Ma, Z., Wen, Q., Wang, X., Sun, L. and Jin, R., FEDformer: Frequency enhanced decomposed
+transformer for long-term series forecasting. In Proceedings of the Proc. 39th International Conference on
+Machine Learning (ICML 2022) , Baltimore, Maryland, 2022.
+Zhou, T., Niu, P., Sun, L., Jin, R. et al., One ﬁts all: Power general time series analysis by pretrained lm.
+Advances in neural information processing systems , 2023a, 36, 43322–43355.
+Zhou, T., Niu, P., Sun, L., Jin, R. et al., One Fits All: Power General Time Series Analysis by Pretrained
+LM. In Proceedings of the NeurIPS, 2023b.
+26
+
+
+[Page 27]
+February 4, 2025 arxiv main
+Appendix
+Appendix A.1.: Detailed Proofs and Derivations
+Proof of Theorem 1.
+Proof: Consider the problem Equation (29). Introducing Lagrange multipliers η and γ for the
+risk and budget constraints, respectively, the Lagrangian is here:
+L(w,st+h,η,γ ) =λs2
+t+h− ˆµ⊤
+t+h ˆwt+h +η( ˆw⊤
+t+h ˆΣt+h ˆwt+h−st+h) +γ(1⊤ ˆwt+h− 1) (42)
+Diﬀerentiating with respect to st+h gives 2λst+h− η = 0 = ⇒ η = 2λst+h. Diﬀerentiation
+with respect to w then yields −ˆµt+h + 2λˆΣt+h ˆwt+h +γ1 = 0. Hence ˆµt+h = 2λˆΣt+h ˆwt+h +γ1.
+Since 1⊤w = 1, we have w = 1
+2λ
+ˆΣ−1
+t+h(ˆµt+h−γ1). Multiplying by 1⊤ and solving for γ gives
+γ =
+1⊤ ˆΣ−1
+t+hˆµt+h−2λ
+1⊤ ˆΣ−1
+t+h1 . Substituting back into the expression for w and setting 2λ = 1 (which does not
+aﬀect the structure of the solution) yields
+w = ˆΣ−1
+t+hˆµt+h− ˆΣ−1
+t+h
+1⊤ ˆΣ−1
+t+hˆµt+h− 1
+1⊤ ˆΣ−1
+t+h1
+1 (43)
+Diﬀerentiating this with respect to ˆµt+h and simplifying leads to
+∂ ˆwt+h
+∂ˆµt+h
+= ˆΣ−1
+t+h−
+ˆΣ−1
+t+h11⊤ ˆΣ−1
+t+h
+1⊤ ˆΣ−1
+t+h1
+, (44)
+as claimed ■.
+Proof of Theorem 2.
+Proof: Starting from the expression derived in Theorem 1 under the normalization 2 λ = 1, the
+optimal portfolio weights can be written as ˆwt+h = ˆΣ−1
+t+hˆµt+h−p ˆΣ−1
+t+h1, where p =
+1⊤ ˆΣ−1
+t+hˆµt+h−1
+1⊤ ˆΣ−1
+t+h1 .
+In this formulation, ˆΣ−1
+t+h depends on ˆLt+h through the relation ˆΣt+h = ˆLt+h ˆL⊤
+t+h. Thus, the chain
+rule of diﬀerentiation implies that understanding ∂ ˆwt+h/∂ ˆΣt+h allows recovery of ∂ ˆwt+h/∂ ˆLt+h.
+Diﬀerentiating ˆwt+h with respect to ˆΣt+h ﬁrst requires considering the terms ˆΣ−1
+t+hˆµt+h and
+ˆΣ−1
+t+h1. From standard matrix calculus (Petersen et al. 2008), one has ∂ ˆΣ−1/∂ ˆΣ =−ˆΣ−1(·)ˆΣ−1.
+Applying this to ˆΣ−1
+t+hˆµt+h yields
+∂(ˆΣ−1
+t+hˆµt+h)
+∂ ˆΣt+h
+=−ˆΣ−1
+t+hˆµt+h ˆΣ−1
+t+h.
+Similarly, the term involving p is more involved since p itself depends on ˆΣ−1
+t+h. Letting g =
+1⊤ ˆΣ−1
+t+hˆµt+h andz = 1⊤ ˆΣ−1
+t+h1, one has p = (g− 1)/z. Diﬀerentiatingg andz with respect to ˆΣt+h
+gives
+∂g
+∂ ˆΣt+h
+=−ˆΣ−1
+t+h1ˆµ⊤
+t+h ˆΣ−1
+t+h, ∂z
+∂ ˆΣt+h
+=−ˆΣ−1
+t+h11⊤ ˆΣ−1
+t+h. (45)
+Applying the quotient rule to diﬀerentiate p = (g− 1)/z yields
+∂p
+∂ ˆΣt+h
+=−ˆΣ−1
+t+h1ˆµ⊤
+t+h ˆΣ−1
+t+hz + (g− 1)ˆΣ−1
+t+h11⊤ ˆΣ−1
+t+h
+z2 (46)
+27
+
+
+[Page 28]
+February 4, 2025 arxiv main
+Combining these results, the derivative of p ˆΣ−1
+t+h1 with respect to ˆΣt+h is
+∂(p ˆΣ−1
+t+h1)
+∂ ˆΣt+h
+= ∂p
+∂ ˆΣt+h
+ˆΣ−1
+t+h1−p ˆΣ−1
+t+h1ˆΣ−1
+t+h (47)
+Subtracting this from−ˆΣ−1
+t+hˆµt+h ˆΣ−1
+t+h and rearranging terms leads to
+∂ ˆwt+h
+∂ ˆΣt+h
+=−ˆΣ−1
+t+h(ˆµt+h−p1)ˆΣ−1
+t+h− ∂p
+∂ ˆΣt+h
+ˆΣ−1
+t+h1 (48)
+Since ˆΣt+h = ˆLt+h ˆL⊤
+t+h, diﬀerentiating with respect to ˆLt+h involves applying the chain rule.
+Under appropriate vectorization, symmetry assumptions, the lower-triangular structure of ˆLt+h,
+and considering only independent parameters, the derivative ∂ ˆΣt+h/∂ ˆLt+h can be simpliﬁed to
+contribute a factor of 2 ˆLt+h. Substituting back, the ﬁnal result is
+∂ ˆwt+h
+∂ ˆLt+h
+= ∂ ˆwt+h
+∂ ˆΣt+h
+∂ ˆΣt+h
+∂ ˆLt+h
+,
+=−2 ˆΣ−1
+t+h(ˆµt+h−p1)ˆΣ−1
+t+h ˆLt+h− 2 ˆΣ−1
+t+h
+( ∂p
+∂ ˆΣt+h
+1
+)
+ˆLt+h
+(49)
+■.
+Appendix A.3: Hyper-Parameter Conﬁguration Details
+All experiments in this paper were conducted on a workstation with four NVIDIA RTX 3090 GPUs.
+Unless otherwise noted, the training proceeded with a mini-batch size of 16. Below, we detail the
+key hyper-parameter ranges and selection criteria employed for model training and evaluation. The
+codes are available at Anonymous Github.
+Model Hyper-Parameters and training strategy’s
+• Attention Heads: We examined conﬁgurations with either 2 or 4 attention heads. Prelim-
+inary experiments indicated that increasing attention heads can help capture more nuanced
+inter-asset relationships; however, larger numbers of heads also slightly increase computational
+cost.
+• Encoder Depths: We explored encoder depths of 1, 2, and 4 layers. Deeper encoders gen-
+erally improved representational capacity, albeit at the risk of overﬁtting if not adequately
+regularized.
+• LLM Hidden Dimensions: To reduce model size while preserving performance, we tested
+hidden dimensions of 12, 24, 36, and 72 for the Large Language Model (LLM) backbone.
+These smaller dimensions (compared to standard large LLM deployments) were suﬃcient for
+the ﬁnancial time-series tasks in this paper and allowed us to balance model expressiveness
+with training eﬃciency.
+• Training Epochs and Early Stopping: All models were trained up to a maximum of 50
+epochs. We employed early stopping on a validation set to prevent overﬁtting, monitoring the
+composite loss (prediction + decision-focused components) for convergence.
+• Optimizer and Learning Rate: We used the Adam optimizer with a base learning rate of
+1× 10−4. Additionally, we adopted the following dynamic learning rate adjustment strategy
+(Jin et al. 2024).
+28
+
+
+[Page 29]
+February 4, 2025 arxiv main
+Portfolio Optimization Settings
+For the decision-focused optimization component, we selected the risk-aversion parameterλ from a
+candidate set{0.0145, 0.2656, 0.9545, 2.4305, 3.4623}. These ﬁve values respectively correspond
+to portfolios that may be characterized as highly aggressive, aggressive, balanced, conservative and
+highly conservative. The ﬁnal λ used throughout the main text was 0 .9545, which corresponds
+to the “balanced” risk proﬁle. For completeness, Table A.1 compares the out-of-sample portfolio
+performance under these various risk-aversion levels.
+Panel A. S&P 100 Dataset
+Measure Ret ( ↑) Std ( ↓) SR ( ↑) SOR ( ↑)
+Highly Aggressive 0.4099 ± 0.0031 0.4220 ± 0.0025 0.9446 ± 0.0103 1.3699 ± 0.0175
+Aggressive 0.4128 ± 0.0299 0.4113 ± 0.0024 0.9762 ± 0.0686 1.4130 ± 0.1054
+Balanced 0.4353± 0.0145 0.4103± 0.0005 1.0335± 0.0358 1.5008 ± 0.0521
+Conservative 0.4024 ± 0.0050 0.4021 ± 0.0013 0.9727 ± 0.0098 1.3912 ± 0.0170
+Highly Conservative 0.3266 ± 0.0069 0.3912± 0.0014 0.8062± 0.0182 1.1450 ± 0.0306
+Measure MDD ( ↓) V aR ( ↓) RoV ( ↑) W elath ( ↑)
+Highly Aggressive 0.4048 ± 0.0000 0.1230 ± 0.0000 0.1843 ± 0.0019 2.7580 ± 0.0294
+Aggressive 0.3989 ± 0.0012 0.1230 ± 0.0000 0.1875 ± 0.0146 2.8355 ± 0.2289
+Balanced 0.3951 ± 0.0064 0.1233 ± 0.0004 0.1987± 0.0078 3.0213 ± 0.1218
+Conservative 0.3849 ± 0.0039 0.1252 ± 0.0012 0.1822 ± 0.0036 2.7891 ± 0.0349
+Highly Conservative 0.3841± 0.0128 0.1212 ± 0.0011 0.1520± 0.0050 2.2733 ± 0.0479
+Panel B. DOW 30 Dataset
+Measure Ret ( ↑) Std ( ↓) SR ( ↑) SOR ( ↑)
+Highly Aggressive 0.6512± 0.0143 0.4891± 0.0004 1.3085 ± 0.0283 1.9925 ± 0.0427
+Aggressive 0.6389 ± 0.0070 0.4860 ± 0.0003 1.2915 ± 0.0146 1.9527 ± 0.0215
+Balanced 0.6325 ± 0.0043 0.4814 ± 0.0002 1.2905 ± 0.0091 1.9449 ± 0.0137
+Conservative 0.6394 ± 0.0143 0.4722 ± 0.0014 1.3302± 0.0337 2.0170 ± 0.0475
+Highly Conservative 0.4987 ± 0.0058 0.4466± 0.0023 1.0914± 0.0125 1.6039 ± 0.0198
+Measure MDD ( ↓) V aR ( ↓) RoV ( ↑) W elath ( ↑)
+Highly Aggressive 0.5745 ± 0.0013 0.1591 ± 0.0000 0.2498 ± 0.0051 3.6121 ± 0.1572
+Aggressive 0.5759 ± 0.0012 0.1570 ± 0.0036 0.2476 ± 0.0061 3.5024 ± 0.0773
+Balanced 0.5656 ± 0.0023 0.1391 ± 0.0015 0.2772 ± 0.0035 3.4715± 0.0475
+Conservative 0.5446± 0.0101 0.1240± 0.0036 0.3148± 0.0150 3.6288± 0.1700
+Highly Conservative 0.5567 ± 0.0056 0.1224± 0.0006 0.2525± 0.0025 3.3819 ± 0.0500
+Table A.1. Comparative performance metrics for various time series models applied to the S&P100 and DOW 30 dataset.
+Each entry represents the mean metric value along with the standard deviation. Metrics include Annualised Return (Ret),
+Annualised Standard Deviation (Std), Sharpe Ratio (SR), Sortino Ratio (SOR), Maximum Drawdown (MDD), Monthly 95%
+Value-at-Risk (VaR), Return Over VaR (RoV), and accumulated terminal wealth (Wealth). Higher values are desirable for
+Ret, SR, SOR, RoV, and Wealth; while lower values are preferred for Std, MDD, and VaR. All values are presented as mean
+± standard deviation across experimental trials. Bold values indicate the best performance for each metric, with upward ( ↑)
+and downward (↓) arrows indicating the desired direction of each measure.
+29
+
+
+[Page 30]
+February 4, 2025 arxiv main
+Appendix A.4: Additional Gradient-Based Analysis for ˆLt+h
+Appendix K provides a more extensive examination of how
+⏐⏐∂ ˆwt+h/∂ ˆLt+h
+⏐⏐ inﬂuences forecast ac-
+curacy under a decision-focused neural network framework. In the main text, Section 4.5 focuses on
+gradient-based sensitivities for the predicted mean, ˆµt+h. Here, we address corresponding sensitiv-
+ities for ˆLt+h, the Cholesky factor of the predicted covariance ˆΣt+h. Conceptually, assets whose al-
+locations are highly sensitive to ˆLt+h (that is, those exhibiting large magnitudes for ∂ ˆwt+h/∂ ˆLt+h)
+should receive more modeling “eﬀort,” since inaccurate estimation of their covariance structure
+could prove costly for downstream portfolio decisions. If a model is truly decision-focused, it will
+tend to reduce errors speciﬁcally for high-sensitivity assets, thereby securing improved overall port-
+folio performance.
+To explore this phenomenon, we replicate the same grouping strategy used in Section 4.5. Results
+in Table A.3 consistently exhibit positive values for both MSE and MAE diﬀerences across most
+market regimes and for both datasets. This indicates that assets with higher gradient magnitudes,
+which the portfolio optimization layer deems more inﬂuential for risk management, experience
+smaller forecasting errors than do lower-sensitivity assets. For instance, focusing on the S&P 100
+COVID row in Panel A, the diﬀerence of 2.3696 for MSE in the 10% column means that the bottom
+group’s mean squared error is 2.3696 points larger than that of the top group. The same type of
+result characterizes other regimes, such as ICSA, HSN1, and UMCS, as well as the ALL category
+that aggregates the entire test period. A parallel pattern arises in the DOW 30 data, reinforcing
+the same conclusion: the bottom group (in terms of
+⏐⏐∂ ˆwt+h/∂ ˆLt+h
+⏐⏐) is forecast less accurately
+than the top group. Observing larger diﬀerences supports the notion that the decision-focused
+approach dedicates more learnable parameters or training “focus” to stocks whose covariance-
+factor misestimation would most detrimentally aﬀect the risk-return trade-oﬀ.
+Panel A. S&P 100 Dataset
+Regimes Metric 10% 20% 30%
+COVID MSE 2.3696 ± 0.0009 1.8748 ± 0.0029 1.3597 ± 0.0002
+COVID MAE 0.4779 ± 0.0002 0.3783 ± 0.0001 0.2659 ± 0.0002
+ICSA MSE 2.5663 ± 0.0009 1.7569 ± 0.0018 1.2723 ± 0.0002
+ICSA MAE 0.5014 ± 0.0003 0.3615 ± 0.0001 0.2589 ± 0.0001
+HSN1 MSE 0.7049 ± 0.0008 1.1256 ± 0.0782 1.0007 ± 0.0064
+HSN1 MAE 0.2688 ± 0.0002 0.2757 ± 0.0120 0.2197 ± 0.0019
+UMCS MSE 2.4424 ± 0.0008 1.5530 ± 0.0043 1.2054 ± 0.0001
+UMCS MAE 0.5583 ± 0.0003 0.3589 ± 0.0020 0.2745 ± 0.0002
+ALL MSE 1.6990 ± 0.0144 1.4595 ± 0.0119 1.1908 ± 0.0012
+ALL MAE 0.4169 ± 0.0022 0.3414 ± 0.0026 0.2758 ± 0.0001
+Panel B. DOW30 Dataset
+Regimes Metric 10% 20% 30%
+COVID MSE 0.6212 ± 0.0003 0.8727 ± 0.0005 0.8256 ± 0.0003
+COVID MAE 0.1904 ± 0.0001 0.2614 ± 0.0002 0.2326 ± 0.0002
+ICSA MSE 0.6891 ± 0.0003 0.9493 ± 0.0004 0.8556 ± 0.0003
+ICSA MAE 0.2271 ± 0.0002 0.2864 ± 0.0002 0.2430 ± 0.0001
+HSN1 MSE 1.1017 ± 0.0008 0.7566 ± 0.0007 0.7534 ± 0.0299
+HSN1 MAE 0.3740 ± 0.0003 0.2406 ± 0.0002 0.1962 ± 0.0038
+UMCS MSE 0.9322 ± 0.0003 0.9362 ± 0.0004 0.8109 ± 0.0004
+UMCS MAE 0.3446 ± 0.0001 0.3007 ± 0.0001 0.2517 ± 0.0001
+ALL MSE 1.1638 ± 0.0052 0.9219 ± 0.0006 0.8351 ± 0.0032
+ALL MAE 0.3839 ± 0.0005 0.2809 ± 0.0003 0.2383 ± 0.0004
+Table A.3. Diﬀerences in prediction error ( Bottom x%− Topx%) for assets grouped by the absolute gradient
+⏐⏐∂ ˆwt+h/∂ˆµt+h
+⏐⏐
+under four macroeconomic regimes (COVID-19, ICSA, HSN1, UMCS) plus an aggregated “ALL” period. Panel A presents
+results for the S&P 100 and Panel B for the DOW 30. The columns labeled 10%, 20%, and 30% indicate the diﬀerence in mean
+squared error (MSE) or mean absolute error (MAE) between the bottom- x% group (smallest gradients) and the top-x% group
+(largest gradients). Each cell shows the average ± standard deviation computed across multiple training runs (random seeds).
+Positive values imply that high-gradient assets yield lower errors, suggesting that DINN prioritizes forecasting accuracy where
+decision-related costs are greatest.
+30

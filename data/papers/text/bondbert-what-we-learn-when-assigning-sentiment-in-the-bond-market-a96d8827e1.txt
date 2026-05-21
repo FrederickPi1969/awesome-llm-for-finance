@@ -1,0 +1,739 @@
+[Page 1]
+Accepted author manuscript: Barter et al. (2026), 18th International Conference on Agents and Artificial Intelligence (ICAART)
+BondBERT: What we learn when assigning sentiment in the bond market
+Toby Barter1
+ a, Zheng Gao1, Eva Christodoulaki1
+ b, Jing Chen2
+ c and John Cartlidge1
+ d
+1School of Engineering Mathematics and Technology, University of Bristol, Bristol, UK
+2School of Mathematics, Cardiff University, Cardiff, UK
+{wu22796, ww24988, Eva.Christodoulaki}@bristol.ac.uk, ChenJ60@cardiff.ac.uk, John.Cartlidge@bristol.ac.uk
+Keywords: BondBERT, Natural Language Processing, Bond Market, Financial Sentiment, Predictive Modelling
+Abstract: Bond markets respond differently to macroeconomic news compared to equity markets, yet most sentiment
+models are trained primarily on general financial or equity news data. However, bond prices often move
+in the opposite direction to economic optimism, making general or equity-based sentiment tools potentially
+misleading. We introduce BondBERT, a transformer-based language model fine-tuned on bond-specific news.
+BondBERT can act as the perception and reasoning component of a financial decision-support agent, providing
+sentiment signals that integrate with forecasting models. We propose a generalisable framework for adapting
+transformers to low-volatility, domain-inverse sentiment tasks by compiling and cleaning 30,000 UK bond
+market articles (2018–2025). BondBERT’s sentiment predictions are compared against FinBERT, FinGPT,
+and Instruct-FinGPT using event-based correlation, up/down accuracy analyses, and LSTM forecasting across
+ten UK sovereign bonds. We find that BondBERT consistently produces positive correlations with bond
+returns, and achieves higher alignment and forecasting accuracy than the three baseline models. These results
+demonstrate that domain-specific sentiment adaptation better captures fixed income dynamics, bridging a gap
+between NLP advances and bond market analytics.
+1 INTRODUCTION
+Bond markets are fundamental to global finance, yet
+remain comparatively under-explored in artificial in-
+telligence research. Sentiment analysis quantifies the
+tone or emotional score of textual data, converting
+qualitative news, reports, or social-media posts into
+numerical scores. It has long been known that media
+sentiment can predict market trading volumes (Tet-
+lock, 2007), and recent works demonstrate that senti-
+ment analysis can predict bond market returns (Bar-
+tov et al., 2023; Isakin and Pu, 2023; Pi ˜neiro-Chousa
+et al., 2021).
+Several transformer-based models, such as Fin-
+BERT (Araci, 2019) and FinGPT (Wang et al., 2023),
+have been fine-tuned on financial datasets. Yet, while
+it is known that bond markets react differently to eq-
+uity markets on news (Isakin and Pu, 2023), there
+are no models fine-tuned specifically for bond market
+sentiment. To address this gap, we introduce Bond-
+BERT, a transformer-based sentiment model fine-
+a
+ https://orcid.org/0009-0000-3888-8672
+b
+ https://orcid.org/0000-0003-0099-6111
+c
+ https://orcid.org/0000-0001-7135-2116
+d
+ https://orcid.org/0000-0002-3143-6355
+tuned on 17,000 bond-related news articles covering
+2018–2022. We aim to show how domain-adaptive
+fine-tuning can extend transformers into domains
+with inverse sentiment-price relationships, small ef-
+fect sizes, and noisy signals.
+We benchmark BondBERT against FinBERT, Fin-
+GPT, and Instruct-FinGPT across four tasks: (i) corre-
+lation with bond returns on sentiment shock days, (ii)
+event-study directional accuracy, (iii) graphical rep-
+resentation between sentiment and returns, and (iv)
+bond price prediction using an LSTM model.
+Thus, we address two questions: (i) Does a bond-
+specific transformer (BondBERT) produce sentiment
+more aligned with bond price movements than other
+baselines? and (ii) Does BondBERT sentiment carry
+predictive power for future bond prices? Results
+show that BondBERT performs better than the bench-
+marks, with stronger predictive power, lower nor-
+malised RMSE, and higher information coefficient.
+This work introduces the first bond-specific sen-
+timent model, positioning it as a perception and rea-
+soning module for financial decision-support agents.
+Furthermore, it provides a systematic evaluation of
+how language models can be adapted to domains with
+challenging characteristics and where reliable train-
+Page 1 of 8
+arXiv:2511.01869v2  [q-fin.CP]  8 Dec 2025
+
+
+[Page 2]
+Accepted author manuscript: Barter et al. (2026), 18th International Conference on Agents and Artificial Intelligence (ICAART)
+ing labels are difficult to obtain. The model’s signals
+can be embedded into forecasting and trading compo-
+nents of decision-support systems, with applications
+in trading, risk management, and policy analysis.
+The remainder of this paper is organised as fol-
+lows: Section 2 reviews previous research related to
+financial sentiment analysis, Section 3 describes our
+dataset and experimental setup, and Section 4 cov-
+ers the architecture of BondBERT and training pro-
+cedure. Finally, Sections 5 and 6 present our results
+and outline future research directions, respectively.
+2 Literature review
+Early approaches to financial sentiment analysis
+relied on lexicon-based methods (e.g., Loughran-
+McDonald), which count domain-specific positive
+and negative words to generate sentiment scores. Al-
+though easy to implement, these methods often fail
+to capture context, negation, and subtle linguistic sig-
+nals (Du et al., 2024). Machine learning classifiers
+such as SVMs and logistic regression improved upon
+this by learning feature weights from labelled finan-
+cial text, sometimes using lexicon outputs as inputs.
+They are generally more accurate than pure lexicons,
+but these models still depend on manual annotation
+and often struggle with complex phrasing (Peng et al.,
+2024). On the other hand, deep learning models such
+as RNNs, LSTMs, and CNNs have further advanced
+the field by automatically learning latent representa-
+tions that encode word order and context, yielding
+higher accuracy, but requiring larger datasets and high
+compute (Du et al., 2024).
+More recently, transformer-based models such as
+FinBERT have emerged as a benchmark for finan-
+cial sentiment analysis. Introduced by Araci (2019),
+FinBERT extends BERT through additional domain-
+adaptive pretraining on financial corpora including
+Reuters, Yahoo Finance, corporate reports, and earn-
+ings transcripts (Du et al., 2024). Comparative studies
+show that FinBERT outperforms both the base BERT
+model and traditional machine learning approaches,
+largely due to its contextual embeddings and financial
+domain adaptation. 1 Araci’s original work demon-
+strated significant accuracy gains even with limited
+fine-tuning data (Araci, 2019), and subsequent studies
+confirm its robustness and better performance relative
+to other large language models across various finan-
+cial sentiment datasets (Yang et al., 2020; Kang and
+Choi, 2025; Du et al., 2024; Huang et al., 2023).
+While FinBERT has been widely applied to eq-
+1https://dataloop.ai/library/model/prosusai finbert/
+uity market forecasting (Fan et al., 2024; Gu et al.,
+2024; Cicekyurt and Bakal, 2025; Zhang, 2025), its
+use in bond markets has been limited (Makara, 2024;
+Liu et al., 2025). Importantly, no variant of FinBERT
+has yet been trained or adapted specifically for bond-
+related text. In this work, we address this gap by em-
+ploying the FinBERT model introduced by Yang et al.
+(2020), and adapt it to the analysis of sentiment of
+bond markets (see details in Section 4).
+The development of FinGPT represents one of the
+first systematic efforts to create an open-source fi-
+nancial large language model. The framework intro-
+duced an automated pipeline for large-scale financial
+data collection, lightweight adaptation methods such
+as LoRA/QLoRA, and reinforcement learning with
+stock prices for alignment (Liu et al., 2023). Its four-
+layer architecture provides a foundation for customis-
+able financial AI research (Yang et al., 2023). Build-
+ing on the above, an instruction-tuning benchmark for
+FinGPT was proposed, showing that relatively small
+models (7 billion parameters) fine-tuned with finance-
+specific instructions can match or even outperform
+larger untuned models (Wang et al., 2023). Thus, re-
+cent studies used FinGPT for predictive modelling.
+Liang et al. (2024) developed a dissemination-aware
+FinGPT for stock prediction, where company news is
+grouped to capture dissemination breadth, while con-
+text is added to the prompts, achieving an improve-
+ment of 8% in the prediction of short-term move-
+ment over LLM using raw news. Moreover, Zhou and
+Mehra (2025) proposed an end-to-end trading frame-
+work that combines FinGPT sentiment pipelines, il-
+lustrating the feasibility of incorporating LLMs into
+trading workflows.
+Another popular tool, Instruct-FinGPT, applies
+instruction tuning to adapt general-purpose LLMs
+in finance by converting small supervised sentiment
+datasets into instruction-style data and fine-tuning
+LLaMA-7B (Zhang et al., 2023). Their models out-
+performed FinBERT and zero-shot ChatGPT in sen-
+timent classification, showing improved performance
+in context-sensitive inputs. Wang et al. (2023) further
+supported this, confirming the need for instruction-
+tuned models in finance. Moreover, based on system-
+atic evaluations of instruction-tuned LLMs across fi-
+nance it was found that instruction tuning consistently
+improves performance, enabling smaller models to
+close the gap with larger ones (Fatemi et al., 2025).
+However, limitations remain beyond sentiment analy-
+sis, such as long-form document parsing (e.g., annual
+reports and 10-Ks) and valuation modelling (Li et al.,
+2023; Jadhav and Mirza, 2025).
+Our work connects to research on decision-
+support systems, since BondBERT can be viewed as
+Page 2 of 8
+
+
+[Page 3]
+Accepted author manuscript: Barter et al. (2026), 18th International Conference on Agents and Artificial Intelligence (ICAART)
+Figure 1: Distribution of price and log returns for the 10 UK instruments.
+a perceptual agent module embedded within multi-
+agent financial architectures, where agents handle
+forecasting, risk assessment, and trading.
+3 Experimental setup
+We use two primary data sources, bond market trans-
+actional data and financial news articles. The trans-
+actional bond market data was provided by Propel-
+lant.digital, a Software as a Service (SaaS) company
+that has developed a platform that aggregates and
+standardises trading data across markets, serving as a
+working prototype for a consolidated tape in the bond
+market.2 The data was extracted from their Big Query
+client.api and the subset we used covers all trading
+days from January 2022 to January 2025. To ensure
+representative market movements, bonds were filtered
+for sufficient liquidity and volatility, and daily prices
+were transformed into logarithmic returns for better
+analysis. The final dataset includes price information
+for the 10 most liquid UK sovereign bonds in that pe-
+riod. UK corporate bonds were deliberately excluded
+from the analysis due to their relative illiquidity.
+All bonds are issued with a notational face value
+(also known as “par value” or “principal”), which is
+the amount the issuer promises to pay to the bond-
+holder at maturity. Throughout this work, we use the
+term “price” to represent trade price as a percentage
+of the notational value; for example, if a bond with
+face value £1000 trades at £1010, we record this trade
+as (percentage of par) price 101. Price 100 therefore
+indicates “trading at par”; prices above 100 indicate
+“trading at a premium”; and prices below 100 indi-
+cate “trading at a discount”. Prices tend not to de-
+2https://propellant.digital/
+viate far from the par value 100, and we see this in
+the distribution of bond trade prices for the 10 instru-
+ments shown in Figure 1. Daily price changes also
+tend to be small, with most log returns close to zero,
+as shown in Figure 1. We have chosen 10 “liquid”
+bonds that are traded frequently, therefore prices react
+quickly to financial news. In total, the 10 bonds were
+traded around 30,000 times in January 2022, and trade
+frequency increased over the period, reaching around
+100,000 monthly trades in January 2025.
+In total, nearly 45,000 UK bond-related news ar-
+ticles were collected from 2018–2025, sourced from
+multiple financial outlets using SerpAPI. 3 Articles
+were cleaned by removing duplicates, irrelevant top-
+ics (e.g., entertainment or sports), and entries with
+fewer than 500 characters to ensure sufficient length
+for the articles. Publication dates were standardised
+to align with the format of the trading data. After
+cleaning, approximately 30,000 high quality articles
+remained. From there, we allocated 15,000 articles
+to training, 3,000 to validation, and 3,000 to testing
+from 2018 to the end of 2021. We reserve the most re-
+cent data (January 2022 to January 2025) for evalua-
+tion with the actual bond market prices for that period.
+This split mimics real world deployment, where mod-
+els are trained on historical data and tested on future
+unseen events, avoiding leakage that would influence
+the performance.
+For reproducibility, we have open-source released
+all preprocessing scripts, labelling prompts, and
+model fine-tuning configurations on GitHub.4
+3https://serpapi.com
+4https://github.com/Tjbarter/Sentiment-Bond-Analysis
+Page 3 of 8
+
+
+[Page 4]
+Accepted author manuscript: Barter et al. (2026), 18th International Conference on Agents and Artificial Intelligence (ICAART)
+4 Methodology
+To address the absence of a bond-specific sentiment
+tool, we developed BondBERT by further adapting
+a financial domain language model for the fixed-
+income context. Specifically, we start from the Fin-
+BERT model introduced by Yang et al. (2020), which
+is domain pretrained on a large scale financial text
+(e.g., SEC filings and Reuters news) but not fine-
+tuned on labeled sentiment datasets. We fine-tuned
+this model on our bond-specific sentiment dataset to
+create BondBERT. For comparison, we use Prosu-
+sAI/FinBERT as a baseline,5 which is widely used in
+prior work and is fine-tuned on the Financial Phrase-
+Bank dataset (Malo et al., 2014) (general financial
+news sentiment) but not specialised for bonds.
+The training corpus for BondBERT comprised ap-
+proximately 17,000 international bond-related news
+articles spanning 2018–2021, covering macroeco-
+nomic, fiscal, and policy domains relevant to bond
+markets.6 These articles were cleaned for duplicates,
+irrelevant topics, and insufficient content length, then
+aligned to market dates. Sentiment labels were gen-
+erated using GPT-4.1-nano via the OpenAI API and
+evaluating different prompts designed to capture the
+expected impact of each article on bond prices.7
+We used GPT-4.1-nano to efficiently generate sen-
+timent labels, testing prompt formats until we iden-
+tified one that produced consistent and financially
+relevant outputs. This was critical because general-
+purpose prompts often misinterpret fixed income mar-
+ket signals (e.g., interpreting “interest rate rise” as
+positive, even though it is negative for bonds and will
+lead to bond prices falling). However, we recognise
+that this approach introduces potential label noise and
+bias due to the model’s prior training data and prompt
+sensitivity. To mitigate this, we conducted prompt en-
+gineering experiments and cross-checked a subset of
+labels against known market reactions, though future
+work should incorporate human annotated or hybrid
+validation to improve model accuracy.
+We constructed a set of twelve representative fi-
+5https://huggingface.co/ProsusAI/finbert
+6Topics include: “macroeconomic trends”, “macroeco-
+nomic outlook”, “bond market”, “global economic growth”,
+“economic outlook”, “economic uncertainty”, “interest
+rates”, “monetary policy”, “global risk sentiment”, “fi-
+nancial market volatility”, “European bond market”, “en-
+ergy crisis”, “global inflation”, “global GDP slowdown”,
+“macroeconomic report”, “bond market”, “investor senti-
+ment”, “sanctions and trade wars”, and “geopolitical ten-
+sions”.
+7We evaluated different GPT models, such as GPT-4.1
+and GPT-4.1-mini, but due to similar results, we opted for
+GPT-4.1-nano, which is more computationally efficient.
+nancial news snippets, four clearly negative, four
+clearly positive, and four neutral, based on real bond
+market reporting. These examples included diverse
+contexts such as central bank rate hikes, inflation re-
+ports, bond issuance announcements, and fiscal policy
+updates. Each candidate prompt was evaluated on the
+basis of its alignment with expected bond price reac-
+tions and its consistency across similar examples.
+The best performing prompt was concise and
+framed the model as a bond market analyst, improv-
+ing label consistency and ensuring that positive scores
+reflected bond price increases rather than general eco-
+nomic optimism. We then asked the model to assign
+a sentiment score between−1 (strongly negative for
+bond prices) and+1 (strongly positive), with 0 indi-
+cating neutral. The final prompt, which was deliber-
+ately kept concise for better accuracy, was:
+“You are a financial analyst. Return only
+one float between -1.00 and +1.00, indicat-
+ing the immediate impact on the bond market
+prices. Negative means prices will fall; Posi-
+tive means prices will rise. ”
+Using this prompt, we processed 17,000 articles for
+training, almost 2,000 for validation, and 2,000 for
+testing, in order to generate continuous sentiment
+scores in the range[−1,1]. These scores served
+as training labels for BondBERT’s supervised fine-
+tuning stage. We merged sentiment scores with the
+article text, using titles as unique keys to ensure accu-
+rate label alignment.
+We initially considered further fine-tuning Fin-
+BERT on bond-specific sentiment data. However,
+because FinBERT’s prior training was optimised for
+general financial sentiment, we expected additional
+fine-tuning might conflict with existing scores and
+introduce noise rather than improve alignment with
+bond price movements. For this reason, we developed
+BondBERT as a separate model, pre-trained on finan-
+cial text but fine-tuned on bond market data. Sen-
+timent scores were categorised into three categories,
+negative, neutral, and positive, and stratified under-
+sampling was applied to mitigate class imbalance by
+creating equal sample sizes across the categories.
+We performed hyperparameter optimisation using
+Optuna to identify the best configuration for Bond-
+BERT. The search explored learning rate, batch size,
+dropout rates, and activation functions, with the ob-
+jective of maximising validation accuracy. The fi-
+nal selected parameters, summarised in Table 1, were
+used for all subsequent experiments.
+Text preprocessing was handled using Hugging
+Face’s AutoTokenizer, with a 512-token input limit.
+Articles exceeding this limit were segmented into
+multiple chunks, each independently tokenised and
+Page 4 of 8
+
+
+[Page 5]
+Accepted author manuscript: Barter et al. (2026), 18th International Conference on Agents and Artificial Intelligence (ICAART)
+Table 1: BondBERT configuration parameters.
+Parameter Value
+Epochs 4
+Batch size 8
+Learning rate 2.3e-05
+Attention probability dropout 0.1
+Hidden activation gelu
+Hidden dropout probability 0.1
+scored; final sentiment predictions were derived by
+averaging the chunk outputs.
+Both BondBERT and FinBERT output probabili-
+ties for three sentiment classes: negative, neutral, and
+positive. Following a process similar to Borovkova
+and Zhang (2022), we convert sentiment probabilities
+into a single continuous sentiment scores∈[−1,1]
+using the Normalised Difference Index (NDI):
+s= p(positive)−p(negative)
+p(positive) +p(negative) ,(1)
+wheresis the sentiment score, p(positive) is the prob-
+ability that the text is positive and p(negative) is the
+probability that the text is negative. This transfor-
+mation is particularly useful in our context because it
+explicitly removes the neutral class and amplifies the
+polarity of the sentiment signal. By focusing only on
+positive and negative components, NDI more directly
+captures information that can move the market.
+To assign sentiment using FinGPT, we obtained
+the open-source model weights from Hugging Face, 8
+which requires specific use licenses. The model was
+deployed via the official inference endpoint, running
+the LLaMA-2–7B base model (llama-2-7b-hf-owd)
+on a NVIDIA L40S GPU (48GB memory). To spe-
+cialise the backbone for financial applications, we at-
+tached the LoRA adapter, FinGPT/fingpt-mt llama2-
+7b lora, which provides multi-task instruction tuning
+optimised for sentiment analysis.
+We used Instruct-FinGPT in its 13B parameter
+version, accessed through the Hugging Face inference
+endpoint.9 No LoRA adapters were attached since the
+model is already instruction-tuned on financial sen-
+timent. Instruct-FinGPT expects input formatted as
+task-specific instructions followed by a text passage,
+otherwise outputs are not more reliable than zero-shot
+prompting. Therefore, for a fair comparison, we used
+the same BondBERT prompt broken into smaller sen-
+tences with guidelines to avoid chattiness:
+“You are a financial analyst. Return only one
+float in [-1.00, +1.00] indicating the immedi-
+ate impact on government bond prices. Posi-
+tive means prices rise (yields fall). Negative
+8https://huggingface.co/FinGPT
+9https://huggingface.co/FinGPT/Instruct-FinGPT-13B
+means prices fall (yields rise). Do not in-
+fer from equities/FX unless explicitly linked to
+yields/inflation/rates. Output must be a bare
+number (e.g., 0.2), no words or labels. ”
+Finally, it is worth clarifying that because Fin-
+GPT and Instruct-FinGPT are not stand-alone archi-
+tectures, we had to use LLaMA-2 as their underly-
+ing backbone. These models were released as adap-
+tations of the LLaMA-2 family (7B and 13B), with
+LoRA adapters provided for FinGPT and instruction-
+tuned checkpoints for Instruct-FinGPT specifically
+designed for this backbone. Although newer open-
+source backbones such as LLaMA-3 and LLaMA-4
+have been released, the FinGPT resources currently
+available are not compatible with them. Since our
+goal was to compare BondBERT with other financial
+models, we included FinGPT and Instruct-FinGPT in
+the evaluation despite their dependence on LLaMA-2.
+One drawback of using GPT-based annotation is
+the potential risk of look-ahead bias. Since GPT
+models are trained on large post-event corpora, they
+may inadvertently leverage knowledge of subsequent
+market outcomes when labelling historical articles.
+In our current setup, we did not impose strict tem-
+poral framing in the prompt, so we cannot fully
+rule out this risk. However, the prompt was de-
+signed to request the immediate expected impact of
+each article on bond prices, which partly reduces the
+chance of future knowledge being incorporated. Fu-
+ture work should address this more rigorously by en-
+forcing time-consistent prompting or complementing
+synthetic labels with human annotation. This applies
+not only to GPT-4.1-nano, but also to Instruct-FinGPT
+and any LLM-based annotator.
+5 Results
+For evaluation, we adopted an event-based methodol-
+ogy to isolate impactful news. Sentiment shocks were
+defined as daily sentiment values in the top or bottom
+10th percentile. When multiple shocks occurred on
+the same day, their scores were averaged.
+Figure 2 presents Pearson correlations between
+sentiment scores and UK bond returns on six eco-
+nomic topics, using a 10% daily sentiment shock (i.e.,
+10% most negative and 10% most positive scores) and
+a 7-day rolling window. Overall, we see that Bond-
+BERT has positive correlations across most topics—
+with negative correlations only for topic “UK Bond
+Market”. FinBERT only has positive correlations for
+the topic “UK Economic Outlook”—the other topics
+are neutral or negative—consistent with the general
+financial data on which it is trained. FinGPT exhibits
+Page 5 of 8
+
+
+[Page 6]
+Accepted author manuscript: Barter et al. (2026), 18th International Conference on Agents and Artificial Intelligence (ICAART)
+(a) BondBERT
+ (b) FinBERT
+(c) FinGPT
+ (d) Instruct-FinGPT
+Figure 2: Sentiment correlations with UK bond prices over a 7-day rolling window across four models.
+positive and negative correlations, which are rela-
+tively strong and more consistent than FinBERT. Fi-
+nally, Instruct-FinGPT displays strong negative corre-
+lations for topic “UK Bond Market” and weaker, less
+consistent correlations elsewhere. In general, Bond-
+BERT shows the best alignment between bond senti-
+ment and bond price movements, which provides pre-
+liminary evidence of the suitability of BondBERT for
+sentiment analysis of bond markets.
+Figure 3 compares the directional accuracy of the
+four models, relative to a 50% random baseline (hor-
+izontal red line). Directional accuracy is measured
+as the directional prediction (up/down) of the next-
+day bond returns after a 10% daily sentiment shock.
+We see that BondBERT (blue bars) has the highest
+directional accuracy on all five topics and is the only
+model that consistently outperforms the random base-
+line. FinBERT (orange bars) performs second best,
+but is inconsistent and does not outperform the ran-
+dom baseline on two of the five topics. FinGPT
+(green bars) and Instruct-FinGPT (red bars) both per-
+form poorly, well below the random baseline on every
+topic. These results clearly show that BondBERT is
+the best performing model, and the only model with
+directional accuracy better than random.
+To assess the predictive power of the sentiment
+models, we used an LSTM to predict next-day bond
+prices using the fixed-length rolling histories of daily
+bond transaction prices and the daily sentiment scores
+from each model as input. All input features and tar-
+gets were standardised to zero mean and unit vari-
+ance. The LSTM was optimised using the Adam op-
+timiser, with weight decay and mean squared error
+(MSE) loss, applying early stopping based on val-
+idation loss to avoid overfitting. Hyperparameters
+such as hidden layer size, number of recurrent lay-
+ers, dropout, learning rate, weight decay, and history
+length were optimised using Optuna’s Bayesian sam-
+pler. Model evaluation is conducted on the unseen test
+set using normalised RMSE and the information co-
+efficient (IC), and Diebold–Mariano (DM) tests with
+Newey-West corrected errors to assess whether fore-
+cast accuracy differences are statistically significant.
+Table 2 presents the LSTM results, showing good
+predictive performance in all models, with low RMSE
+and moderate to high IC values. BondBERT achieves
+the lowest normalised RMSE and the highest IC,
+which suggest that it can be used to predict price
+movements more accurately than the other models.
+Table 3 presents the p-values of the DM test on nor-
+malised RMSE values of BondBERT against the other
+three models. The null hypothesis of the DM test is
+that competing forecasts between BondBERT and the
+competing model have the same population accuracy.
+We see that the null is rejected in favour of Bond-
+BERT in half of the bonds (values in bold), which
+demonstrates that BondBERT generates statistically
+significant improvements in normalised RMSE.
+Page 6 of 8
+
+
+[Page 7]
+Accepted author manuscript: Barter et al. (2026), 18th International Conference on Agents and Artificial Intelligence (ICAART)
+Figure 3: Model performance comparison, showing directional accuracy of sentiment relative to bond returns.
+Table 2: Mean LSTM results per model, showing Nor-
+malised RMSE and Information Coefficient (IC).
+Metric BondBERT FinBERT FinGPT Inst-FinGPT
+RMSE0.00790.0086 0.009 0.01
+IC0.80000.7450 0.747 0.67
+Table 3: DM test p-values for BondBERT against the base-
+lines. Values in bold denote significance at the 5% level.
+Instrument ID FinBERT FinGPT Inst-FinGPT
+GB0004893086 0.085 0.3970.014
+GB0032452392 0.977 0.972 0.261
+GB00B24FF097 0.39590.04 0.0011
+GB00B3Y1JG820.0009 2e-5 0.01
+GB00B52WS153 0.12720.0350.082
+GB00BDRHNP050.0042 1e-14 1e-14
+GB00BFX0ZL78 0.99 0.96 0.95
+GB00BMGR29160.0028 0.00070.145
+GB00BYZW3G56 0.20263e-8 6e-8
+GB00BZB26Y510.0346 0.01530.2131
+In summary, we have shown that BondBERT is
+able to achieve consistently positive sentiment cor-
+relations, which reverses the negative bias exhibited
+by FinBERT, FinGPT, and Instruct-FinGPT. We have
+also shown that BondBERT has higher directional ac-
+curacy and significantly outperforms other models on
+next-day price prediction.
+6 Conclusions and Future work
+This study introduces BondBERT, a bond-specific
+sentiment model, and demonstrates its advantage over
+three other tools in aligning sentiment with bond price
+movements. We showed the importance of a trans-
+ferable strategy for adapting LLMs to markets where
+sentiment dynamics diverge from equity assump-
+tions and generalise to other asset classes. Bond-
+BERT reverses the wrong-sign bias seen in equity-
+trained models and delivers more consistent fore-
+casting improvements. The analysis is restricted to
+UK sovereign bonds, since the illiquidity of cor-
+porate bonds prevents a meaningful evaluation, and
+the model is trained on synthetic labels generated
+by GPT-4.1-nano. Although this approach is cost-
+effective and scalable, it may not fully capture do-
+main expertise and constrains label fidelity. We plan
+to introduce human annotation and semi-supervised
+refinement to improve label quality. Moreover, our
+goal is to expand the dataset across, incorporating in-
+ternational sovereign and corporate bonds with higher
+liquidity. These extensions will test the generalisabil-
+ity of BondBERT and strengthen its potential applica-
+tions in trading, risk management, and policy.
+Beyond finance, we highlight a broader AI chal-
+lenge, learning under weak effect sizes and noisy su-
+pervision, where sentiment diverges from intuitive
+human interpretations. While BondBERT is not a
+standalone agent, it demonstrates how specialised
+perception modules can be embedded into decision-
+support agents for fixed income markets and interact
+with forecasting and trading agents as part of multi-
+agent systems, extending the role of NLP in finan-
+cial AI. In the longer term, the goal is to incorporate
+predictive models into an agentic-AI framework to
+provide bespoke investment advice to individual in-
+vestors via a mobile application. For more details,
+see the artificial intelligence for collective intelligence
+(AI4CI) vision, described in Bullock et al. (2024).
+ACKNOWLEDGEMENTS
+This work was supported by UK Research and
+Innovation (UKRI) Engineering and Physical Sci-
+ences Research Council (EPSRC) [grant number
+EP/Y028392/1]: AI for Collective Intelligence
+(AI4CI). Toby Barter was supported by a Faculty of
+Engineering Summer Research Internship. The au-
+thors thank Vincent Grandjean and Oliver Haste at
+Propellant Digital for expert advice and data access.
+Page 7 of 8
+
+
+[Page 8]
+Accepted author manuscript: Barter et al. (2026), 18th International Conference on Agents and Artificial Intelligence (ICAART)
+REFERENCES
+Araci, D. (2019). FinBERT: Financial sentiment anal-
+ysis with pre-trained language models.Preprint
+arXiv:1908.10063.
+Bartov, E., Faurel, L., and Mohanram, P. (2023). The role
+of social media in the corporate bond market: Evidence
+from Twitter.Management Science, 69(9):5638–5667.
+Borovkova, S. and Zhang, Z. (2022). News sen-
+timent and corporate bond yields. Technical
+report, Probability & Partners. White paper.
+Available at https://probability.nl/publications/
+news-sentiment-and-corporate-bond-yields/.
+Bullock, S., Ajmeri, N., Batty, M., Black, M., Cartlidge, J.,
+Challen, R., Chen, C., Chen, J., Condell, J., Danon, L.,
+Dennett, A., Heppenstall, A., Marshall, P., Morgan, P.,
+O’Kane, A., Smith, L. G. E., Smith, T., and Williams, H.
+T. P. (2024). Artificial intelligence for collective intel-
+ligence: A national-scale research strategy.Knowledge
+Engineering Review, 39, e10.
+Cicekyurt, E. and Bakal, G. (2025). Enhancing sentiment
+analysis in stock market tweets through BERT-based
+knowledge transfer.Computational Economics.
+Du, K., Xing, F., Mao, R., and Cambria, E. (2024). Fi-
+nancial sentiment analysis: Techniques and applications.
+ACM Computing Surveys, 56(9):1–42.
+Fan, S., Chen, X., and Wang, X. (2024). Stock price predic-
+tion based on FinBERT-LSTM model. In18th Interna-
+tional Conference on Complex, Intelligent and Software
+Intensive Systems (CISIS), pages 37–47. Springer, Cham.
+Fatemi, S., Hu, Y ., and Mousavi, M. (2025). A comparative
+analysis of instruction fine-tuning large language models
+for financial text classification.ACM Transactions on
+Management Information Systems, 16(1):1–30.
+Gu, W., Zhong, Y ., Li, S., Wei, C., Dong, L., Wang, Z., and
+Yan, C. (2024). Predicting stock prices with FinBERT-
+LSTM: Integrating news sentiment analysis. In8th Inter-
+national Conference on Cloud and Big Data Computing
+(ICCBDC), pages 67–72.
+Huang, A. H., Wang, H., and Yang, Y . (2023). Fin-
+BERT: A large language model for extracting informa-
+tion from financial text.Contemporary Accounting Re-
+search, 40(2):806–841.
+Isakin, M. and Pu, X. (2023). Dispersion in news sentiment
+and corporate bond returns.International Review of Fi-
+nancial Analysis, 89:102761.
+Jadhav, A. and Mirza, V . (2025). Large language models in
+equity markets: Applications, techniques, and insights.
+Frontiers in Artificial Intelligence, 8.
+Kang, J.-W. and Choi, S.-Y . (2025). Comparative inves-
+tigation of GPT and FinBERT’s sentiment analysis per-
+formance in news across different sectors.Electronics,
+14(6):1090.
+Li, Y ., Wang, S., Ding, H., and Chen, H. (2023). Large
+language models in finance: A survey. In4th ACM In-
+ternational Conference on AI in Finance (ICAIF), pages
+374–382.
+Liang, Y ., Liu, Y ., Zhang, B., Wang, C. D., and Yang,
+H. (2024). FinGPT: Enhancing sentiment-based stock
+movement prediction with dissemination-aware and
+context-enriched LLMs.Preprint arXiv:2412.10823v1.
+Liu, X.-Y ., Wang, G., Yang, H., and Zha, D. (2023).
+FinGPT: Democratizing internet-scale data for financial
+large language models.Preprint arXiv:2307.10485.
+Liu, Y ., Wang, J., Long, L., Li, X., Ma, R., Wu, Y ., and
+Chen, X. (2025). A multi-level sentiment analysis frame-
+work for financial texts.Preprint arXiv:2504.02429.
+Makara, M. (2024). Is news sentiment well suited to pre-
+dict fluctuations in U.S. corporate green bond returns?
+A comparative study of news and market-based senti-
+ment indicators. Master’s thesis, Utrecht School of Eco-
+nomics, Utrecht University, NL.
+Malo, P., Sinha, A., Korhonen, P., Wallenius, J., and Takala,
+P. (2014). Good debt or bad debt: Detecting semantic ori-
+entations in economic texts.Journal of the Association
+for Information Science and Technology, 65(4):782–796.
+Peng, Y ., Shi, L., Shi, X., and Tan, S. (2024). Tone or term:
+Machine-learning text analysis, featured vocabulary ex-
+traction, and evidence from bond pricing in China.Jour-
+nal of Empirical Finance, 78:101534.
+Pi˜neiro-Chousa, J., L ´opez-Cabarcos, M. ´A., Caby, J., and
+ˇSevi´c, A. (2021). The influence of investor sentiment
+on the green bond market.Technological Forecasting &
+Social Change, 162:120351.
+Tetlock, P. C. (2007). Giving content to investor sentiment:
+The role of media in the stock market.Journal of Fi-
+nance, 62(3):1139–1168.
+Wang, N., Yang, H., and Wang, C. D. (2023). Fin-
+GPT: Instruction tuning benchmark for open-source
+large language models in financial datasets.Preprint
+arXiv:2310.04793.
+Yang, H., Liu, X.-Y ., and Wang, C. D. (2023). FinGPT:
+Open-source financial large language models.Preprint
+arXiv:2306.06031.
+Yang, Y ., Siy UY , M. C., and Huang, A. (2020). FinBERT:
+A pretrained language model for financial communica-
+tions.Preprint arXiv:2006.08097.
+Zhang, B., Yang, H., and Liu, X.-Y . (2023). Instruct-
+FinGPT: Financial sentiment analysis by instruction tun-
+ing of general-purpose large language models.Preprint
+arXiv:2306.12659.
+Zhang, C. (2025). Dynamic asset pricing: Integrating
+FinBERT-based sentiment quantification with the Fama–
+French five-factor model.Preprint arXiv:2505.01432.
+Zhou, Z. and Mehra, R. (2025). An end-to-end LLM en-
+hanced trading system.Preprint arXiv:2502.01574.
+Page 8 of 8

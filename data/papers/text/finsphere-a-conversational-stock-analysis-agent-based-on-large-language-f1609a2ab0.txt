@@ -1,0 +1,1459 @@
+[Page 1]
+FinSphere, a Real-Time Stock Analysis Agent Powered by Instruction-Tuned
+LLMs and Domain Tools
+Shijie Han1,2 , Jingshu Zhang1,3 , Yiqing Shen1,4 , Kaiyuan Yan1 , Hongguang Li∗1
+1JF SmartInvest Holdings Ltd.
+2Columbia University
+3Shanghai University of Finance and Economics
+4Johns Hopkins University
+Abstract
+Current financial large language models (Fin-
+LLMs) struggle with two critical limitations: the
+absence of objective evaluation metrics to assess
+the quality of stock analysis reports and a lack of
+depth in stock analysis, which impedes their abil-
+ity to generate professional-grade insights. To ad-
+dress these challenges, this paper introduces Fin-
+Sphere, a stock analysis agent, along with three
+major contributions: (1) AnalyScore, a systematic
+evaluation framework for assessing stock analysis
+quality, (2) Stocksis, a dataset curated by industry
+experts to enhance LLMs’ stock analysis capabili-
+ties, and (3) FinSphere, an AI agent that can gener-
+ate high-quality stock analysis reports in response
+to user queries. Experiments demonstrate that Fin-
+Sphere achieves superior performance compared to
+both general and domain-specific LLMs, as well as
+existing agent-based systems, even when they are
+enhanced with real-time data access and few-shot
+guidance. The integrated framework, which com-
+bines real-time data feeds, quantitative tools, and an
+instruction-tuned LLM, yields substantial improve-
+ments in both analytical quality and practical appli-
+cability for real-world stock analysis.
+1 Introduction
+Large Language Models (LLMs) have demonstrated remark-
+able capabilities in comprehending and processing natural
+language, extending their influence across various domains,
+including finance [Li et al. , 2023b]. By leveraging their
+language comprehension capabilities, these models have ex-
+hibited exceptional performance in various financial applica-
+tions, including sentiment analysis [Liu et al., 2024b; Zhang
+et al., 2023a] and information extraction from unstructured
+financial texts [Li et al., 2024; Huang et al., 2023]. The ad-
+vent of finance-specific LLMs such as FinBERT [Yanget al.,
+2020; Liu et al. , 2021], BloombergGPT [Wu et al. , 2023],
+∗Corresponding author: harvey2@mail.ustc.edu.cn
+Accepted by FinLLM @ International Joint Conference on Artificial
+Intelligence, Guangzhou, China, 2025. Copyright 2025 by the au-
+thor(s).
+and PIXIU [Xie et al. , 2023] has further enhanced the ca-
+pacity to process financial data effectively. These advance-
+ments have laid the foundation for developing more sophisti-
+cated financial analysis tools and shifted how investors inter-
+act with market data [Krause, 2023; Nie et al., 2024]. These
+AI-powered systems have broadened access to professional
+financial insights, allowing retail investors to benefit from ad-
+vanced analysis once reserved for institutions.
+As LLM technology continues to evolve, there is a grow-
+ing expectation for these models to handle more complex fi-
+nancial tasks, particularly in stock analysis and real-time fi-
+nancial question-answering [Yang et al., 2023b; Zhao et al.,
+2024]. This has led to the development of tool-augmented
+agents that integrate LLMs’ natural language understanding
+with specialized financial tools, significantly enhancing auto-
+mated financial analysis and interactive question-answering
+capabilities [Ding et al., 2024; Zhang et al., 2024]. However,
+LLM-based financial QA systems still face substantial chal-
+lenges in effectively interpreting and utilizing the outputs of
+these tools to generate high-quality analytical responses. Two
+primary obstacles include the absence of systematic evalua-
+tion frameworks to assess their performance in stock analy-
+sis, as well as the lack of specialized datasets for fine-tuning
+LLMs’ analytical reasoning capabilities. Moreover, existing
+research is constrained by LLMs’ heavy reliance on historical
+data, such as GPT-4o’s dependence on its pre-trained knowl-
+edge for generating responses [Ni et al., 2024; Bhat and Jain,
+2024]. This limitation in accessing and processing real-time
+financial data and domain-specific information restricts their
+ability to fully capture the dynamic and evolving nature of
+financial markets, posing a critical challenge for real-time fi-
+nancial question-answering systems.
+We address these limitations through three contributions:
+• AnalyScore: A comprehensive evaluation framework
+designed to systematically assess the accuracy, rel-
+evance, and analytical depth of LLM-driven stock
+question-answering.
+• Stocksis: A specialized dataset curated by industry ex-
+perts to enhance LLMs’ financial question-answering
+and stock analysis capabilities.
+• FinSphere: A real-time stock question-answering agent
+capable of generating high-quality stock analysis reports
+in response to user queries.
+arXiv:2501.12399v2  [cs.AI]  9 Jul 2025
+
+
+[Page 2]
+Prompt with Background Information (input) Expert-Edited Analysis (label)
+System Instruction. You are a proficient investment assistant, adept at
+stock analysis tasks. You demonstrate a robust aptitude for comprehending
+user-provided [Question] and meticulously organizing them into accurate
+and standardized analysis reports. You utilize the [Background Informa-
+tion] provided by the corresponding quantitative tools to respond to users
+in a systematic and standardized manner.
+Background Information (from quantitative tools).
+• Capital Flow Analysis: TF Securities is currently under moderate
+control by market leaders, indicating a positive institutional outlook.
+There is a strong willingness for margin financing inflow. Institu-
+tional quarterly shareholding has increased, suggesting institutions
+are optimistic about the company’s development, warranting atten-
+tion to medium-term opportunities.
+• [Other specialized analysis from quantitative tools]
+Question. Please analyze TF Securities.
+From a capital flow perspective, the 5-day cumulative
+DDX of -14.865 indicates significant selling pressure
+from major market participants and strong bearish senti-
+ment. Despite moderate institutional control and deter-
+mined margin financing inflows showing relatively active
+main capital, short-term capital flows warrant caution.
+[Key Summaries of supporting conclusions drawn from
+other Specialized Analysis]
+In conclusion, TF Securities shows recent unusual
+market activity, largely driven by heightened trading
+within the securities sector. Technical analysis reveals
+short-term opportunities with a bullish engulfing pat-
+tern, though weak fundamentals warrant caution for
+medium to long-term positions. Investors should mon-
+itor market trends and company developments, as the
+stock benefits from sector momentum despite underly-
+ing fundamental concerns.
+Table 1: An abbreviated example of Stocksis. The complete content is detailed in Table 5. Guide LLM to provide a comprehensive analysis
+based on specialized analyses returned from quantitative tools. The average cost of comprehensive analysis written by experts is $10 per
+query, with detailed cost breakdowns available in Appendix F.
+Our experiments demonstrate that FinSphere, by inte-
+grating real-time financial databases, specialized quantita-
+tive tools, and an instruction-tuned LLM optimized for fi-
+nancial question-answering, significantly outperforms both
+general-purpose and domain-specific LLMs, as well as ex-
+isting agent-based systems. This superior performance holds
+even when baseline models are augmented with real-time
+background information and few-shot prompting, validating
+the effectiveness of our integrated approach to real-time fi-
+nancial question-answering and stock market analysis.
+2 AnalyScore and Stocksis
+Stock market analysis is becoming increasingly complex, ne-
+cessitating the integration of diverse data sources and sophis-
+ticated analytical approaches. While LLMs show promise
+in financial analysis, two key gaps remain: the lack of stan-
+dardized evaluation frameworks for AI-generated stock anal-
+yses and the scarcity of high-quality training data. To ad-
+dress these, we introduce AnalyScore, a systematic evalua-
+tion framework, and Stocksis, a comprehensive dataset de-
+signed to enhance LLMs’ stock analysis capabilities.
+2.1 AnalyScore: A Comprehensive Evaluation
+Framework for Stock Analysis Reports
+To address the lack of systematic evaluation standards in
+stock analysis, we introduce AnalyScore, a domain-specific
+framework co-developed with industry experts. It combines
+established financial assessment criteria with insights from
+LLM-generated content evaluation.
+AnalyScore employs a structured scoring system across
+four dimensions, with a total score of 100 points:
+• Conclusion (20 pts): Clarity, relevance, and personal-
+ization of investment recommendations.
+• Content (45 pts): Depth, coherence, and professional-
+ism of analytical reasoning.
+• Expression (15 pts): Organization, fluency, and linguis-
+tic clarity.
+• Data (20 pts): Breadth, accuracy, and effective use of
+supporting quantitative data.
+This multi-dimensional evaluation ensures comprehensive
+coverage of both qualitative judgment and quantitative rigor.
+At present, AnalyScore is used exclusively by human experts
+to assess model-generated analyses. In future work, we aim
+to integrate AnalyScore into automatic evaluation pipelines
+by prompting LLMs to emulate expert scoring behaviors.
+2.2 Stocksis: A High-Quality Dataset for
+Enhancing LLMs’ Stock Analysis
+To evaluate LLMs’ capabilities in stock analysis, we first
+assess GPT-4o’s responses using AnalyScore (Section 4.1),
+providing it with extensive background knowledge includ-
+ing market data and quantitative indicators. Despite these
+supports, its outputs often exhibit reasoning inconsistencies,
+shallow financial insights, and occasional misinterpretations
+of market trends—revealing the challenges LLMs face in syn-
+thesizing complex financial information into coherent, action-
+able analysis. To address these limitations, we collaborate
+with industry experts to iteratively refine GPT-4o’s outputs,
+correcting errors and enriching them with deeper reasoning.
+This expert-guided process results in Stocksis, a high-quality
+dataset that bridges automated generation and professional-
+grade analysis, offering structured supervision to improve
+LLM performance in real-world financial contexts.
+Stocksis comprises 5,000 meticulously curated training
+pairs, with part of them1 available in the open-source release
+for research and development purposes. An abbreviated ex-
+ample is shown in Table 1, and the complete content of the
+same sample is detailed in Table 5. Each training sample con-
+sists of two key components:
+1Open-sourced Stocksis has been anonymized and is available at
+https://anonymous.4open.science/r/Stocksis-BD25/
+
+
+[Page 3]
+• Prompt with Background Information (input): A com-
+plete analytical prompt that includes aggregated outputs
+from multiple quantitative analysis tools (averaging six
+tools per sample) as background information. The back-
+ground information covers volume-price analysis, tech-
+nical indicators, and other market metrics. Each prompt
+is rigorously crafted to guide the model in perform-
+ing analytical tasks while leveraging the provided back-
+ground information. The average length is 4,000 words.
+• Expert-Edited Analysis (label): In-depth analytical re-
+ports responding to the prompt’s requirements while ef-
+fectively utilizing the background information, averag-
+ing 3,000 words per report. Due to the particularity of
+the stock analysis task, there is no standard answer to
+this task. Therefore, our industry experts provide a high-
+quality reference analysis result for this task by evaluat-
+ing the overall market, providing detailed reasons, and
+demonstrating how to effectively interpret various quan-
+titative indicators.
+Dataset Collection and Quality Assurance. Stocksis is
+constructed through a structured pipeline grounded in our
+company’s expertise in retail-oriented stock analysis. Data
+collection involves two main stages:
+1. Prompt and Background Generation : Expert ana-
+lysts select suitable quantitative tools for specific stock
+queries and craft prompts enriched with structured ana-
+lytical outputs.
+2. Analysis Refinement : GPT-4o generates initial re-
+sponses, which are then iteratively reviewed and im-
+proved by a panel of 10 senior analysts to ensure ac-
+curacy, coherence, and domain relevance. This process
+spans over three months to ensure high-quality outputs.
+Stocksis addresses a key gap in financial NLP: the lack
+of datasets combining structured prompts with expert-refined
+reasoning. Unlike existing resources focused on price or
+sentiment data, it enables the fine-tuning of general-purpose
+LLMs to enhance their capability in structured, high-quality
+financial analysis for real-world applications.
+3 FinSphere Agent
+This section details the architecture and operational mecha-
+nisms of FinSphere Agent, our advanced stock analysis agent.
+3.1 Powerful Quantitative Tools based on
+Real-Time Databases
+A core strength of FinSphere lies in its seamless integra-
+tion with our company’s mature suite of quantitative analysis
+tools, which have been extensively deployed and validated
+in production environments. These tools access our compre-
+hensive real-time financial database, which maintains exten-
+sive coverage of market stocks, including both structured data
+(price movements, trading volumes, financial metrics) and
+unstructured data (corporate announcements, analyst reports,
+market news).
+When FinSphere identifies the necessity for specific quan-
+titative analysis, it triggers the corresponding tool from our
+How is TF 
+Securities today？
+STEP 1: Decompose Task Into Subs-tasks.
+CoT Reasoning
+STEP 2: Complish Subtasks Via Specilized Tools.
+STEP 3: Generate Complehensive Response.
+Market Movement 
+Catalysts
+Fundalmental
+Analysis
+Technical 
+Analysis
+TF Securities has shown unusual market movement due to 
+active market trading, benefiting along with the broader 
+securities sector. In the short term, there are bullish 
+signals warranting attention. However, caution is advised 
+for medium to long-term positions due to weak 
+fundamentals...
+• Technical Analysis: A bullish 
+engulfing pattern emerged in TF 
+Securities' chart on September 13th, 
+signaling potential short-term 
+strength. The bullish outlook 
+remains valid as long as the stock 
+maintains support above the 
+pattern's key level of 2.68 yuan.
+• Fundamental Analysis: The 
+company's fundamental structure 
+heavily relies on fee and 
+commission income, which accounts 
+for 131.22% of total revenue. When 
+compared to industry peers, TF 
+Securities shows below-average 
+fundamental indicators.per share....
+• Market Movement Catalysts: 
+Recent market movements have 
+been influenced by several key 
+events. The appointment of Pang 
+Jiemin as the company's Party 
+Secretary has drawn attention, with 
+the Hubei Hongtai Group's Party 
+Secretary and Chairman ......
+   FinSphere
+Over 100
+Other
+Analysis
+Sub-Task 1
+ Sub-Task 2
+ Sub-Task n
+Quantitative
+Tools
+...
+Real-time Database
+Data
+Financial
+Statement
+wiki
+Figure 1: This diagram illustrates the overall workflow of the Fin-
+Sphere Agent, detailing how different components interact to facili-
+tate real-time stock analysis.
+production suite. These tools then automatically query our
+real-time database to extract the most recent relevant data,
+perform sophisticated calculations, and generate specialized
+analyses such as technical indicators, fundamental valuations,
+or market sentiment assessments. Each tool is designed to
+provide contextual information specifically tailored to user
+queries, leveraging our continuously updated database to en-
+sure that all analyses accurately reflect current market con-
+ditions. This architecture ensures that FinSphere’s responses
+are always grounded in the most recent market data while
+benefiting from our proven quantitative methodologies.
+3.2 Instruction Tuning
+We adopt full-parameterinstruction tuning to adapt Qwen2-
+72B into a domain-specialized financial analysis agent. Using
+our expert-curated Stocksis dataset—comprising 5,000 struc-
+tured training pairs of quantitative tool outputs and corre-
+sponding expert-written analyses (Section 2.2)—we guide the
+model to learn not just domain knowledge, but also the task
+format, reasoning flow, and response style required for pro-
+fessional stock reporting. Unlike parameter-efficient meth-
+ods, full instruction tuning enables the model to internal-
+ize complex analytical patterns and generate coherent, multi-
+dimensional reports.
+Training is performed on an NVIDIA 16×A100 GPU clus-
+ter with 32K token context, using a language modeling objec-
+tive with a learning rate of 1e-5, batch size of 16, and 2 train-
+
+
+[Page 4]
+Conclusion Content Expression Data Total
+(Score: 20) (Score: 45) (Score: 15) (Score: 20) Score
+GPT-4o 9.85 26.12 12.44 18.20 66.61
+Deepseek-v3 9.52 25.30 12.75 16.85 64.42
+GPT3.5 7.95 21.05 10.15 14.30 53.45
+Qwen2-72B 8.15 22.55 10.55 14.95 56.20
+InvestLM 8.40 23.10 11.25 15.75 58.50
+FinGPT 6.80 18.55 8.95 10.75 40.05
+FinRobot 9.10 24.05 11.55 16.35 61.05
+FinMem 9.90 25.95 12.85 18.85 67.55
+FinSphere 9.95 27.16 14.87 18.90 70.88
+Table 2: Human experts use AnalyScore to evaluate 100 responses generated by 8 models. The scores shown are averages across 100
+evaluations. The average cost for expert evaluation is $10 per response, with detailed cost breakdowns available in Appendix F.
+ing epochs. We apply gradient clipping and mixed-precision
+training to ensure numerical stability and efficiency. Through
+this process, FinSphere acquires strong capabilities in synthe-
+sizing diverse financial signals, interpreting market data ac-
+curately, and responding with structured, human-level stock
+analyses tailored to real-world scenarios.
+3.3 Overall Workflow
+FinSphere follows a structured, multi-stage workflow to gen-
+erate real-time financial analyses. Upon receiving a user
+query, it first applies chain-of-thought (CoT) reasoning to de-
+compose the task into interpretable subtasks and determine
+which domain-specific quantitative tools are needed. These
+tools then independently access a real-time financial database
+to retrieve the latest market data, including technical indica-
+tors, capital flows, and fundamental metrics, each generating
+specialized outputs tailored to their analytical focus.
+In the final stage, FinSphere’s instruction-tuned
+LLM—trained on the Stocksis dataset—serves as an
+expert analyst. It synthesizes the multi-source outputs into a
+coherent, structured report aligned with professional financial
+standards. This integrated architecture enables FinSphere
+to combine the precision of automated quantitative analysis
+with the contextual depth of expert reasoning, ensuring
+responses are both analytically sound and up-to-date.
+4 Evaluation
+Given FinSphere’s integration with real-time financial
+databases and proprietary quantitative tools, it possesses an-
+alytical capabilities that extend beyond those of general-
+purpose LLMs. Performance comparisons between Fin-
+Sphere and general LLMs present inherent challenges, pri-
+marily due to the latter’s inability to access real-time financial
+data and domain-specific information. For example, GPT-
+4o typically acknowledges its limitations with responses like
+”As an AI language model with knowledge cut-off in June
+2024, I don’t have access to real-time stock information. ”To
+demonstrate FinSphere’s enhanced capabilities while ensur-
+ing a fair comparison, we have implemented a comprehensive
+experimental design.
+Baseline. We evaluate three categories of models: (1) sin-
+gle LLMs, including proprietary (GPT-4o, GPT-3.5), open-
+source (Qwen2-72B, Deepseek-v3 [Liu et al., 2024a]), and
+domain-specific models (InvestLM [Yanget al., 2023b], Fin-
+GPT [Yang et al., 2023a]); (2) agent-based systems, includ-
+ing FinMem [Yu et al. , 2024] and FinRobot [Yang et al. ,
+2024]; and (3) our proposed FinSphere. All LLMs use chain-
+of-thought prompting with few-shot examples and relevant
+background information (Appendix C), while agents receive
+simplified prompts similar to Stocksis’s inputs. FinSphere
+is evaluated directly via user queries, utilizing its integrated
+tools (Appendix H). For all models, we set a maximum output
+length of 8K tokens and a temperature of 0.5.
+4.1 Performance Analysis
+The expert evaluation results presented in Table 2 demon-
+strate FinSphere’s superior performance across all assessment
+dimensions, achieving an overall score of 70.88 out of 100.
+This surpasses both traditional LLM-based approaches and
+other agent-based systems, with FinMem and GPT-4o fol-
+lowing at 67.55 and 66.61, respectively. The evaluation re-
+veals a clear performance hierarchy: agent-based systems
+generally outperform standalone language models (except
+GPT-4o), while general-purpose LLMs show moderate per-
+formance and domain-specific LLMs such as FinGPT (40.05)
+demonstrate relatively limited capabilities. These results val-
+idate the effectiveness of FinSphere’s integrated approach,
+which combines real-time data access, quantitative tools, and
+a Stocksis-tuned LLM, enabling more precise and insightful
+stock analysis. More analysis is shown in Appendix B.
+4.2 Evaluation Consistency
+We assess the reliability of human evaluation using Kendall’s
+Tau rank correlation to measure inter-group agreement. Forty
+industry experts are divided into four groups of ten, each pro-
+ducing consensus scores for all model responses. Pairwise
+
+
+[Page 5]
+Group 1 & 2 Group 1 & 3 Group 1 & 4 Group 2 & 3 Group 2 & 4 Group 3 & 4 Average
+Conclusion 79.36 73.90 79.51 81.59 85.30 89.63 81.55
+Content 93.77 71.45 94.25 77.61 73.49 74.99 80.93
+Expression 88.30 91.65 90.81 83.12 77.30 82.86 85.67
+Data 84.97 85.03 75.31 80.80 79.16 84.81 81.68
+Total 78.90 87.70 74.55 77.28 81.40 73.16 78.83
+Table 3: Average Kendall’s Tau across 100 queries for different annotator groups rating. Reported as %
+Kendall’s Tau is computed across groups based on rankings
+of 100 queries (Table 3).
+Results show strong agreement, with most correlations ex-
+ceeding 80% and values ranging from 71.45 to 94.25. While
+Content shows the most variation, Expression and Data main-
+tain stable consistency. These findings indicate that, despite
+inherent subjectivity, our evaluation process yields robust and
+reliable assessments of model performance.
+4.3 Ablation Study
+/uni00000015/uni00000013/uni00000008/uni00000018/uni00000013/uni00000008/uni0000001b/uni00000013/uni00000008/uni00000014/uni00000013/uni00000013/uni00000008
+/uni00000036/uni00000057/uni00000052/uni00000046/uni0000004e/uni00000056/uni0000004c/uni00000056/uni00000003/uni00000036/uni00000046/uni00000044/uni0000004f/uni00000048
+/uni00000013
+/uni00000014/uni00000013
+/uni00000015/uni00000013
+/uni00000016/uni00000013/uni00000036/uni00000046/uni00000052/uni00000055/uni00000048/uni00000056
+/uni00000026/uni00000052/uni00000051/uni00000046/uni0000004f/uni00000058/uni00000056/uni0000004c/uni00000052/uni00000051/uni00000003/uni0000000b/uni00000036/uni00000046/uni00000052/uni00000055/uni00000048/uni0000001d/uni00000003/uni00000015/uni00000013/uni0000000c
+/uni00000026/uni00000052/uni00000051/uni00000057/uni00000048/uni00000051/uni00000057/uni00000003/uni0000000b/uni00000036/uni00000046/uni00000052/uni00000055/uni00000048/uni0000001d/uni00000003/uni00000017/uni00000018/uni0000000c
+/uni00000028/uni0000005b/uni00000053/uni00000055/uni00000048/uni00000056/uni00000056/uni0000004c/uni00000052/uni00000051/uni00000003/uni0000000b/uni00000036/uni00000046/uni00000052/uni00000055/uni00000048/uni0000001d/uni00000003/uni00000014/uni00000018/uni0000000c
+/uni00000027/uni00000044/uni00000057/uni00000044/uni00000003/uni0000000b/uni00000036/uni00000046/uni00000052/uni00000055/uni00000048/uni0000001d/uni00000003/uni00000015/uni00000013/uni0000000c
+/uni00000034/uni00000058/uni00000044/uni0000004f/uni0000004c/uni00000049/uni0000004c/uni00000046/uni00000044/uni00000057/uni0000004c/uni00000052/uni00000051/uni00000003/uni00000035/uni00000044/uni00000057/uni00000048
+/uni00000019/uni00000013/uni00000011/uni00000013/uni00000008
+/uni0000001a/uni00000013/uni00000011/uni00000013/uni00000008
+/uni0000001b/uni00000013/uni00000011/uni00000013/uni00000008
+/uni0000001c/uni00000013/uni00000011/uni00000013/uni00000008
+/uni00000014/uni00000013/uni00000013/uni00000011/uni00000013/uni00000008
+/uni00000034/uni00000058/uni00000044/uni0000004f/uni0000004c/uni00000049/uni0000004c/uni00000046/uni00000044/uni00000057/uni0000004c/uni00000052/uni00000051/uni00000003/uni00000035/uni00000044/uni00000057/uni00000048
+Figure 2: Changes in scores of each sub-item as the number of
+Stocksis used for fine-tuning changes.
+To investigate the impact of training data scale on Fin-
+Sphere’s performance, we conduct an ablation study using
+different proportions of the Stocksis dataset. We fine-tune
+Qwen2-72B using 20%, 50%, 80%, and 100% of the 5,000
+data pairs while maintaining FinSphere’s framework. The
+detailed evaluation results are provided in Table 2, which
+demonstrates a clear positive correlation between training
+data scale and model performance, with overall scores in-
+creasing from 58.90 (20%) to 70.88 (100%). The perfor-
+mance improvement shows a non-linear pattern, with larger
+incremental gains observed at higher data volumes. These
+findings underscore the importance of training data in achiev-
+ing optimal performance, while also demonstrating the ro-
+bustness of our framework, as FinSphere maintains satisfac-
+tory performances even with reduced training data scale.
+5 Related Works
+LLMs have shown strong potential in financial tasks such as
+stock prediction, market analysis, and portfolio management
+[Zhao et al., 2024; Li et al., 2023b; Ni et al., 2024; Bhat and
+Jain, 2024; Wu, 2024; Kim et al. , 2024]. Domain-specific
+models like InvestLM [Yanget al., 2023b] and GPT-InvestAR
+[Gupta, 2023] further highlight the benefits of financial in-
+struction tuning. LLMs have also been applied to financial
+anomaly detection [Park, 2024] and financial statement un-
+derstanding [Kim et al., 2024].
+Financial Datasets and Evaluation Existing datasets such
+as FinQA [Chen et al. , 2021], TAT-QA [Zhu et al. , 2021],
+and FLARE [Xie et al. , 2023] focus on question answer-
+ing or numerical reasoning, but lack support for comprehen-
+sive, real-time stock analysis. Others, including FinTextQA
+[Chen et al., 2024], CFBenchmark [Lei et al., 2023], and Fi-
+nanceBench [Islam et al. , 2023], provide broader coverage
+but miss expert-annotated stock reports. Evaluation of finan-
+cial text has typically relied on generic metrics (e.g., BLEU
+[Papineni et al. , 2002], ROUGE [Rouge, 2004]), while re-
+cent efforts like FinEval [Zhang et al., 2023b] offer domain-
+adapted metrics but lack systematic expert-grounded scoring.
+Instruction Tuning and Tool-Augmented Agents Re-
+cent advances integrate financial LLMs with domain-specific
+tools, such as FinGPT [Yang et al. , 2023a], XBRL-Agent
+[Han et al., 2024], and FinOps [Li et al., 2023a], improving
+task relevance and interactivity. However, most rely on static
+historical data and lack real-time adaptability. In contrast,
+our proposed FinSphere (Section 3) combines an instruction-
+tuned LLM with real-time databases and quantitative tools for
+dynamic and actionable stock analysis.
+6 Conclusion
+This paper introduces FinSphere, an innovative stock anal-
+ysis agent that addresses critical gaps in the capabilities of
+LLMs for stock analysis. By integrating real-time financial
+databases, quantitative tools, and an instruction-tuned LLM,
+FinSphere demonstrates superior performance in generating
+comprehensive stock analyses. The development and release
+of Stocksis, a high-quality dataset for enhancing LLMs’ stock
+analysis capabilities, and AnalyScore, a systematic evalu-
+ation framework, provide valuable resources for advancing
+research in AI-powered financial analysis. Our experimen-
+tal results indicate that FinSphere consistently outperforms
+general-purpose, domain-specific LLMs and Agent systems
+across multiple evaluation dimensions, highlighting the ef-
+fectiveness of our integrated approach.
+
+
+[Page 6]
+A AnalyScore Details
+AnalyScore, introduced in Section 2.1, is fully presented in
+this section, hoping to promote related research in academia
+and industry. Please refer to Table 4 for the specific composi-
+tion of AnalyScore.
+B Dimensional Analysis and Visualization
+To further investigate the comparative strengths of FinSphere,
+we conduct a detailed analysis of its performance relative
+to two other leading agent-based systems, FinRobot and
+FinMem. The comparative visualization in Figure 3 high-
+lights performance differences across four critical dimen-
+sions: Conclusion, Content, Expression, and Data capabili-
+ties.
+Conclusion Content Expression Data0
+5
+10
+15
+20
+25
+9.10
+9.90
+9.95
+24.05
+25.95
+27.16
+11.55
+12.85
+14.87
+16.35
+18.85
+18.90
+FinRobot
+FinMem
+FinSphere
+Figure 3: Comparison of FinSphere and Agent-based systems in var-
+ious dimensions.
+From the visualization, FinSphere exhibits the highest
+scores across all dimensions. In the Conclusion category,
+the three models perform relatively closely, with FinSphere
+slightly leading at 9.95, followed by FinMem at 9.90 and
+FinRobot at 9.10, demonstrating their robust ability to derive
+investment insights. However, in the Content dimension, Fin-
+Sphere shows a clear advantage, scoring 27.16, significantly
+surpassing FinMem (25.95) and FinRobot (24.05), reflecting
+its greater analytical depth and content richness.
+The most pronounced gap is observed in the Expression di-
+mension, where FinSphere achieves 14.87, noticeably higher
+than FinMem (12.85) and FinRobot (11.55). This highlights
+FinSphere’s superior logical articulation in financial report-
+ing. In terms of Data utilization, FinSphere (18.90) and Fin-
+Mem (18.85) exhibit comparable performance, both substan-
+tially outperforming FinRobot (16.35), reinforcing their ac-
+curate understanding and grasp of data in financial analysis
+On the other hand, one notable limitation of general-
+purpose LLMs is their heavy dependence on extensive in-
+context examples to generate accurate financial analyses.
+This results in a substantial increase in input token consump-
+tion, leading to higher operational costs for models such as
+GPT-4o, and restricting the usability of small context-window
+LLMs. In contrast, FinSphere’s instruction-tuned architec-
+ture eliminates the need for verbose prompts, allowing it to
+generate high-quality outputs with significantly fewer input
+tokens.
+The combined findings underscore FinSphere’s state-of-
+the-art capabilities in stock analysis, driven by its robust data
+processing and structured analytical reasoning. These results
+further validate its advantage over both standalone LLMs and
+agent-based financial analysis systems. Additionally, Fin-
+Sphere has been released to the public with free access in
+December 2024, with detailed release information provided
+in Appendix G.
+C Testing Prompt
+As a professional investment advisor, you will analyze stock
+based on the following:
+[BACKGROUND INFORMATION - INSERT QUANTI-
+TATIVE TOOL RETURNS HERE]
+[RESPONSE STANDARDS - SEE BELOW]
+[WRITING GUIDELINES - SEE BELOW]
+[FEW-SHOTS]
+[SPECIFIC QUERY]
+C.1 Response Standards
+Step 1: Movement Summary
+• Clearly state whether stock shows unusual movement
+• Summarize the main reason from background informa-
+tion in under 20 words
+Step 2: Conclusions
+1. Short-term Conclusion (based on technical analysis):
+• For bearish signals: suggest caution, observation,
+risk awareness, avoidance, position control
+• For bullish signals: suggest appropriate attention,
+tracking, validation
+• Note: State conclusion only, no explanation needed
+2. Medium/Long-term Conclusion (based on fundamental
+analysis):
+• For bearish signals: suggest caution, observation,
+risk awareness, avoidance, position control
+• For bullish signals: suggest appropriate attention,
+tracking, validation
+• Note: State conclusion only, no explanation needed
+3. Note: Technical analysis showing bullish keywords re-
+quires only direct bullish conclusions. Bullish keywords
+and bearish keywords are shown in the writing guide-
+lines.
+Step 3: Detailed Analysis
+Provide an overview of the specific content in [background
+information] (such as volume and price situation, technical
+
+
+[Page 7]
+aspect, capital aspect, fundamental aspect, and news aspect)
+as a support for generating conclusions, and cannot change
+the financial data performance in the background informa-
+tion. The analysis mode that can be used for reference is as
+follows:
+• V olume and Price Analysis: Current price, price move-
+ment, industry comparison, index comparison, turnover
+rate, trading volume/value, market comparison. Include
+specific data and brief commentary.
+• Technical Analysis: Technical patterns, indicators with
+specific values. Note specialized indicators if present
+(e.g., ”AI Top/Bottom”, ”Bull Institution signals”).
+• Capital Flow Analysis: 5-day cumulative DDX and cap-
+ital flow data analysis. Include specific DDX values.
+• Fundamental Analysis: Financial and fundamental data
+evaluation. Include specific values.
+• News Analysis: Latest news and movement causes, in-
+cluding specific numerical data.
+Step 4: Final Summary
+Restate short-term and medium/long-term conclusions
+with reasons.
+C.2 Writing Guidelines
+• Provide direct conclusions and analysis, maintain con-
+cise response
+• Avoid phrases: ”according to”, ”information shows”,
+”recent performance”, ”current situation”, ”comprehen-
+sive analysis”, ”buy”, ”sell”, ”hold”, ”clear position”,
+”build position”, ”reduce position”, ”increase position”
+• Minimize transition words: ”but”, ”however”, ”then”,
+”finally”
+• Maintain natural flow between paragraphs
+• Bullish keywords: bull point, golden cross, strong up-
+trend, strengthening, active holding, bullish combina-
+tion, active attention
+• Bearish keywords: bear point, death cross, weakening,
+cautious observation, bearish combination, weak adjust-
+ment, weak decline.
+D LLMs’ Response to users’ query
+Here we show the responses of four LLMs (using different
+methods) to real user inquiries, as well as the scores and com-
+ments of experts after evaluation using AnalyScore.
+D.1 FinSphere
+Omat Advanced Materials shows unusual movement, mainly
+due to the company’s plan to build Mingyue Lake Industrial
+Park in Shaoguan High-tech Zone. In the short term, Omat’s
+stock price shows strong momentum, warranting active atten-
+tion. In the medium to long term, given the company’s weak
+fundamentals, caution is advised.
+Regarding price and volume, Omat’s latest stock price is
+25.28 yuan, up 14.60%. It ranks 9th among semiconduc-
+tor stocks, with the sector index up 5.91% and the Shanghai
+Composite Index up 0.09%, significantly outperforming both
+the sector and the broader market. Omat’s turnover rate is
+54.01%, ranking 1st in the semiconductor industry, with to-
+tal trading volume of 172,900 lots and total trading value of
+407 million yuan, ranking 63rd in the industry. While Omat
+shows strong price performance today with high market par-
+ticipation, trading volume is relatively average.
+Technical analysis shows Omat’s RSI formed a golden
+cross above 50 on November 5th, followed by a MACD
+golden cross above the zero axis on November 8th. The
+short-term RSI has reached 80.54, indicating overbought con-
+ditions, suggesting a possible strong adjustment in the near
+term.
+Regarding capital flows, Omat’s 5-day cumulative DDX is
+6.397, indicating strong recent institutional buying. The stock
+shows moderate institutional control, continued margin trad-
+ing inflows, and increased quarterly institutional holdings,
+suggesting positive capital sentiment.
+Financially, Omat’s Q3 2024 report shows significant de-
+clines in revenue and net profit attributable to shareholders.
+The company’s solvency is weak, with declining current and
+quick ratios and steadily rising debt-to-asset ratio, showing
+poor fundamentals compared to industry peers.
+On the news front, Omat acknowledged at its performance
+briefing that due to economic conditions, the company’s per-
+formance is under pressure, with revenue down 22.63% and
+net profit down 77.38% in the first three quarters. The
+company’s plan to build Mingyue Lake Industrial Park in
+Shaoguan High-tech Zone to expand upstream high-purity
+materials and copper alloy new materials business demon-
+strates confidence in future development.
+In conclusion, Omat shows positive short-term technical
+indicators with RSI and MACD golden crosses warranting
+attention. For the medium to long term, given weak funda-
+mentals, poor performance, and weak solvency, caution is
+advised. Meanwhile, the Bull Force Index signals an entry
+opportunity, suggesting investors watch for potential trading
+opportunities.
+Score and comments from experts using AnalyScore.
+FinSphere’s analysis clearly identifies the causes of un-
+usual price movements and investment recommendations
+with complete data citations, including sector comparisons.
+The conclusions match the data: based on strong technical
+indicators but weak fundamentals, it provides short-term fo-
+cus and mid-term cautious recommendations. The analysis
+across different dimensions is logical with sufficient data sup-
+port. Specific scores are as follows:
+• Conclusion (10/20):
+– Clear distinction between short-term and mid-to-
+long-term recommendations
+– Data-driven investment advice
+– Lacks personalized recommendations
+• Content (35/45):
+– Covers 5 core dimensions (volume/price, technical,
+capital flow, financial, news)
+– Professional and in-depth analysis across dimen-
+sions
+
+
+[Page 8]
+– Strong logical consistency
+– Lacks personalization
+• Expression (15/15):
+– Clear structure with hierarchical organization
+– Accurate use of professional terminology
+– Deep analysis with insights
+• Data (20/20):
+– Comprehensive data dimensions (¿3 dimensions)
+– Accurate data citations with comparative analysis
+• Total: 80
+D.2 GPT-4o with few-shot
+Omat Advanced Materials shows unusual movement due to
+its planned Mingyue Lake Industrial Park project in Shaoguan
+High-tech Zone, which has boosted market expectations. The
+stock deserves moderate attention in both short and medium
+terms.
+Regarding price and volume, Omat’s latest price is 25.28
+yuan, up 14.60%, ranking 9th in the semiconductor indus-
+try. The semiconductor sector index stands at 2,740.03, up
+5.91%. The Shanghai Composite Index is at 3,455.28, up
+0.09%. Omat’s turnover rate of 54.01% ranks first in the in-
+dustry, with total trading volume of 172,900 lots and trading
+value of 407 million yuan, ranking 63rd. The stock shows
+strong price gains and high market activity.
+Technically, Omat formed an RSI golden cross above 50
+on November 5th, followed by a MACD golden cross above
+the zero axis on November 8th, maintaining strong momen-
+tum. The current RSI of 80.54 indicates overbought condi-
+tions, suggesting potential near-term adjustment.
+Capital flow analysis shows a 5-day cumulative DDX of
+6.397, indicating strong institutional buying and moderate in-
+stitutional control, with decisive margin trading inflows.
+Fundamentally, Omat’s Q3 2024 report shows revenue of
+297 million yuan for the first three quarters, down 22.63%
+year-over-year, and net profit of 9.8746 million yuan, down
+77.38%. The company’s solvency is weak, with current ratio
+down 11.42%, quick ratio down 12.27%, and steadily rising
+debt-to-asset ratio.
+Recent news indicates the company’s plan to build
+Mingyue Lake Industrial Park in Shaoguan High-tech Zone,
+expanding upstream operations, demonstrating confidence in
+future development. The market views positively the com-
+pany’s multi-channel funding approach for steady project im-
+plementation.
+In conclusion, Omat warrants moderate short-term atten-
+tion given technical golden crosses and strong momentum.
+Medium-term moderate attention is advised, as despite ex-
+pansion plans, fundamental data remains weak, requiring
+careful monitoring.
+Score and comments from experts using AnalyScore.
+GPT-4o with few-shot’s analysis begins with vague conclu-
+sions: ”worth moderate attention in short term, should pay
+appropriate attention in medium to long term” lacks a clear
+stance; while data citations are complete, the analysis lacks
+depth; technical analysis is oversimplified and fails to fully
+interpret indicator meanings; the conclusion section lacks
+sufficient reasoning for investment recommendations. Spe-
+cific scores are as follows:
+• Conclusion (10/20):
+– Ambiguous conclusions
+– Lack of specific investment recommendations
+– Insufficient reasoning
+• Content (25/45):
+– Relatively complete dimensional coverage
+– Insufficient depth of analysis
+– Simplified technical interpretation
+• Expression (15/15):
+– Basic clear structure
+– Plain expression
+– Lacks insights
+• Data (15/20):
+– Complete data citations
+– Insufficient data interpretation
+• Total: 65
+D.3 QWen2-72B with few-shot
+Fundamentally, Omat Advanced Materials reported revenue
+of 297 million yuan for the first three quarters of 2024,
+down 22.63% year-over-year, with net profit of 9.8746 mil-
+lion yuan, down 77.38%. Profitability metrics are weak, with
+ROE at 1.5%, net profit margin at 3.33%, and gross margin
+at 18.87%. Valuation metrics show P/E at 264.02 and P/B at
+4.12, ranking at 46.5% and 64.56% in the industry respec-
+tively.
+Technical analysis shows significant price volatility with
+10-day amplitude and range at 48.21% and 19.54% respec-
+tively. The 5-day, 10-day, and 20-day moving averages are
+21.72, 21.87, and 21.87 yuan respectively. While price is
+above these averages, their bearish alignment suggests poten-
+tial near-term pressure.
+Capital flow analysis shows volatile institutional flows over
+the past 10 days, with overall net outflows. Margin trading
+balance stands at 7.0404 million yuan, representing 0.44% of
+float, indicating low leverage participation.
+As a STAR Market-listed company, Omat has raised funds
+for projects including high-end sputtering target production
+facilities. The company’s products serve various sectors in-
+cluding semiconductor displays, touch screens, architectural
+glass, decorative coating, IC packaging, solar photovoltaic,
+and power batteries.
+In conclusion, Omat requires caution in the short term
+given bearish technical alignment and weak capital flows.
+Medium to long-term focus should be on performance im-
+provement and industry development opportunities. In-
+vestors should closely monitor company performance, indus-
+try trends, and market capital flows.
+
+
+[Page 9]
+Score and comments from experts using AnalyScore.
+QWen2-72B with few-shot’s analysis lacks explanation of
+the causes behind unusual movements; technical analysis is
+disconnected from current trends and fails to reflect recent
+changes; capital flow descriptions are too general without
+specific data support; news analysis is superficial and fails
+to demonstrate deep analysis of company strategy; conclu-
+sions are overly conservative and don’t match some positive
+signals. Specific scores are as follows:
+• Conclusion (5/20):
+– Overly conservative conclusions
+– Mismatched with data support
+– Vague recommendations
+• Content (25/45):
+– Lacks analysis of abnormal movement causes
+– Disconnected technical analysis
+– Superficial multi-dimensional analysis
+• Expression (10/15):
+– Complete but weak hierarchical structure
+– Lacks professional expression
+• Data (15/20):
+– Basic complete data dimensions
+– Insufficient data support in some dimensions
+• Total: 55
+E A complete example of Stocksis
+Due to space limitations, we can only show part of the content
+of a sample of Stocksis in Table 1 in the main text. We show
+the complete content of the same sample in Table 5 here.
+In future work, we plan to design detailed prompts that en-
+able LLMs to replace human experts in evaluating analysis
+reports using the AnalyScore criteria.
+F Stocksis Collection and Evaluation Costs
+To further quantify the value of Stocksis and AnalyScore, we
+disclose the expert-curated Stocksis dataset containing 5,000
+entries and the human evaluation costs for assessing model
+outputs using AnalyScore. Excluding the costs of quantita-
+tive tool calls, the expert compilation of comprehensive anal-
+yses costs approximately $75,000 (averaging $15 per entry).
+The expert evaluation of 100 outputs from each of the models
+using AnalyScore criteria cost approximately $12,000 (aver-
+aging $10 per evaluation across all groups). These figures do
+not include the additional costs associated with expert devel-
+opment of the AnalyScore evaluation framework.
+In future work, we plan to design detailed prompts that en-
+able LLMs to replace human experts in evaluating analysis
+reports using the AnalyScore criteria.
+G Product Release Information
+As FinSphere, a powerful stock analysis agent developed by
+a stock investment advisory company—we currently have a
+fully functional product demo and have made it freely avail-
+able to the public in December 2024. Due to double-blind
+review requirements, we regrettably cannot showcase this
+promising product to the reviewers at this stage. However,
+we look forward to including access information for this free
+public tool in the final version of our paper.
+H Detailed testing quiries
+Here we disclose 100 queries used for testing and experts’
+scores on FinSphere. For details, please check the Table 6, 7
+and 8.
+I Limitation
+FinSphere’s performance depends on the accuracy and avail-
+ability of real-time financial data, which may impact analy-
+sis reliability. The AnalyScore framework still requires hu-
+man validation, limiting full automation. Additionally, Fin-
+Sphere may struggle with nuanced financial reasoning and
+novel market events beyond its training. Future work should
+focus on improving real-time adaptability, reducing reliance
+on curated data, and expanding domain coverage for broader
+financial applications.
+
+
+[Page 10]
+Evaluation Dimensions Subdimensions Specific Standards Scores
+Conclusion
+(Total Score: 20)
+Generates personalized conclusions based on investment
+preferences and risk profiles
+Provides explicit conclusions tailored to user personas
+Implements differentiated investment strategies
+Aligns with risk tolerance and investment horizons
+20
+Non-personalized but comprehensive analysis
+Covers diverse investment styles (conservative to aggressive)
+Enables user self-selection of strategies
+Shows broad analytical framework applicability
+10
+Lacks personalization elements
+Single investment style analysis
+Limited analytical perspective
+Insufficient consideration of preferences
+5
+No conclusive elements present 0
+Content
+(Total Score: 45)
+Analysis
+Dimensions
+Leverages interaction history for personalization
+Includes ≤ 2 non-personalized dimensional analyses
+Shows accuracy and forward-looking insights
+30
+Uses interaction history for personalization
+Provides accurate, targeted content
+Presents actionable recommendations
+25
+Non-personalized analysis across ≤ 5 dimensions
+Demonstrates analytical accuracy and logical rigor 20
+Analysis across 4 core dimensions
+Includes real-time market analysis
+Maintains accuracy and timeliness
+18
+Analysis across 4 core dimensions
+Maintains analytical accuracy 15
+Analysis across 3 core dimensions
+Demonstrates accuracy 10
+Analysis across 2 core dimensions
+Maintains basic accuracy 5
+Single-dimensional analysis
+Limited but accurate content 0
+Logical Consistency Logical consistency across all components 15
+Exhibits logical inconsistencies 0
+Expression
+(Total Score: 15)
+Structure Systematic organization 5
+Lacks structure 0
+Language
+Clear communication with hierarchical emphasis
+Logically rigorous with insightful perspectives
+In-depth analytical content
+10
+Clear content with essential coverage
+Basic logical flow
+Superficial analysis
+8
+Comprehensible but unclear expression
+Discontinuous logic
+Surface-level analysis
+5
+Unclear and difficult to comprehend
+Logical inconsistencies
+Lacks substantive content
+0
+Data
+(Total Score: 20)
+Extensive data (¿3 dimensions) 20
+Substantial data (3 dimensions) 15
+Moderate data (2 dimensions) 10
+Limited data (1 dimension) 5
+No data utilization 0
+Table 4: Detailed components of AnalyScore
+
+
+[Page 11]
+Prompt with Background Information (input) Expert-Edited Analysis (label)
+System Instruction. You are a proficient investment assistant, adept at stock analysis
+tasks. You demonstrate a robust aptitude for comprehending user-provided[Question] and
+meticulously organizing them into accurate and standardized analysis reports. You utilize
+the [Background Information] provided by the corresponding quantitative tools to respond
+to users in a systematic and standardized manner.
+Background Information (get from quantitative tools).
+• V olume and Price Analysis: TF Securities is currently trading at 4.48, showing a
+0.90% increase. The stock ranks 896th overall and 8th within the securities industry.
+The securities sector index stands at 1580.86 with a 0.09% increase, ranging between
+a high of 1623.79 and a low of 1553.31, with a total sector trading value of 75.187
+billion yuan. While the Shanghai Composite Index is at 3189.89, down 0.36%, TF
+Securities demonstrates strong trading activity with a 17.65% turnover rate (ranking
+102nd overall and 1st in the securities industry). On October 16th, the stock recorded
+an impressive trading volume of 152.947 million shares with a total trading value
+of 6.970 billion yuan, leading both the overall market and the securities industry in
+trading volume.
+• Technical Analysis: A bullish engulfing pattern emerged in TF Securities’ chart on
+September 13th, signaling potential short-term strength. The bullish outlook remains
+valid as long as the stock maintains support above the pattern’s key level of 2.68
+yuan.
+• Capital Flow Analysis: Recent capital flow indicators show mixed signals for TF
+Securities. While the 5-day cumulative DDX of -14.865 indicates significant selling
+pressure from major players, the stock maintains medium-level control by market
+forces with an optimistic outlook. The strong inflow in margin trading and increased
+institutional holdings quarter-over-quarter suggest positive market sentiment and po-
+tential medium-term opportunities.
+• Financial Analysis: TF Securities released its 2024 semi-annual report on August
+31st, which triggered a 23.75% stock price increase in the subsequent 10 trading
+days. The report revealed significant decreases in non-recurring net profit, revenue,
+and net profit attributable to the parent company. However, the Q2 2024 quarterly
+report showed substantial quarter-over-quarter improvements in these same metrics,
+indicating a potential turnaround in financial performance.
+• Fundamental Analysis: The company’s fundamental structure heavily relies on fee
+and commission income, which accounts for 131.22% of total revenue. When com-
+pared to industry peers, TF Securities shows below-average fundamental indicators.
+As a member of the securities industry according to SWSI classification, the com-
+pany’s growth metrics raise concerns, with negative year-over-year growth rates in
+revenue, net profit, and earnings per share.
+• Market Movement Catalysts: Recent market movements have been influenced by
+several key events. The appointment of Pang Jiemin as the company’s Party Secretary
+has drawn attention, with the Hubei Hongtai Group’s Party Secretary and Chairman
+emphasizing the importance of political awareness and supporting the new leader-
+ship. The company subsequently held a cadre meeting to announce this appointment,
+highlighting commitments to party leadership and annual operational goals. Ad-
+ditionally, the broader market environment has been favorable, with Shanghai and
+Shenzhen markets’ trading volume exceeding 2 trillion yuan, contributing to TF Se-
+curities’ strong trading performance of 19.4 billion yuan, benefiting from the overall
+positive momentum in the securities sector.
+Question. Please analyze TF Securities.
+TF Securities has shown unusual market move-
+ment due to active market trading, benefiting
+along with the broader securities sector. In the
+short term, there are bullish signals warrant-
+ing attention. However, caution is advised for
+medium to long-term positions due to weak fun-
+damentals.
+Regarding volume and price, TF Securities’ lat-
+est stock price is 4.48 yuan, up 0.90%. Today’s
+turnover rate is 17.65%, ranking first in the secu-
+rities industry, with a trading volume of 152.947
+million shares and a trading value of 6.970 billion
+yuan. The stock ranks 8th in its industry for price
+gains and is outperforming the Shanghai Compos-
+ite Index, which is down 0.36%. The volume and
+price performance show active market participa-
+tion and high overall engagement.
+On the technical front, TF Securities formed a
+bullish engulfing pattern on September 13th, in-
+dicating short-term strength. The bullish outlook
+remains valid as long as the price maintains above
+2.68 yuan. Additionally, institutional analysis tools
+indicate strong institutional control, suggesting po-
+tential opportunities for investors.
+From a capital flow perspective, TF Securities’ 5-
+day cumulative DDX of -14.865 indicates signifi-
+cant selling pressure from major players and strong
+bearish sentiment. Despite medium-level institu-
+tional control and determined margin trading in-
+flows suggesting relatively active capital participa-
+tion, caution is needed regarding short-term capital
+flows.
+Fundamentally, TF Securities’ 2024 semi-annual
+report shows significant decreases in non-recurring
+net profit, revenue, and net profit attributable to the
+parent company, indicating poor overall growth.
+Moreover, the company’s heavy reliance on fee
+and commission income as its main revenue source
+places it at a disadvantage compared to industry
+peers.
+On the news front, TF Securities recently held
+a cadre meeting emphasizing strengthened party
+leadership and commitment to annual operational
+goals. Furthermore, the Shanghai and Shenzhen
+markets’ trading volume has consistently exceeded
+2 trillion yuan, with TF Securities reaching 19.4
+billion yuan in trading value, positively impacting
+the securities sector.
+In conclusion, TF Securities presents short-
+term opportunities due to the bullish engulf-
+ing pattern in technical analysis. However, in-
+vestors should maintain caution in medium to
+long-term positions due to weak fundamentals.
+Investment decisions should be made with close
+attention to market trends and company devel-
+opments.
+Table 5: A complete example of Stocksis. Same sample as in Table 1. The average cost of comprehensive analysis written by experts is $10
+per query, with detailed cost breakdowns available in Appendix F.
+
+
+[Page 12]
+Query Qual Conc Cont Expr Data Score
+Can you analyze Fueneng Dongfang? 1 10 35 15 15 75
+Please analyze the situation of Oulai New Materials
+stock.
+1 10 35 15 20 80
+Conduct a comprehensive analysis of Kangxi Communi-
+cations.
+1 10 35 15 15 75
+Comprehensive analysis of Chuangyitong. 0 10 35 15 20 80
+Can you provide a detailed interpretation of Lanhai
+Huanteng stock?
+1 10 20 15 20 65
+Please analyze the current status of Guixin Technology
+stock.
+1 10 33 15 15 73
+Is Zhejiang Hengwei worth investing in? Please analyze. 1 10 35 15 20 80
+Conduct a comprehensive analysis of Anshuo Informa-
+tion.
+1 10 35 13 15 73
+I am interested in Chenyi Intelligence. Could you analyze
+it?
+0 10 10 15 15 50
+Diagnose Hailun Zhe. 1 10 10 15 20 55
+Can you conduct an in-depth analysis of Fuguang Co.,
+Ltd.?
+1 10 35 15 15 75
+Please analyze Haooubo. 1 10 5 15 20 50
+How is Canxin Co., Ltd.? 1 10 30 15 20 75
+Comprehensive analysis of Saiwei Intelligence. 0 10 30 15 20 75
+Please provide a comprehensive evaluation of Cigu Tech-
+nology.
+0 10 30 15 15 70
+Please comment on the overall performance of Sainuo
+Medical.
+0 10 10 15 15 50
+How is Longli Technology? 1 10 30 15 15 70
+Can you provide a comprehensive analysis of Aofu Envi-
+ronmental Protection?
+1 10 30 15 15 70
+What is the comprehensive situation of Yubang New Ma-
+terials?
+1 10 30 15 20 75
+Please conduct a comprehensive review of Zhuojin Co.,
+Ltd.
+1 10 10 15 15 50
+How is the performance of Huaguang New Materials in
+all aspects?
+1 10 5 15 20 50
+Please conduct a comprehensive analysis of Jiankang. 1 10 25 15 15 65
+Overall analysis of Taifu Pumps. 1 10 30 15 15 70
+Comment on Zhongfu Information. 1 10 25 15 20 70
+Please provide an analysis of Daoshi Technology. 1 10 30 15 20 75
+Comprehensive analysis of Ruisong Technology. 1 10 30 15 20 75
+Comprehensive analysis of Zhongyi Technology. 0 10 30 15 20 75
+Can you provide a comprehensive evaluation and analysis
+of Aerospace Hongtu?
+1 10 30 15 10 65
+Please give specific analysis opinions on Tengjing Tech-
+nology.
+1 10 30 10 20 70
+Comprehensive analysis of Zhenyou Technology. 1 10 25 15 10 60
+How is the overall situation of Huahai Chengke? 0 10 35 15 20 80
+Table 6: Testing queries and experts’ scores on FinSphere (1/3)
+
+
+[Page 13]
+Query Qual Conc Cont Expr Data Score
+Can you conduct a comprehensive analysis of Xingqiu
+Graphite?
+1 10 35 15 20 80
+How is the comprehensive analysis of Shanghai Ailu? 1 10 30 15 20 75
+I want to know the details of Taihe Technology. Can you
+analyze it for me?
+1 10 30 15 20 75
+Comprehensive analysis of Dagang Holdings. 1 10 25 15 20 70
+Please analyze Aorui De and provide investment advice. 1 10 25 15 20 70
+Can you analyze Sunshine Real Estate? 1 10 25 15 20 70
+Can you conduct a comprehensive analysis of Hong-
+baoli?
+1 10 25 15 20 70
+Can you analyze Yangzi New Materials for me? 1 10 25 15 20 70
+How has Chunxing Precision performed recently? Can
+you analyze it?
+1 10 35 15 20 80
+Can you provide professional analysis on Tuoshan Heavy
+Industry?
+1 10 25 15 20 70
+I am interested in the analysis of Yayi Technology. Can
+you share it?
+1 10 20 15 20 65
+What are the key points to watch in Bofei Electric? Can
+you analyze it?
+1 10 25 15 20 70
+Can you conduct a detailed analysis of Kangliyuan? 1 10 25 15 20 70
+How comprehensive is the strength of Hope Co., Ltd.? 1 10 25 15 20 70
+Please conduct a comprehensive analysis of Kuntai Co.,
+Ltd.
+1 10 25 15 20 70
+Can you provide comprehensive feedback on Taimusi? 1 10 25 15 20 70
+What do you think about Hongming Co., Ltd.? 1 10 25 15 20 70
+Can you look at Wuzhou Medical for me? 1 10 25 15 20 70
+How is Zhejiang Liming recently? 1 10 25 15 20 70
+Please analyze Baolijia, is it good? 1 10 25 13 15 63
+Can you analyze Lvlian Technology? 1 10 25 13 15 63
+Is Shanghai Hejing worth buying? 1 10 25 13 20 68
+What do you think of Qiaoyuan Co., Ltd.? 1 10 25 15 20 70
+How about Zhongji Huanke? 1 10 25 15 20 70
+Can you talk about Kangguan Technology stock? 1 10 25 15 20 70
+Tell me about Guanghe Technology. 1 10 25 15 20 70
+Is Xingchen Technology doing well recently? 1 10 25 15 20 70
+Please interpret Chengdu Huawei stock. 1 10 25 15 20 70
+How about Jinjiang Shipping? 1 10 30 15 20 75
+What about Jinhui Co., Ltd.? 1 10 25 15 20 70
+Can you provide an investment analysis of Dazhu CNC? 1 10 25 15 20 70
+Is Laplace stock good? 1 5 20 15 15 55
+What do you think of Shennong Group stock? 1 10 30 15 20 75
+Table 7: Testing queries and experts’ scores on FinSphere (2/3)
+
+
+[Page 14]
+Query Qual Conc Cont Expr Data Score
+Comprehensive analysis of Shichuang Energy. 1 10 25 15 20 70
+Comprehensive analysis of Ningbo Ocean. 1 10 25 15 20 70
+Comprehensive analysis of Longqi Technology. 1 10 25 15 20 70
+Please evaluate Fuerjia Co., Ltd. as a whole. 1 10 25 15 20 70
+Can you provide an overall evaluation of Yongxing Co.,
+Ltd.?
+1 10 25 15 20 70
+Comprehensive analysis of Hekeda Co., Ltd. 1 10 25 15 20 70
+Comprehensive analysis of Craftsman Home. 1 10 25 15 20 70
+Comprehensive analysis of International Composite Ma-
+terials.
+1 10 25 15 20 70
+Please diagnose and analyze Suzhou Tianmai. 0 10 20 15 15 60
+Can you diagnose the stock status of Weidian Physiol-
+ogy?
+0 10 25 15 20 70
+Please diagnose Weidao Nano. 1 10 25 15 20 70
+Can you diagnose stock 6912? 0 10 20 15 15 60
+How is Hualan Vaccine stock? 1 10 25 15 20 70
+Please diagnose Mousse Co., Ltd.’s stock comprehen-
+sively.
+1 10 25 15 20 70
+Can you conduct an in-depth analysis of Huabao New
+Energy stock?
+1 10 25 15 20 70
+Please diagnose Haikan Co., Ltd.’s stock. 1 10 25 15 20 70
+Can you provide a professional analysis of Hongsheng
+Huayuan?
+1 10 25 15 20 70
+Please diagnose China Eastern Airlines. 1 10 30 15 20 75
+Can you analyze the stock of Huali Group in detail? 1 10 25 15 20 70
+Please analyze Postal Savings Bank. 1 10 25 15 20 70
+How to analyze the market trend of ICBC? 1 10 30 15 20 75
+How about Guizhou Moutai stock? 1 10 30 15 20 75
+Please analyze Agricultural Bank of China stock. 1 10 25 15 20 70
+Can you analyze China Construction Bank in detail? 1 10 30 15 20 75
+China Petroleum, diagnose it. 1 10 30 15 20 75
+Can you conduct a comprehensive analysis of China Mo-
+bile?
+0 10 25 15 20 70
+Is China Bank suitable for long-term holding? 1 10 30 15 20 75
+Please analyze China Life Insurance stock. 1 10 30 15 20 75
+Please research Ningde Times stock. 1 10 30 15 20 75
+Please analyze Zhaosheng Micro stock. 1 10 25 15 20 70
+Please analyze Xinda Securities stock. 1 10 25 15 20 70
+Analyze BAIC Blue Valley. 1 10 33 15 20 78
+How to view COSCO Energy stock? 1 10 25 15 20 70
+Analyze Kelun Pharmaceutical stock. 1 10 25 15 20 70
+Can you conduct a comprehensive diagnosis of New In-
+dustries stock?
+1 10 30 15 20 75
+Comprehensive analysis of Shengyi Technology. 1 10 25 15 20 70
+Table 8: Testing queries and experts’ scores on FinSphere (3/3)
+
+
+[Page 15]
+References
+Rithesh Bhat and Bhanu Jain. Stock price trend prediction
+using emotion analysis of financial headlines with distilled
+llm model. In Proceedings of the 17th International Con-
+ference on PErvasive Technologies Related to Assistive En-
+vironments, pages 67–73, 2024.
+Zhiyu Chen, Wenhu Chen, Charese Smiley, Sameena Shah,
+Iana Borova, Dylan Langdon, Reema Moussa, Matt Beane,
+Ting-Hao Huang, Bryan R Routledge, et al. Finqa: A
+dataset of numerical reasoning over financial data. In Pro-
+ceedings of the 2021 Conference on Empirical Methods in
+Natural Language Processing, pages 3697–3711, 2021.
+Jian Chen, Peilin Zhou, Yining Hua, Yingxin Loh, Kehui
+Chen, Ziyuan Li, Bing Zhu, and Junwei Liang. Fintex-
+tqa: A dataset for long-form financial question answering.
+arXiv preprint arXiv:2405.09980, 2024.
+Han Ding, Yinheng Li, Junhao Wang, and Hang Chen. Large
+language model agent in financial trading: A survey.arXiv
+preprint arXiv:2408.06361, 2024.
+Udit Gupta. Gpt-investar: Enhancing stock investment strate-
+gies through annual report analysis with large language
+models. arXiv preprint arXiv:2309.03079, 2023.
+Shijie Han, Haoqiang Kang, Bo Jin, Xiao-Yang Liu, and
+Steve Y Yang. Xbrl agent: Leveraging large language
+models for financial report analysis. In Proceedings of the
+5th ACM International Conference on AI in Finance, pages
+856–864, 2024.
+Allen H Huang, Hui Wang, and Yi Yang. Finbert: A large
+language model for extracting information from financial
+text. Contemporary Accounting Research, 40(2):806–841,
+2023.
+Pranab Islam, Anand Kannappan, Douwe Kiela, Rebecca
+Qian, Nino Scherrer, and Bertie Vidgen. Financebench:
+A new benchmark for financial question answering. arXiv
+preprint arXiv:2311.11944, 2023.
+Alex Kim, Maximilian Muhn, and Valeri Nikolaev. Finan-
+cial statement analysis with large language models. arXiv
+preprint arXiv:2407.17866, 2024.
+David Krause. Large language models and generative ai in
+finance: an analysis of chatgpt, bard, and bing ai. Bard,
+and Bing AI (July 15, 2023), 2023.
+Yang Lei, Jiangtong Li, Ming Jiang, Junjie Hu, Dawei Cheng,
+Zhijun Ding, and Changjun Jiang. Cfbenchmark: Chinese
+financial assistant benchmark for large language model.
+arXiv preprint arXiv:2311.05812, 2023.
+Wentao Li, Yuan Zhang, Xiao Yang, Yuxin Liu, Yan Zhu,
+Yixuan Liu, and Wei Chen. Finops: An open-source
+framework for llm-based financial agent. arXiv preprint
+arXiv:2311.18530, 2023.
+Yinheng Li, Shaofei Wang, Han Ding, and Hang Chen. Large
+language models in finance: A survey. In Proceedings of
+the fourth ACM international conference on AI in finance,
+pages 374–382, 2023.
+Huaxia Li, Haoyun Gao, Chengzhang Wu, and Miklos A
+Vasarhelyi. Extracting financial data from unstructured
+sources: Leveraging large language models. Journal of
+Information Systems, pages 1–22, 2024.
+Zhuang Liu, Degen Huang, Kaiyu Huang, Zhuang Li, and
+Jun Zhao. Finbert: A pre-trained financial language rep-
+resentation model for financial text mining. In Proceed-
+ings of the twenty-ninth international conference on inter-
+national joint conferences on artificial intelligence , pages
+4513–4519, 2021.
+Aixin Liu, Bei Feng, Bing Xue, Bingxuan Wang, Bochao Wu,
+Chengda Lu, Chenggang Zhao, Chengqi Deng, Chenyu
+Zhang, Chong Ruan, et al. Deepseek-v3 technical report.
+arXiv preprint arXiv:2412.19437, 2024.
+Chenghao Liu, Arunkumar Arulappan, Ranesh Naha, Aniket
+Mahanti, Joarder Kamruzzaman, and In-Ho Ra. Large lan-
+guage models and sentiment analysis in financial markets:
+A review, datasets and case study. IEEE Access, 2024.
+Haowei Ni, Shuchen Meng, Xupeng Chen, Ziqing Zhao,
+Andi Chen, Panfeng Li, Shiyao Zhang, Qifu Yin, Yuanqing
+Wang, and Yuxi Chan. Harnessing earnings reports for
+stock predictions: A qlora-enhanced llm approach. arXiv
+preprint arXiv:2408.06634, 2024.
+Yuqi Nie, Yaxuan Kong, Xiaowen Dong, John M Mulvey,
+H Vincent Poor, Qingsong Wen, and Stefan Zohren. A
+survey of large language models for financial applica-
+tions: Progress, prospects and challenges. arXiv preprint
+arXiv:2406.11903, 2024.
+Kishore Papineni, Salim Roukos, Todd Ward, and Wei-Jing
+Zhu. Bleu: a method for automatic evaluation of machine
+translation. In Proceedings of the 40th annual meeting of
+the Association for Computational Linguistics, pages 311–
+318, 2002.
+Taejin Park. Enhancing anomaly detection in financial mar-
+kets with an llm-based multi-agent framework. arXiv
+preprint arXiv:2403.19735, 2024.
+Lin CY Rouge. A package for automatic evaluation of sum-
+maries. In Proceedings of Workshop on Text Summariza-
+tion of ACL, Spain, volume 5, 2004.
+Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski, Mark
+Dredze, Sebastian Gehrmann, Prabhanjan Kambadur,
+David Rosenberg, and Gideon Mann. Bloomberggpt:
+A large language model for finance. arXiv preprint
+arXiv:2303.17564, 2023.
+Ruoxu Wu. Portfolio performance based on llm news
+scores and related economical analysis. Available at SSRN
+4709617, 2024.
+Qianqian Xie, Weiguang Han, Xiao Zhang, Yanzhao Lai,
+Min Peng, Alejandro Lopez-Lira, and Jimin Huang. Pixiu:
+a large language model, instruction data and evaluation
+benchmark for finance. In Proceedings of the 37th Interna-
+tional Conference on Neural Information Processing Sys-
+tems, pages 33469–33484, 2023.
+
+
+[Page 16]
+Yi Yang, Mark Christopher Siy Uy, and Allen Huang. Fin-
+bert: A pretrained language model for financial communi-
+cations. arXiv preprint arXiv:2006.08097, 2020.
+Hongyang Yang, Xiao-Yang Liu, and Christina Dan Wang.
+Fingpt: Open-source financial large language models. Fin-
+LLM at IJCAI, 2023.
+Yi Yang, Yixuan Tang, and Kar Yan Tam. Investlm: A large
+language model for investment using financial domain in-
+struction tuning. arXiv preprint arXiv:2309.13064, 2023.
+Hongyang Yang, Boyu Zhang, Neng Wang, Cheng Guo, Xi-
+aoli Zhang, Likun Lin, Junlin Wang, Tianyu Zhou, Mao
+Guan, Runjia Zhang, et al. Finrobot: An open-source ai
+agent platform for financial applications using large lan-
+guage models. arXiv preprint arXiv:2405.14767, 2024.
+Yangyang Yu, Haohang Li, Zhi Chen, Yuechen Jiang, Yang
+Li, Denghui Zhang, Rong Liu, Jordan W Suchow, and
+Khaldoun Khashanah. Finmem: A performance-enhanced
+llm trading agent with layered memory and character de-
+sign. In Proceedings of the AAAI Symposium Series , vol-
+ume 3, pages 595–597, 2024.
+Boyu Zhang, Hongyang Yang, and Xiao-Yang Liu. Instruct-
+fingpt: Financial sentiment analysis by instruction tuning
+of general-purpose large language models. arXiv preprint
+arXiv:2306.12659, 2023.
+Liwen Zhang, Weige Cai, Zhaowei Liu, Zhi Yang, Wei Dai,
+Yujie Liao, Qianru Qin, Yifei Li, Xingyu Liu, Zhiqiang
+Liu, et al. Fineval: A chinese financial domain knowledge
+evaluation benchmark for large language models. arXiv
+preprint arXiv:2308.09975, 2023.
+Wentao Zhang, Lingxuan Zhao, Haochong Xia, Shuo Sun,
+Jiaze Sun, Molei Qin, Xinyi Li, Yuqing Zhao, Yilei Zhao,
+Xinyu Cai, et al. A multimodal foundation agent for finan-
+cial trading: Tool-augmented, diversified, and generalist.
+In Proceedings of the 30th ACM SIGKDD Conference on
+Knowledge Discovery and Data Mining, pages 4314–4325,
+2024.
+Huaqin Zhao, Zhengliang Liu, Zihao Wu, Yiwei Li, Tianze
+Yang, Peng Shu, Shaochen Xu, Haixing Dai, Lin Zhao,
+Gengchen Mai, et al. Revolutionizing finance with llms:
+An overview of applications and insights. arXiv preprint
+arXiv:2401.11641, 2024.
+Fengbin Zhu, Wenqiang Lei, Youcheng Huang, Chao Wang,
+Shuo Zhang, Jiancheng Lv, Fuli Feng, and Tat-Seng Chua.
+Tat-qa: A question answering benchmark on a hybrid of
+tabular and textual content in finance. InProceedings of the
+59th Annual Meeting of the Association for Computational
+Linguistics and the 11th International Joint Conference on
+Natural Language Processing (Volume 1: Long Papers) .
+Association for Computational Linguistics, 2021.

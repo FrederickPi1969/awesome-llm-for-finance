@@ -1,0 +1,1590 @@
+[Page 1]
+Golden Touchstone: A Comprehensive Bilingual Benchmark for Evaluating
+Financial Large Language Models
+Xiaojun Wu∗1,2 , Junxi Liu∗1,5 , Huanyi Su1,4, Zhouchi Lin1, Yiyan Qi1, Chengjin Xu1,6,
+Jiajun Su1, Jiajie Zhong1, Fuwei Wang1, Saizhuo Wang1,3, Fengrui Hua1,2,
+Jia Li†2 , Jian Guo†1
+1IDEA Research 2The Hong Kong University of Science and Technology (Guangzhou)
+3The Hong Kong University of Science and Technology
+4Nanjing University 5South China Normal University 6DataArcTech Ltd.
+Abstract
+As large language models (LLMs) increasingly
+permeate the financial sector, there is a pressing
+need for a standardized method to comprehen-
+sively assess their performance. Existing finan-
+cial benchmarks often suffer from limited lan-
+guage and task coverage, low-quality datasets,
+and inadequate adaptability for LLM evalua-
+tion. To address these limitations, we introduce
+Golden Touchstone, a comprehensive bilin-
+gual benchmark for financial LLMs, encom-
+passing eight core financial NLP tasks in both
+Chinese and English. Developed from exten-
+sive open-source data collection and industry-
+specific demands, this benchmark thoroughly
+assesses models’ language understanding and
+generation capabilities. Through compara-
+tive analysis of major models such as GPT-
+4o, Llama3, FinGPT, and FinMA, we reveal
+their strengths and limitations in processing
+complex financial information. Additionally,
+we open-source Touchstone-GPT, a financial
+LLM trained through continual pre-training
+and instruction tuning, which demonstrates
+strong performance on the bilingual bench-
+mark but still has limitations in specific tasks.
+This research provides a practical evaluation
+tool for financial LLMs and guides future
+development and optimization. The source
+code for Golden Touchstone and model weight
+of Touchstone-GPT have been made pub-
+licly available at https://github.com/
+IDEA-FinAI/Golden-Touchstone.
+1 Introduction
+The rapid development of both proprietary (Brown
+et al., 2020; Ouyang et al., 2022; OpenAI, 2023;
+Anthropic, 2024; Team et al., 2023) and open-
+source Large Language Models (LLMs) (Touvron
+et al., 2023a,b; AI@Meta, 2024; Bai et al., 2023;
+*Equal Contribution: wuxiaojun@idea.edu.cn, liu-
+junxi@m.scnu.edu.cn
+†Corresponding Author: jialee@connect.hkust-gz.edu.cn,
+guojian@idea.edu.cn
+Yang et al., 2024a; DeepSeek-AI, 2024; Young
+et al., 2024; Zeng et al., 2023; Baichuan, 2023;
+Gan et al., 2023; Zhang et al., 2022) has led to their
+increasing application in various fields, including
+finance (Wu et al., 2023; Lopez-Lira and Tang,
+2023), healthcare (Thirunavukarasu et al., 2023;
+Tian et al., 2023), and law (Cui et al., 2023; Xiao
+et al., 2021). Among these, the financial sector
+shown in Figure.1 stands out as a critical area for
+LLM application due to its rich textual information
+and high practical value.
+In recent years, a variety of advanced financial
+large language models (FinLLMs) have emerged,
+capable of specialized tasks such as financial senti-
+ment analysis, content summarization, stock move-
+ment prediction, and question answering (Yang
+et al., 2023; Xie et al., 2023; Li et al., 2023; Chen
+et al., 2023; Zhang and Yang, 2023). These models
+leverage unique frameworks and tuning methods
+to enhance their performance on domain-specific
+benchmarks, offering robust solutions for real-
+world financial applications. However, existing
+financial benchmarks often suffer from limited lan-
+guage and task coverage, low-quality datasets, and
+inadequate adaptability for LLM evaluation, lead-
+ing to poor evaluation results (Shah et al., 2022;
+Lu et al., 2023; Xie et al., 2023, 2024; Yang et al.,
+2023; Lei et al., 2023; Zhang et al., 2023).
+To address these challenges, we propose Golden
+Touchstone, a comprehensive bilingual benchmark
+for financial LLMs, encompassing eight core fi-
+nancial NLP tasks in both Chinese and English.
+Golden Touchstone provides high-quality datasets,
+task-aligned metrics, and instructional templates
+to guide LLMs in generating task-appropriate re-
+sponses. We evaluated several state-of-the-art mod-
+els, including GPT-4o, Qwen-3, Llama-3, FinGPT,
+and FinMA, on this benchmark. Results indicate
+that while these models perform well on tasks such
+as sentiment analysis and entity extraction, there
+is significant room for improvement in areas like
+arXiv:2411.06272v2  [cs.CL]  8 Dec 2025
+
+
+[Page 2]
+Analyze the sentiment of this statement extracted 
+from a financial news article. 
+Given a text T, and several options, according to 
+the question posed in the text T to choose the 
+most appropriate option from the options as the 
+answer.
+Please classify the performance of the company's 
+stock based on the impact of news on the stock 
+data: price decrease or price increase.
+······
+Positive.
+C.
+Increase.
+The investment method that typically requires the 
+greatest amount of or most thorough due 
+diligence from an investor is:
+Option A: fund investing.
+Option B: co-investing.
+Option C: direct investing.
+Shares of Standard Chartered ( STAN ) rose 1.2 
+% in the FTSE 100, while Royal Bank of 
+Scotland ( RBS
+) shares rose 2 % and Barclays shares ( BARC ) 
+( BCS ) were up 1.7 %.
++
++
+Midea Group's subsidiary pilot program for a 
+diversified employee stock ownership plan must 
+align with the company's "Smart Home + 
+Intelligent Manufacturing" dual-smart strategy or 
+belong to a company-intended key cultivation and 
+relatively independent industrial platform.
+Financial 
+Sentiment 
+Analysis
+Chartered 
+Financial 
+Analyst (CFA) 
+Stock 
+Movement 
+Prediction
+instruction input answer
++
+Use your understanding of the content to express 
+the main ideas and crucial details in a shorter, 
+coherent, and natural sounding text.
++
+The global next-generation display materials 
+market is expected to reach $182.83 billion by 
+2026. The growth of the market can be attributed 
+to the adoption of organic light-emitting diode 
+(OLED) technology in the display industry. There 
+has been significant developments in the display 
+industry in recent years. Many manufacturers 
+have moved away from ……
+Global Next Generation 
+Display Materials 
+Markets 2021-2026: 
+Smartphones, 
+Televisions and Monitors, 
+Smartwatches, 
+Automotive Displays, 
+Laptops and Tablets.
+Financial 
+Content
+Analysis
+Figure 1: Financial large language models are designed to perform specialized tasks such as financial sentiment
+analysis, content analysis, stock movement prediction, and financial analyst level question answering by interpreting
+and processing structured instructions and various input data to generate precise outputs.
+stock movement prediction and classification tasks.
+Additionally, we open-source Touchstone-GPT, a fi-
+nancial LLM trained through domain-specific con-
+tinual pre-training and instruction tuning, which
+serves as a new baseline for future research.
+Our contributions are as follows:
+• Introduction of Golden Touchstone, a com-
+prehensive bilingual benchmark for financial
+LLMs, encompassing 22 datasets across eight
+tasks in both Chinese and English.
+• Evaluation of state-of-the-art LLMs and Fin-
+LLMs on Golden Touchstone, highlighting
+their strengths and limitations across various
+tasks.
+• Open-sourcing of Touchstone-GPT, a finan-
+cial LLM trained through domain-specific
+continual pre-training and instruction tuning,
+fostering further advancements in financial
+AI.
+2 Benchmark Design
+2.1 Current Benchmark Status
+Existing open-source financial benchmarks have
+made significant strides in evaluating financial natu-
+ral language processing (NLP) tasks. FLUE (Shah
+et al., 2022) pioneered English financial NLP evalu-
+ation, covering sentiment analysis, news classifica-
+tion, and other critical tasks. Subsequently, PIXIU
+(Xie et al., 2023) and FinBen (Xie et al., 2024) ex-
+panded task coverage, while in the Chinese domain,
+BBT-Benchmark (Lu et al., 2023) introduced the
+first comprehensive Chinese financial evaluation
+framework.
+These benchmarks suffer from several critical
+limitations. Firstly, there is inconsistent data qual-
+ity across different tasks, as shown in Table 1. Ad-
+ditionally, large language models face challenges
+in numerical understanding, a problem highlighted
+in various studies (Shen et al., 2023; Akhtar et al.,
+2023; Schwartz et al., 2024; Hu et al., 2024). Lastly,
+the benchmarks lack bilingual assessment capabil-
+ities, a gap that has been pointed out in recent re-
+search (Nie et al., 2024; Lei et al., 2023). These lim-
+itations collectively hinder the overall effectiveness
+and reliability of the benchmarks. To address these
+limitations, we propose a unified benchmark that
+integrates high-quality financial datasets from both
+English and Chinese domains. Our approach aims
+to provide a more comprehensive and linguistically
+diverse evaluation of financial large language mod-
+els (LLMs).
+2.2 Golden Touchstone Benchmark
+Framework
+Addressing these critical limitations, we introduce
+the Golden Touchstone benchmark, a comprehen-
+
+
+[Page 3]
+Table 1: Diversity of Financial Analysis Tasks Across Different Benchmarks
+Benchmarks Sent. Anal. Classif. Ent. Extr. Rel. Extr. Multi. Choice Summ. Quest. Ans. Stock Pred.
+FinGPT-Bench (Wang et al., 2023)✓ ✓ ✓ ✓
+FinBen (Xie et al., 2024)✓ ✓ ✓ ✓ ✓ ✓ ✓
+BBT-Fin (Lu et al., 2023)✓ ✓ ✓ ✓ ✓ ✓
+Fin-Eval (Zhang et al., 2023)✓
+CFBenchmark (Lei et al., 2023)✓ ✓ ✓ ✓ ✓
+Golden-Touchstone✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓
+sive bilingual evaluation framework designed to
+holistically assess financial language models. Con-
+ceptualized around two primary dimensions—task
+types and language coverage—our approach rep-
+resents a significant departure from existing eval-
+uation methodologies. The overview framework
+can be seen in Figure.2. Firstly, our Golden Touch-
+stone benchmark categorizes financial NLP tasks
+across two dimensions: the first dimension is task
+type including Natural Language Understanding
+(NLU) including sentiment analysis, knowledge ex-
+amination, information extraction, text understand-
+ing tasks and Natural Language Generation (NLG)
+including summary analysis, question answering
+tasks, and the second dimension is language includ-
+ing English and Chinese.
+The benchmark strategically integrates English
+and Chinese datasets across eight sophisticated sub-
+tasks, spanning Natural Language Understanding
+(NLU) and Natural Language Generation (NLG).
+By carefully curating high-quality datasets from ex-
+isting benchmarks and datasets. The detailed data
+statistics are shown in Appendix.A. The benchmark
+encompasses eight critical sub-tasks:
+• Sentiment Analysis: Utilizing datasets like
+FPB (Malo et al., 2014) and FiQA-SA (Maia
+et al., 2018a) and FinFE-CN (Lu et al., 2023)
+• Classification: Integrating Headlines (Sinha
+and Khandait, 2021), FOMC (Shah et al.,
+2023), and LendingClub (Feng et al., 2023)
+and FinNL-CN (Lu et al., 2023) datasets
+• Entity Recognition: Using NER (Alvarado
+et al., 2015) and FinESE-CN (Lu et al., 2023)
+datasets
+• Relation Extraction: Incorporating FinRED
+(Sharma et al., 2022) and FinRE-CN (Lu et al.,
+2023) datasets
+• Multiple Choice: Drawing from CFA (Yang
+et al., 2024b) and FinEval (Zhang et al., 2023)
+and CPA (Yang et al., 2024b) datasets
+• Summarization: Employing EDTSUM
+(Zhou et al., 2021) and FinNA-CN (Lu et al.,
+2023) datasets
+• Question Answering: Utilizing FinQA (Chen
+et al., 2021) and FinQA-CN and FinCQA-CN
+(Lu et al., 2023) datasets
+• Stock Movement Prediction: Introducing
+news-based prediction using CMIN-US and
+CMIN-CN (Luo et al., 2023) datasets
+A implementation consideration involves the
+treatment of [unknown] labels across various tasks.
+Our approach consistently treats [unknown] labels
+as incorrect predictions, which maintains uniform
+evaluation standards across all tasks, avoids poten-
+tial biases introduced by alternative methods, and
+reflects real-world scenarios where models must
+make definitive predictions. This approach proves
+superior to alternative methods such as sample
+omission, random assignment, or fixed selection,
+which may introduce evaluation biases or distort
+performance metrics. The benchmark also design
+incorporates several features to ensure meaningful
+cross-lingual comparisons, including maintaining
+identical task structures across English and Chinese
+benchmarks, using comparable evaluation metrics
+for equivalent tasks, and choosing datasets with
+similar characteristics and difficulty levels. These
+design choices enable robust comparison of model
+performance across languages while accounting
+for linguistic and cultural differences in financial
+contexts.
+By addressing previous benchmarks’ limitations,
+our approach provides a more robust, comprehen-
+sive, and linguistically diverse framework for eval-
+uating financial large language models. The bench-
+mark not only expands task coverage but also ad-
+dresses critical challenges in current financial NLP
+evaluation methodologies. Our key methodolog-
+ical innovations reflect significant efforts in data
+selection, cleaning, and organization. We replaced
+time-series tabular data with news-based stock pre-
+diction to enhance the relevance and diversity of
+
+
+[Page 4]
+NLU NLG
+EN
+CN
+Financial Text 
+Understanding
+Headlines
+FOMC
+Lendingclub
+Financial Sentiment Analysis
+FiQA-SA
+Financial Knowledge 
+Examination
+CFA
+Financial Summary Analysis
+EDTSUM
+Financial Info Extraction
+NER
+Financial Question Answering
+FinQA
+Convfinqa
+Financial Sentiment Analysis
+FinFE-CN
+Financial Knowledge 
+Examination
+CPA
+FinEval
+Financial Info Extraction
+FinESE-CN
+Financial Text 
+Understanding
+FinNL-CN
+Financial Summary Analysis
+FinNA-CN
+Financial Question Answering
+FinQA-CN
+FinCQA-CN
+FPB
+FinRE
+FinRE-CN
+CMIN-US
+CMIN-CN
+Figure 2: Financial NLP tasks are categorized along two dimensions: task types, divided into financial NLU (Natural
+Language Understanding) and financial NLG (Natural Language Generation), and language, categorized as English
+and Chinese. We organized the collected high-quality datasets along these axes.
+the dataset. Additionally, we ensured bilingual task
+alignment to address the lack of multilingual assess-
+ment capabilities, while carefully selecting datasets
+with consistent and high-quality labeling to over-
+come issues related to data quality. Furthermore,
+we developed a unified evaluation approach across
+different financial NLP tasks to ensure robust and
+comparable results. In line with our commitment
+to fostering research transparency and collabora-
+tion, we have not only open-sourced the bench-
+mark datasets but also released a well-documented,
+clear, reproducible, and extensible evaluation code
+framework for the broader research community to
+utilize and build upon. The Golden Touchstone
+benchmark represents a significant step forward
+in financial NLP evaluation, addressing key limi-
+tations of existing benchmarks while providing a
+comprehensive, bilingual framework for assessing
+model performance. Its systematic design, rigorous
+evaluation methodology, and practical focus make
+it an essential tool for researchers and practitioners
+in financial NLP.
+3 Experiments
+3.1 Experimental Setup
+Baselines.We conducted an extensive experi-
+mental evaluation against the Golden Touchstone
+Benchmark, incorporating a comprehensive array
+of models. For all models and inference tasks,
+we set the PyTorch and CUDA random seeds and
+configured the model with a greedy decoding strat-
+egy. This ensures reproducibility of experimen-
+tal results and eliminates the influence of sam-
+pling decoding strategies on the final generated
+outputs. This included cutting-edge commercial
+models such as GPT-4o (OpenAI, 2023), along-
+side prominent open-source alternatives like Meta
+Llama-3 (AI@Meta, 2024) and Alibaba Qwen-3
+(Yang et al., 2025). Additionally, we integrated the
+latest and most influential financial language mod-
+els (FInLLMs), namely FinGPT (Yang et al., 2023),
+FinMA (Xie et al., 2024), CFGPT (Li et al., 2023),
+and DISC-FinLLM (Chen et al., 2023). These
+models were meticulously selected to represent
+a diverse spectrum of capabilities, ranging from
+general-purpose language understanding to special-
+ized financial domain expertise. Our experiments
+aimed to rigorously assess the performance, robust-
+ness, and adaptability of each model within the con-
+text of financial data processing and analysis. The
+results provide valuable insights into the strengths
+and limitations of current state-of-the-art models,
+offering a foundation for future advancements in
+financial language modeling.
+Touchstone-GPT Training.To further con-
+
+
+[Page 5]
+tribute to the research and development of FIn-
+LLMs and Financial benchmarks for LLMs, we
+have meticulously trained and open-sourced a
+Touchstone-GPT model. This initiative aims to
+serve as a valuable resource for advancing the
+field, providing a robust and versatile model that
+can be utilized for a wide range of financial lan-
+guage tasks. We adopted a two-stage training
+strategy comprising continuous pre-training and
+post-training, based on the Qwen-2.5 (Yang et al.,
+2024a) foundational model. During the continu-
+ous pre-training phase, we initially conducted pre-
+training on a high-quality financial corpus contain-
+ing 100 billions tokens, which included textbooks,
+encyclopedias, research reports, news articles, and
+real-time analysis, all meticulously cleaned. In the
+post-training phase, we employed a standard in-
+struction fine-tuning strategy, collecting, cleaning,
+and formatting a high-quality dataset of 300,000
+instruction-response pairs shown in Tabel.4 and Ta-
+ble.5. To avoid catastrophic forgetting in general
+tasks, we also incorporated general-domain pre-
+training corpora (Gan et al., 2023) and instruction-
+tuning corpora (Peng et al., 2023) into continu-
+ous pre-training and post-training. This culmi-
+nated in the final Touchstone-GPT model. We
+utilized Megatron(Shoeybi et al., 2019) for contin-
+uous pre-training and LlamaFactory(Zheng et al.,
+2024) for instruction post-training as our training
+frameworks, respectively. In this study, we em-
+ploy an advanced model training setup using the
+AdamW optimizer (Kingma and Ba, 2014) with a
+learning rate of 1.0e-5, cosine annealing scheduler
+(Szegedy et al., 2016), and a 10% warmup ratio (He
+et al., 2016; Goyal et al., 2017) to enhance training
+stability and convergence. We enable gradient ac-
+cumulation (Shoeybi et al., 2019) and checkpoint-
+ing (Chen et al., 2016) to simulate larger batch
+sizes and reduce memory footprint. Training is
+conducted in mixed bfloat16 precision (Micikevi-
+cius et al., 2017; Wang and Kanwar, 2019) with
+DeepSpeed’s ZeRO-1 optimization (Rajbhandari
+et al., 2020), reducing memory consumption and al-
+lowing for larger model training. This comprehen-
+sive setup optimizes efficiency and performance,
+providing an effective solution for large-scale deep
+learning model training.
+Our training was conducted on 4 NVIDIA DGX
+servers, each equipped with 8 A100 GPUs, and
+spanned a period of 4 weeks. Inference was per-
+formed on a single NVIDIA DGX server with eight
+A100 GPUs, utilizing parallel batch inference. Dur-
+ing the pre-training phase, we employed a data
+packing strategy (Krell et al., 2021) and batch dy-
+namic right padding strategy in the instruction tun-
+ing phase (Wolf et al., 2020), while the inference
+phase incorporated a batch left padding strategy
+(Wolf et al., 2020).
+3.2 Evaluation Results
+In this section, we provide a detailed analysis of
+the evaluation and results for both the English and
+Chinese benchmarks. We discuss task-specific per-
+formances and identify key areas of strengths and
+weaknesses for each model. The following sections
+present insights for the English and Chinese bench-
+marks, each highlighting the differences in model
+capabilities across a variety of NLP tasks.
+In this overall analysis, we synthesize insights
+from both the English and Chinese benchmarks
+by evaluating the strengths and weaknesses of
+each model, as well as examining the performance
+across different types of tasks and datasets.
+From the perspective of individual models in
+Figure.3,GPT-4oshows strong performance in
+sentiment analysis and structured tasks like mul-
+tiple choice, indicating robust general language
+understanding capabilities. However, its weakness
+lies in relation extraction and detailed entity ex-
+traction, which require detailed understanding of
+complex financial relations.FinMA-7Bstands out
+in sentiment tasks but lacks versatility, especially
+in question answering and summarization, likely
+due to the absence of targeted training for diverse
+NLP challenges.Qwen-3-8Bdemonstrates a bal-
+anced yet still improvable performance profile: it
+achieves decent results in sentiment analysis tasks
+but shows notable deficiencies in more complex
+tasks like question answering and summarization,
+indicating the need for more targeted domain adap-
+tation training to enhance its specialized capabili-
+ties.Llama-3-8B-Instructexcels in english NLU
+tasks, but shows limitations in tasks requiring chi-
+nese tasks, such as entity and relation analysis.
+The metrics ofFinGPT-8B-loraindicating that
+the current level of domain-specific tuning is insuf-
+ficient for complex financial tasks. Finally,DISC-
+FinLLM-FullandCFGPT1-7B-Fulldemonstrate
+moderate strengths in entity extraction tasks but
+lack the robustness needed for broader NLP ca-
+pabilities, revealing significant gaps in financial
+language comprehension.
+
+
+[Page 6]
+Sentiment Analysis
+Classification
+Entity ExtractionSummarizationQuestion AnswerRelation Extraction
+Multiple Choice
+Stock Movement Prediction
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Performance Score
+Model Performance on English Tasks
+Average
+GPT-4o
+FinMA-7B
+Qwen3-8B
+Llama3-8B-Instruct
+FinGPT-8B-lora
+T ouchstone-GPT
+Sentiment Analysis
+Classification
+Entity ExtractionSummarizationQuestion AnswerRelation Extraction
+Multiple Choice
+Stock Movement Prediction
+Performance Score
+Model Performance on Chinese Tasks
+Average
+GPT-4o
+Qwen3-8B
+Llama3-8B-Instruct
+CFGPT1-7B-Full
+DISC-FinLLM-Full
+T ouchstone-GPT
+Figure 3: Comparison of performance from the perspective of models. Each subplot represents the performance of
+a models on both English and Chinese tasks. The bars indicate the model’s performance on each task, while the
+dashed gray line represents the average performance across all models for that task.
+From a task perspective in Figure.4, we ob-
+serve thatSentiment Analysisgenerally yields
+high scores across most models, particularly for
+the English benchmark, indicating that sentiment
+understanding, even in financial contexts, is rela-
+tively well addressed by these models. In contrast,
+Relation ExtractionandQuestion Answerin fi-
+nancial domain exhibit notably lower performance,
+especially for the Chinese benchmark. These re-
+sults suggest that capturing financial relationships
+and classifying detailed financial statements pose
+greater challenges, requiring more sophisticated
+training datasets or better model architectures. The
+LendingClub dataset inClassificationis a special-
+ized dataset in the field of risk control, requiring
+more targeted fine-tuning to achieve good results.
+Stock Movement Predictionalso shows low per-
+formance across most models, with only a few
+models such asGPT-4odemonstrating relatively
+moderate performance, but it is still practically un-
+usable, highlighting the inherent difficulty of this
+task. Market prediction relying solely on news in-
+formation is likely insufficient; volume-price data
+and factor analysis can provide more comprehen-
+sive information. However, current large language
+models are unable to process these inputs, which
+is a significant area of future research.Summa-
+rizationalso stands out as a weak area for most
+models, with consistently low BLEU and Rouge
+scores, reflecting the challenges in generating con-
+cise, coherent summaries of complex financial text.
+Overall, the insights suggest that while models
+likeGPT-4o,FinMA-7B, andTouchstone-GPT
+have particular strengths in sentiment analysis and
+some structured tasks, the overall capability to han-
+dle comprehensive financial NLP tasks remains lim-
+ited. Most models require targeted improvements,
+especially for relation extraction, summarization,
+question answering and stock movement prediction
+in both English and Chinese contexts. This calls
+for more domain-specific training and the develop-
+ment of specialized datasets that focus on capturing
+the detailed and often complex financial language,
+which is crucial for advancing the performance
+of financial large language models. Furthermore,
+whileTouchstone-GPTdemonstrates competitive
+performance across various tasks due to its robust
+pre-training and instruction tuning, ongoing refine-
+ments and specialized tuning efforts are needed to
+address specific deficiencies observed in tasks such
+as summarization, relation extraction, question an-
+swering and stock movement prediction.
+4 Related Works
+4.1 Financial Large Language Models
+In recent years, large language models (LLMs) tai-
+lored for the financial domain have gained signif-
+icant attention. BloombertGPT (Wu et al., 2023)
+marked the beginning of the FinLLM era. Fin-
+
+
+[Page 7]
+Sentiment Analysis
+Classification
+Entity Extraction
+Summarization
+Question Answer
+Relation Extraction
+Multiple Choice
+Stock Movement Prediction
+0.2
+0.4
+0.6
+0.8
+Models' Performance on English Tasks GPT-4o
+FinMA-7B
+Qwen3-8B
+Llama3-8B-Instruct
+FinGPT-8B-lora
+T ouchstone-GPT
+Sentiment Analysis
+Classification
+Entity Extraction
+Summarization
+Question Answer
+Relation Extraction
+Multiple Choice
+Stock Movement Prediction
+0.2
+0.4
+0.6
+0.8
+Models' Performance on Chinese Tasks GPT-4o
+Qwen3-8B
+Llama3-8B-Instruct
+CFGPT1-7B-Full
+DISC-FinLLM-Full
+T ouchstone-GPT
+Figure 4: Comparison of performance from the perspective of tasks, illustrating average performance for English
+and Chinese tasks respectively.
+Table 2: Performance metrics of financial large language models across English tasks like Sentiment Analysis,
+Classification, and Summarization. Models include GPT-4o, Llama-3-8B, Qwen-3-8B, FinMA-7B, FinGPT-8B,
+Mistral-7B, and Touchstone-GPT. The best results of each dataset are marked inbold.
+Task Dataset Metrics GPT-4o FinMA-7B
+full Qwen-3-8B Llama-3-8B
+Instruct
+FinGPT-8B
+lora Mistral-7B Touchstone
+GPT
+Sentiment
+Analysis
+FPB Weighted-F1 0.80840.94000.8100 0.7631 0.2727 0.8110 0.8576
+ACC 0.80930.94020.8020 0.7660 0.3072 0.8030 0.8557
+Fiqa-SA Weighted-F1 0.8106 0.8370 0.6800 0.7515 0.5885 0.68100.8591
+ACC 0.7702 0.8340 0.6000 0.7064 0.5872 0.60100.8638
+Classification
+Headlines Weighted-F1 0.7857 0.9739 0.7300 0.7006 0.4516 0.73100.9866
+ACC 0.7931 0.9739 0.7270 0.7004 0.4331 0.72800.9866
+FOMC Weighted-F1 0.6603 0.3988 0.6150 0.4904 0.2758 0.61600.8788
+ACC 0.6794 0.4274 0.6230 0.5625 0.2702 0.62400.8790
+lendingclubWeighted-F1 0.6730 0.1477 0.5960 0.5943 0.5480 0.59700.9783
+MCC 0.1642 -0.6218 0.1720 0.1670 -0.1120 0.17300.9297
+Entity
+Extraction NER Entity-F1 0.1800 0.6200 0.2900 0.2973 0.0231 0.29100.6993
+Relation
+Extraction FinRE Relation-F1 0.1613 0.0054 0.1100 0.0540 0.0100 0.11100.5331
+Multiple
+Choice CFA Weighted-F10.77000.2200 0.6720 0.5800 0.3993 0.6730 0.7497
+ACC0.77000.2400 0.6720 0.5800 0.3800 0.6730 0.7500
+Summarization EDTSUM
+Rouge-1 0.1675 0.1566 0.1480 0.1467 0.0622 0.14900.5254
+Rouge-2 0.0556 0.0491 0.0440 0.0429 0.0085 0.04500.3446
+Rouge-L 0.1069 0.1060 0.0860 0.0930 0.0412 0.08700.4705
+BLEU 0.1192 0.1361 0.1010 0.1085 0.0592 0.10200.4512
+Question
+Answering
+Finqa RMACC 0.1037 0.0497 0.0280 0.0470 0.0110 0.02900.2258
+Convfinqa RMACC 0.2540 0.0953 0.0650 0.1477 0.0772 0.06600.5053
+Stock Movement
+Prediction CMIN-US Weighted-F1 0.5025 0.2639 0.4130 0.3722 0.3379 0.41400.5036
+ACC0.51490.3446 0.5120 0.4955 0.4154 0.5130 0.5144
+
+
+[Page 8]
+Table 3: Performance metrics of financial large language models across chinese tasks like Sentiment Analysis,
+Classification, and Summarization. Models include GPT-4o, Llama-3-8B, Qwen-3-8B, CFGPT-7B, DISC-FinLLM,
+and Touchstone-GPT. The best results of each dataset are marked inbold.
+Task Dataset Metrics GPT-4o Qwen-3-8B
+Instruct
+Llama-3-8B
+Instruct
+CFGPT1-7B
+Full
+DISC-FinLLM
+Full
+Touchstone
+GPT
+Sentiment
+Analysis FinFe-CN Weighted-F1 0.6593 0.6478 0.3633 0.2528 0.41770.7888
+ACC 0.6500 0.6632 0.4891 0.2732 0.42920.7936
+Classification FinNL-CN ORMACC 0.3303 0.0824 0.0747 0.0894 0.00110.8360
+Entity
+Extraction FinESE-CN ORMACC 0.6867 0.3879 0.3088 0.3863 0.43460.9074
+Relation
+Extraction FinRE-CN RMACC 0.2754 0.1532 0.1296 0.0678 0.11820.6541
+Multiple
+Choice
+FinEval Weighted-F10.73640.7332 0.4432 0.3543 0.4288 0.7361
+ACC0.73530.7337 0.4471 0.3529 0.42940.7353
+CPA Weighted-F1 0.6312 0.7159 0.3421 0.3543 0.34510.9238
+ACC 0.6309 0.7162 0.3504 0.3553 0.35180.9238
+Summarization FinNA-CN
+Rouge-1 0.3197 0.3528 0.3477 0.1018 0.34860.5526
+Rouge-2 0.1434 0.1699 0.1702 0.0263 0.16780.3603
+Rouge-L 0.2511 0.2846 0.2802 0.0650 0.29970.5214
+BLEU 0.1423 0.1743 0.1672 0.0238 0.18850.3944
+Question
+Answering
+FinQa-CN RMACC 0.6578 0.5245 0.4540 0.1126 0.39490.9214
+FinCQa-CN RMACC 0.4765 0.3624 0.3787 0.2714 0.21340.8552
+Stock Movement
+Prediction CMIN-CN Weighted-F10.48580.4165 0.4497 0.3549 0.0329 0.4735
+ACC 0.4988 0.4825 0.4858 0.3584 0.03320.4878
+GPT (Yang et al., 2023) introduced an open-source
+framework emphasizing a data-centric approach
+with lightweight low-rank adaptation techniques.
+PIXIU (Xie et al., 2023) provided a comprehensive
+framework, presenting the first financial LLM fine-
+tuned on LLaMA with a 136K instruction dataset
+and evaluation benchmark. CFGPT (Li et al.,
+2023) developed a Chinese Financial Generative
+Pre-trained Transformer framework, encompass-
+ing dataset, model, and deployment capabilities.
+DISC-FinLLM (Chen et al., 2023) enhanced gen-
+eral LLMs through a multiple experts fine-tuning
+framework, expanding domain-specific capabili-
+ties.
+4.2 Benchmarks for FinLLMs
+In the current landscape of open-source financial
+evaluation benchmarks, FLUE (Shah et al., 2022)
+was the first open-source benchmark introduced
+for financial language understanding in English.
+It includes five financial tasks: Financial Senti-
+ment Analysis (Malo et al., 2014; Maia et al.,
+2018a), Financial News Classification (Sinha and
+Khandait, 2021), Structure Boundary Detection
+(FinSBD3, 2021), Named Entity Recognition (Al-
+varado et al., 2015), and Question Answering (Maia
+et al., 2018b). Building on FLUE, FinGPT (Yang
+et al., 2023) introduced the Financial Relation
+Extraction task with the addition of the FinRED
+dataset (Sharma et al., 2022), while also expand-
+ing the sentiment analysis task by incorporating
+TFNS (Magic, 2022) and NWGI (Yang, 2023)
+datasets. Additionally, FinGPT created prompt-
+based instructions across all datasets, culminating
+in the Financial Instruction Tuning Benchmark.
+Around the same time, other open-source bench-
+marks, such as PIXIU (Xie et al., 2023) and FinBen
+(Xie et al., 2024), were developed. PIXIU includes
+a wide range of financial tasks and datasets, while
+FinBen, expanding on PIXIU, introduced numer-
+ous supplementary financial datasets to evaluate
+LLMs comprehensively and gauge their proficiency
+across various financial scenarios.In the Chinese
+domain, BBT-Benchmark (Lu et al., 2023) was the
+first Chinese financial benchmark, covering multi-
+ple financial NLP tasks, including sentiment anal-
+ysis, news classification, summarization, relation
+extraction, and question answering. Later, FinEval
+(Zhang et al., 2023) and FinanceIQ (Zhang and
+Yang, 2023)benchmark emerged, providing an eval-
+uation framework for LLMs in financial contexts,
+encompassing multiple-choice questions across fi-
+nance, economics, accounting, and certification.
+DISC-FinLLM (Chen et al., 2023) evaluated finan-
+cial LLMs on top of these benchmarks, introducing
+additional tasks focused on financial calculations
+and current events to assess LLMs in applied finan-
+cial scenarios. The most recent Chinese Financial
+benchmark, CFBenchmark (Lei et al., 2023), intro-
+duced three key tasks like Financial Entity Recog-
+nition, expanding evaluation resources for Chinese
+financial tasks.
+The increasing number of benchmarks in both
+English and Chinese financial domains has estab-
+lished valuable evaluation frameworks for LLMs
+
+
+[Page 9]
+in finance, though challenges remain. For exam-
+ple, data quality across various English financial
+datasets is inconsistent, limiting LLMs from reach-
+ing their full potential, as seen in FinBen and
+PIXIU, where low-quality datasets yielded sub-
+optimal performance metrics. In Chinese bench-
+marks, tasks are often skewed toward multiple-
+choice questions, with limited alignment with En-
+glish financial tasks. Moreover, no bilingual bench-
+mark currently exists for comprehensive LLM eval-
+uation in financial NLP tasks across English and
+Chinese. In this work, we integrate representative
+datasets from both languages, creating FinLLM-
+benchmark. We compile and align eight financial
+NLP tasks in English and Chinese, selecting high-
+quality datasets for each task and appropriate met-
+rics to effectively assess model performance.
+5 Conclusion
+In this study, we introduce the Golden Touchstone
+benchmark, the inaugural structured and compre-
+hensive bilingual benchmark specifically designed
+for English-Chinese financial NLP. This bench-
+mark encompasses a wide array of financial NLP
+tasks, including Natural Language Understanding
+(NLU) and Natural Language Generation (NLG)
+across eight categories: Sentiment Analysis, Clas-
+sification, Entity Extraction, Summarization, Stock
+Market Prediction, Question Answering, Relation
+Extraction, and Multiple Choice. By leveraging ex-
+isting high-quality open-source financial datasets,
+we curated representative datasets and selected ap-
+propriate evaluation metrics for each task category.
+Utilizing these resources, we conducted extensive
+evaluations of current models such as GPT-4o and
+prominent open-source financial LLMs, including
+FinGPT and FinMA, thereby establishing perfor-
+mance benchmarks for financial LLMs within bilin-
+gual contexts. Moreover, we contributed to the
+community by open-sourcing Touchstone-GPT, a
+robust financial LLM that employs a two-stage
+training approach and has demonstrated superior
+input-based inference capabilities on the Golden
+Touchstone benchmark compared to GPT-4o. Our
+open-source initiative provides a bilingual English-
+Chinese evaluation framework aimed at fostering
+the sustainable development of LLMs in a multilin-
+gual financial environment.
+6 Limitations
+Despite these advancements, the benchmark cur-
+rently exhibits certain limitations, including a lim-
+ited range of NLG tasks and a focus solely on
+single-modality. Future enhancements will include
+the integration of additional NLG tasks, such as
+extended text generation for financial report analy-
+sis and more sophisticated sentiment assessments.
+Dataset biases and model scalability are also chal-
+lenges. Furthermore, we plan to expand the bench-
+mark to cover other financial sectors such as in-
+surance and futures trading, thus broadening the
+scope and applicability of financial LLM assess-
+ments across diverse scenarios. Also, the per-
+formance of Touchstone-GPT on specific tasks
+within the Golden Touchstone benchmark, partic-
+ularly in stock market prediction, requires further
+improvement. Our subsequent research will ex-
+plore the incorporation of agent-based and retrieval-
+augmented generation (RAG) methods to augment
+the model’s capabilities in numerical computation
+and real-time news analysis. Additionally, we aim
+to venture into multimodal modeling, integrating
+visual data and time-series data for tasks such as fi-
+nancial time-series forecasting, financial chart anal-
+ysis, and content generation.
+7 Ethical Statements
+We do not see our work to have possible harmful
+outcomes. We follow the ACL ethical guidelines
+when conducting the research in this paper.
+
+
+[Page 10]
+References
+AI@Meta. 2024. Llama 3 model card.
+Mubashara Akhtar, Abhilash Shankarampeta, Vivek
+Gupta, Arpit Patil, Oana Cocarascu, and Elena Sim-
+perl. 2023. Exploring the numerical reasoning capa-
+bilities of language models: A comprehensive anal-
+ysis on tabular data. InFindings of the Association
+for Computational Linguistics: EMNLP 2023, pages
+15391–15405.
+Julio Cesar Salinas Alvarado, Karin Verspoor, and Timo-
+thy Baldwin. 2015. Domain adaption of named entity
+recognition to support credit risk assessment. InPro-
+ceedings of the Australasian Language Technology
+Association Workshop 2015, pages 84–90.
+AI Anthropic. 2024. The claude 3 model family: Opus,
+sonnet, haiku.Claude-3 Model Card.
+Jinze Bai, Shuai Bai, Yunfei Chu, Zeyu Cui, Kai Dang,
+Xiaodong Deng, Yang Fan, Wenbin Ge, Yu Han, Fei
+Huang, et al. 2023. Qwen technical report.arXiv
+preprint arXiv:2309.16609.
+Baichuan. 2023. Baichuan 2: Open large-scale lan-
+guage models.arXiv preprint arXiv:2309.10305.
+Tom Brown, Benjamin Mann, Nick Ryder, Melanie
+Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind
+Neelakantan, Pranav Shyam, Girish Sastry, Amanda
+Askell, et al. 2020. Language models are few-shot
+learners.Advances in neural information processing
+systems, 33:1877–1901.
+Tianqi Chen, Bing Xu, Chiyuan Zhang, and Carlos
+Guestrin. 2016. Training deep nets with sublinear
+memory cost.arXiv preprint arXiv:1604.06174.
+Wei Chen, Qiushi Wang, Zefei Long, Xianyin Zhang,
+Zhongtian Lu, Bingxuan Li, Siyuan Wang, Jiarong
+Xu, Xiang Bai, Xuanjing Huang, et al. 2023. Disc-
+finllm: A chinese financial large language model
+based on multiple experts fine-tuning.arXiv preprint
+arXiv:2310.15205.
+Zhiyu Chen, Wenhu Chen, Charese Smiley, Sameena
+Shah, Iana Borova, Dylan Langdon, Reema Moussa,
+Matt Beane, Ting-Hao Huang, Bryan R Routledge,
+et al. 2021. Finqa: A dataset of numerical reasoning
+over financial data. InProceedings of the 2021 Con-
+ference on Empirical Methods in Natural Language
+Processing, pages 3697–3711.
+Jiaxi Cui, Zongjian Li, Yang Yan, Bohua Chen, and
+Li Yuan. 2023. Chatlaw: Open-source legal large
+language model with integrated external knowledge
+bases.arXiv preprint arXiv:2306.16092.
+DeepSeek-AI. 2024. Deepseek-v2: A strong, economi-
+cal, and efficient mixture-of-experts language model.
+Duanyu Feng, Yongfu Dai, Jimin Huang, Yifang Zhang,
+Qianqian Xie, Weiguang Han, Zhengyu Chen, Ale-
+jandro Lopez-Lira, and Hao Wang. 2023. Empow-
+ering many, biasing a few: Generalist credit scor-
+ing through large language models.arXiv preprint
+arXiv:2310.00566.
+FinSBD3. 2021. Financial sbd 3. https://
+sites.google.com/nlg.csie.ntu.edu.
+tw/finweb2021/shared-task-finsbd-3.
+Ruyi Gan, Ziwei Wu, Renliang Sun, Junyu Lu, Xiao-
+jun Wu, Dixiang Zhang, Kunhao Pan, Ping Yang,
+Qi Yang, Jiaxing Zhang, et al. 2023. Ziya2: Data-
+centric learning is all llms need.arXiv preprint
+arXiv:2311.03301.
+Team GLM, Aohan Zeng, Bin Xu, Bowen Wang, Chen-
+hui Zhang, Da Yin, Diego Rojas, Guanyu Feng, Han-
+lin Zhao, Hanyu Lai, Hao Yu, Hongning Wang, Jiadai
+Sun, Jiajie Zhang, Jiale Cheng, Jiayi Gui, Jie Tang,
+Jing Zhang, Juanzi Li, Lei Zhao, Lindong Wu, Lucen
+Zhong, Mingdao Liu, Minlie Huang, Peng Zhang,
+Qinkai Zheng, Rui Lu, Shuaiqi Duan, Shudan Zhang,
+Shulin Cao, Shuxun Yang, Weng Lam Tam, Wenyi
+Zhao, Xiao Liu, Xiao Xia, Xiaohan Zhang, Xiao-
+tao Gu, Xin Lv, Xinghan Liu, Xinyi Liu, Xinyue
+Yang, Xixuan Song, Xunkai Zhang, Yifan An, Yifan
+Xu, Yilin Niu, Yuantao Yang, Yueyan Li, Yushi Bai,
+Yuxiao Dong, Zehan Qi, Zhaoyu Wang, Zhen Yang,
+Zhengxiao Du, Zhenyu Hou, and Zihan Wang. 2024.
+Chatglm: A family of large language models from
+glm-130b to glm-4 all tools.
+Priya Goyal, Piotr Dollár, Ross Girshick, Pieter No-
+ordhuis, Lukasz Wesolowski, Aapo Kyrola, Andrew
+Tulloch, Yangqing Jia, and Kaiming He. 2017. Ac-
+curate, large minibatch sgd: Training imagenet in 1
+hour.arXiv preprint arXiv:1706.02677.
+Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian
+Sun. 2016. Deep residual learning for image recog-
+nition. InProceedings of the IEEE conference on
+computer vision and pattern recognition, pages 770–
+778.
+Gang Hu, Ke Qin, Chenhan Yuan, Min Peng, Alejandro
+Lopez-Lira, Benyou Wang, Sophia Ananiadou, Jimin
+Huang, and Qianqian Xie. 2024. No language is an is-
+land: Unifying chinese and english in financial large
+language models, instruction data, and benchmarks.
+arXiv preprint arXiv:2403.06249.
+Albert Q Jiang, Alexandre Sablayrolles, Antoine
+Roux, Arthur Mensch, Blanche Savary, Chris Bam-
+ford, Devendra Singh Chaplot, Diego de las Casas,
+Emma Bou Hanna, Florian Bressand, et al. 2024.
+Mixtral of experts.arXiv preprint arXiv:2401.04088.
+Diederik P Kingma and Jimmy Ba. 2014. Adam: A
+method for stochastic optimization.arXiv e-prints,
+pages arXiv–1412.
+Mario Michael Krell, Matej Kosec, Sergio P Perez, and
+Andrew Fitzgibbon. 2021. Efficient sequence pack-
+ing without cross-contamination: Accelerating large
+
+
+[Page 11]
+language models without impacting performance.
+arXiv preprint arXiv:2107.02027.
+Yang Lei, Jiangtong Li, Ming Jiang, Junjie Hu, Dawei
+Cheng, Zhijun Ding, and Changjun Jiang. 2023.
+Cfbenchmark: Chinese financial assistant bench-
+mark for large language model.arXiv preprint
+arXiv:2311.05812.
+Jiangtong Li, Yuxuan Bian, Guoxuan Wang, Yang Lei,
+Dawei Cheng, Zhijun Ding, and Changjun Jiang.
+2023. Cfgpt: Chinese financial assistant with large
+language model.arXiv preprint arXiv:2309.10654.
+Aixin Liu, Bei Feng, Bing Xue, Bingxuan Wang,
+Bochao Wu, Chengda Lu, Chenggang Zhao, Chengqi
+Deng, Chenyu Zhang, Chong Ruan, et al. 2024.
+Deepseek-v3 technical report.arXiv preprint
+arXiv:2412.19437.
+Alejandro Lopez-Lira and Yuehua Tang. 2023. Can
+chatgpt forecast stock price movements? return pre-
+dictability and large language models.arXiv preprint
+arXiv:2304.07619.
+Dakuan Lu, Hengkui Wu, Jiaqing Liang, Yipei Xu,
+Qianyu He, Yipeng Geng, Mengkun Han, Yingsi
+Xin, and Yanghua Xiao. 2023. Bbt-fin: Compre-
+hensive construction of chinese financial domain
+pre-trained language model, corpus and benchmark.
+arXiv preprint arXiv:2302.09432.
+Di Luo, Weiheng Liao, Shuqi Li, Xin Cheng, and Rui
+Yan. 2023. Causality-guided multi-memory interac-
+tion network for multivariate stock price movement
+prediction. InProceedings of the 61st Annual Meet-
+ing of the Association for Computational Linguistics
+(V olume 1: Long Papers), pages 12164–12176.
+Neural Magic. 2022. Twitter financial news sentiment.
+Huggingface repository.
+Macedo Maia, Siegfried Handschuh, Andre Freitas,
+Brian Davis, Ross McDermott, Manel Zarrouk, and
+Alexandra Balahur. 2018a. Www’18 open challenge:
+Financial opinion mining and question answering.
+pages 1941–1942.
+Macedo Maia, Siegfried Handschuh, André Freitas,
+Brian Davis, Ross McDermott, Manel Zarrouk, and
+Alexandra Balahur. 2018b. Www’18 open challenge:
+Financial opinion mining and question answering. In
+Companion Proceedings of the The Web Conference
+2018, WWW ’18, page 1941–1942, Republic and
+Canton of Geneva, CHE. International World Wide
+Web Conferences Steering Committee.
+Pekka Malo, Ankur Sinha, Pekka Korhonen, Jyrki Wal-
+lenius, and Pyry Takala. 2014. Good debt or bad
+debt: Detecting semantic orientations in economic
+texts.Journal of the Association for Information
+Science and Technology, 65(4):782–796.
+Paulius Micikevicius, Sharan Narang, Jonah Alben, Gre-
+gory Diamos, Erich Elsen, David Garcia, Boris Gins-
+burg, Michael Houston, Oleksii Kuchaiev, Ganesh
+Venkatesh, et al. 2017. Mixed precision training.
+arXiv preprint arXiv:1710.03740.
+Ying Nie, Binwei Yan, Tianyu Guo, Hao Liu, Haoyu
+Wang, Wei He, Binfan Zheng, Weihao Wang, Qiang
+Li, Weijian Sun, et al. 2024. Cfinbench: A compre-
+hensive chinese financial benchmark for large lan-
+guage models.arXiv preprint arXiv:2407.02301.
+R OpenAI. 2023. Gpt-4 technical report.arXiv, pages
+2303–08774.
+Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida,
+Carroll Wainwright, Pamela Mishkin, Chong Zhang,
+Sandhini Agarwal, Katarina Slama, Alex Ray, et al.
+2022. Training language models to follow instruc-
+tions with human feedback.Advances in Neural
+Information Processing Systems, 35:27730–27744.
+Baolin Peng, Chunyuan Li, Pengcheng He, Michel Gal-
+ley, and Jianfeng Gao. 2023. Instruction tuning with
+gpt-4.arXiv preprint arXiv:2304.03277.
+Samyam Rajbhandari, Jeff Rasley, Olatunji Ruwase,
+and Yuxiong He. 2020. Zero: Memory optimizations
+toward training trillion parameter models. InSC20:
+International Conference for High Performance Com-
+puting, Networking, Storage and Analysis, pages 1–
+16. IEEE.
+Eli Schwartz, Leshem Choshen, Joseph Shtok, Sivan
+Doveh, Leonid Karlinsky, and Assaf Arbelle.
+2024. Numerologic: Number encoding for en-
+hanced llms’ numerical reasoning.arXiv preprint
+arXiv:2404.00459.
+Agam Shah, Suvan Paturi, and Sudheer Chava. 2023.
+Trillion dollar words: A new financial dataset, task &
+market analysis. InProceedings of the 61st Annual
+Meeting of the Association for Computational Lin-
+guistics (V olume 1: Long Papers), pages 6664–6679.
+Raj Sanjay Shah, Kunal Chawla, Dheeraj Eidnani,
+Agam Shah, Wendi Du, Sudheer Chava, Natraj Ra-
+man, Charese Smiley, Jiaao Chen, and Diyi Yang.
+2022. When flue meets flang: Benchmarks and
+large pre-trained language model for financial do-
+main.arXiv preprint arXiv:2211.00083.
+Soumya Sharma, Tapas Nayak, Arusarka Bose,
+Ajay Kumar Meena, Koustuv Dasgupta, Niloy Gan-
+guly, and Pawan Goyal. 2022. Finred: A dataset for
+relation extraction in financial domain. InCompan-
+ion Proceedings of the Web Conference 2022, pages
+595–597.
+Ruoqi Shen, Sébastien Bubeck, Ronen Eldan, Yin Tat
+Lee, Yuanzhi Li, and Yi Zhang. 2023. Positional de-
+scription matters for transformers arithmetic.arXiv
+preprint arXiv:2311.14737.
+Mohammad Shoeybi, Mostofa Patwary, Raul Puri,
+Patrick LeGresley, Jared Casper, and Bryan Catan-
+zaro. 2019. Megatron-lm: Training multi-billion
+parameter language models using model parallelism.
+arXiv preprint arXiv:1909.08053.
+
+
+[Page 12]
+Ankur Sinha and Tanmay Khandait. 2021. Impact of
+news on the commodity market: Dataset and results.
+InAdvances in Information and Communication:
+Proceedings of the 2021 Future of Information and
+Communication Conference (FICC), V olume 2, pages
+589–601. Springer.
+Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe,
+Jon Shlens, and Zbigniew Wojna. 2016. Rethinking
+the inception architecture for computer vision. In
+Proceedings of the IEEE conference on computer
+vision and pattern recognition, pages 2818–2826.
+Gemini Team, Rohan Anil, Sebastian Borgeaud,
+Yonghui Wu, Jean-Baptiste Alayrac, Jiahui Yu,
+Radu Soricut, Johan Schalkwyk, Andrew M Dai,
+Anja Hauth, et al. 2023. Gemini: a family of
+highly capable multimodal models.arXiv preprint
+arXiv:2312.11805.
+Arun James Thirunavukarasu, Darren Shu Jeng Ting,
+Kabilan Elangovan, Laura Gutierrez, Ting Fang Tan,
+and Daniel Shu Wei Ting. 2023. Large language
+models in medicine.Nature medicine, 29(8):1930–
+1940.
+Yuanhe Tian, Ruyi Gan, Yan Song, Jiaxing Zhang, and
+Yongdong Zhang. 2023. Chimed-gpt: A chinese med-
+ical large language model with full training regime
+and better alignment to human preferences.arXiv
+preprint arXiv:2311.06025.
+Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier
+Martinet, Marie-Anne Lachaux, Timothée Lacroix,
+Baptiste Rozière, Naman Goyal, Eric Hambro, Faisal
+Azhar, et al. 2023a. Llama: Open and effi-
+cient foundation language models.arXiv preprint
+arXiv:2302.13971.
+Hugo Touvron, Louis Martin, Kevin Stone, Peter Al-
+bert, Amjad Almahairi, Yasmine Babaei, Nikolay
+Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti
+Bhosale, et al. 2023b. Llama 2: Open founda-
+tion and fine-tuned chat models.arXiv preprint
+arXiv:2307.09288.
+Neng Wang, Hongyang Yang, and Christina Dan Wang.
+2023. Fingpt: Instruction tuning benchmark for open-
+source large language models in financial datasets.
+arXiv preprint arXiv:2310.04793.
+Shibo Wang and Pankaj Kanwar. 2019. Bfloat16: The
+secret to high performance on cloud tpus.Google
+Cloud Blog, 4(1).
+Thomas Wolf, Lysandre Debut, Victor Sanh, Julien
+Chaumond, Clement Delangue, Anthony Moi, Pier-
+ric Cistac, Tim Rault, Rémi Louf, Morgan Funtowicz,
+Joe Davison, Sam Shleifer, Patrick von Platen, Clara
+Ma, Yacine Jernite, Julien Plu, Canwen Xu, Teven Le
+Scao, Sylvain Gugger, Mariama Drame, Quentin
+Lhoest, and Alexander M. Rush. 2020. Transform-
+ers: State-of-the-art natural language processing. In
+Proceedings of the 2020 Conference on Empirical
+Methods in Natural Language Processing: System
+Demonstrations, pages 38–45, Online. Association
+for Computational Linguistics.
+Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski,
+Mark Dredze, Sebastian Gehrmann, Prabhanjan Kam-
+badur, David Rosenberg, and Gideon Mann. 2023.
+Bloomberggpt: A large language model for finance.
+arXiv preprint arXiv:2303.17564.
+Chaojun Xiao, Xueyu Hu, Zhiyuan Liu, Cunchao Tu,
+and Maosong Sun. 2021. Lawformer: A pre-trained
+language model for chinese legal long documents.AI
+Open, 2:79–84.
+Qianqian Xie, Weiguang Han, Zhengyu Chen, Ruoyu
+Xiang, Xiao Zhang, Yueru He, Mengxi Xiao, Dong
+Li, Yongfu Dai, Duanyu Feng, et al. 2024. The fin-
+ben: An holistic financial benchmark for large lan-
+guage models.arXiv preprint arXiv:2402.12659.
+Qianqian Xie, Weiguang Han, Xiao Zhang, Yanzhao
+Lai, Min Peng, Alejandro Lopez-Lira, and Jimin
+Huang. 2023. Pixiu: A large language model, in-
+struction data and evaluation benchmark for finance.
+arXiv preprint arXiv:2306.05443.
+An Yang, Anfeng Li, Baosong Yang, Beichen Zhang,
+Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao,
+Chengen Huang, Chenxu Lv, et al. 2025. Qwen3
+technical report.arXiv preprint arXiv:2505.09388.
+An Yang, Baosong Yang, Binyuan Hui, Bo Zheng,
+Bowen Yu, Chang Zhou, Chengpeng Li, Chengyuan
+Li, Dayiheng Liu, Fei Huang, et al. 2024a. Qwen2
+technical report.arXiv preprint arXiv:2407.10671.
+Cehao Yang, Chengjin Xu, and Yiyan Qi. 2024b. Finan-
+cial knowledge large language model.arXiv preprint
+arXiv:2407.00365.
+Hongyang Yang. 2023. Data-centric fingpt. open-
+source for open finance. https://github.
+com/AI4Finance-Foundation/FinGPT.
+Hongyang Yang, Xiao-Yang Liu, and Christina Dan
+Wang. 2023. Fingpt: Open-source financial large
+language models.arXiv preprint arXiv:2306.06031.
+Alex Young, Bei Chen, Chao Li, Chengen Huang,
+Ge Zhang, Guanwei Zhang, Heng Li, Jiangcheng
+Zhu, Jianqun Chen, Jing Chang, et al. 2024. Yi:
+Open foundation models by 01. ai.arXiv preprint
+arXiv:2403.04652.
+Aohan Zeng, Xiao Liu, Zhengxiao Du, Zihan Wang,
+Hanyu Lai, Ming Ding, Zhuoyi Yang, Yifan Xu,
+Wendi Zheng, Xiao Xia, Weng Lam Tam, Zixuan Ma,
+Yufei Xue, Jidong Zhai, Wenguang Chen, Zhiyuan
+Liu, Peng Zhang, Yuxiao Dong, and Jie Tang. 2023.
+GLM-130b: An open bilingual pre-trained model. In
+The Eleventh International Conference on Learning
+Representations (ICLR).
+Jiaxing Zhang, Ruyi Gan, Junjie Wang, Yuxiang Zhang,
+Lin Zhang, Ping Yang, Xinyu Gao, Ziwei Wu, Xiao-
+qun Dong, Junqing He, et al. 2022. Fengshenbang
+
+
+[Page 13]
+1.0: Being the foundation of chinese cognitive intelli-
+gence.arXiv preprint arXiv:2209.02970.
+Liwen Zhang, Weige Cai, Zhaowei Liu, Zhi Yang,
+Wei Dai, Yujie Liao, Qianru Qin, Yifei Li, Xingyu
+Liu, Zhiqiang Liu, et al. 2023. Fineval: A chi-
+nese financial domain knowledge evaluation bench-
+mark for large language models.arXiv preprint
+arXiv:2308.09975.
+Xuanyu Zhang and Qing Yang. 2023. Xuanyuan 2.0:
+A large chinese financial chat model with hundreds
+of billions parameters. InProceedings of the 32nd
+ACM international conference on information and
+knowledge management, pages 4435–4439.
+Yaowei Zheng, Richong Zhang, Junhao Zhang, Yanhan
+Ye, Zheyan Luo, Zhangchi Feng, and Yongqiang Ma.
+2024. Llamafactory: Unified efficient fine-tuning
+of 100+ language models. InProceedings of the
+62nd Annual Meeting of the Association for Compu-
+tational Linguistics (V olume 3: System Demonstra-
+tions), Bangkok, Thailand. Association for Computa-
+tional Linguistics.
+Zhihan Zhou, Liqian Ma, and Han Liu. 2021. Trade
+the event: Corporate events detection for news-based
+event-driven trading. InFindings of the Association
+for Computational Linguistics: ACL-IJCNLP 2021,
+pages 2114–2124.
+A Overview of Finance Evaluation
+Datasets by Task Type, Sample Sizes
+(Training, Validation, Test), and
+Evaluation Metrics
+In the Table.4 and 5, we show the overview of
+finance evaluation datasets by task type, sample
+sizes (training, validation, test), evaluation metrics
+and license.
+B Additional Experiment Results
+Due to computational constraints imposed by our
+large-scale dataset (more than 112K samples; see
+Appendix A) and to ensure a fair comparison
+among models of similar scale, the main paper
+(Table 2 and Table 3) primarily reports results from
+models with <10B parameters, alongside GPT-
+4o. In this appendix, we supplement those find-
+ings with evaluations of several advanced or larger
+models (>100B parameters) in Table.6, providing
+a more comprehensive performance comparison.
+These models include Yi-34B(Young et al., 2024),
+GLM-4-32B-0414(GLM et al., 2024), Mixtral
+8*7B(Jiang et al., 2024), Qwen2.5-32B/72B(Yang
+et al., 2024a), Xuanyuan 2.0(Zhang and Yang,
+2023) and deepseek-v3(Liu et al., 2024). Further-
+more, we extended the CMIN dataset to introduce
+Stock-CoT-R1 1, a synthetic dataset for stock pre-
+diction tasks.
+C Inference Template of Large Language
+Models
+The Table.7 showcases how inference templates
+vary across different models. It is crucial to select
+the appropriate template for constructing correct
+inputs when inferring on the test sets of datasets.
+An incorrect template can significantly impair the
+performance of a model. We have observed that the
+underperformance of some large financial language
+models in some benchmarks is precisely due to not
+selecting the appropriate templates for evaluation.
+For more details of training and inference template,
+please refer to our open-source code repository on
+Github.
+D Typical Case Study Analysis of Typical
+Financial NLP Tasks
+This appendix provides a detailed case study analy-
+sis for some typical financial NLP tasks: financial
+sentiment analysis, text classification, entity extrac-
+tion, and stock movement prediction. Each analysis
+is presented in a separate table, categorizing data
+sets, instructions, inputs, labels, and predictions
+from multiple models.
+Financial Sentiment AnalysisAs demonstrated
+in Table 8, financial sentiment classification is
+one of the simpler tasks for benchmarks in finan-
+cial NLP, resulting in high performance across
+all models tested. General-purpose models (GPT-
+4o, Qwen-3, Llama-3) provide not only the an-
+swer but also a detailed analysis, despite not be-
+ing specifically fine-tuned on the FiQA-SA dataset.
+In contrast, specialized models (FinGPT, FinMA,
+Touchstone-GPT) that have undergone instruction
+tuning deliver straightforward, direct responses,
+illustrating their efficiency and focus in domain-
+specific applications.
+Credit Rating AnalysisIn the classification task
+using the LendingClub dataset, which poses a chal-
+lenging credit rating task, the models face a com-
+plex array of professional financial information evi-
+dent in the input fields. Consequently, most models
+do not perform optimally. Among general mod-
+els, GPT-4o exhibits the best performance, demon-
+1https://huggingface.co/datasets/IDEA-FinAI/Finance-
+R1-Reasoning
+
+
+[Page 14]
+Table 4: Overview of English Finance Evaluation Datasets by Task Type, Sample Sizes (Training, Validation, Test),
+Evaluation Metrics and License
+Task Dataset Train Valid Test Metrics License
+Sentiment Analysis
+FPB3100 776 970 Weighted-F1
+ACC CC BY-SA 3.0
+FiQA-SA750 188 235 Weighted-F1
+ACC MIT License
+Classification
+Headlines71900 10300 20500 Weighted-F1
+ACC CC BY-SA 3.0
+FOMC1984 - 496 Weighted-F1
+ACC CC BY-SA 3.0
+lendingclub9417 1345 2691 Weighted-F1
+MCC
+Entity Recognition NER408 103 98 Entity-F1 CC BY-SA 3.0
+Relation Extraction FinRE27558 - 5112 Relation-F1 MIT License
+Multiple Choice CFA1884 100 20 Weighted-F1
+ACC CC BY-SA 3.0
+Summarization EDTSUM8000 - 2000 ROUGE
+BLEU MIT License
+Question Answering FinQa6251 883 1147 RMACC MIT License
+ConvfinQa8890 2210 1490 RMACC MIT License
+Stock Movement Prediction CMIN-US88297 9010 8480 Weighted-F1
+ACC MIT License
+Table 5: Overview of Chinese Finance Evaluation Datasets by Task Type, Sample Sizes (Training, Validation, Test),
+and Evaluation Metrics
+Task Dataset Train Valid Test Metrics License
+Sentiment Analysis FinFE-CN16157 2020 2020 Weighted-F1
+ACC Public
+Classification FinNL-CN7071 884 884 ORMACC Public
+Entity Extraction FinESE-CN14252 1781 1782 ORMACC Public
+Relation Extraction FinRE-CN13486 1489 3727 RMACC Public
+Multiple Choice
+FinEval1071 170 3340 Weighted-F1
+ACC Apache-2.0 license
+CPA6268 1444 6 Weighted-F1
+ACC CC BY-SA 3.0
+Summarization FinNA-CN28800 3600 3600 ROUGE
+BLEU Public
+Question Answering FinQa-CN19906 2469 2480 RMACC Public
+FincQa-CN21965 2741 2745 RMACC Public
+Stock Movement Prediction CMIN-CN214873 23904 23571 Weighted-F1
+ACC MIT License
+
+
+[Page 15]
+Table 6: Extended performance metrics of financial large language models with additional models and datasets.
+Best results are marked inbold.
+Task Dataset Metrics GPT-4o Yi-34B GLM-4-32B
+-0414
+Mixtral
+8x7B
+Qwen2.5
+32B
+Qwen2.5
+72B
+Xuanyuan
+2.0
+deepseek
+-v3
+Touchstone
+GPT
+Sentiment
+Analysis
+FPB Weighted-F1 0.8084 0.8652 0.8921 0.8510 0.8783 0.8815 0.84260.90140.8576
+ACC 0.8093 0.8638 0.8905 0.8492 0.8761 0.8798 0.84030.89970.8557
+Fiqa-SA Weighted-F1 0.8106 0.8321 0.8453 0.8257 0.8389 0.8421 0.8185 0.85120.8591
+ACC 0.7702 0.8289 0.8402 0.8204 0.8337 0.8376 0.8123 0.84650.8638
+Classification
+Headlines Weighted-F1 0.7857 0.9521 0.9623 0.9387 0.9589 0.9610 0.9324 0.96840.9866
+ACC 0.7931 0.9518 0.9619 0.9375 0.9582 0.9607 0.9312 0.96790.9866
+FOMC Weighted-F1 0.6603 0.7824 0.8125 0.7653 0.8021 0.8089 0.7527 0.82370.8788
+ACC 0.6794 0.7852 0.8183 0.7716 0.8079 0.8135 0.7591 0.82940.8790
+lendingclub Weighted-F1 0.6730 0.8927 0.9215 0.8753 0.9128 0.9186 0.8624 0.93570.9783
+MCC 0.1642 0.7825 0.8432 0.7521 0.8279 0.8375 0.7326 0.86740.9297
+Entity
+Extraction NER Entity-F1 0.1800 0.4521 0.5832 0.4125 0.5527 0.5718 0.3924 0.61270.6993
+Relation
+Extraction FinRE Relation-F1 0.1613 0.2854 0.3726 0.2543 0.3428 0.3615 0.2327 0.41280.5331
+Multiple
+Choice CFA Weighted-F10.77000.6521 0.7125 0.6234 0.6928 0.7036 0.6057 0.7289 0.7497
+ACC0.77000.6528 0.7132 0.6241 0.6935 0.7043 0.6064 0.7296 0.7500
+Summarization EDTSUM
+Rouge-1 0.1675 0.3521 0.4128 0.3276 0.3987 0.4089 0.3124 0.42870.5254
+Rouge-2 0.0556 0.2187 0.2875 0.2013 0.2739 0.2832 0.1924 0.30570.3446
+Rouge-L 0.1069 0.2854 0.3521 0.2678 0.3389 0.3476 0.2543 0.37240.4705
+BLEU 0.1192 0.3025 0.3687 0.2854 0.3562 0.3641 0.2728 0.38650.4512
+Question
+Answering
+Finqa RMACC 0.1037 0.1682 0.1925 0.1543 0.1837 0.1891 0.1476 0.20140.2258
+Convfinqa RMACC 0.2540 0.3827 0.4216 0.3652 0.4089 0.4173 0.3524 0.43850.5053
+Stock Movement
+Prediction CMIN-CoT-R1Weighted-F1 0.5025 0.4873 0.4982 0.4791 0.4924 0.4957 0.4738 0.50110.5136
+ACC 0.5149 0.5027 0.5103 0.4975 0.5068 0.5092 0.4921 0.51380.5224
+Table 7: Comparison of Inference Templates Across Different Models for Dataset Evaluation
+ModelTemplate
+GPT-4o
+"<|im_start|>system{{system_prompt}}<|im_end|>\n"
+"<|im_start|>user{{instruction}}{{input}}<|im_end|>\n"
+"<|im_start|>assistant\n"
+Qwen-3
+"<|im_start|>system{{system_prompt}}<|im_end|>\n"
+"<|im_start|>user{{instruction}}{{input}}<|im_end|>\n"
+"<|im_start|>assistant\n"
+Llama-3
+"<|start_header_id|>system<|end_header_id|>"
+"{{system_prompt}}<|eot_id|>\n"
+"<|start_header_id|>user<|end_header_id|>"
+"{{instruction}}{{input}}<|eot_id|>\n"
+"<|start_header_id|>assistant<|end_header_id|>\n"
+FinGPT "Instruction:{{instruction}}"
+"Input{{input}}\nAnswer:"
+FinMA "Human:{{instruction}}{{input}}\n"
+"Assistant:\n"
+CFGPT"{{instruction}}{{input}}\n"
+DISC-FinLLM"<reserved_102> {{instruction}}{{input}}<reserved_103>"
+Touchstone
+"<|im_start|>system{{system_prompt}}<|im_end|>\n"
+"<|im_start|>user{{instruction}}{{input}}<|im_end|>\n"
+"<|im_start|>assistant\n"
+
+
+[Page 16]
+Table 8: Detailed Case Study Analysis of Financial Sentiment Analysis on the FiQA-SA dataset, Financial Text
+Classification on the LendingClub dataset, Financial Entity Extraction on NER dataset, Stock Movement Prediction
+on DJIA dataset.
+Dataset Instruction Input Label Model Prediction
+FiQA-SA
+What is the sentiment of the following
+financial post: Positive, Negative, or
+Neutral?
+@Joerazorback This time I think
+$AAPL will miss again. Generally
+speaking market is near top when ev-
+eryone thinks that market goes only
+up.
+Negative
+GPT-4o The sentiment of this financial post isNega-
+tive. The user expresses doubt about Apple’s
+performance, suggesting that they think the stock
+will miss expectations. Additionally, the phrase
+about the market being "near top" implies a bear-
+ish outlook, indicating that the market may de-
+cline after its current uptrend.
+Qwen-3 The sentiment of the given financial post is Neg-
+ative. The user is predicting that Apple’s stock
+price ($AAPL) will miss or fail to meet expec-
+tations, and they also suggest that the market
+might be nearing its peak when everyone is opti-
+mistic about continuous upward movement.
+Llama-3 The sentiment of this post is Negative. The au-
+thor is predicting that Apple’s stock (AAPL)
+will miss expectations, which is a negative view.
+Additionally, the author is suggesting that the
+market is near a top, implying that a downturn
+is likely, which is also a negative sentiment.
+FinGPT Negative
+FinMA Negative
+Touchstone
+GPT Negative
+LendingClub
+Assess the client’s loan status based on
+the following loan records from Lend-
+ing Club. Respond with only ’good’ or
+’bad’.
+The client has attributes as follows: ...
+The state of Employment Length is 2
+years. The state of Home Ownership
+is RENT. The state of Verification Sta-
+tus is Verified. The state of Annual
+Income is 83000.0.
+Good
+GPT-4o Good
+Qwen-3 Good
+Llama-3 Good
+FinGPT Bad
+FinMA Bad
+Touchstone
+GPT Good
+NER
+In the sentences extracted from finan-
+cial agreements in U.S. SEC filings,
+identify the named entities.
+WHEREAS: (A) The Borrower intends
+to develop a plant in France for the
+production of solar grade silicon.
+Borrower, PER;
+France, LOC
+GPT-4o France, LOC
+Qwen-3 Borrower, PER; France, LOC; solar grade sili-
+con, ORG
+Llama-3 Borrower, PER; France, LOC
+FinGPT The Borrower intends to develop a plant in
+France for the production of solar grade silicon
+FinMA Borrower, PER; France, LOC
+Touchstone
+GPT Borrower, PER; France, LOC
+CMIN-US Based on the news about the stock in
+the past five trading days......
+NEWS1: Biden Urges CEOs to Im-
+prove U.S. Cybersecurity After At-
+tacks...
+0
+GPT-4o Rise
+Qwen3 Decrease
+Llama-3 Decrease
+FinGPT ""
+FinMA Rise
+Touchstone
+GPT Rise
+
+
+[Page 17]
+strating the capabilities of large-scale models. In
+the realm of specialized financial language models,
+Touchstone-GPT, with its high-quality instruction
+tuning, significantly outperforms FinMA and Fin-
+GPT, which are only minimally tuned with Lora.
+Financial NERIn this information extraction
+task, most models demonstrated an understanding
+of the task intent and adhered to the instructions,
+signifying that even in the era of large language
+models, models like Qwen-3 and Llama-3 actually
+outperformed GPT-4o. In particular, specialized
+models such as FinMA and Touchstone-GPT, with
+more comprehensive instruction tuning, responded
+accurately and succinctly, highlighting their en-
+hanced capability and focus on domain-specific
+tasks.
+Stock Movement PredictionThe Stock Move-
+ment Prediction task is one of the most challenging
+tasks, as it requires models to predict the daily fluc-
+tuations of the CMIN-US based solely on the 5-day
+news items. From the results in Table.4, it is ev-
+ident that GPT-4o performed the best, yet it still
+falls short of practical utility. Even Touchstone-
+GPT, despite specialized instruction tuning, per-
+formed poorly. Our analysis suggests that the senti-
+ment of news items may not reliably predict stock
+movements and that incorporating quantitative data
+is essential for achieving practical model perfor-
+mance. Similar conclusions were drawn from ex-
+periments with traditional machine learning meth-
+ods like XGBoost. Nevertheless, aside from sim-
+pler tasks like financial sentiment analysis, we also
+pose challenging tasks such as stock prediction,
+which are closer to real-world applications, leaving
+more room for benchmark challenges and explo-
+ration. Multimodal fusion of news and quantitative
+data represents a promising future direction, and
+we look forward to seeing models excel in these
+tasks.
+Due to the similar performance of models across
+corresponding task types on the Chinese bench-
+mark, we will not reiterate these comparisons and
+analysis here.
+E Information About Use Of Ai
+Assistants
+In the preparation of this work, the author used AI-
+assisted technology (specifically, large language
+models such as GPT-4 and Deepseek-V3) exclu-
+sively for text refinement purposes. The AI was em-
+ployed to assist in proofreading, correcting gram-
+matical errors, and polishing linguistic expres-
+sions to improve the clarity and readability of the
+manuscript.

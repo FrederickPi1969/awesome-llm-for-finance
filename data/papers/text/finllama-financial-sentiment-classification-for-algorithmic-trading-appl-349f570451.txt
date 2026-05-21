@@ -1,0 +1,561 @@
+[Page 1]
+FinLlama: Financial Sentiment Classification for
+Algorithmic Trading Applications
+Thanos Konstantinidis1, Giorgos Iacovides 1,2, Mingxue Xu 1, Tony G. Constantinides 1, Danilo Mandic 1
+1Imperial College London, 2MIT
+{a.konstantinidis16, giorgos.iacovides20, m.xu21, a.constantinides, d.mandic }@imperial.ac.uk
+Abstract—There are multiple sources of financial news online
+which influence market movements and trader’s decisions. This
+highlights the need for accurate sentiment analysis, in addition
+to having appropriate algorithmic trading techniques, to arrive
+at better informed trading decisions. Standard lexicon based
+sentiment approaches have demonstrated their power in aiding
+financial decisions. However, they are known to suffer from issues
+related to context sensitivity and word ordering. Large Language
+Models (LLMs) can also be used in this context, but they are
+not finance-specific and tend to require significant computational
+resources. To facilitate a finance specific LLM framework, we
+introduce a novel approach based on the Llama 2 7B foundational
+model, in order to benefit from its generative nature and compre-
+hensive language manipulation. This is achieved by fine-tuning
+the Llama2 7B model on a small portion of supervised financial
+sentiment analysis data, so as to jointly handle the complexities
+of financial lexicon and context, and further equipping it with
+a neural network based decision mechanism. Such a generator-
+classifier scheme, referred to as FinLlama, is trained not only to
+classify the sentiment valence but also quantify its strength, thus
+offering traders a nuanced insight into financial news articles.
+Complementing this, the implementation of parameter-efficient
+fine-tuning through LoRA optimises trainable parameters, thus
+minimising computational and memory requirements, without
+sacrificing accuracy. Simulation results demonstrate the ability
+of the proposed FinLlama to provide a framework for enhanced
+portfolio management decisions and increased market returns.
+These results underpin the ability of FinLlama to construct high-
+return portfolios which exhibit enhanced resilience, even during
+volatile periods and unpredictable market events.
+Index Terms - Large language models, finance, sentiment
+analysis, algorithmic trading, parameter-efficient fine-tuning
+I. I NTRODUCTION
+The ever increasing prominence of algorithmic trading in
+quantitative finance has necessitated the need for reliable and
+actionable AI-aided intelligence from vast streams of data with
+multiple modalities. Of particular interest is generative AI, ow-
+ing to its ability to distill insights from non-numerical sources
+such as news, earnings calls, financial reports, and other textual
+sources. In this context, sentiment analysis promises to bridge
+the gap between market movements caused by geopolitical and
+socioeconomic events, human actions, and quantitative trading.
+Sentiment analysis rests upon the quantification of opinions
+present in unlabeled textual data, and aims to categorize
+whether the overall viewpoint is positive, negative, or neutral.
+When applied to large-scale information sources, this may
+yield an understanding of the overall direction of macroscopic
+trends, a task which is both challenging and time-consuming
+for human analysts. Importantly, the sentiment contained in
+on-line textual sources can drive market movements; such
+information harbours intrinsic advantages and a competitive
+edge to those equipped with the tools to harness it.
+Despite conceptual benefits, the heterogeneous, nuanced,
+and vast nature of financial text presents unique challenges
+when it comes to extracting sentiment in a manner that is both
+accurate and actionable. For example, the words ‘bull’ and
+‘bear’ are neutral in the general vocabulary, but in financial
+markets, their respective connotations are strictly positive
+or negative [1]. This highlights the need for context-aware
+sentiment extraction, and underpins the complexities of natural
+language processing (NLP) in financial applications.
+To adress these issues, we consider a two-fold fundamental
+question:
+• Can large language models (LLMs), which have revolu-
+tionized manifold areas of NLP, be specifically tailored
+for sentiment analysis in the finance domain, particularly
+for algorithmic trading?
+• Can this tailoring be achieved in a way which does
+not require the vast computational resources, typically
+associated with NLP models, thus making the approach
+accessible to a broader audience equipped with standard
+computational resources?
+.
+Our proposed FinLlama is one such solution, which is
+obtained by fine-tuning a pre-trained LLM (namely Llama 2
+7B [2]) on specialised, labelled and publicly available financial
+news datasets. The ultimate goal of FinLlama is to enhance the
+performance of financial sentiment analysis, whilst leveraging
+on parameter-efficient fine-tuning (PEFT) and 8-bit quantiza-
+tion, through LoRA [3], to minimise resource utilisation.
+The main contributions of this work are:
+• Targeted fine-tuning : Rather than utilising one over-
+arching model for diverse financial tasks, our approach
+capitalizes on the foundational pre-trained Llama 2
+model, whereby fine-tuning is performed specifically for
+the purpose of sentiment classification through a SoftMax
+classification layer at its output.
+• Efficient resource utilization: Our approach ensures that
+even standard computational resources, with no high-end
+GPUs, can be employed. By virtue of the pre-trained
+Llama 2 model and through targeted parameter-efficient
+fine-tuning, we dramatically reduce computational de-
+mands compared to the existing methods, thus bridging
+1
+arXiv:2403.12285v1  [cs.CL]  18 Mar 2024
+
+
+[Page 2]
+the gap between academic benchmarks and practical
+utility.
+• Benchmarking and real-world application: The success
+of fine-tuned LLMs for finance has also highlighted
+that the domain of portfolio construction has not yet
+been adequately addressed. To this end, we integrate the
+extracted sentiment signals by FinLlama into a long-
+short portfolio, which allows us to obtain finance-specific
+real-world metrics including cumulative returns and the
+Sharpe ratio.
+II. R ELATED WORK
+The potential of sentiment analysis in finance was first
+recognised by Fama who, in 1970, introduced the notion of
+the Efficient Market Hypothesis (EMH) [4], which states that
+stock prices change in response to unexpected fundamental
+information and news. In this context, before the introduction
+of advanced machine learning tools, the financial sector em-
+ployed lexicon-driven approaches [1]. These methods analyse
+textual content, sourced from news articles or financial disclo-
+sures, based on specific keywords, which are then linked to
+established sentiment ratings [5], [6]. However, an exponential
+increase in the volume and richness of available information
+has opened a fertile ground for machine learning, including
+techniques such as Naive Bayes and Support Vector Machines
+[7], which are summarised in Figure 1.
+In parallel, the advances in deep learning have become
+instrumental for NLP research and have spurred pioneering
+works that sought to harness the power of neural networks
+for NLP tasks. Recently, the introduction of the attention
+mechanism and transformer networks has enabled a signif-
+icant shift away from recurrent and convolutional methods,
+traditionally used in deep-learning tasks [8]. This has led to
+the development of transformer-based models, such as BERT
+[9], which owing to its contextual comprehension of language
+has been used extensively for sentiment analysis. However, the
+performance of BERT in the financial domain has encountered
+limitations, primarily because it is not specifically trained on
+financial datasets. Moreover, its requirement for substantial
+amounts of data for fine-tuning purposes poses a considerable
+challenge for financial applications, where such data may not
+be readily available.
+More recently, FinBERT [10], a version of BERT which is
+fine-tuned on financial text, has shown promising results for
+the task of financial sentiment analysis. However, FinBERT
+still suffers from limitations such as insensitivity to numerical
+values, while due to its relatively small size (110 million pa-
+rameters) its classification accuracy deteriorates with sentence
+complexity [11]. The FinGPT [12], [13] and Instruct-FinGPT
+[14] aim to enhance their expressive power by using the Llama
+7B as their base model. However, FinGPT is not optimized for
+the task of financial sentiment analysis whilst Instruct-FinGPT
+only classifies the sentiment valence but is not capable of
+quantifying the strength of a sentiment class.
+To the best of our knowledge, BloombergGPT [15] is the
+only pre-trained finance-specific LLM, as Bloomberg was able
+to train the model using data collected over a span of 40
+years. Despite the impressive performance of the model on
+financial sentiment analysis, the resources required to train
+such a model are substantial (1.3M GPU hours at a cost of
+$5M) whilst much of the training data is confidential and
+not publicly available. This is different from our proposed
+methodology, which focuses on achieving a high classification
+accuracy whilst minimizing the training corpus and computa-
+tional resources. This is achieved by fine-tuning a pre-trained
+general-purpose LLM on a smaller-scale financial data corpus.
+III. M ETHODOLOGY
+Our work aims to embark upon the immense expressive
+power and contextual understanding of general-purpose LLMs
+in order to make them finance-specific. This is achieved by
+fine-tuning the state-of-the-art (SOTA) Llama 2 7B model on
+a specific corpus of financial data. The effectiveness of our
+model is demonstrated on financial sentiment analysis through
+a new set of benchmarks that align closely with end portfolio
+construction - the ultimate goal of financial analysis.
+A. Fine-tuning the Llama 2 model
+Even though pre-trained LLMs pose a range of capabilities
+such as reasoning, translation, summarising and text genera-
+tion, they often struggle when applied to a specific task of
+interest, such as sentiment analysis. This limitation becomes
+even more critical in the finance domain, where the nuanced
+language, media hype and extensive length of financial news
+articles pose significant additional challenges.
+To tackle these challenges, our work revisits the first prin-
+ciples of LLMs in order to align them to the task of financial
+sentiment analysis. This is achieved by using four labelled
+financial text datasets as training data to fine-tune the Llama
+2 model. Such training on financial data, equipped the model
+with the ability to understand the linguistic nuances present in
+the financial domain. Furthermore, a SoftMax classification
+layer was added at the output of the foundational model,
+allowing the proposed fine-tuned model to produce SoftMax
+outputs for three labels: positive, negative or neutral. This
+made it possible to alter the primary function of the model
+from text generation to sentiment classification.
+1) Training datasets: Our training data was a combination
+of four labelled publicly available financial news datasets,
+resulting in a comprehensive collection of 34,180 labelled
+samples. Each sample was annotated with one of the three
+labels: positive, negative, and neutral.
+2) Model Training: Our FinLlama model was first ini-
+tialised with the Llama 2 7B model, followed by fine-tuning
+over 5 epochs. The training process utilised the AdamW
+optimizer [16], as it effectively decouples the weight decay
+from the optimization steps, leading to more effective training.
+The initial learning rate was deliberately kept small as the
+Llama 2 7B model is already pre-trained on a large corpus
+of data, whilst the warm-up ratio and weight decay served as
+key regularisation techniques to prevent overfitting, a crucial
+aspect given the limited size of our fine-tuning dataset.
+2
+
+
+[Page 3]
+Fig. 1: Overview of sentiment analysis methods.
+Moreover, the LoRA implementation was employed in
+the fine-tuning process in order to minimize the number of
+trainable parameters whilst achieving high and robust end
+performance. Through the LoRA implementation, the number
+of trainable parameters was set to 4.2M, amounting to just
+0.0638% of the total number of parameters in the Llama 2 7B
+model. This made it possible for our fine-tuning process to be
+implemented on a single A100 (40 GB) GPU, thus avoiding
+the need for excessive computational resources.
+B. Proposed Framework
+With the proposed fine-tuned Llama 2 model in place, we
+followed the framework shown in Figure 2. Our aim was to
+assess the performance of our FinLlama model against other
+established sentiment analysis methods, using finance-specific
+real-world metrics.
+Fig. 2: Framework for sentiment analysis.
+Data Collection and Processing. Both textual and market
+data were collected in order to construct appropriate long-short
+(L/S) portfolios. Regarding the textual data, 204,017 articles
+dating between 2015 to 2021 were collected from online
+sources. These sources were selected due to their reliability,
+reputation, lack of bias and focus on major corporations.
+Financial market data were collected for the same time period
+from Yahoo Finance. These collected market data contained
+daily stock returns for the 500 companies in our Investable
+Universe (S&P 500), resulting in 1,672 days of stock returns
+data for each company. Data processing in the form of Named
+Entity Recognition (NER) and text pre-processing was then
+applied to the textual data, to remove irrelevant articles and
+ensure the compatibility of the articles with our sentiment
+methdods.
+Sentiment Analysis. In total, five sentiment analysis meth-
+ods were applied. For the lexicon-based approaches (see Ap-
+pendix VI-A1), LMD [17] and HIV-4 [18] were implemented
+using the pysentiment2 Python library, while V ADER [19]
+was implemented using the NLTK library. Regarding the deep
+learning methods (see Appendix VI-B), both the FinBERT
+model and our FinLlama model were obtained through Hug-
+gingFace, and were utilised via the Transformers library.
+The considered methods were evaluated on every article
+within each corpus for a given company. In cases where
+multiple articles were published on the same day for a given
+company, the average sentiment was calculated for that day,
+in the form
+St = 1
+Nt
+NtX
+i=1
+Sit (1)
+Here, St represents the average sentiment for the t-th day,
+Nt denotes the number of news articles published on that
+same t-th day for a given company, while Sit designates the
+sentiment strength of the i-th news article on a particular t-
+th day. The daily sentiment outputs for each company were
+merged to arrive at the final sentiment data that were utilised
+as a parameter in the portfolio construction stage.
+3
+
+
+[Page 4]
+Portfolio Construction. Once the sentiment for each
+method was defined for every company, the long-short port-
+folio was constructed. We used the sentiment as a parameter
+to determine which companies should be in a long or short
+position, aiming to maximise returns from both positions.
+The long-short portfolio was constructed using the following
+procedure:
+• Define the Investable Universe: Even though the S&P
+500 comprises 500 companies, the financial textual data
+collected did not contain articles associated to some of the
+companies for the test period of February 2015 to June
+2021. Consequently, 417 companies were considered.
+• Define the long and short position : The sentiment sig-
+nal obtained from each of the five methods was used
+to construct five distinct portfolios. For each method,
+companies were ranked daily according to their senti-
+ment. Companies that did not have sentiment data on a
+particular day were omitted from the ranking. As the daily
+sentiment score for each company ranges between -1 and
+1, those with the highest positive sentiment were placed
+in long positions, whilst those with the strongest negative
+sentiment were placed in short positions.
+• Allocation: An equally-weighted portfolio strategy was
+considered in our portfolio construction as this is the strat-
+egy mostly utilised by hedge funds [20]. The percentage
+of companies in a long and short position was fixed at
+35%. Consequently, the top 35% of companies in terms
+of performance were allocated to long positions, while
+the bottom 35% were allocated to short positions.
+• Determine daily returns: The daily return for each com-
+pany that was held in a long or short position was
+obtained by the market data on that particular day. The
+total daily return of companies that were held in a long
+position was defined as
+Daily Long Return r long =
+NlongX
+i=1
+rlong(i)
+Nlong
+(2)
+Similarly, the total daily return of companies that were
+held in a short position was defined as
+Daily Short Return r short =
+NshortX
+i=1
+rshort(i)
+Nshort
+(3)
+For each particular day, the number of companies that
+were held in either a long position ( Nlong) or a short
+position ( Nshort) were equal. Consequently, the total
+portfolio return on a particular day was the difference
+between the daily long return and daily short return, and
+is given by
+Daily Return r daily(i) = rlong(i) − rshort(i) (4)
+Portfolio Evaluation. The performance of the portfolio con-
+structed using our fine-tuned model was assessed against the
+portfolios constructed using other SOTA sentiment methods.
+To this end, the employed real-world financial metrics were:
+cumulative returns, annualized return, annualized volatility,
+and the Sharpe ratio [21]. These metrics are defined as
+Cumulative Returns r cum =
+NX
+i=1
+rdaily(i) (5)
+Annualized Return R p =
+NX
+i=1
+rlog(i)
+N × 252 (6)
+Ann. V olatility σ p =
+s PN
+i=1(rlog(i) − ¯r)2
+N − 1 ×
+√
+252 (7)
+Sharpe Ratio S a = Rp − Rf
+σp
+(8)
+where N is the total number of investing days, totaling 1,672,
+rlog(i) is the logarithmic daily return, ¯r is the average daily
+logarithmic return, Rf is the annualized risk-free rate of return
+and 252 is the number of business days in a year. The risk-
+free return, Rf , typically represents the yield of the 10-Year
+Treasury Note; however, due to its prolonged low yield [22]
+during the analysed period, a 0% rate is commonly used and
+is adopted in our analysis.
+IV. E XPERIMENTAL RESULTS
+The performance of the five portfolios which were con-
+structed as described in Section III are shown in Figure 3.
+Observe that the deep learning approaches outperformed the
+lexicon-based approaches in terms of cumulative returns, par-
+ticularly those relying on general-purpose dictionaries (HIV-4
+and V ADER). This was to be expected, given that lexicon-
+based approaches often fail to capture the contextual meaning
+of sentences, whilst the nuanced nature of financial text signif-
+icantly reduces the accuracy of general-purpose dictionaries.
+Furthermore, as observed in the bottom-left panel of Figure 3,
+all methods exhibited their best performance during turbulent
+and high-volatility economic periods, such as the first quarter
+of 2020. The results observed in Table II suggest that the 35%
+long-short portfolio, constructed using our fine-tuned Llama-2
+model, was the most successful. This is attributed to its ability
+to achieve significantly higher cumulative returns compared to
+all other considered methods, and most importantly FinBERT,
+while attaining a higher Sharpe ratio and exhibiting lower
+volatility.
+Overall, our FinLlama model successfully generated sig-
+nificantly higher returns for investors, whilst simultaneously
+reducing portfolio risk, as indicated by the higher Sharpe ratio
+and lower annualized volatility.
+V. C ONCLUSION AND FUTURE WORK
+We have introduced an innovative approach to financial sen-
+timent analysis which rests upon the fine-tuning of a general-
+purpose LLM. In this way, the proposed method has capi-
+talised on the extensive knowledge base and reasoning abilities
+inherent to LLMs, whilst shifting their primary objective from
+4
+
+
+[Page 5]
+Fig. 3: Comparison of performance of the 35% long-short portfolios which were constructed using the five sentiment analysis
+methods, for the time period of February 2015 to June 2021. MA(30) and MSTD(30) represent the moving average and moving
+standard deviation, respectively, of the returns calculated over a 30-day rolling window.
+LMD HIV-4 V ADER FinBERT FinLlama (Ours) S&P 500
+Cumulative Returns (%) 204.6 100.4 130.6 213.0 308.2 83.1
+Annualized Return (%) 29.1 13.5 17.9 30.3 45.0 11.3
+Sharpe Ratio 1.5 0.7 0.9 1.5 2.4 0.62
+Annualized V olatility (%) 19.5 18.9 19.6 20.3 18.6 18.5
+TABLE I: Statistical comparison between the five considered sentiment analysis methods using a 35% long-short portfolio.
+For Cumulative Returns, Annualized Return and Sharpe Ratio, higher is better. For Annualized V olatility, lower is better.
+text generation to classification tasks. In addition, such an
+approach has enabled the LLMs to become more attuned to
+the nuanced language of the finance sector, whilst minimising
+their resource utilisation and computational demands.
+Our fine-tuned Llama2 7B model, termed FinLlama, has
+been used to construct a portfolio, yielding results that have
+surpassed those of the leading current method in the field,
+the FinBERT. The FinLlama has achieved cumulative returns
+which have outperformed the FinBERT model by 44.7%,
+while achieving a significantly higher Sharpe ratio and lower
+annualized volatility. This represents both a substantial contri-
+bution to the field of a conjoint framework involving sentiment
+analysis and LLMs, and demonstrates that fine-tuning an LLM
+can yield superior results, even with a small amount of task-
+specific data. In addition, the present work has set a new
+benchmark in the field, transcending traditional measures such
+as accuracy and F1-score, commonly used in the literature.
+Instead, we focus on practical, finance-specific metrics which
+have greater relevance to end-users. It is our hope that such
+an approach is a step towards narrowing down the divide
+between academic research and practical applications within
+quantitative finance.
+Our future research will aim to enhance both the sentiment
+classification accuracy and efficiency of our model by incor-
+porating additional techniques to produce an easily tractable
+platform to facilitate the application of artificial intelligence
+(AI) in the finance sector.
+Disclaimer: Nothing herein is financial advice, and NOT
+a recommendation to trade real money. Please use common
+sense and always first consult a professional before trading
+5
+
+
+[Page 6]
+or investing.
+REFERENCES
+[1] K. Mishev, A. Gjorgjevikj, I. V odenska, L. T. Chitkushev, and D. Tra-
+janov, “Evaluation of sentiment analysis in finance: From lexicons to
+transformers,” IEEE Access, vol. 8, pp. 131 662–131 682, 07 2020.
+[2] H. Touvron, L. Martin, K. Stone, P. Albert, A. Almahairi, Y . Babaei,
+N. Bashlykov, S. Batra, P. Bhargava, S. Bhosale et al. , “Llama
+2: Open foundation and fine-tuned chat models,” arXiv preprint
+arXiv:2307.09288, 2023.
+[3] E. J. Hu, Y . Shen, P. Wallis, Z. Allen-Zhu, Y . Li, S. Wang, L. Wang,
+and W. Chen, “LoRA: Low-rank adaptation of large language models,”
+arXiv preprint arXiv:2106.09685 , 2021.
+[4] E. F. Fama, “Efficient capital markets: A review of theory and empirical
+work,” The Journal of Finance , vol. 25, no. 2, pp. 383–417, 1970.
+[5] X. Li, H. Xie, L. Chen, J. Wang, and X. Deng, “News impact on stock
+price return via sentiment analysis,” Knowledge-Based Systems, vol. 69,
+pp. 14–23, 2014.
+[6] Z. T. Ke, B. T. Kelly, and D. Xiu, “Predicting returns with text data,”
+National Bureau of Economic Research, Tech. Rep., 2019.
+[7] N. Cristianini and J. Shawe-Taylor, An introduction to support vector
+machines and other kernel-based learning methods . Cambridge Uni-
+versity Press, 2000.
+[8] Z. Yang, D. Yang, C. Dyer, X. He, A. Smola, and E. Hovy, “Hierarchical
+attention networks for document classification,” 01 2016, pp. 1480–1489.
+[9] J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, “BERT: Pre-training
+of deep bidirectional transformers for language understanding,” in North
+American Chapter of the Association for Computational Linguistics ,
+2019. [Online]. Available: https://api.semanticscholar.org/CorpusID:
+52967399
+[10] D. Araci, “FinBERT: Financial sentiment analysis with pre-trained
+language models,” arXiv preprint arXiv:1908.10063 , 2019.
+[11] Z. Chen, S. G ¨ossi, W. Kim, B. Bermeitinger, and S. Handschuh,
+“FinBERT-FOMC: Fine-tuned FinBERT Model with sentiment focus
+method for enhancing sentiment analysis of FOMC minutes.” Pro-
+ceedings of the 4th ACM International Conference on AI in Finance,
+2023, pp. 357–364.
+[12] X.-Y . Liu, G. Wang, and D. Zha, “FinGPT: Democratizing internet-
+scale data for financial large language models,” arXiv preprint
+arXiv:2307.10485, 2023.
+[13] H. Yang, X.-Y . Liu, and C. D. Wang, “FinGPT: Open-source financial
+large language models,” arXiv preprint arXiv:2306.06031 , 2023.
+[14] B. Zhang, H. Yang, and X.-Y . Liu, “Instruct-FinGPT: Financial
+sentiment analysis by instruction tuning of general-purpose large
+language models,” ArXiv, vol. abs/2306.12659, 2023. [Online].
+Available: https://api.semanticscholar.org/CorpusID:259224880
+[15] S. Wu, O. Irsoy, S. Lu, V . Dabravolski, M. Dredze, S. Gehrmann,
+P. Kambadur, D. Rosenberg, and G. Mann, “BloombergGPT: A
+large language model for finance,” ArXiv, vol. abs/2303.17564,
+2023. [Online]. Available: https://api.semanticscholar.org/CorpusID:
+257833842
+[16] I. Loshchilov and F. Hutter, “Fixing weight decay regularization
+in Adam,” ArXiv, vol. abs/1711.05101, 2017. [Online]. Available:
+https://api.semanticscholar.org/CorpusID:3312944
+[17] T. Loughran and B. Mcdonald, “When is a liability not a liability?
+Textual analysis, dictionaries, and 10-Ks,” The Journal of Finance ,
+vol. 66, pp. 35 – 65, 02 2011.
+[18] P. J. Stone, D. C. Dunphy, M. S. Smith, and D. M. Ogilvie, The General
+Inquirer: A Computer Approach to Content Analysis. MIT Press, 1966.
+[19] C. Hutto and E. Gilbert, “V ADER: A parsimonious rule-based model for
+sentiment analysis of social media text,” vol. 08, no. 01. Proceedings of
+the 8th International Conference on Weblogs and Social Media, ICWSM
+2014, 2015, pp. 216–225.
+[20] Z. T. Ke, B. T. Kelly, and D. Xiu, “Predicting returns with text data,”
+National Bureau of Economic Research, Inc, NBER Working Papers
+26186, 2019. [Online]. Available: https://EconPapers.repec.org/RePEc:
+nbr:nberwo:26186
+[21] J. B. Berk and P. M. DeMarzo, “Corporate finance,” vol. 5, 2019.
+[22] Yahoo Finance, “Treasury yield 10 years historical data.” 2023.
+[Online]. Available: https://finance.yahoo.com/quote/%5ETNX/history
+VI. A PPENDIX
+A. Lexicon-Based Approaches
+1) Harvard IV-4 Psychological Dictionary (HIV-4): HIV-4
+is one of the oldest manually constructed lexicons, and is
+used for objectively identifying specified characteristics of
+messages in areas involving social science, political science,
+and psychology. The latest version of the HIV-4 dictionary
+contains over 11,000 words which are classified into one or
+more of 183 categories. In this work, we focus on the 1,045
+words labelled as positive and the 1,160 words labelled as
+negative.
+2) Loughran and McDonald (LMD) Dictionary: Loughran
+and McDonald evaluated standard dictionaries and found that
+these frequently misclassify terms within financial texts. This
+insight led to the development of the LMD dictionary, which
+is specifically tailored for the financial sector. The dictionary
+categorizes words into six distinct sentiment categories:
+negative, positive, uncertainty, litigious, strong modal, and
+weak modal. It was constructed using data from 50,115
+10-K filings from 8,341 firms listed on the New York Stock
+Exchange (NYSE) and the National Association of Securities
+Dealers Automated Quotations (NASDAQ), covering the
+period from 1994 to 2008. Overall, the LMD dictionary
+contains 2,355 negative financial words and 353 positive
+financial words.
+3) Valence Aware Dictionary for sEntiment Reasoning
+(VADER): V ADER combines lexical features, derived from
+micro-blog contexts, with the grammatical and syntactical
+conventions that humans typically employ to express or em-
+phasize sentiment intensity. This enables V ADER to accurately
+quantify the sentiment strength of text. The model contains
+approximately 9,000 token features, which are each assigned a
+sentiment score ranging from -4 (indicating extremely negative
+sentiment) to +4 (indicating extremely positive sentiment). The
+overall polarity score for a text is calculated by summing the
+sentiment scores of each word present in the lexicon, with the
+final score normalized to fall within the range of -1 to +1.
+B. Deep Learning Approaches
+1) FinBERT: FinBERT leverages the BERT model architec-
+ture, and is specifically tailored for financial contexts. It was
+pre-trained on a substantial financial text corpus consisting of
+1.8M news articles sourced from the Thomson Reuters Text
+Research Collection (TRC2) dataset, spanning the years be-
+tween 2008 to 2010. Further refinement was achieved through
+fine-tuning on the Financial Phrasebank (FPB) dataset, thus
+enhancing its capabilities in financial sentiment classification.
+FinBERT generates SoftMax outputs for three labels: positive,
+negative, and neutral.
+6

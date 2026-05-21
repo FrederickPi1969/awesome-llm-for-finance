@@ -1,0 +1,1217 @@
+[Page 1]
+MULTI HIERTT : Numerical Reasoning over Multi Hierarchical
+Tabular and Textual Data
+Yilun Zhao1 Yunxiang Li2 Chenying Li3 Rui Zhang4
+1Yale University 2The Chinese University of Hong Kong
+3Northeastern University 4Penn State University
+yilun.zhao@yale.edu 1155124348@link.cuhk.edu.hk
+li.chenyin@northeastern.edu rmz5227@psu.edu
+Abstract
+Numerical reasoning over hybrid data contain-
+ing both textual and tabular content (e.g., ﬁnan-
+cial reports) has recently attracted much atten-
+tion in the NLP community. However, existing
+question answering (QA) benchmarks over hy-
+brid data only include a single ﬂat table in each
+document and thus lack examples of multi-
+step numerical reasoning across multiple hi-
+erarchical tables. To facilitate data analyti-
+cal progress, we construct a new large-scale
+benchmark, M ULTIHIERTT , with QA pairs
+over Multi Hierarchical Tabular and Textual
+data. M ULTIHIERTT is built from a wealth of
+ﬁnancial reports and has the following unique
+characteristics: 1) each document contain mul-
+tiple tables and longer unstructured texts; 2)
+most of tables contained are hierarchical; 3)
+the reasoning process required for each ques-
+tion is more complex and challenging than ex-
+isting benchmarks; and 4) ﬁne-grained anno-
+tations of reasoning processes and supporting
+facts are provided to reveal complex numeri-
+cal reasoning. We further introduce a novel
+QA model termed MT2Net, which ﬁrst applies
+facts retrieving to extract relevant supporting
+facts from both tables and text and then uses a
+reasoning module to perform symbolic reason-
+ing over retrieved facts. We conduct compre-
+hensive experiments on various baselines. The
+experimental results show that MULTIHIERTT
+presents a strong challenge for existing base-
+lines whose results lag far behind the perfor-
+mance of human experts. The dataset and code
+are publicly available at https://github.
+com/psunlpgroup/MultiHiertt.
+1 Introduction
+In recent years, as key to many NLP tasks such as
+QA, there is a ﬂurry of works on numerical rea-
+soning over various types of data including textual
+data (Dua et al., 2019; Amini et al., 2019; Xie and
+Sun, 2019) and tabular data (Moosavi et al., 2021;
+Suadaa et al., 2021). More recently, numerical
+Figure 1: An example of M ULTIHIERTT : The system
+needs to ﬁrst locate which segment got the most funds
+in 2017 in the second hierarchical table, then select rel-
+evant numbers from the ﬁrst hierarchical table and gen-
+erate the correct reasoning program to get the answer.
+The annotated supporting facts are highlighted in red,
+and the hierarchical column and row headers are high-
+lighted in orange and green, respectively.
+reasoning over hybrid data containing both textual
+and tabular content (Zhu et al., 2021; Chen et al.,
+2021) has attracted much attention. For example,
+arXiv:2206.01347v1  [cs.AI]  3 Jun 2022
+
+
+[Page 2]
+the FinQA dataset (Chen et al., 2021) focuses on
+questions that require numerical reasoning over ﬁ-
+nancial report pages, e.g., "What portion of the total
+identiﬁable net assets is in cash?". Such questions
+need the system to locate relevant cells in the tabu-
+lar content and then perform a division operation
+to get the ﬁnal answer.
+However, existing QA datasets over hybrid data
+only contain a single ﬂat table in each docu-
+ment (Zhu et al., 2021; Chen et al., 2021). There-
+fore, they lack examples that require multi-step rea-
+soning processes across multiple paragraphs and
+hierarchical tables. Hierarchical tables are widely
+used in scientiﬁc or business documents. A hier-
+archical table usually contains multi-level headers,
+which makes cell selection much more challenging
+because it requires multi-level and bi-dimensional
+indexing techniques. For instance, consider the ex-
+ample of our proposed dataset MULTI HIERTT in
+Figure 1, each table contains both column headers
+and row headers, which are hierarchical in nature.
+And ignoring the row / column headers or not rea-
+soning on the entire header hierarchy may lead to
+the wrong result. For instance, in the given exam-
+ple, if the system simply searched for cells with a
+ﬂat row header containing "Product" and "Service"
+and column header containing "2018", it may mis-
+takenly return the value 2,894 and 382 appearing in
+the beginning of the ﬁrst table. Additionally, in real
+life, when analyzing ﬁnancial reports, profession-
+als such as analysts or investors often refer to mul-
+tiple hierarchical tables and multiple paragraphs
+to obtain conclusions. For instance, ﬁnding "the
+segments with most funds in 2017" requires the
+system to locate and perform numerical reasoning
+on the second hierarchical table. Then the system
+should use the results gained from the second table
+to reason on the ﬁrst table. However, existing QA
+datasets lack such examples of reasoning across
+multiple tables.
+To address these shortcomings, we presentMUL-
+TIHIERTT : an expert-annotated dataset that con-
+tains 10,440 QA pairs, along with annotations
+of reasoning processes and supporting facts. To
+the best of our knowledge, MULTI HIERTT is the
+ﬁrst dataset for solving complicated QA tasks over
+documents containing multiple hierarchical tables
+and paragraphs. In addition, to address the chal-
+lenge of MULTI HIERTT , we propose MT2Net to
+ﬁrst retrieve supporting facts from ﬁnancial re-
+ports then generate executable reasoning programs
+to answer the questions. Our experiments show
+that MT2Net outperforms all other baselines and
+achieves 38.43% F1 score. However, all models
+still lag far behind the performance of human ex-
+perts with 87.03% in F1. It demonstrates MUL-
+TIHIERTT presents a strong challenge for existing
+baseline models and is a valuable benchmark for
+future research.
+The main contribution of this work can be sum-
+marized as follows:
+• We propose a new large-scale dataset MULTI-
+HIERTT . It contains 10,440 examples along
+with fully annotated numerical reasoning pro-
+cesses and supporting facts. A strict qual-
+ity control procedure is applied to ensure the
+meaningfulness, diversity, and correctness of
+each annotated QA example.
+• Compared with existing datasets, each docu-
+ment in MULTIHIERTT contains multiple hier-
+archical tables and longer unstructured text. A
+more complex reasoning process across mul-
+tiple tables and paragraphs is required to cor-
+rectly answer the question.
+• We propose a novel QA model, MT2Net. The
+model ﬁrst applies facts retrieving to extract
+relevant supporting facts from both hierarchi-
+cal tables and text. And it then uses a reason-
+ing module to reason over retrieved facts.
+• Comprehensive experiments are conducted on
+various baselines. The experimental results
+demonstrate that the current QA models still
+lag far behind the human expert performance,
+and further research is needed.
+2 Related Work
+Question Answering Benchmark There are
+numerous QA datasets focusing on text, ta-
+ble/knowledge base (KB), and hybrid data.
+SQuAD (Rajpurkar et al., 2016) and CNN/Daily
+Mail (Hermann et al., 2015) are classic datasets
+for textual data. Table/KB QA datasets mainly fo-
+cus on structured tables (Pasupat and Liang, 2015;
+Zhong et al., 2017; Yu et al., 2018; Nan et al.,
+2022) and knowledge bases (Berant et al., 2013;
+Yih et al., 2015; Talmor and Berant, 2018; Xie
+et al., 2022). And some recent works focus on
+reasoning over more complex tables including hier-
+archical tables (Cheng et al., 2021b; Katsis et al.,
+
+
+[Page 3]
+QA Dataset Textual & Tabular Data / Doc (DB) Numerical
+Reasoning # Doc (DB) # Questions
+Avg. # words Table types Avg. # tables
+Textual QA Dataset
+DROP (Dua et al., 2019) 210.0    6,735 45,959
+MathQA (Amini et al., 2019) 37.9    37,259 37,259
+Math23K (Xie and Sun, 2019) 35.4    23,161 23,161
+Tabular QA Dataset
+WTQ (Pasupat and Liang, 2015)  Flat 1  2,108 22,033
+Spider (Yu et al., 2018)  Relational 5.13  200 10,181
+AIT-QA (Katsis et al., 2021)  Hierarchical 1  116 515
+HiTab (Cheng et al., 2021b)  Hierarchical 1 few 3,597 10,686
+Hybrid QA Dataset
+HybridQA (Chen et al., 2020) 2,326.0 Flat 1  13,000 69,611
+MMQA (Talmor et al., 2021) 240.7 Flat 1  29,918 29,918
+GeoTSQA (Li et al., 2021) 52.4 Flat 1.58 few 556 1,012
+TAT-QA (Zhu et al., 2021) 43.6 Mostly Flat 1  2,757 16,552
+FINQA (Chen et al., 2021) 628.1 Flat 1  2,789 8,281
+MULTIHIERTT (Ours) 1,645.9 Hierarchical 3.89  2,513 10,440
+Table 1: Comparison of MULTIHIERTT with other QA datasets (Doc, DB denote Document and DataBase).
+2021). More recently, there are also some pio-
+neering studies working on QA over hybrid data.
+Speciﬁcally, HybridQA (Chen et al., 2020), TAT-
+QA (Zhu et al., 2021), and FinQA (Chen et al.,
+2021) focus on both textual and tabular data, while
+MMQA (Talmor et al., 2021) focus on QA over
+text, tables, and images. In addition, reasoning
+including numerical reasoning and multi-hop rea-
+soning has gained attention lately. For example,
+DROP (Dua et al., 2019) is a machine reading com-
+prehension benchmark that requires numerical rea-
+soning on text data. HotpotQA (Yang et al., 2018)
+and HybridQA (Chen et al., 2020) are datasets re-
+quiring multi-hop reasoning.
+Numerical Reasoning Numerical reasoning
+plays an important role in different NLP tasks (Dua
+et al., 2019; Zhang et al., 2021; Chen et al., 2021;
+Zhu et al., 2021). To enhance the model’s numer-
+ical reasoning ability, some work adapt standard
+extractive QA models with specialized modules
+to perform numerical reasoning (Ran et al., 2019;
+Hu et al., 2019). Recent work also focus on prob-
+ing and injecting numerical reasoning skills to pre-
+trained language models (Geva et al., 2020; Lin
+et al., 2020; Zhang et al., 2020; Berg-Kirkpatrick
+and Spokoyny, 2020). Meanwhile, various bench-
+marks and models are proposed to solve math word
+problems (Koncel-Kedziorski et al., 2016; Xie and
+Sun, 2019; Amini et al., 2019; Hendrycks et al.,
+2021; Hong et al., 2021; Cobbe et al., 2021). The
+most recent numerical reasoning QA benchmark
+over hybrid data are FinQA (Chen et al., 2021) and
+TAT-QA (Zhu et al., 2021).
+Financial NLP Financial NLP has attracted
+much attention recently. There have been vari-
+ous application in different tasks like risk man-
+agement (Han et al., 2018; Theil et al., 2018; Nour-
+bakhsh and Bang, 2019; Mai et al., 2019; Wang
+et al., 2019), asset management (Filgueiras et al.,
+2019; Blumenthal and Graf, 2019), market senti-
+ment analysis (Daudert et al., 2018; Tabari et al.,
+2018; Buechel et al., 2019), ﬁnancial event extrac-
+tion (Ein-Dor et al., 2019; Zhai and Zhang, 2019)
+and ﬁnancial question answering (Lai et al., 2018;
+Maia et al., 2018). More recently, pre-trained lan-
+guage models are presented for ﬁnance text min-
+ing (Araci, 2019; Yang et al., 2020). The most
+relevant work to us is FinQA (Chen et al., 2021)
+and TAT-QA (Zhu et al., 2021), which both con-
+struct a QA dataset acquiring numerical reasoning
+skills on ﬁnancial reports with tabular data.
+3 M ULTI HIERTT Dataset
+3.1 Data Collection and Preprocessing
+MULTIHIERTT are deployed based on the FinTab-
+Net dataset (Zheng et al., 2021), which contains
+89,646 pages with table annotations extracted from
+the annual reports of S&P 500 companies. For each
+table contained, the FinTabNet dataset provides a
+detailed HTML format annotation, in which table
+hierarchies and cell information such as text and
+
+
+[Page 4]
+What is the total amount of options granted and accepted in 2007 for exercise price?What is the proportion of long-term debt to the total in 2019 for consumer section?What is the average value of premiums in 2011 for GAAP , operating, and adjustments?What is the difference between gross carrying amount and accumulated amortization's highest value for intangible assets ?What is the growth rate of capital leases for OPEB plans between 2013 and 2014?WhatHow
+How much is the sum of stock purchase rights in 2018 lower than those in 2017?How many years were the sales and client service expenseshigher than software development expenses?How much of US corporate debt securities  is there in total (in 2009) without consider gross unrealized gain and gross unrelizedloss?How many financing activities continues to increase every year from 2017 to 2021?WhichIf
+Whichtypes of fuel emission allowance salesexceed16% of total in CIPS? Which yeardoes the supply chain revenues havethe largest proportion to the total?In which section the sum of trading non-derivative assetshas the highest value?
+If expected return on assetsdevelops with the same growth rate in 2010, what will it reach in 2011?If salaries and wagesneeds to make up 40% of the totalbenefits, what is the difference between the target value and the actual value?
+When
+When does net investment income reach the peakvalue?When does the restructuring costs exceed the average value?
+Figure 2: Examples of question by top-5 most frequent starting words, where box size represents frequency.
+formats can be extracted and post-processed ac-
+cording to HTML tags.
+The raw data is ﬁltered as follows: First, we
+extract documents with 1 to 4 pages and 2 to 6
+tables from FinTabNet. Second, we ﬁlter out the
+documents with limited textual contents. Third, as
+we aim for the numerical reasoning ability, we also
+exclude documents with tables containing little nu-
+merical information. Then, we use a pre-processing
+script to extract the hierarchical structure of each
+HTML-format table. And we ignore those tables
+that cannot be handled by the pre-processing script.
+As a result, a total of 4,791 documents were se-
+lected for further annotation.
+3.2 Question-Answer Pair Annotation
+For each document selected in §3.1, the annota-
+tors are required to compose one or two QA exam-
+ples along with detailed annotation. The process
+of annotating each QA example is as follows: 1)
+The annotators are ﬁrst asked to compose a com-
+plex question that requires numerical reasoning
+and is meaningful for helping novices understand
+the annual reports. The annotators are encouraged
+to compose questions that require the information
+from both the textual and tabular content or from
+multiple tables. 2) For those questions requiring
+numerical expression, the annotators are then asked
+to write down the reasoning programs to answer
+the question. In detail, the annotators are asked to
+elaborate on the operation steps to answer the ques-
+tion. The deﬁnitions of all operations are shown
+in Table 7 in Appendix. 3) They are also required
+to mark all the supporting facts from tabular and
+textual content for each question.
+3.3 Quality Control
+Strict quality control procedures are designed to
+ensure the quality of dataset annotation, especially
+the diversity and meaningfulness of proposed ques-
+tions. The human evaluation scores and inter-
+evaluator agreements are reported in Table 2.
+Annotation Quality %S ≥ 4 Agree Kappa
+/ 95% CI
+Question Complexity 76.8 0.77 0.72 / [0.65, 0.79]
+Question Correctness 93.2 0.91 0.83 / [0.77, 0.89]
+Question Meaningfulness 91.4 0.87 0.81 / [0.74, 0.88]
+Reasoning Correctness 92.4 0.92 0.89 / [0.84, 0.94]
+Support Facts Correctness 84.9 0.81 0.77 / [0.72, 0.82]
+Answer Correctness 94.0 0.93 0.90 / [0.87, 0.93]
+Table 2: Human evaluation over 100 samples of M UL-
+TIHIERTT . Four internal evaluators are asked to rate
+the samples on a scale of 1 to 5. We report 1) per-
+cent of samples that have average score ≥ 4 to show
+high quality of MULTIHIERTT ; and 2) percent of agree-
+ment and Randolph’s Kappa with 95% CI (Randolph,
+2005) to show high inter-annotator agreement of MUL-
+TIHIERTT .
+Expert Annotators To help improve the annota-
+tion process, we ﬁrst enroll ﬁve experts with pro-
+fessional experience in ﬁnance. During annotation,
+they are asked to provide feedback regarding the
+task instructions and the user experience of the an-
+notation interface, based on which we iteratively
+modify the annotation guideline and interface de-
+sign. In the stage of crowd-sourced annotation, we
+hire 23 graduate students (14 females and 9 males)
+majoring in ﬁnance or similar discipline. Before
+starting the ofﬁcial annotation process, each anno-
+tator is given a two-hour training session to learn
+
+
+[Page 5]
+the requirements and the annotation interface.
+Annotation De-Biasing As suggested in previ-
+ous research (Kaushik and Lipton, 2018; Clark
+et al., 2019; Jiang and Bansal, 2019), consider an-
+notation bias of QA benchmarks is of great sig-
+niﬁcance. During the pilot annotation period, we
+found that when generating question-answering
+pairs, annotators may prefer simpler ones. To solve
+this issue, we use thresholds to restrict the pro-
+portions of questions with different numbers of
+numerical reasoning steps. Meanwhile, the pro-
+portions of questions with span selection answer
+types are set to ≤ 20%. To further increase the
+diversity of question-answer pair annotation, we
+also select and include 2,119 QA examples from
+FinQA (Chen et al., 2021).
+Multi-Round Validation To further ensure the
+diversity and correctness of proposed question-
+reasoning pairs, each document is assigned to three
+annotators and one veriﬁer in order. For annota-
+tors, each is required to ﬁrst validate the previous
+annotator’s annotation and ﬁx the mistakes if there
+are. Then, they are asked to create one or two more
+question-reasoning pairs that are different from the
+existing ones. After each annotator ﬁnishes tasks,
+we assign another veriﬁer with good performance
+on this project to validate all the annotations.
+3.4 Dataset Analysis
+Core statistics of MULTI HIERTT are reported in
+Table 3. Table 1 shows a comprehensive compari-
+son of related datasets. MULTI HIERTT is the ﬁrst
+dataset to study numerical reasoning questions over
+hybrid data containing multiple hierarchical tables.
+Compared with TAT-QA and FinQA, documents
+in MULTI HIERTT contain longer unstructured in-
+put text and multiple tables, making the evidence
+retrieving and reasoning more challenging. And
+MULTIHIERTT has diverse and complex questions,
+as illustrated in Figure 2.
+We also analyze supporting facts coverage for
+each question. In MULTI HIERTT , 1) 10.24% of
+the questions only require the information in the
+paragraphs to answer; 2) 33.09% of the questions
+only require the information in one table to an-
+swer; 3) 7.93% require the information in more
+than one table but without paragraphs to answer;
+4) 48.74% require both the text and table informa-
+tion to answer, and among them, 23.20% required
+the information in more than one table. The aver-
+age number of annotated supporting facts are 7.02.
+Property Value
+# Examples (Q&A pairs with annotation) 10,440
+# Documents 2,513
+V ocabulary 24,193
+Avg. # Sentences in input text 68.06
+Avg. # Words in input text 1,645.9
+Avg. # Tables per Document 3.89
+Avg. # Rows per Table 10.78
+Avg. # Columns per Table 4.97
+Avg. # Question Length 16.78
+Training Set Size 7,830 (75%)
+Development Set Size 1,044 (10%)
+Test Set Size 1,566 (15%)
+Table 3: Core Statistics of MULTIHIERTT .
+Meanwhile, among those questions with annotated
+numerical reasoning programs, 28.94% of them
+have 1 step; 37.76% of them have 2 steps; 15.21%
+of them have 3 steps; and 18.10% of them have
+more than 3 steps. As a result, the average number
+of numerical reasoning steps is 2.47.
+4 MT2Net Model
+To address the challenge ofMULTIHIERTT , we pro-
+pose a framework named MT2Net. Figure 3 gives
+an overview of our proposed model. MT2Net ﬁrst
+applies fact retrieving module to extract relevant
+supporting facts from the hierarchical tables and
+paragraphs. Then, a reasoning module is adapted
+to perform reasoning over retrieved facts and get
+the ﬁnal answer.
+Fact Retrieving Module The whole input text in
+each document of MULTIHIERTT can exceed 3,000
+tokens and contain many numbers, which is beyond
+the capability of the current popular QA models
+(Devlin et al., 2019; Liu et al., 2019). Therefore,
+we employ a fact retrieving module to ﬁrst retrieve
+the supporting facts from the documents. Previous
+works on hybrid datasets (Zhu et al., 2021; Chen
+et al., 2021; Li et al., 2021) use templates to ﬂatten
+each row of the table into sentences. And our facts
+retrieving module applies similar ideas. However,
+different from other hybrid datasets, most tables in
+MULTIHIERTT are hierarchical. Therefore, we turn
+each cell into a sentence, along with its hierarchical
+row and column headers. For example, the ﬁrst data
+cell in the ﬁrst table in Figure 1 is translated as "For
+Innovation Systems of Segment, sales of product
+in 2018, Year Ended December 31 is 2,894".
+We concatenate each annotated supporting fact
+with the question as input to train a BERT-based
+
+
+[Page 6]
+What was the total sales increase in the segment with most funds in 2017?
+Thefollowingtablepresentsproductandservicesalesandoperatingexpensesbysegment(dollarinmillions):
+Productsalesfor2018increased$4.3billion,or25percent,ascomparedwith2017.Theincreasewasprimarilyduetotheadditionof$2.9billionofproductsalesfromInnovationSystemsandhigherrestrictedandF-35volumeatAerospaceSystems.
+Approximately$26.6billionofthe$53.5billiontotalatDecember31,2018isexpectedtobeconvertedintosalesin2019.
+ 
+ 
+( ... abbreviate... ) The following table presents product and service sales and operating costs and expenses by segment (dollar in millions):     Year Ended December 31 2018 2017 Segment Sales Expenses Sales Expenses Innovation Systems     Product 2,894 2,582 — — Service 382 351 — — Aerospace Systems     Product 11,087 9,889 10,064 8,988 Service 2,009 1,796 2,067 1,854 Mission Systems     Product 7,329 6,335 7,012 6,088 Service 4,380 3,854 4,458 3,940 Technology Service     Product 485 450 391 360 Service 3,812 3,404 4,296 3,878  Product sales for 2018 increased $4.3 billion, or 25 percent, as compared with 2017. The increase was primarily due to the addition of $2.9 billion of product sales from Innovation Systems and higher restricted and F-35 volume at Aerospace Systems. ( ... abbreviate... ) The table below reconciles funds provided by operating activities to each segment (dollar in millions):  Segment       2018 2017 Funded Funded % Change Innovation Systems    5,928     — — Aerospace Systems 11,448 9,560 19.7 % Mission Systems 9,676 9,277 4.3 % Technology Services 2,883 2,792 3.3 %  Approximately $26.6 billion of the $53.5 billion total at December 31, 2018 is expected to be converted into sales in 2019. ( ... abbreviate... )  
+ 
+ 
+( ... abbreviate... ) The following table presents product and service sales and operating costs and expenses by segment (dollar in millions):     Year Ended December 31 2018 2017 Segment Sales Expenses Sales Expenses Innovation Systems     Product 2,894 2,582 — — Service 382 351 — — Aerospace Systems     Product 11,087 9,889 10,064 8,988 Service 2,009 1,796 2,067 1,854 Mission Systems     Product 7,329 6,335 7,012 6,088 Service 4,380 3,854 4,458 3,940 Technology Service     Product 485 450 391 360 Service 3,812 3,404 4,296 3,878  Product sales for 2018 increased $4.3 billion, or 25 percent, as compared with 2017. The increase was primarily due to the addition of $2.9 billion of product sales from Innovation Systems and higher restricted and F-35 volume at Aerospace Systems. ( ... abbreviate... ) The table below reconciles funds provided by operating activities to each segment (dollar in millions):  Segment       2018 2017 Funded Funded % Change Innovation Systems    5,928     — — Aerospace Systems 11,448 9,560 19.7 % Mission Systems 9,676 9,277 4.3 % Technology Services 2,883 2,792 3.3 %  Approximately $26.6 billion of the $53.5 billion total at December 31, 2018 is expected to be converted into sales in 2019. ( ... abbreviate... )  
+Retrieved top-n Facts: 1.ThefundedAerospaceSystemsin2017was9560.2.ThefundedMissionSystemsin2017was9277.3.Approximately$26.6billionofthe$53.5billiontotalatDecember31,2018isexpectedtobeconvertedintosalesin2019.4.……
+Facts Retrieving Module<s>What…2017?</s>…9560……
+LM Encoder (RoBERTa-large)
+Type PredictionSpan Sub-module
+Program Sub-module
+Predicted Answer
+Reasoning ModuleWhole Document containing Multiple hierarchical tables and paragraphs
+Question
+Figure 3: The framework of MT2Net. The model consists of a facts retrieving module and a reasoning module.
+bi-classiﬁer (Devlin et al., 2019). During the in-
+ference stage, the top-n sentences are retrieved as
+supporting facts. They are reordered according to
+the order of appearance in the original document.
+Then they will serve as input to reasoning module.
+Reasoning Module We ﬁrst use pre-trained LMs
+to encode the retrieved sentences from the facts
+retrieving module. Then, we divide the answers
+into two types: arithmetic program and span. For
+each answer type, we use a unique sub-module
+to calculate the conditional answer probability
+P (answer|type):
+Program sub-module: The structure is similar
+with the program generator of FinQANet (Chen
+et al., 2021). The sub-module aims to generate the
+executable program to answer the question. Specif-
+ically, an LSTM is used for decoding. At each
+decoding step T , the LSTM can generate one to-
+ken from 1) the numbers from the retrieved, 2)
+pre-deﬁned operators, and 3) the tokens already
+generated in the previous steps. After the comple-
+tion of generation, the sub-module will execute the
+generated programs and get the predicted answer.
+Span sub-module: The span sub-module aims to
+select the predicted span candidate, which is a span
+of retrieved sentences. The answer probability is
+deﬁned as the product of the probabilities of the
+start and end positions in the retrieved evidence.
+Meanwhile, an extra output layer is used to pre-
+dict the probabilityP (type) of each answer type. In
+particular, we take the output vector [CLS] from
+LMs as input to compute the probability. In the
+training stage, the ﬁnal answer probability is de-
+ﬁned as the joint probability over all feasible an-
+swer types, i.e., ∑
+type P (type)× P (answer|type).
+Here, both P (type) and P (answer|type) is learned
+by the model. In the inference stage, the model ﬁrst
+selects the most probable answer type and then uses
+corresponding sub-modules to predict the answer.
+5 Experiments
+5.1 Baseline Systems
+TAGOP TAGOP1 is the baseline model for TAT-
+QA dataset (Zhu et al., 2021). It ﬁrst uses sequence
+tagging with the Inside–Outside tagging (IO) ap-
+proach to extract supporting facts. Then an operator
+classiﬁer is applied to decide which operator is used
+to infer the ﬁnal answer via extracted facts. Differ-
+ent from ours, TAGOP can only perform symbolic
+reasoning with a single type of pre-deﬁned aggre-
+gation operators (e.g. change Ratio, division), and
+might fail to answer complex questions requiring
+multi-step reasoning.
+FinQANet FinQANet2 is the baseline model for
+FinQA dataset (Chen et al., 2021). It ﬁrst uses a
+BERT-based retriever to take the top-n supporting
+facts. Then a program generator is applied to gener-
+ate the reasoning programs to get the ﬁnal answers.
+1https://github.com/NExTplusplus/
+tat-qa
+2https://github.com/czyssrs/FinQA
+
+
+[Page 7]
+Different from ours, FinQANet ignores the hierar-
+chical structure of tables when linearizing each row
+of a table. And it is not designed to answer span
+selection questions.
+Longformer + Reasoning module To demon-
+strate the necessity of breaking up models into facts
+retrieving and reasoning modules, we directly use
+the pre-trained Longformer-base3 (Beltagy et al.,
+2020) as the input encoder in the reasoning module,
+and encode the whole document.
+Fact Retrieving Module + TAPAS We employ
+TAPAS (MASKLM-base)4 (Herzig et al., 2020;
+Eisenschlos et al., 2020) as a baseline over tabular
+data. TaPas is pretrained over large-scale tables and
+associated text from Wikipedia jointly. To ﬁnetune
+it, we use the table with most supporting facts along
+with the answer as input for each example. For the
+inference stage, the table with most portion of top-
+15 retrieved facts is used as input.
+Fact Retrieving + NumNet NumNet+5 (Ran
+et al., 2019) has demonstrated its effectiveness on
+the DROP dataset (Dua et al., 2019). It designs
+a NumGNN between the encoding and prediction
+module to perform numerical comparison and nu-
+merical reasoning. However, NumNet+ only sup-
+ports addition and subtraction when performing
+symbolic reasoning, thus cannot handle those com-
+plex questions requiring operators such as division.
+Fact Retrieving Module + Seq2Prog A
+Seq2Prog architecture adopted from baseline of
+MathQA dataset (Amini et al., 2019) is used as the
+reasoning module. Speciﬁcally, we use a biLSTM
+encoder and an LSTM decoder with attention.
+5.2 Implementation Details
+For the fact retrieving module, we use BERT-base
+as the classiﬁer. Since most of the examples in our
+dataset have less than 7 supporting facts (89.3%),
+and we ﬁnd that longer inputs might lower the per-
+formance of the reasoning module, we take the
+top-10 retrieving facts as the retriever results. For
+the reasoning module, we experiment on using
+BERT (Devlin et al., 2019) and RoBERTa (Liu
+et al., 2019) as the encoder. We use the Adam opti-
+mizer (Kingma and Ba, 2014) for all models. The
+3https://github.com/allenai/longformer
+4https://github.com/google-research/
+tapas
+5https://github.com/llamazing/numnet_
+plus
+Dev Test
+EM F 1 EM F 1
+Longformer + Reasoning 2.71 6.93 2.86 6.23
+Facts Retrieving + TAPAS 8.94 10.70 7.67 10.04
+Facts Retrieving + NumNet 10.32 12.59 10.77 12.02
+TAGOP (RoBERTa-large) 19.16 21.08 17.81 19.35
+Facts Retrieving + Seq2Prog 26.19 28.74 24.58 26.30
+FinQANet (RoBERTa-large) 32.41 35.37 31.72 33.60
+MT2Net (BERT-base) 33.68 35.94 32.07 33.67
+MT2Net (BERT-large) 34.03 36.13 33.25 34.98
+MT2Net (RoBERTa-base) 35.69 37.81 34.32 36.17
+MT2Net (RoBERTa-large) 37.05 39.96 36.22 38.43
+Human Expert Performance – – 83.12 87.03
+Table 4: Performance of MT2Net compared with differ-
+ent baseline models on the dev and test sets of M ULTI-
+HIERTT . While MT2Net outperforms other baselines,
+all models perform far behind human experts.
+training of all models is conducted on RTX 3090s.
+All the implementation of LMs is based on the hug-
+gingface transformers library. To ensure fairness,
+we set batch size as 32 for all baseline models.
+For Evaluation Metrics, following TAT-QA (Zhu
+et al., 2021), we report exact matching (EM) and
+adopted numeracy-focused F1 (Dua et al., 2019).
+5.3 Human Performance
+To test the performance of the human expert on
+MULTI HIERTT , we invite another two profession-
+als. We randomly sampled 60 examples from the
+test set, and ask them to answer the questions in-
+dividually within three hours. The results are re-
+ported in the last row of Table 4.
+5.4 Model Performance
+Table 4 summarizes our evaluation results of differ-
+ent models. We use the same fact retrieving results
+for all "Retrieving + Reasoning" models. For the
+fact retrieving module, we have 76.4% recall for
+the top-10 retrieved facts and 80.8% recall for the
+top-15 retrieved facts.
+Necessity of applying retrieving-reasoning
+pipeline Directly using an end-to-end pre-
+trained Longformer model to replace a retrieving
+module falls far behind. This makes sense because
+longer input contains much irrelevant numerical
+information, which makes the reasoning module
+difﬁcult to learn.
+Necessity of understanding hierarchical table
+structure Both TAGOP and FinQANet perform
+
+
+[Page 8]
+worse than MT2Net because they ignore the table’s
+hierarchical structure in the retrieving part. Dif-
+ferent from ours, which ﬂatten each cell with its
+header hierarchical structures, both TAGOP and
+FinQANet ﬂatten each table by rows, losing the
+table’s hierarchical structure information.
+Necessity of an effective reasoning module
+Most questions in MULTI HIERTT require models
+to perform multi-step reasoning and integrate dif-
+ferent kinds of operators. Generally, the reasoning
+module generating reasoning programs to get an-
+swers performs better than directly generating an-
+swers by end-to-end method, i.e. adopted TAPAS.
+Both adopted NumNet and TAGOP perform much
+worse than MT2Net because they only support lim-
+ited symbolic reasoning. Speciﬁcally, TAGOP can
+only perform with a single type of pre-deﬁned ag-
+gregation operator for each question, and NumNet
+only supports addition and subtraction operators
+when performing symbolic reasoning. By con-
+trast, MT2Net performs better than FinQANet and
+Seq2Prog because it applies different sub-modules
+to answer questions with different answer types.
+The results also show that larger pre-trained mod-
+els have better performance. This is because they
+are pre-trained on more ﬁnancial corpus. However,
+all the models perform signiﬁcantly worse than
+human experts, indicating MULTI HIERTT is chal-
+lenging to state-of-the-art QA models and there is
+a large room for improvements for future research.
+5.5 Further Analysis
+To guide the future directions of model improve-
+ment, various performance breakdown experiments
+on the test set are conducted using the MT2Net
+(RoBERTa-large) model. Table 5 shows the results.
+Generally, the model has a much lower accuracy on
+questions with more than two numerical reasoning
+steps. Meanwhile, the model performs poorly on
+questions requiring cross-table supporting facts.
+We further investigate the proposed MT2Net
+by analyzing error cases. We randomly sample
+100 error cases from the results of the MT2Net
+(RoBERTa-large) model on the test set, and clas-
+sify them into four main categories as shown in Ta-
+ble 6, along with examples. The analysis shows that
+around 64% error (Wrong Operand/Span+Missing
+Operand) is caused by the failure to integrate the
+supporting facts correctly. Meanwhile, the current
+model fails to integrate external ﬁnance knowledge
+to answer questions.
+Performance Breakdown EM F 1
+Regarding supporting facts coverage
+text-only questions 49.26 53.29
+table-only questions 36.77 38.55
+w/ ≥ 2 tables 24.32 24.96
+table-text questions 33.04 35.15
+w/ ≥ 2 tables 21.04 23.36
+Regarding numerical reasoning steps
+1 step 43.62 47.80
+2 steps 34.67 37.91
+3 steps 22.43 24.57
+> 3 steps 15.14 17.19
+Full Results 36.22 38.43
+Table 5: Results of performance breakdown using
+MT2Net (RoBERTa-large). The model performance
+deteriorates as the numbers of tables and reasoning
+steps increase.
+Q: What was the total of premiums granted
+in the year with the highest GAAP?
+G: 327 + 415 + 1217
+P: 426 + 517 + 1109
+Wrong
+Operand
+or Span
+(43%) Explain: Locate the wrong year.
+Q: What was the average value of trading
+asserts between 2015 and 2018?
+G: (1203 + 1437 + 1896 + 1774) / 4
+P: (1203 + 1774) / 2
+Missing
+Operand
+(21%) Explain: Only account year 2015 and 2018.
+Q: What is the change ratio of corporate debt
+from 2018 to 2019?
+G: (1024 - 979) / 979
+Wrong
+Program
+(19%) P: 1024 - 979
+Q: What is the earning rate of ATTA stock
+in 2017?
+G: 17.32 / 35.80
+P: 17.32
+Lack of
+Domain
+Knowledge
+(4%) Explain: Not know the formula of calculat-
+ing earning rate.
+Table 6: Examples of error cases and corresponding
+preparations. Q, G, P denote question, ground truth,
+and predicted results, respectively.
+5.6 Limitations and Future Work
+Although the proposed MT2Net model outper-
+forms other baseline models, it still performs sig-
+niﬁcantly worse than human experts, which reﬂects
+the challenge of MULTIHIERTT . Primarily, we ﬁnd
+that models do not perform well on certain types of
+questions: 1) questions requiring reasoning across
+multiple tables; 2) questions requiring multi-step
+reasoning; 3) questions requiring reasoning over
+tables with complex hierarchical structures; and 4)
+questions requiring external ﬁnancial knowledge.
+To deal with these challenges, we believe that
+
+
+[Page 9]
+four main directions of work may be workable: 1)
+designing a specialized module to handle multi-
+table reasoning; 2) decomposing a complex ques-
+tion requiring multi-step reasoning into several
+simpler sub-questions that QA models can han-
+dle (Perez et al., 2020; Chen et al., 2020); 3) apply-
+ing a more advanced table-encoding method. For
+example, a pre-trained model with specialized ta-
+ble structure-aware mechanisms (Wang et al., 2021;
+Cheng et al., 2021a; Yang et al., 2022) can be uti-
+lized in the facts retrieving module to better under-
+stand hierarchical tables; and 4) leveraging struc-
+tured knowledge (Xie et al., 2022) to inject external
+ﬁnancial knowledge to models.
+6 Conclusion
+We have proposed MULTI HIERTT , a new large-
+scale QA dataset that aims to solve complicated QA
+tasks that require numerical reasoning over docu-
+ments containing multiple hierarchical tables and
+paragraphs. To address the challenge of MULTI -
+HIERTT , we introduce a baseline framework named
+MT2Net. The framework ﬁrst retrieves supporting
+facts from ﬁnancial reports and then generates exe-
+cutable reasoning programs to answer the question.
+The results of comprehensive experiments showed
+that current QA models (best F 1: 38.43 %) still
+lag far behind the human expert performance (F1:
+87.03%). This motivates further research on de-
+veloping QA models for such complex hybrid data
+with multiple hierarchical tables.
+7 Ethics Considerations
+Data in MULTI HIERTT is collected from the
+FinQA dataset (Chen et al., 2021) and FinTabNet
+dataset (Zheng et al., 2021). FinQA is publicly
+available under the MIT license6. FinTabNet is pub-
+licly available under the license CDLA-Permissive-
+1.07. Both licenses permits us to compose, modify,
+publish, and distribute additional annotations upon
+the original dataset.
+For the internal annotation of MULTI HIERTT ,
+each expert is paid $20 per hour. For the external
+annotation, we hire 23 graduate students majoring
+in ﬁnance or similar disciplines. We regard creat-
+ing one question-reasoning pair, or validating one
+document’s annotation as a unit task. And we pay
+around $1.1 for each unit task. Averagely, an anno-
+tator can ﬁnish 7 unit tasks per hour after training
+6https://opensource.org/licenses/MIT
+7https://cdla.dev/permissive-1-0/
+and practicing. And the hourly rates are in the
+range of $6 and $9 based on the different work-
+ing speed (above the local average wage of similar
+jobs). In total, the approximate working hours to
+annotate MULTIHIERTT dataset is 1500 hours. The
+whole annotation work lasts about 70 days.
+Acknowledgements
+We appreciate all the annotators’ efforts to con-
+struct MULTIHIERTT . And we would like to thank
+the anonymous reviewers and action editors for
+their constructive discussions and feedback.
+References
+Aida Amini, Saadia Gabriel, Shanchuan Lin, Rik
+Koncel-Kedziorski, Yejin Choi, and Hannaneh Ha-
+jishirzi. 2019. Mathqa: Towards interpretable math
+word problem solving with operation-based for-
+malisms. In Proceedings of the 2019 Conference of
+the North American Chapter of the Association for
+Computational Linguistics: Human Language Tech-
+nologies, Volume 1 (Long and Short Papers), pages
+2357–2367.
+Dogu Araci. 2019. Finbert: Financial sentiment analy-
+sis with pre-trained language models. arXiv preprint
+arXiv:1908.10063.
+Iz Beltagy, Matthew E. Peters, and Arman Cohan.
+2020. Longformer: The long-document transformer.
+CoRR, abs/2004.05150.
+Jonathan Berant, Andrew Chou, Roy Frostig, and Percy
+Liang. 2013. Semantic parsing on freebase from
+question-answer pairs. In Proceedings of the 2013
+conference on empirical methods in natural lan-
+guage processing, pages 1533–1544.
+Taylor Berg-Kirkpatrick and Daniel Spokoyny. 2020.
+An empirical investigation of contextualized number
+prediction. In Proceedings of the 2020 Conference
+on Empirical Methods in Natural Language Process-
+ing (EMNLP) , pages 4754–4764, Online. Associa-
+tion for Computational Linguistics.
+Frederick Blumenthal and Ferdinand Graf. 2019. Uti-
+lizing pre-trained word embeddings to learn classiﬁ-
+cation lexicons with little supervision. In Proceed-
+ings of the Second Financial Narrative Processing
+Workshop (FNP 2019), pages 5–15, Turku, Finland.
+Linköping University Electronic Press.
+Sven Buechel, Simon Junker, Thore Schlaak, Claus
+Michelsen, and Udo Hahn. 2019. A time series
+analysis of emotional loading in central bank state-
+ments. In Proceedings of the Second Workshop
+on Economics and Natural Language Processing ,
+pages 16–21, Hong Kong. Association for Compu-
+tational Linguistics.
+
+
+[Page 10]
+Wenhu Chen, Hanwen Zha, Zhiyu Chen, Wenhan
+Xiong, Hong Wang, and William Wang. 2020. Hy-
+bridqa: A dataset of multi-hop question answering
+over tabular and textual data. Findings of EMNLP
+2020.
+Zhiyu Chen, Wenhu Chen, Charese Smiley, Sameena
+Shah, Iana Borova, Dylan Langdon, Reema Moussa,
+Matt Beane, Ting-Hao Huang, Bryan Routledge,
+and William Yang Wang. 2021. Finqa: A dataset
+of numerical reasoning over ﬁnancial data.Proceed-
+ings of the 2021 Conference on Empirical Methods
+in Natural Language Processing.
+Zhoujun Cheng, Haoyu Dong, Fan Cheng, Ran
+Jia, Pengfei Wu, Shi Han, and Dongmei Zhang.
+2021a. Fortap: Using formulae for numerical-
+reasoning-aware table pretraining. arXiv preprint
+arXiv:2109.07323.
+Zhoujun Cheng, Haoyu Dong, Zhiruo Wang, Ran Jia,
+Jiaqi Guo, Yan Gao, Shi Han, Jian-Guang Lou, and
+Dongmei Zhang. 2021b. Hitab: A hierarchical table
+dataset for question answering and natural language
+generation. arXiv preprint arXiv:2108.06712.
+Christopher Clark, Mark Yatskar, and Luke Zettle-
+moyer. 2019. Don’t take the easy way out: En-
+semble based methods for avoiding known dataset
+biases. In Proceedings of the 2019 Conference on
+Empirical Methods in Natural Language Processing
+and the 9th International Joint Conference on Natu-
+ral Language Processing (EMNLP-IJCNLP), pages
+4069–4082.
+Karl Cobbe, Vineet Kosaraju, Mohammad Bavar-
+ian, Jacob Hilton, Reiichiro Nakano, Christopher
+Hesse, and John Schulman. 2021. Training veri-
+ﬁers to solve math word problems. arXiv preprint
+arXiv:2110.14168.
+Tobias Daudert, Paul Buitelaar, and Sapna Negi. 2018.
+Leveraging news sentiment to improve microblog
+sentiment classiﬁcation in the ﬁnancial domain. In
+Proceedings of the First Workshop on Economics
+and Natural Language Processing , pages 49–54,
+Melbourne, Australia. Association for Computa-
+tional Linguistics.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and
+Kristina Toutanova. 2019. BERT: Pre-training of
+deep bidirectional transformers for language under-
+standing. In Proceedings of the 2019 Conference
+of the North American Chapter of the Association
+for Computational Linguistics: Human Language
+Technologies, Volume 1 (Long and Short Papers) ,
+pages 4171–4186, Minneapolis, Minnesota. Associ-
+ation for Computational Linguistics.
+Dheeru Dua, Yizhong Wang, Pradeep Dasigi, Gabriel
+Stanovsky, Sameer Singh, and Matt Gardner. 2019.
+DROP: A reading comprehension benchmark requir-
+ing discrete reasoning over paragraphs. In Proc. of
+NAACL.
+Liat Ein-Dor, Ariel Gera, Orith Toledo-Ronen, Alon
+Halfon, Benjamin Sznajder, Lena Dankin, Yonatan
+Bilu, Yoav Katz, and Noam Slonim. 2019. Finan-
+cial event extraction using Wikipedia-based weak
+supervision. In Proceedings of the Second Work-
+shop on Economics and Natural Language Process-
+ing, pages 10–15, Hong Kong. Association for Com-
+putational Linguistics.
+Julian Eisenschlos, Syrine Krichene, and Thomas
+Müller. 2020. Understanding tables with interme-
+diate pre-training. In Findings of the Association
+for Computational Linguistics: EMNLP 2020, pages
+281–296, Online. Association for Computational
+Linguistics.
+João Filgueiras, Luís Barbosa, Gil Rocha, Hen-
+rique Lopes Cardoso, Luís Paulo Reis, João Pedro
+Machado, and Ana Maria Oliveira. 2019. Com-
+plaint analysis and classiﬁcation for economic and
+food safety. In Proceedings of the Second Work-
+shop on Economics and Natural Language Process-
+ing, pages 51–60, Hong Kong. Association for Com-
+putational Linguistics.
+Mor Geva, Ankit Gupta, and Jonathan Berant. 2020.
+Injecting numerical reasoning skills into language
+models. In Proceedings of the 58th Annual Meet-
+ing of the Association for Computational Linguis-
+tics, pages 946–958, Online. Association for Com-
+putational Linguistics.
+Jingguang Han, Utsab Barman, Jeremiah Hayes, Jin-
+hua Du, Edward Burgin, and Dadong Wan. 2018.
+NextGen AML: Distributed deep learning based lan-
+guage technologies to augment anti money launder-
+ing investigation. In Proceedings of ACL 2018, Sys-
+tem Demonstrations, pages 37–42, Melbourne, Aus-
+tralia. Association for Computational Linguistics.
+Dan Hendrycks, Collin Burns, Saurav Kadavath, Akul
+Arora, Steven Basart, Eric Tang, Dawn Song, and
+Jacob Steinhardt. 2021. Measuring mathematical
+problem solving with the math dataset. NeurIPS.
+Karl Moritz Hermann, Tomas Kocisky, Edward Grefen-
+stette, Lasse Espeholt, Will Kay, Mustafa Suleyman,
+and Phil Blunsom. 2015. Teaching machines to read
+and comprehend. Advances in neural information
+processing systems, 28:1693–1701.
+Jonathan Herzig, Pawel Krzysztof Nowak, Thomas
+Mueller, Francesco Piccinno, and Julian Eisensch-
+los. 2020. Tapas: Weakly supervised table parsing
+via pre-training. In Proceedings of the 58th Annual
+Meeting of the Association for Computational Lin-
+guistics, pages 4320–4333.
+Yining Hong, Qing Li, Daniel Ciao, Siyuan Huang, and
+Song-Chun Zhu. 2021. Learning by ﬁxing: Solv-
+ing math word problems with weak supervision. In
+AAAI Conference on Artiﬁcial Intelligence.
+Minghao Hu, Yuxing Peng, Zhen Huang, and Dong-
+sheng Li. 2019. A multi-type multi-span network
+
+
+[Page 11]
+for reading comprehension that requires discrete rea-
+soning. In Proceedings of the 2019 Conference on
+Empirical Methods in Natural Language Processing
+and the 9th International Joint Conference on Natu-
+ral Language Processing (EMNLP-IJCNLP), pages
+1596–1606, Hong Kong, China. Association for
+Computational Linguistics.
+Yichen Jiang and Mohit Bansal. 2019. Avoiding rea-
+soning shortcuts: Adversarial evaluation, training,
+and model development for multi-hop QA. In Pro-
+ceedings of the 57th Annual Meeting of the Asso-
+ciation for Computational Linguistics , pages 2726–
+2736, Florence, Italy. Association for Computa-
+tional Linguistics.
+Yannis Katsis, Saneem Chemmengath, Vishwajeet
+Kumar, Samarth Bharadwaj, Mustafa Canim,
+Michael Glass, Alﬁo Gliozzo, Feifei Pan, Jay-
+deep Sen, Karthik Sankaranarayanan, and Soumen
+Chakrabarti. 2021. Ait-qa: Question answering
+dataset over complex tables in the airline industry.
+Divyansh Kaushik and Zachary C Lipton. 2018. How
+much reading does reading comprehension require?
+a critical investigation of popular benchmarks. In
+Proceedings of the 2018 Conference on Empirical
+Methods in Natural Language Processing , pages
+5010–5015.
+Diederik P Kingma and Jimmy Ba. 2014. Adam: A
+method for stochastic optimization. arXiv preprint
+arXiv:1412.6980.
+Rik Koncel-Kedziorski, Subhro Roy, Aida Amini, Nate
+Kushman, and Hannaneh Hajishirzi. 2016. Mawps:
+A math word problem repository. In Proceedings of
+the 2016 Conference of the North American Chap-
+ter of the Association for Computational Linguistics:
+Human Language Technologies, pages 1152–1157.
+Tuan Lai, Trung Bui, Sheng Li, and Nedim Lipka. 2018.
+A simple end-to-end question answering model for
+product information. In Proceedings of the First
+Workshop on Economics and Natural Language Pro-
+cessing, pages 38–43, Melbourne, Australia. Associ-
+ation for Computational Linguistics.
+Xiao Li, Yawei Sun, and Gong Cheng. 2021. Tsqa:
+Tabular scenario based question answering. Pro-
+ceedings of the AAAI Conference on Artiﬁcial Intel-
+ligence, 35(15):13297–13305.
+Bill Yuchen Lin, Seyeon Lee, Rahul Khanna, and Xi-
+ang Ren. 2020. Birds have four legs?! NumerSense:
+Probing Numerical Commonsense Knowledge of
+Pre-Trained Language Models. In Proceedings of
+the 2020 Conference on Empirical Methods in Nat-
+ural Language Processing (EMNLP) , pages 6862–
+6868, Online. Association for Computational Lin-
+guistics.
+Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Man-
+dar Joshi, Danqi Chen, Omer Levy, Mike Lewis,
+Luke Zettlemoyer, and Veselin Stoyanov. 2019.
+Roberta: A robustly optimized bert pretraining ap-
+proach.
+Feng Mai, Shaonan Tian, Chihoon Lee, and Ling Ma.
+2019. Deep learning models for bankruptcy predic-
+tion using textual disclosures. European journal of
+operational research, 274(2):743–758.
+Macedo Maia, Siegfried Handschuh, André Freitas,
+Brian Davis, Ross McDermott, Manel Zarrouk, and
+Alexandra Balahur. 2018. Www’18 open challenge:
+ﬁnancial opinion mining and question answering. In
+Companion Proceedings of the The Web Conference
+2018, pages 1941–1942.
+Naﬁse Sadat Moosavi, Andreas Rücklé, Dan Roth,
+and Iryna Gurevych. 2021. Scigen: a dataset for
+reasoning-aware text generation from scientiﬁc ta-
+bles. In Thirty-ﬁfth Conference on Neural Informa-
+tion Processing Systems Datasets and Benchmarks
+Track (Round 2).
+Linyong Nan, Chiachun Hsieh, Ziming Mao, Xi Vic-
+toria Lin, Neha Verma, Rui Zhang, Wojciech Kry ´s-
+ci´nski, Nick Schoelkopf, Riley Kong, Xiangru Tang,
+Mutethia Mutuma, Ben Rosand, Isabel Trindade,
+Renusree Bandaru, Jacob Cunningham, Caiming
+Xiong, and Dragomir Radev. 2022. FeTaQA: Free-
+form Table Question Answering. Transactions
+of the Association for Computational Linguistics ,
+10:35–49.
+Armineh Nourbakhsh and Grace Bang. 2019. A
+framework for anomaly detection using language
+modeling, and its applications to ﬁnance. CoRR,
+abs/1908.09156.
+Panupong Pasupat and Percy Liang. 2015. Composi-
+tional semantic parsing on semi-structured tables. In
+Proceedings of the 53rd Annual Meeting of the Asso-
+ciation for Computational Linguistics and the 7th In-
+ternational Joint Conference on Natural Language
+Processing (Volume 1: Long Papers) , pages 1470–
+1480.
+Ethan Perez, Patrick Lewis, Wen-tau Yih, Kyunghyun
+Cho, and Douwe Kiela. 2020. Unsupervised ques-
+tion decomposition for question answering. In
+Proceedings of the 2020 Conference on Empirical
+Methods in Natural Language Processing (EMNLP),
+pages 8864–8880, Online. Association for Computa-
+tional Linguistics.
+Pranav Rajpurkar, Jian Zhang, Konstantin Lopyrev, and
+Percy Liang. 2016. SQuAD: 100,000+ questions for
+machine comprehension of text. In Proceedings of
+the 2016 Conference on Empirical Methods in Natu-
+ral Language Processing, pages 2383–2392, Austin,
+Texas. Association for Computational Linguistics.
+Qiu Ran, Yankai Lin, Peng Li, Jie Zhou, and Zhiyuan
+Liu. 2019. Numnet: Machine reading comprehen-
+sion with numerical reasoning. In Proceedings of
+the 2019 Conference on Empirical Methods in Nat-
+ural Language Processing and the 9th International
+
+
+[Page 12]
+Joint Conference on Natural Language Processing
+(EMNLP-IJCNLP), pages 2474–2484.
+Justus J Randolph. 2005. Free-marginal multirater
+kappa (multirater k [free]): An alternative to ﬂeiss’
+ﬁxed-marginal multirater kappa. Advances in Data
+Analysis and Classiﬁcation, 4.
+Lya Hulliyyatus Suadaa, Hidetaka Kamigaito, Kotaro
+Funakoshi, Manabu Okumura, and Hiroya Taka-
+mura. 2021. Towards table-to-text generation with
+numerical reasoning. In Proceedings of the 59th An-
+nual Meeting of the Association for Computational
+Linguistics and the 11th International Joint Confer-
+ence on Natural Language Processing (Volume 1:
+Long Papers), pages 1451–1465, Online. Associa-
+tion for Computational Linguistics.
+Narges Tabari, Piyusha Biswas, Bhanu Praneeth,
+Armin Seyeditabari, Mirsad Hadzikadic, and
+Wlodek Zadrozny. 2018. Causality analysis of Twit-
+ter sentiments and stock market returns. In Proceed-
+ings of the First Workshop on Economics and Natu-
+ral Language Processing, pages 11–19, Melbourne,
+Australia. Association for Computational Linguis-
+tics.
+Alon Talmor and Jonathan Berant. 2018. The web
+as a knowledge-base for answering complex ques-
+tions. In Proceedings of the 2018 Conference of the
+North American Chapter of the Association for Com-
+putational Linguistics: Human Language Technolo-
+gies, Volume 1 (Long Papers), pages 641–651, New
+Orleans, Louisiana. Association for Computational
+Linguistics.
+Alon Talmor, Ori Yoran, Amnon Catav, Dan Lahav,
+Yizhong Wang, Akari Asai, Gabriel Ilharco, Han-
+naneh Hajishirzi, and Jonathan Berant. 2021. Mul-
+timodal{qa}: complex question answering over text,
+tables and images. In International Conference on
+Learning Representations.
+Christoph Kilian Theil, Sanja Štajner, and Heiner
+Stuckenschmidt. 2018. Word embeddings-based un-
+certainty detection in ﬁnancial disclosures. In Pro-
+ceedings of the First Workshop on Economics and
+Natural Language Processing , pages 32–37, Mel-
+bourne, Australia. Association for Computational
+Linguistics.
+Weikang Wang, Jiajun Zhang, Qian Li, Chengqing
+Zong, and Zhifei Li. 2019. Are you for real? de-
+tecting identity fraud via dialogue interactions. In
+Proceedings of the 2019 Conference on Empirical
+Methods in Natural Language Processing and the
+9th International Joint Conference on Natural Lan-
+guage Processing (EMNLP-IJCNLP) , pages 1762–
+1771, Hong Kong, China. Association for Computa-
+tional Linguistics.
+Zhiruo Wang, Haoyu Dong, Ran Jia, Jia Li, Zhiyi Fu,
+Shi Han, and Dongmei Zhang. 2021. Tuta: Tree-
+based transformers for generally structured table pre-
+training. In Proceedings of the 27th ACM SIGKDD
+Conference on Knowledge Discovery &amp; Data
+Mining, KDD ’21, page 1780–1790, New York, NY ,
+USA. Association for Computing Machinery.
+Tianbao Xie, Chen Henry Wu, Peng Shi, Ruiqi Zhong,
+Torsten Scholak, Michihiro Yasunaga, Chien-Sheng
+Wu, Ming Zhong, Pengcheng Yin, Sida I Wang, et al.
+2022. Uniﬁedskg: Unifying and multi-tasking struc-
+tured knowledge grounding with text-to-text lan-
+guage models. arXiv preprint arXiv:2201.05966.
+Zhipeng Xie and Shichao Sun. 2019. A goal-driven
+tree-structured neural model for math word prob-
+lems. In Proceedings of the Twenty-Eighth In-
+ternational Joint Conference on Artiﬁcial Intelli-
+gence, IJCAI-19 , pages 5299–5305. International
+Joint Conferences on Artiﬁcial Intelligence Organi-
+zation.
+Jingfeng Yang, Aditya Gupta, Shyam Upadhyay,
+Luheng He, Rahul Goel, and Shachi Paul. 2022.
+Tableformer: Robust transformer modeling for table-
+text encoding. arXiv preprint arXiv:2203.00274.
+Yi Yang, Mark Christopher Siy Uy, and Allen Huang.
+2020. Finbert: A pretrained language model for ﬁ-
+nancial communications. CoRR, abs/2006.08097.
+Zhilin Yang, Peng Qi, Saizheng Zhang, Yoshua Bengio,
+William Cohen, Ruslan Salakhutdinov, and Christo-
+pher D. Manning. 2018. HotpotQA: A dataset
+for diverse, explainable multi-hop question answer-
+ing. In Proceedings of the 2018 Conference on Em-
+pirical Methods in Natural Language Processing ,
+pages 2369–2380, Brussels, Belgium. Association
+for Computational Linguistics.
+Wen-tau Yih, Ming-Wei Chang, Xiaodong He, and
+Jianfeng Gao. 2015. Semantic parsing via staged
+query graph generation: Question answering with
+knowledge base. In Proceedings of the 53rd Annual
+Meeting of the Association for Computational Lin-
+guistics and the 7th International Joint Conference
+on Natural Language Processing (Volume 1: Long
+Papers), pages 1321–1331, Beijing, China. Associa-
+tion for Computational Linguistics.
+Tao Yu, Rui Zhang, Kai Yang, Michihiro Yasunaga,
+Dongxu Wang, Zifan Li, James Ma, Irene Li, Qingn-
+ing Yao, Shanelle Roman, et al. 2018. Spider: A
+large-scale human-labeled dataset for complex and
+cross-domain semantic parsing and text-to-sql task.
+In Proceedings of the 2018 Conference on Empiri-
+cal Methods in Natural Language Processing, pages
+3911–3921.
+Shuang (Sophie) Zhai and Zhu (Drew) Zhang. 2019.
+Forecasting ﬁrm material events from 8-k reports.
+In Proceedings of the Second Workshop on Eco-
+nomics and Natural Language Processing , pages
+22–30, Hong Kong. Association for Computational
+Linguistics.
+Qiyuan Zhang, Lei Wang, Sicheng Yu, Shuohang
+Wang, Yang Wang, Jing Jiang, and Ee-Peng Lim.
+
+
+[Page 13]
+2021. NOAHQA: Numerical reasoning with in-
+terpretable graph question answering dataset. In
+Findings of the Association for Computational Lin-
+guistics: EMNLP 2021 , pages 4147–4161, Punta
+Cana, Dominican Republic. Association for Compu-
+tational Linguistics.
+Xikun Zhang, Deepak Ramachandran, Ian Tenney,
+Yanai Elazar, and Dan Roth. 2020. Do language
+embeddings capture scales? In Proceedings of the
+Third BlackboxNLP Workshop on Analyzing and In-
+terpreting Neural Networks for NLP, pages 292–299,
+Online. Association for Computational Linguistics.
+Xinyi Zheng, Doug Burdick, Lucian Popa, Peter
+Zhong, and Nancy Xin Ru Wang. 2021. Global ta-
+ble extractor (gte): A framework for joint table iden-
+tiﬁcation and cell structure recognition using visual
+context. Winter Conference for Applications in Com-
+puter Vision (WACV).
+Victor Zhong, Caiming Xiong, and Richard Socher.
+2017. Seq2sql: Generating structured queries
+from natural language using reinforcement learning.
+arXiv preprint arXiv:1709.00103.
+Fengbin Zhu, Wenqiang Lei, Youcheng Huang, Chao
+Wang, Shuo Zhang, Jiancheng Lv, Fuli Feng, and
+Tat-Seng Chua. 2021. TAT-QA: A question answer-
+ing benchmark on a hybrid of tabular and textual
+content in ﬁnance. In Proceedings of the 59th An-
+nual Meeting of the Association for Computational
+Linguistics and the 11th International Joint Confer-
+ence on Natural Language Processing (Volume 1:
+Long Papers), pages 3277–3287.
+A Dataset Annotation
+The deﬁnitions of all operators used for annotators
+are shown in Table 7.
+Operator Arguments Numerical Expression
+Add number1, number2 number1 + number2
+Subtract number1, number2 number1 − number2
+Multiply number1, number2 number1 × number2
+Divide number1, number2 number1 ÷ number2
+Exp number1, number2 number1number2
+Table 7: Deﬁnitions of all operations

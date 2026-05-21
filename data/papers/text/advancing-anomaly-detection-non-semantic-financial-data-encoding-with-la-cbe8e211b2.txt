@@ -1,0 +1,878 @@
+[Page 1]
+Advancing Anomaly Detection: Non-Semantic Financial Data
+Encoding with LLMs
+Alexander Bakumenko∗
+Clemson University
+Charleston, SC, USA
+alexander.bakumenko@outlook.com
+Kateřina Hlaváčková-Schindler
+University of Vienna
+Vienna, Austria
+katerina.schindlerova@univie.ac.at
+Claudia Plant
+University of Vienna
+Vienna, Austria
+claudia.plant@univie.ac.at
+Nina C. Hubig
+Clemson University
+Charleston, SC, USA
+nhubig@clemson.edu
+ABSTRACT
+Detecting anomalies in general ledger data is of utmost importance
+to ensure trustworthiness of ￿nancial records. Financial audits in-
+creasingly rely on machine learning (ML) algorithms to identify
+irregular or potentially fraudulent journal entries, each character-
+ized by a varying number of transactions. In machine learning,
+heterogeneity in feature dimensions adds signi￿cant complexity
+to data analysis. In this paper, we introduce a novel approach to
+anomaly detection in ￿nancial data using Large Language Mod-
+els (LLMs) embeddings. To encode non-semantic categorical data
+from real-world ￿nancial records, we tested 3 pre-trained general
+purpose sentence-transformer models. For the downstream classi￿-
+cation task, we implemented and evaluated 5 optimized ML models
+including Logistic Regression, Random Forest, Gradient Boosting
+Machines, Support Vector Machines, and Neural Networks. Our ex-
+periments demonstrate that LLMs contribute valuable information
+to anomaly detection as our models outperform the baselines, in
+selected settings even by a large margin. The ￿ndings further un-
+derscore the e￿ectiveness of LLMs in enhancing anomaly detection
+in ￿nancial journal entries, particularly by tackling feature sparsity.
+We discuss a promising perspective on using LLMs’ embeddings
+for non-semantic data in the ￿nancial context and beyond.
+KEYWORDS
+General Ledger, Accounting, Auditing, Anomaly Detection, Ma-
+chine Learning, Large Language Models (LLMs), Embeddings
+1 INTRODUCTION
+1.1 Anomaly Detection in Finance and the
+Critical Role of Machine Learning
+Financial data, sourced from the general ledger, details an organi-
+zation’s ￿nancial transactions including revenue, expenses, assets,
+and liabilities, serving to accurately document business activities
+[21, 24]. It is essential for ensuring compliance and transparency
+for stakeholders like regulatory bodies, investors, and ￿nancial in-
+stitutions. Furthermore, the data supports decision-making through
+analytics, while anomaly detection is crucial for maintaining data
+integrity and reliability [37].
+∗Author to whom correspondence should be addressed.
+Financial data anomalies, caused by errors, fraud, or manipula-
+tion, risk considerable ￿nancial loss, undermine investor con￿dence,
+and necessitate fraud investigations [24]. Prompt, e￿ective anomaly
+detection is essential for regulatory adherence and ￿nancial protec-
+tion [8, 22]. Traditional ￿nancial anomaly detection has struggled
+with complex, voluminous data and advancing fraud techniques.
+Early approaches, relying on manual checks and rule-based systems,
+were ine￿cient, missing many anomalies and producing numerous
+false alarms, allowing ￿nancial fraud to go unnoticed [5].
+Machine learning (ML) has become crucial in modern ￿nancial
+auditing, enabling e￿cient processing and pattern recognition in
+large datasets. However, as ￿nancial fraud techniques grow more
+complex, there is a need for novel methods to overcome challenges
+in data preprocessing and model limitations [2, 22]. Recent research
+highlights the potential of Autoencoders for anomaly detection and
+LLMs for diverse tasks, yet the sparsity and complexity of real-world
+data limits their e￿ectiveness [26, 36].
+1.2 Problem Statement
+This work addresses the challenge of e￿cient detecting anomalies
+in general ledger data, focusing on the issues of feature dimen-
+sion heterogeneity and feature sparsity, which hinder anomaly
+detection in ￿nancial audits. The approach involves using sentence-
+BERT LLMs’ pre-trained representations to encode non-semantic
+categorical data in journal entries, enhancing the identi￿cation
+of data irregularities. While current solutions use various vector-
+ization methods with the subsequent dimensionality reduction of
+sparse features, this can be inadequate for real-world journal en-
+tries, which often di￿er greatly in length and complexity. Moreover,
+a non-temporal aspect of transaction anomalies limits the range
+of applicable feature encoding methods. Consequently, ML algo-
+rithms for detecting anomalies in ￿nancial data face di￿culties
+with heterogeneous and sparse data, causing problems in encoding
+and classi￿cation, and thus, leading to suboptimal outcomes. This
+a￿ects the reliability of ￿nancial records audit.
+We propose a novel approach, conceptualized in Figure 1, using
+pre-trained sentence-transformer models to encode non-semantic
+￿nancial data, addressing feature heterogeneity and sparsity issues.
+This approach diverges from conventional ML techniques in ￿nan-
+cial anomaly detection, suggesting a hybrid model that combines
+sentence-transformer embeddings with ML classi￿ers for enhanced
+anomaly detection performance. Accurate anomaly detection is
+
+
+[Page 2]
+a cornerstone for reliable ￿nancial audits. Improvements in han-
+dling heterogeneity and sparsity in ￿nancial data can signi￿cantly
+enhance anomaly detection processes, contributing to better risk
+management and regulatory compliance. The proposed approach
+has broader implications beyond ￿nancial anomaly detection, of-
+fering a template for applying advanced encoding techniques for
+complex datasets across domains.
+1.3 Objectives and Contributions
+In this work we formulate the following 2 hypotheses:
+• Hypothesis 1: Utilizing sentence-transformer LLMs for encoding
+non-semantic categorical data from ￿nancial records e￿ectively
+standardizes feature variability enhancing the compactness
+and information retention of feature sets, when compared to
+conventional methods, measurable through dimensionality
+reduction techniques like PCA.
+• Hypothesis 2: The integration of sentence-transformer based
+LLM embeddings with optimized ML models yields superior
+anomaly detection performance in ￿nancial journal entries,
+evidenced by improved evaluation metrics, compared to tradi-
+tional ML approaches.
+In formulating our hypotheses, we draw on recent ￿ndings that
+demonstrate LLMs’ adaptability beyond text-based tasks [ 28]. Stud-
+ies have shown that LLMs, originally trained on text, can e￿ectively
+process and encode non-textual, linguistically non-semantic data
+[30]. This capability, arising from the encoding functions of their
+transformer blocks, prompts our hypothesis 1, suggesting the use of
+the SBERT LLMs in transforming non-semantic ￿nancial datasets
+into standardized single-size vector features. Subsequently, our
+hypothesis 2 builds on the LLMs’ e￿cient encoding capabilities,
+implying the integration of LLMs’ embeddings could enhance ML
+models, particularly in detecting anomalies in ￿nancial data. Vali-
+dating Hypothesis 1 would demonstrate a novel method to manage
+feature variability in ￿nancial records, enchancing anomaly detec-
+tion. Con￿rming Hypothesis 2 would illustrate the e￿ectiveness of
+integrating LLM embeddings with optimized models in detecting
+￿nancial anomalies, potentially surpassing traditional methods.
+Together, these ￿ndings could transform current practices in
+￿nancial anomaly detection. The innovative use of LLMs could
+greatly advance this ￿eld, showing their potential for cross-disciplinary
+applications and improving ￿nancial auditing and monitoring sys-
+tems.
+2 BACKGROUND AND RELATED WORK
+2.1 Machine Learning Methods and Limitations
+in Detecting Financial Anomalies
+Anomaly detection in ￿nance is critical, with fraudulent activities
+greatly a￿ecting the sector. The rise of digital ￿nancial services,
+especially post-COVID-19 pandemic, necessitates advanced fraud
+detection methods [ 43]. Deep learning, including variational au-
+toencoders and LSTM architectures, has shown success in detecting
+anomalies in journal entries [44] and e-commerce [27], with LSTMs
+also being e￿ective [1]. Graph Neural Networks (GNNs) are notable
+for their ability to handle complex data relationships in fraud de-
+tection [43]. Various ML techniques, such as Naive Bayes, Logistic
+Regression, KNN, Random Forest, and Sequential CNNs, have been
+applied to credit card fraud detection [ 29], with CatBoost-based
+methods highlighting the role of feature engineering and memory
+compression in improving e￿ciency [ 13]. ML in ￿nance is largely
+applied, from detecting journal entry anomalies to identifying fraud-
+ulent transactions in healthcare and banking [ 29, 38]. While case
+studies a￿rm their e￿ectiveness, they also point out challenges in
+practical implementation [7].
+Applying ML in ￿nancial fraud detection faces challenges due to
+evolving fraud techniques and the complexity of ￿nancial data [ 11].
+Accurate modeling relies on high-quality, standardized data, as it
+was discussed in the context of the credit card industry [ 31]. Finan-
+cial data’s non-stationarity, non-linearity, and low signal-to-noise
+ratio complicate model training and performance [40], necessitating
+advanced methods for preprocessing complex data improving data
+quality and model performance. Enhancing data representation and
+simplifying features can also improve ML model interpretability,
+meeting the regulatory and compliance demands in ￿nance. [ 38].
+Additionally, balancing computational complexity with high detec-
+tion accuracy is crucial [ 27], underscoring the need to enhance the
+compactness and information retention of feature sets. Promising
+research directions warrant exploration of diverse ML approaches
+Figure 1: A novel approach to e￿ciently encode journal entry non-semantic categorical features utilizing SBERT LLM model
+embeddings. It integrates Data Preparation and Creating Embeddings steps that produce one-size vectors feature set for the
+downstream ML tasks.
+2
+
+
+[Page 3]
+and hybrid applications, emphasizing the importance of innova-
+tive data pre-processing and adaptable ML methods to tackle data
+quality and model adaptability challenges [4].
+2.2 Applications and capabilities of LLMs
+LLMs such as GPT-3, PaLM, and LLaMA mark a paradigm shift in
+natural language processing (NLP) and arti￿cial intelligence (AI),
+evolving from rule-based frameworks to sophisticated neural net-
+work architectures like Transformer. This evolution allows LLMs
+to encode vast linguistic datasets into vector representations for
+diverse applications [41, 42]. LLMs such as BERT excel at capturing
+the complex semantic and syntactic nuances of language, resulting
+in dense embeddings. These embeddings are pivotal for tasks like
+node classi￿cation in textual graphs [ 14], demonstrating LLMs’
+ability to generate meaningful representations from vast textual
+corpora [32]. Originally designed for linguistic tasks, LLMs show
+remarkable versatility by branching into non-linguistic domains,
+e￿ectively encoding diverse data types, including non-semantic ele-
+ments, into sequential formats. Illustratively, sentence-transformers
+vectorize non-linguistic data, extending LLMs’ use to computer vi-
+sion [ 30]. LLMs excel in tasks such as text summarization and
+content recommendation, thereby proving their broad applicability
+[25, 41, 42]. LLMs provide innovative approaches in data analysis
+by e￿ectively managing feature variability and sparsity, thus en-
+hancing anomaly detection. They can surpass traditional ML in
+processing complex data for advanced analyses [3, 20].
+In ￿nancial analysis, LLMs constitute a major methodological
+leap. Sentence-transformers underscore the ability of LLMs to tackle
+feature heterogeneity and sparsity in anomaly detection by pro-
+ducing meaningful vectors [ 34, 39, 40]. Sentence-BERT (SBERT), a
+re￿ned version of BERT, produces semantically dense sentence em-
+beddings, improving clustering and semantic search [ 34]. SBERT
+leverages siamese and triplet networks to enhance sentence se-
+mantic analysis, ensuring similar sentences are close in embedding
+space. This improvement reduces embedding generation time from
+65 hours with BERT to seconds for large datasets. SBERT excels
+in various tasks like sentence pair regression and semantic simi-
+larity, demonstrating its potential in fast, high-quality embeddings
+for both linguistic and non-linguistic data applications, beyond
+traditional text-based tasks [34].
+2.3 Identifying Research Gaps in Financial
+Anomaly Detection
+Despite progress in ML and deep learning for ￿nancial anomaly
+detection, these approaches often falter due to the diverse and
+sparse nature of ￿nancial data, particularly in journal entries, un-
+dermining the e￿ectiveness of data encoding and classi￿cation, and
+consequently, the precision and reliability of ￿nancial audits [ 6].
+Traditional anomaly detection techniques rely on vectorization and
+dimensionality reduction, but these may not su￿ce for real-world
+journal entries, which greatly di￿er in length and complexity. More-
+over, the non-temporal aspect of ￿nancial transactions restricts the
+use of some feature encoding strategies.
+Advanced ML techniques remain underleveraged for non-semantic,
+categorical ￿nancial data, with traditional anomaly detection meth-
+ods falling short in addressing the non-temporal and heterogeneous
+data complexities. The untapped potential of sentence-transformer
+LLMs for ￿nancial data analysis presents an opportunity to innovate
+in handling feature variability and sparsity. Bridging the signi￿cant
+research gap by integrating LLM embeddings with optimized ML
+models for ￿nancial anomaly detection could signi￿cantly enhance
+classi￿cation accuracy and data encoding robustness, outperform-
+ing traditional methodologies.
+3 DATA DESCRIPTION AND ETHICAL
+CONSIDERATIONS
+In our work, we utilized an aggregated real-world General Ledger
+dataset from various anonymized companies, as described by Baku-
+menko et al. [ 6]. This dataset, comprising anonymized journal en-
+tries, features system-speci￿c account plans across multiple indus-
+tries and timeframes. It has been originally preprocessed to exclude
+entries with more than four transactions to manage outliers. It
+includes a small subset of labeled anomalies with eight types of
+errors, created by ￿nancial auditors to re￿ect prevalent anomalies
+in ￿nancial records, indicating key areas of interest in real-world
+anomaly detection. The dataset focuses on attributes critical for
+anomaly detection, such as the source system, account category,
+and debit/credit indicators, streamlining the identi￿cation of irreg-
+ularities within the data.
+In this work, we applied rigorous ethical protocols to the Gen-
+eral Ledger dataset, ensuring thorough anonymization to elimi-
+nate any identi￿able details about companies or individuals. The
+dataset remains con￿dential and unshareable, safeguarding against
+unauthorized access. We avoided cloud storage to minimize data
+breach risks, maintaining the dataset’s integrity. Data processing
+and analysis were conducted with strict adherence to legal and eth-
+ical guidelines. The introduced anomalies were carefully managed
+to uphold ethical data manipulation practices for research purposes.
+4 METHODOLOGY
+4.1 Data Preprocessing
+The dataset comprises 32,100 transaction-level data points within
+journal entries, inclusive of 148 anomalies designed to re￿ect ab-
+normal patterns without individual deviations. For anomaly de-
+tection in journal entries, transactions are aggregated into sets
+  = {)1,)2,..., ) # }, where   denotes a journal entry with # trans-
+actions. An aggregated set A is formed by applying an aggregation
+function   to each  , expressed as A = {  ( )|   2J } .
+In the work by Bakumenko Et al. [ 6], padding standardizes trans-
+action lengths into uniform feature vector  , preparing ML model
+input. Transactions, de￿ned by ERP attributes like account number
+and debit/credit sign, merged into the  ⇠⇠$* # ) _⇡⇠ feature. The
+dimension of this encoded feature in a sparse matrix follows the
+formula:
+ count =
+ 
+max
+1:  
+< :’
+8=1
+):,8
+!
+· (| U(+  1)| + |U(+  2)|) (1)
+, where  2>D=C is the total feature count, calculated by the prod-
+uct of the maximum transaction amount across journal entries,
+denoted as max1:  
+Õ< :
+8=1 ):,8, and the combined count of unique
+elements in the ($* '⇠⇢ and  ⇠⇠$* # ) _⇡⇠ feature vectors (+  1
+and +  2). Thus, on-hot encoding approach, where exist 577 unique
+3
+
+
+[Page 4]
+ ⇠⇠$* # ) _⇡⇠ values and 4 unique values in the ($* '⇠⇢ fea-
+ture, would result in 2336 encoded features. This feature space was
+PCA-reduced.
+In contrast, to apply SBERT models for transactional data en-
+coding in each JE, we ￿rst concatenated transactions categorical
+features with a group-by operation, based on JE identi￿ers. The
+procedure to combine the ($* '⇠⇢ and  ⇠⇠$* # ) _⇡⇠ attributes
+of each transaction and the transactions themselves is:
+⇠ 8 =
+=8 
+9=1
+ "Source: " + (9 + " Account_DC: " +   9
+  (2)
+, where ⇠ 8 is the concatenated text for the group 8 and =8 is the
+number of transactions in group 8. … is the concatenation opera-
+tion with a comma and space as transactions’ delimiters. (9 is the
+($* '⇠⇢ attribute of the 9C⌘ transaction in group 8, and   9 is the
+ ⇠⇠$* # ) _⇡⇠ attribute of the 9C⌘ transaction in group 8.
+The concatenated text ( )4GC2>=2) for each JE is processed as
+a single sentence structure. The SBERT model’s encode method
+￿rst tokenizes each string into a sequence of tokens. SBERT then
+generates contextual embeddings for each token using its BERT-
+based architecture, involving multiple transformer layers and self-
+attention mechanisms. A mean-pooling step, aggregates these token
+embeddings into a ￿xed-size sentence embedding. PCA-like dimen-
+sionality reduction isn’t used to maintain the embedding’s original
+dimensionality, ensuring precise evaluation [ 6]. We normalize em-
+beddings to zero mean and unit variance for ML tasks to improve
+consistency and speed up convergence, crucial for distance-based or
+gradient descent algorithms, enhancing performance across models.
+SBERT embeddings create ￿xed-size dense vectors for each journal
+entry, capturing transaction details, aiding in anomaly detection
+and pattern recognition by summarizing complex data interactions.
+4.2 Data Balancing and Model Performance
+Validation
+In ML, skewed datasets with imbalanced class distribution hinder
+model training in classi￿cation tasks by favoring the majority class
+and a￿ecting anomaly detection. Following the guidelines from [18],
+we used an 80/20 strati￿ed split to ensure balanced training and
+testing sets with proportional anomaly representation, reducing
+bias. We adjusted for imbalance by weighting the minority class to
+improve sensitivity in model phases and ensured result consistency
+and fair comparison with a constant random state. In training and
+optimization, we avoided cross-validation, recognizing its short-
+comings in imbalanced datasets and large feature sets, noted by Rao
+et al. [ 33]. Cross-validation raises over￿tting risks, especially with
+many models and extensive hyperparameter tuning. Its e￿cacy
+drops as data dimensionality grows, causing higher model vari-
+ance and unreliable assessments from intricate feature interactions.
+Imbalanced datasets exacerbate the challenge, leading to biased
+cross-validation folds and skewed performance evaluations.
+We opted for a consistent 80/20 strati￿ed split to maintain test
+set uniformity across models, crucial for accurately comparing algo-
+rithm performance, which cross-validation’s variable data subsets
+could compromise. While this strategy mitigates some challenges, it
+potentially a￿ects model generalizability. To counteract this, we em-
+ployed careful metric selection and post-training cross-validation
+evaluation, although direct oversampling techniques for the minor-
+ity class were impractical due to the dataset’s complexity.
+4.3 Model Selection
+In this work, we evaluated three Sentence-BERT models for em-
+bedding generation: all-mpnet-base-v2, all-distilroberta-v1, and
+all-MiniLM-L6-v2, selected for their popularity and performance as
+indicated by their high download rates on the HuggingFace Model
+Hub [16]. Each model, trained on over 1 billion pairs, o￿ers distinct
+advantages: all-mpnet-base-v2 excels in quality with a notable per-
+formance score of 63.30 [ 35], all-distilroberta-v1 provides a balance
+between e￿ciency and performance with a smaller size of 290 MB,
+and all-MiniLM-L6-v2 o￿ers high speed with a compact size of 80
+MB, suitable for real-time applications [ 35]. Refer to Table 1 for
+the detailed models’ speci￿cations. These models were chosen for
+their complementary strengths in quality, e￿ciency, and speed,
+facilitating a comprehensive evaluation in this research.
+We also employed ￿ve ML classi￿ers: Random Forest (RF), Gra-
+dient Boosting Machines (GBM) using XGBoost (XGB), Support
+Vector Machines (SVM), Logistic Regression (LR), and Neural Net-
+works (NN) implemented with Keras TensorFlow. RF is noted for
+its ability to reduce over￿tting through ensemble decision trees,
+GBM for addressing data imbalance by optimizing weak learners,
+SVM for its e￿ectiveness in high-dimensional spaces, LR as a fast
+and e￿cient baseline, and NN for modeling complex relationships,
+requiring careful architecture tuning [10, 12, 15, 17, 19, 23].
+4.4 Experimental Design
+Our work employed a ￿nancial dataset with both actual and arti-
+￿cially inserted anomalies, aiming to detect the latter while mini-
+mizing false positives among the former. This dataset, mirroring
+real-world conditions with signi￿cant class imbalance, is identical
+to that in Bakumenko et al. ’s work [6], anonymized and re￿ned to
+include only essential categorical features. We treated the 8 types
+of anomalies as a singular anomalous class, thereby framing it as
+Table 1: Speci￿cations of Sentence-BERT Models [35]
+Speci￿cation all-mpnet-base-v2 all-distilroberta-v1 all-MiniLM-L6-v2
+Base Model microsoft/mpnet-base distilroberta-base nreimers/MiniLM-L6-H384-uncased
+Dimensions 768 768 384
+Size (MB) 420 290 80
+Pooling Mean Pooling Mean Pooling Mean Pooling
+Average Performance 63.30 59.84 58.80
+Speed 2800 4000 14200
+Training Data 1B+ sentence pairs 1B+ sentence pairs 1B+ sentence pairs
+4
+
+
+[Page 5]
+a binary classi￿cation challenge, ensuring an even distribution of
+anomaly types in our train/test split.
+To e￿ectively identify anomalies in ￿nancial journal entries,
+which constitute a high-dimensional dataset, we innovated by en-
+coding this non-semantic categorical data using SBERT LLMs, par-
+ticularly employing 3 sentence-transformers models to standardize
+variable-length entries into a consistent feature space, addressing
+limitations in traditional encoding methods noted in the original
+work [6].
+We explored ￿ve ML algorithms for anomaly detection, including
+Logistic Regression as a baseline, and optimized their hyperparame-
+ters using Hyperopt over 100 iterations. This ￿ne-tuning, alongside
+the deployment of 3 Neural Network models with varied architec-
+tures, aimed to maximize model e￿cacy.
+Model performance was assessed using the macro recall average
+metric, suitable for imbalanced datasets, focusing on the balanced
+detection of synthetic anomalies while controlling for false positives.
+This involved computing the average of Speci￿city and Sensitiv-
+ity, alongside leveraging confusion matrices for a comprehensive
+performance overview [6].
+Figure 2: High-level diagram of the anomaly detection algo-
+rithm with sentence-transformer and ML classi￿ers.
+Our experimental framework investigated the e￿ciency of LLMs
+in encoding ￿nancial data and assessed multiple ML models’ anom-
+aly detection capabilities. The anomaly detection system, as de-
+picted in our high-level diagram in Figure 2, integrates LLM em-
+beddings with an ML classi￿er to di￿erentiate between normal and
+anomalous journal entries, starting from the General Ledger data,
+processed into aggregated records for ML classi￿cation based on
+LLM-derived embeddings.
+5 EXPERIMENTATION RESULTS
+5.1 Analysis of Encoded Feature Set
+We conducted Principal Component Analysis (PCA) on feature sets
+derived from 3 SBERT model embeddings (Figure 3). PCA demon-
+strates the embeddings’ dimensionality and information retention
+within the dataset, with signi￿cant variance preservation despite
+dimensionality reduction. The embeddings from the all-MiniLM-L6-
+v2 model (LLM1) required 63 components for 99% variance and 150
+for 99.9%, whereas the all-distilroberta-v1 (LLM2) and all-mpnet-
+base-v2 (LLM3) models, despite larger vectors (770), needed fewer
+components (57 for LLM2 and 52 for LLM3) for the same variance
+level.
+Further analysis revealed the less informative nature of the ￿nal
+0.9% variance, suggesting it might contain noise or dataset-speci￿c
+Figure 3: PCA analysis of SBERT embeddings for the all-
+MiniLM-L6-v2 (E1), all-distilroberta-v1 (E2), and all-mpnet-
+base-v2 (E3) models. E1 achieves 99% variance with 63C and
+99.9% variance with 150C. E2 achieves 99% variance with 57C
+and 99.9% variance with 172C. E3 achieves 99% variance with
+52C and 99.9% variance with 157C.
+features. A comparative study (Figure 4) showed LLM embeddings’
+superior dimensionality reduction compared to one-hot encoding.
+The LLM embeddings maintained high variance with fewer dimen-
+sions, in contrast to the sparse, high-dimensional vectors from
+one-hot encoding. The one-hot encoded data initially had 2336
+dimensions, reduced to 419 to achieve 99% variance, which is still
+higher than the LLM embeddings.
+Figure 4: Dimensionality reduction e￿ciency comparison
+between novel (E1: all-MiniLM-L6-v2, E2: all-distilroberta-v1,
+E3: all-mpnet-base-v2) and conventional method (Study2).
+It’s important to recognize PCA’s linear nature limiting its ability
+to capture non-linear complexities. While useful for understanding
+structural properties and potential for dimensionality reduction,
+PCA doesn’t predict performance in downstream tasks. Our ex-
+tended analysis includes empirical assessments of embeddings in
+these tasks.
+In summary, LLM embeddings o￿er more e￿cient data repre-
+sentation than one-hot encoding, requiring fewer dimensions for
+similar variance levels, making LLM embeddings more preferable
+for complex tasks.
+5.2 Downstream Model Training and
+Optimization
+We utilized a variety of ML classi￿ers, as discussed in Section
+4.3, including SVM, RF, XGBoost, LR, ANN, and DNNs. For non-
+ANN/DNN models, Bayesian optimization via the Hyperopt library
+and the Tree-structured Parzen Estimator (TPE) algorithm was
+5
+
+
+[Page 6]
+applied over 100 iterations for hyperparameter tuning. Sample
+weights were calculated to address imbalanced datasets, and bi-
+nary classi￿cation was achieved by transforming multi-class labels.
+Model training utilized Python with Scikit-learn and TensorFlow
+libraries. We designed three Neural Network architectures with
+varying complexities and implemented training over 50 epochs
+with early stopping for generalization, detailed in Table 2.
+Table 2: Con￿gurations of Neural Network Models
+ANN DNN1 DNN2
+Hidden layers 1 3 3 + 2 Dropout
+Neurons per layer 64 256, 128, 64 256, 128, 64
+Dropout rate - - 0.5
+Activation function ReLU ReLU ReLU
+Output activation Sigmoid Sigmoid Sigmoid
+Reproducibility was ensured by ￿xing seeds in NumPy and Ten-
+sorFlow, and recall average macro was monitored via custom call-
+backs. The ANN model featured a single hidden layer for rapid
+training, DNN1 had multiple hidden layers for complex pattern
+recognition, and DNN2 included dropout layers to prevent over￿t-
+ting, maintaining a deep architecture like DNN1.
+5.3 Evaluation Metrics and Comparative
+Analysis
+Earlier in this work, we discussed bene￿ts of having LR as a baseline
+model. For each of the three SBERT model embeddings, we trained
+two downstream LR models: a model with the default parameters
+and Hyperopt-optimized model. Non-optimised models showed
+high performance measured in recall average macro equal 0.9516,
+0.9040, and 0.9520 for all-MiniLM-L6-v2, all-distilroberta-v1, and all-
+mpnet-base-v2 embeddings respectively. Figure 5 shows learning
+curves for optimized LR models, using a ;40A=8=6 _2DAE4 function
+for cross-validation to check for generalization and over￿tting. It
+trains the model on increasing data subsets and evaluates on train-
+ing and validation sets, using 5-fold cross-validation. We calculated
+mean and standard deviation for training and validation scores
+across folds to gauge average performance and variability consider-
+ing class imbalance. The training score line (red) indicates training
+subset performance, and the cross-validation score line (green) indi-
+cates unseen validation set performance, o￿ering a robust estimate
+of model performance across data subsets and potential improve-
+ment with more data.
+Figure 5: Learning curve post-train evaluation for optimized
+LR models using all-MiniLM-L6-v2 (E1), all-distilroberta-v1
+(E2), and all-mpnet-base-v2 (E3) model embeddings.
+In Figure 5, all three models demonstrate positive learning char-
+acteristics. The E3 model excels in learning and generalization,
+demonstrating strong data learning capacity. The E1 model, while
+performing adequately, shows signs of reaching its learning capac-
+ity limit. The E2 model is improving but requires better regular-
+ization strategies. The Hyperopt-optimized analysis shows E1’s C
+value at 0.07677 indicates moderate regularization. E2 has a stronger
+regularization with a C value of 0.01702 and employs the ’newton-
+cg’ solver. E3, with the smallest C value of 0.01358, exhibits the
+strongest regularization using the ’liblinear’ solver. All models use
+uniform class weights to improve minority class prediction accu-
+racy, with speci￿c regularization strengths and solver selections
+tailored to their learning needs.
+Figure 6: Recall_AM scores for sentence-transformer and ML
+classi￿er models.
+Figure 6 evaluates the performance of LR, RF, XGB, SVM, and NN
+classi￿ers optimized and integrated with embeddings from three
+language models. Performance metrics are based on average recall
+macro. All embeddings show varying degrees of e￿ectiveness, with
+all-mpnet-base-v2 excelling in stability and performance across
+various classi￿ers. all-MiniLM-L6-v2 also performs well, notably
+with LR and NN, while all-distilroberta-v1 is solid but does not
+outperform the all-MiniLM-L6-v2 with NN. These di￿erences in-
+dicate that certain embeddings are more compatible with speci￿c
+classi￿ers in downstream tasks, guiding practical model selection.
+The confusion matrix values for the optimized models using
+di￿erent embeddings are provided in Table 3. The all-MiniLM-L6-v2
+embeddings with LR, and potentially NN, if FPs are reduced, could
+provide the most balanced performance, while all-mpnet-base-v2
+embeddings demonstrate higher TP rates across models. Figure
+7 contrasts recall macro score di￿erences for LLM embeddings
+compared to padded one-hot encoding across LR, RF, SVM, and
+NN models. Each bar shows the recall score di￿erence for an LLM
+embedding, with boxplots summarizing the distribution and means
+(diamonds) for each model.
+For LR, LLM embeddings improved recall scores by +0.056, +0.030,
+and +0.032, with a compact distribution indicating consistent en-
+hancement across embeddings. In contrast, RF models showed a
+decline with LLM embeddings, marked by di￿erences of -0.066,
+-0.044, and -0.021, and a moderate variability range. SVM models
+experienced reduced performance with LLM embeddings, with neg-
+ative di￿erences of -0.085, -0.108, and -0.015, showing signi￿cant
+variability towards lower performance. NN models bene￿ted from
+LLM embeddings, with increases of +0.064, +0.050, and +0.062, and
+6
+
+
+[Page 7]
+Figure 7: Performance di￿erential analysis of ML models
+using LLM Embeddings versus traditional encoding.
+minimal variability, indicating a reliably positive e￿ect. LLM em-
+beddings improve LR and NN model performance over traditional
+padded one-hot encoding, but generally reduce e￿ectiveness in RF
+and SVM models. While some models may consistently bene￿t from
+LLM embeddings, these highlights the model-speci￿c variability in
+performance when applying LLM embeddings for data encoding.
+The Bland-Altman plots in Figure 8 compare two score sets,
+evaluating ML model performances using embeddings (all-MiniLM-
+L6-v2 (E1), all-distilroberta-v1 (E2), and all-mpnet-base-v2 (E3))
+against a traditional method. The red line shows the average dif-
+ference in recall macro scores between all models. Blue lines, set
+at the mean di￿erence ± 1.96 SD, de￿ne the limits of agreement,
+indicating the expected range for most score di￿erences. Point
+Figure 8: Model performance di￿erentials using LLM Embed-
+dings (all-MiniLM-L6-v2 (E1), all-distilroberta-v1 (E2), and
+all-mpnet-base-v2 (E3), compared to traditional encoding.
+dispersion around the blue lines shows some models’ new embed-
+dings align with expected performance ranges versus traditional
+methods. Performance varies across ML models and embeddings.
+For instance, NN models often exhibit improved results, shown
+by positive deviations above the red line, whereas SVM models
+display reduced e￿cacy, indicated by negative deviations. Overall,
+ML models employing LLM embeddings tend to match the antic-
+ipated performance spectrum of traditional methods, indicating
+on-average comparable outcomes.
+5.4 Hypotheses Revisited
+The PCA analysis on sentence-transformer embeddings demon-
+strates improved compactness and information retention in ￿nan-
+cial data encoding over traditional approaches, con￿rming Hypothe-
+sis 1. This highlights the embeddings’ superior ability to standardize
+feature variability and compress information e￿ectively.
+For Hypothesis 2, the integration of sentence-transformer em-
+beddings with optimized LR and NN models, showed improved
+anomaly detection performance, a￿rming the LLMs embeddings
+potential to surpass traditional methods. Although some perfor-
+mance variances were observed, such as in SVM models, these were
+within anticipated bounds. The results underscore the e￿cacy of
+this innovative approach, emphasizing the importance of strategic
+model choice to maximize bene￿ts.
+6 DISCUSSION
+This work’s utilization of sentence-transformer LLMs for ￿nan-
+cial data encoding demonstrated a novel approach to enhancing
+anomaly detection.
+6.1 Interpretation of Results
+Using PCA on embeddings from three SBERT models (MiniLM-
+L6-v2, all-distilroberta-v1, and all-mpnet-base-v2) demonstrates a
+substantial improvement in dimensionality reduction and infor-
+mation retention for ￿nancial datasets compared to traditional
+encoding. For instance, considering downstream ML performance,
+the all-mpnet-base-v2 model needed just 52 PCA components to
+preserve 99% variance, compared to 419 for padded one-hot en-
+coding. Embedded feature dimensionality for all 3 SBERT models
+was signi￿cantly lower in the same comparison. This advancement
+addresses the critical challenge of feature heterogeneity and spar-
+sity in ￿nancial non-semantic non-temporal categorical feature
+sets, which is a notable improvement over traditional methods.
+Downstream ML models’ performance con￿rms LLM embeddings’
+e￿cacy in anomaly detection. The employment of various ML clas-
+si￿ers, including Bayesian-optimized LR, RF, XGB, SVM, and NNs
+with multiple architectures and adjusted parameters, highlights
+the embeddings’ versatility and potential to boost model perfor-
+mance. The superior evaluation metrics for LR and NN models
+using all 3 SBERT embeddings underscore these embeddings’ po-
+tential in enhancing anomaly detection. The underperformance
+Table 3: ML model scores across various embeddings
+all-MiniLM-L6-v2 all-distilroberta-v1 all-mpnet-base-v2
+Model TN FN FP TP Recall_AM TN FN FP TP Recall_AM TN FN FP TP Recall_AM
+Logistic Regression 3809 0 8 21 0.9990 3792 1 25 20 0.9729 3808 1 9 20 0.9750
+Random Forest 3805 3 12 18 0.9270 3788 2 29 19 0.9486 3785 1 32 20 0.9720
+XGBoost 3788 3 29 18 0.9248 3789 1 28 20 0.9725 3804 2 13 19 0.9507
+Support Vector Machines 3815 5 2 16 0.8807 3815 6 2 15 0.8569 3801 2 16 19 0.9503
+Neural Networks 3756 0 61 21 0.9920 3648 0 169 21 0.9779 3740 0 77 21 0.9899
+7
+
+
+[Page 8]
+of SVM, even within the expected bounds, highlights the need for
+model-embedding compatibility assessment in future applications.
+6.2 Implications for Financial Anomaly
+Detection
+The integration of sentence-transformer LLMs in ￿nancial anomaly
+detection represents a leap from traditional methods, enhancing
+data representation and algorithm sensitivity to anomalies. This
+approach, in practical settings, promises to elevate fraud detection
+e￿ciency by improving accuracy and minimizing false alerts, thus
+streamlining ￿nancial operations. The novel method achieves an
+eightfold decrease in the number of components in certain scenar-
+ios while improving downstream model performance, e￿ciently
+standardazing feature variability. It illustrates its e￿ectiveness and
+setting new standards in ￿nancial data encoding. As this methodol-
+ogy becomes more prevalent, it could establish new benchmarks
+in ￿nancial analysis, catalyzing advancements in ML applications
+within the industry. Further empirical studies and real-world appli-
+cations could solidify its standing and quantify its impact.
+6.3 Limitations and Bias
+Our research utilized a real-world dataset from various ERPs, en-
+riched with eight distinct types of intentionally introduced and
+labeled anomalies by ￿nancial auditors. The anomalies, re￿ecting
+auditors’ interests in practical anomaly detection, have a synthetic
+nature that may limit generalizability. Additionally, the challenge
+in analyzing real-world ￿nancial data lies in unlabeled anomalies
+that may exist, potentially skewing ML model validation and in-
+creasing false-positive rates. Additionally, PCA analysis is a linear
+method limited in its capacity to represent non-linear relationships
+in feature sets. Also, LLMs respond to prompt engineering, meaning
+changes in input feature concatenation can alter embeddings, an
+aspect not covered in this work. Finally, our method focuses on
+categorical features and requires extension in scenarios requiring
+precise numerical analysis.
+7 CONCLUSION AND FUTURE WORK
+7.1 Contributions Summary
+Our research advances the domain of ￿nancial anomaly detection
+through the integration of LLM embeddings with ML classi￿ers, a
+novel approach that notably mitigates feature heterogeneity and
+sparsity. Utilizing sentence-transformer models for ￿nancial data
+encoding, our methodology not only surpassed traditional encoding
+techniques in dimensionality reduction and information retention,
+but also showcased enhanced anomaly detection e￿cacy with se-
+lected ML classi￿ers. This aligns with established principles of fea-
+ture representation [9], re￿ecting their practical application in the
+context of ￿nancial data. Underpinned by a comprehensive experi-
+mental setup and demonstrating practical applicability, our work
+contributes valuable insights for future research at the intersection
+of natural language processing and ￿nancial analytics.
+7.2 Broader Impact and Implications
+The innovative use of Large Language Models (LLMs) for non-
+semantic ￿nancial data tackles high-dimensionality and sparsity,
+establishes a precedent for the use of LLMs in domains beyond their
+traditional applications. This mirrors ￿ndings where LLMs success-
+fully encode visual tokens [ 30]. By outperforming conventional
+methods, LLM embeddings show their potential beyond linguistic
+tasks, particularly for data types lacking inherent semantics. This
+methodological advancement could aid various industries with
+similar challenges, notably healthcare and retail, where complex
+datasets might gain from the enhanced data representation capabili-
+ties of LLMs. In healthcare, LLM embeddings could enhance patient
+data analysis by detecting patterns in datasets that are mainly
+numerical, lack textual clarity, or consist of structured data like
+MRIs, CT scans, ICD codes, and lab values, which require domain
+knowledge for interpretation. In retail, LLMs could o￿er detailed
+insights from high-dimensional transactional data, revealing com-
+plex product-consumer interactions. This can enhance ML models’
+ability to predict behaviors, segment markets, and suggest products,
+advancing market analytics.
+The utilization of LLMs on non-semantic data expands their
+use and prompts a rethinking of data analysis methods, fostering
+multidisciplinary research into their potential for complex datasets.
+7.3 Future Research Directions
+Future research should extend the LLM embedding approach to
+broader ￿nancial datasets, assessing its scalability, impact on anom-
+aly detection accuracy, and computational e￿ciency in response
+to evolving ￿nancial fraud patterns. Extending this methodology
+to various non-semantic data types across multiple domains with
+high-dimensional and sparse datasets, and integrating with other
+advanced ML and deep learning models, will test the adaptabil-
+ity and e￿ectiveness of LLM embeddings. Unsupervised strategies
+should be explored to address zero-day anomalies, re￿ning our
+method to better detect novel patterns. Future research should
+investigate how diverse data preprocessing strategies, including
+aggregation methods and prompt engineering, enhance LLM encod-
+ing e￿ciency. A focused exploration into non-linear dimensionality
+reduction techniques could complement PCA, aiming to more ef-
+fectively capture complex relationships within LLM embeddings.
+Investigating the e￿ects of synthetic versus real-world anomalies
+on model performance will o￿er insights into the ￿ndings’ practical
+applicability. Finally, exploring model-embedding compatibility by
+testing various cutting-edge LLM architectures could yield more
+tailored anomaly detection solutions.
+REFERENCES
+[1] Yara Alghofaili, Albatul Albattah, and Murad A Rassam. 2020. A ￿nancial fraud
+detection model based on LSTM deep learning technique. Journal of Applied
+Security Research 15, 4 (2020), 498–516.
+[2] A. Alhashedi. 2021. Financial Fraud Detection Applying Data Mining Techniques:
+A Comprehensive Review from 2009 to 2019. Computer Science Review 40 (2021),
+100402. https://doi.org/10.1016/j.cosrev.2021.100402
+[3] Abhijit Anand, Jurek Leonhardt, Jaspreet Singh, Koustav Rudra, and Avishek
+Anand. 2023. Data augmentation for sample e￿cient and robust document
+ranking. ACM Transactions on Information Systems (2023).
+[4] Matin N Ashtiani and Bijan Raahemi. 2021. Intelligent fraud detection in ￿nancial
+statements using machine learning and data mining: a systematic literature
+review. IEEE Access 10 (2021), 72504–72525.
+[5] V. Vlasselaer B. Baesens and W. Verbeke. 2015. Fraud analytics using descriptive,
+predictive, and social network techniques : a guide to data science for fraud detection.
+Wiley, New York.
+[6] Alexander Bakumenko and Ahmed Elragal. 2022. Detecting anomalies in ￿nancial
+data using machine learning algorithms. Systems 10, 5 (2022), 130.
+8
+
+
+[Page 9]
+[7] Seila Becirovic, Emir Zunic, and Dzenana Donko. 2020. A Case Study of Cluster-
+based and Histogram-based Multivariate Anomaly Detection Approach in Gen-
+eral Ledgers. In 2020 19th International Symposium Infoteh-Jahorina (INFOTEH) .
+IEEE, 1–6.
+[8] F Belfo and A Trigo. 2013. Accounting Information Systems: Tradition and Future
+Directions. Procedia Technology 9 (2013), 536–546.
+[9] Yoshua Bengio, Aaron Courville, and Pascal Vincent. 2013. Representation
+learning: A review and new perspectives. IEEE transactions on pattern analysis
+and machine intelligence 35, 8 (2013), 1798–1828.
+[10] Leo Breiman. 2001. Random forests. Machine learning 45 (2001), 5–32.
+[11] Longbing Cao. 2022. Ai in ￿nance: challenges, techniques, and opportunities.
+ACM Computing Surveys (CSUR) 55, 3 (2022), 1–38.
+[12] Tianqi Chen and Carlos Guestrin. 2016. Xgboost: A scalable tree boosting system.
+In Proceedings of the 22nd acm sigkdd international conference on knowledge
+discovery and data mining . 785–794.
+[13] Yeming Chen and Xinyuan Han. 2021. CatBoost for fraud detection in ￿nancial
+transactions. In 2021 IEEE International Conference on Consumer Electronics and
+Computer Engineering (ICCECE) . IEEE, 176–179.
+[14] Zhikai Chen, Haitao Mao, Hang Li, Wei Jin, Hongzhi Wen, Xiaochi Wei,
+Shuaiqiang Wang, Dawei Yin, Wenqi Fan, Hui Liu, et al . 2023. Exploring the
+potential of large language models (llms) in learning on graphs. arXiv preprint
+arXiv:2307.03393 (2023).
+[15] Corinna Cortes and Vladimir Vapnik. 1995. Support-vector networks. Machine
+learning 20 (1995), 273–297.
+[16] Hugging Face. 2023. Model Hub. https://huggingface.co/models?library=
+sentence-transformers. Accessed: 2023-12-05.
+[17] Jerome H Friedman. 2001. Greedy function approximation: a gradient boosting
+machine. Annals of statistics (2001), 1189–1232.
+[18] Afshin Gholamy, Vladik Kreinovich, and Olga Kosheleva. 2018. Why 70/30 or
+80/20 relation between training and testing sets: A pedagogical explanation.
+(2018).
+[19] Ian Goodfellow, Yoshua Bengio, and Aaron Courville. 2016. Deep learning. MIT
+press.
+[20] Muhammad Usman Hadi, Rizwan Qureshi, Abbas Shah, Muhammad Irfan, Anas
+Zafar, Muhammad Bilal Shaikh, Naveed Akhtar, Jia Wu, Seyedali Mirjalili, et al .
+2023. A survey on large language models: Applications, challenges, limitations,
+and practical usage. Authorea Preprints (2023).
+[21] James A Hall. 2008. Accounting Information Systems (7 ed.). South-Western, Ohio.
+[22] Waleed Hilal, S. Andrew Gadsden, and John Yawney. 2022. Financial Fraud: A
+Review of Anomaly Detection Techniques and Recent Advances. Expert Systems
+with Applications 193 (2022), 116429. https://doi.org/10.1016/j.eswa.2021.116429
+[23] David W Hosmer Jr, Stanley Lemeshow, and Rodney X Sturdivant. 2013. Applied
+logistic regression. Vol. 398. John Wiley & Sons.
+[24] IFAC. 2018. International Standards on Auditing 240, The Auditor’s Responsibili-
+ties Relating to Fraud in an Audit of Financial Statements.
+[25] Xiu Li, Aron Henriksson, Martin Duneld, Jalal Nouri, and Yongchao Wu. 2023.
+Evaluating Embeddings from Pre-Trained Language Models and Knowledge
+Graphs for Educational Content Recommendation. Future Internet 16, 1 (2023),
+12.
+[26] Yinheng Li, Shaofei Wang, Han Ding, and Hang Chen. 2023. Large Language
+Models in Finance: A Survey. In Proceedings of the Fourth ACM International
+Conference on AI in Finance . 374–382.
+[27] Jian Liu, Xin Gu, and Chao Shang. 2020. Quantitative Detection of Financial Fraud
+Based on Deep Learning with Combination of E-Commerce Big Data. Complexity
+2020 (2020), 1–11.
+[28] Xubo Liu, Xinhao Mei, Qiushi Huang, Jianyuan Sun, Jinzheng Zhao, Haohe Liu,
+Mark D Plumbley, Volkan Kilic, and Wenwu Wang. 2022. Leveraging pre-trained
+bert for audio captioning. In 2022 30th European Signal Processing Conference
+(EUSIPCO). IEEE, 1145–1149.
+[29] Abolfazl Mehbodniya, Izhar Alam, Sagar Pande, Rahul Neware, Kantilal Pitambar
+Rane, Mohammad Shabaz, Mangena Venu Madhavan, and Chinmay Chakraborty.
+2021. Financial Fraud Detection in Healthcare Using Machine Learning and
+Deep Learning Techniques. Sec. and Commun. Netw. 2021 (jan 2021), 8 pages.
+https://doi.org/10.1155/2021/9293877
+[30] Ziqi Pang, Ziyang Xie, Yunze Man, and Yu-Xiong Wang. 2023. Frozen Trans-
+formers in Language Models Are E￿ective Visual Encoder Layers. arXiv preprint
+arXiv:2310.12973 (2023).
+[31] Kaushikkumar Patel. 2023. Credit Card Analytics: A Review of Fraud Detection
+and Risk Assessment Techniques. International Journal of Computer Trends and
+Technology 71, 10 (2023), 69–79.
+[32] Guangyuan Piao. 2021. Scholarly text classi￿cation with sentence BERT and
+entity embeddings. In Trends and Applications in Knowledge Discovery and Data
+Mining: PAKDD 2021 Workshops, WSPA, MLMEIN, SDPRA, DARAI, and AI4EPT,
+Delhi, India, May 11, 2021 Proceedings 25 . Springer, 79–87.
+[33] R Bharat Rao, Glenn Fung, and Romer Rosales. 2008. On the dangers of cross-
+validation. An experimental evaluation. In Proceedings of the 2008 SIAM interna-
+tional conference on data mining . SIAM, 588–596.
+[34] Nils Reimers and Iryna Gurevych. 2019. Sentence-bert: Sentence embeddings
+using siamese bert-networks. arXiv preprint arXiv:1908.10084 (2019).
+[35] SBERT.net. 2023. Sentence-Transformers - Pretrained Models. https://www.sbert.
+net/docs/pretrained_models.html. Accessed: 2023-23-05.
+[36] M. Schultz and M. Tropmann-Frick. 2020. Autoencoder Neural Networks versus
+External Auditors: Detecting Unusual Journal Entries in Financial Statement
+Audits. 53rd Hawaii International Conference on System Sciences (2020).
+[37] T. W. Singleton and A. J. Singleton. 2010. Fraud Auditing and Forensic Accounting,
+4th Edition. Wiley, New York.
+[38] Pallavi Sood and Puneet Bhushan. 2020. A structured review and theme analysis
+of ￿nancial frauds in the banking industry. Asian Journal of Business Ethics 9
+(2020), 305–321.
+[39] Dimitrios Vamvourellis, Máté Toth, Snigdha Bhagat, Dhruv Desai, Dhagash
+Mehta, and Stefano Pasquali. 2023. Company Similarity using Large Language
+Models. arXiv preprint arXiv:2308.08031 (2023).
+[40] Zhuo Wang. 2021. Abnormal ￿nancial transaction detection via AI technology.
+International Journal of Distributed Systems and Technologies (IJDST) 12, 2 (2021),
+24–34.
+[41] Jason Wei, Yi Tay, Rishi Bommasani, Colin Ra￿el, Barret Zoph, Sebastian
+Borgeaud, Dani Yogatama, Maarten Bosma, Denny Zhou, Donald Metzler, et al .
+2022. Emergent abilities of large language models. arXiv preprint arXiv:2206.07682
+(2022).
+[42] Xujiang Zhao, Jiaying Lu, Chengyuan Deng, Can Zheng, Junxiang Wang, Tan-
+moy Chowdhury, Li Yun, Hejie Cui, Zhang Xuchao, Tianjiao Zhao, et al . 2023.
+Domain specialization as the key to make large language models disruptive: A
+comprehensive survey. arXiv preprint arXiv:2305.18703 (2023).
+[43] Xiaoqian Zhu, Xiang Ao, Zidi Qin, Yanpeng Chang, Yang Liu, Qing He, and
+Jianping Li. 2021. Intelligent ￿nancial fraud detection practices in post-pandemic
+era. The Innovation 2, 4 (2021).
+[44] Mario Zupan, Verica Budimir, and Svjetlana Letinic. 2020. Journal entry anomaly
+detection model. Intelligent Systems in Accounting, Finance and Management 27,
+4 (2020), 197–209.
+9

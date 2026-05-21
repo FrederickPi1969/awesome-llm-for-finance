@@ -1,0 +1,3065 @@
+[Page 1]
+SHIELD: LLM-Driven Schema Induction for Predictive Analytics in EV
+Battery Supply Chain Disruptions
+Zhi-Qi Cheng1 Yifei Dong2 Aike Shi3 Wei Liu4 Yuzhi Hu5
+Jason O’Connor1 Alexander G. Hauptmann1 Kate S. Whitefoot1
+1Carnegie Mellon University 2Columbia University 3Georgia Institute of Technology
+4University of Michigan, Ann Arbor 5Boston University
+Project Page: https://f1y1113.github.io/MFI/
+Abstract
+The electric vehicle (EV) battery supply
+chain’s vulnerability to disruptions necessi-
+tates advanced predictive analytics. We present
+SHIELD (Schema-based Hierarchical Induc-
+tion for EV supply chain Disruption), a system
+integrating Large Language Models (LLMs)
+with domain expertise for EV battery sup-
+ply chain risk assessment. SHIELD com-
+bines: (1) LLM-driven schema learning to con-
+struct a comprehensive knowledge library, (2) a
+disruption analysis system utilizing fine-tuned
+language models for event extraction, multi-
+dimensional similarity matching for schema
+matching, and Graph Convolutional Networks
+(GCNs) with logical constraints for predic-
+tion, and (3) an interactive interface for visu-
+alizing results and incorporating expert feed-
+back to enhance decision-making. Evaluated
+on 12,070 paragraphs from 365 sources (2022-
+2023), SHIELD outperforms baseline GCNs
+and LLM+prompt methods (e.g. GPT-4o) in
+disruption prediction. These results demon-
+strate SHIELD’s effectiveness in combining
+LLM capabilities with domain expertise for en-
+hanced supply chain risk assessment.
+1 Introduction
+The expected widespread adoption of electric ve-
+hicles (EVs) is threatened by risks associated with
+the geographic and economic concentration of crit-
+ical battery minerals, such as lithium, cobalt, and
+nickel. To enhance the resilience of the EV battery
+supply chain, manufacturers must anticipate disrup-
+tions caused by natural disasters and geopolitical
+tensions. Proactive strategies and supply diversifi-
+cation are essential to mitigate these risks1.
+Completed by Y . Dong and Y . Hu during remote vis-
+its, and A. Shi and W. Liu during CMU internships. Z.
+Cheng, Y . Dong, A. Shi, W. Liu, and Y . Hu contributed
+equally. J. O’Connor, A. Hauptmann, and K. Whitefoot pro-
+vided guidance. See Appx. L for details. Correspondence:
+zhiqic,alex@cs.cmu.edu, kwhitefoot@andrew.cmu.edu.
+1https://nncta.org/_files/documents/
+chapter4-energy-critical-materials.pdf
+Figure 1: SHIELD’s process for EV battery supply
+chain disruption prediction. The framework integrates
+LLM-driven schema learning with expert curation, en-
+abling robust event extraction and prediction from di-
+verse news sources. This approach uniquely combines
+LLM capabilities with domain expertise, enhancing both
+predictive accuracy and interpretability for proactive
+supply chain risk management.
+Traditional supply chain risk management ap-
+proaches, which rely on rule-based reasoning and
+agent-based simulations (Gallab et al., 2019; Pino
+et al., 2010; Giannakis and Louis, 2011, 2016; Blos
+et al., 2015), often fall short in predictive accu-
+racy and adaptability to dynamic market conditions.
+While machine learning (ML) and deep learning
+(DL) techniques have enhanced predictive perfor-
+mance (Hegde and Rokseth, 2020; Ruz et al., 2020;
+Aljohani, 2023; Silva et al., 2017; Garvey et al.,
+2015; Carbonneau et al., 2008), they frequently
+sacrifice interpretability, limiting their practical ap-
+plication. Recent studies employing large language
+models (LLMs) in supply chain management (Ray,
+2023; Wang et al., 2022a; Du et al., 2022; Shi
+et al., 2024; Dror et al., 2022; Li et al., 2023) have
+focused on improving predictions but struggle to
+fully grasp complex domain-specific supply chain
+knowledge. This limitation often leads to hallucina-
+tions and inaccuracies which, coupled with limited
+interpretability, hinder the generation of actionable
+insights crucial for effective risk management.
+arXiv:2408.05357v2  [cs.AI]  21 Oct 2024
+
+
+[Page 2]
+Figure 2: Overview of the supply chain schema construction process, illustrating the collection of diverse sources,
+schema extraction using large language models, and the integration into a unified schema library.
+To address these challenges, we introduce SHIELD
+(Schema-based Hierarchical Induction for EV sup-
+ply chain Disruption), a two-stage framework that
+integrates LLMs and domain expertise for predic-
+tive analytics in EV battery supply chains (Fig. 1):
+1. Schema Learning (Sec. 3): We leverage LLMs
+(GPT-4o, Llama3-3b, Llama3-70b) to con-
+struct a comprehensive schema library—a
+structured representation of supply chain com-
+ponents and their relationships—from diverse
+sources. An interactive system integrates ex-
+pert knowledge, distilling supply chain ex-
+pertise from specialized documents. This ap-
+proach ensures analyses align with domain
+knowledge, capturing EV battery supply chain
+complexities for accurate, interpretable predic-
+tions that adapt to industry dynamics through
+continuous refinement.
+2. Disruption Analysis (Sec. 4): Building on our
+schema learning, we develop a comprehen-
+sive disruption prediction system. This sys-
+tem integrates fine-tuned RoBERTa (Liu et al.,
+2019) for event detection, multi-dimensional
+similarity for matching, and Graph Convo-
+lutional Networks (GCNs) with logical con-
+straints for impact analysis. The resulting end-
+to-end system enables precise event extraction
+and reliable predictions in complex supply
+chains, mitigating LLM hallucination risks
+while maintaining efficiency. This approach
+offers a scalable solution for real-time supply
+chain risk assessment and mitigation.
+Evaluated on 12,070 paragraphs from 365 sources
+(2022-2023) (Sec. 5), SHIELD outperforms base-
+line GCNs and LLM+prompt methods (e.g., GPT-
+4o) in disruption prediction. By integrating LLM
+capabilities with domain expertise, this framework
+enhances supply chain risk assessment. Key contri-
+butions include: (1) an LLM-expert integration
+methodology for accurate, interpretable predic-
+tions; (2) a schema learning and news evaluation
+dataset spanning the EV battery lifecycle; (3) an
+interactive schema curation system; and (4) ad-
+vanced analytical techniques for supply chain anal-
+ysis. SHIELD offers a promising approach in sup-
+ply chain risk management, addressing evolving
+challenges across the EV industry and beyond.
+2 Related Work
+Supply Chain Risk Management . AI has been
+increasingly applied to predict and manage supply
+chain risks (Ganesh and Kalpana, 2022). Agent-
+based approaches (Pino et al., 2010; Giannakis
+and Louis, 2011, 2016; Blos et al., 2015) facili-
+tate inter-agent communication for forecasting but
+often suffer from limited predictive power and pa-
+rameter constraints. Rule-based methods (Gal-
+lab et al., 2019; Behret et al., 2012; Paul, 2015;
+Paul et al., 2017; Awasthi et al., 2018; Camarillo
+et al., 2018) offer decision frameworks with mini-
+mal quantitative insights. Machine Learning (ML)
+and Deep Learning (DL) techniques have improved
+forecasting and disruption prediction (Silva et al.,
+2017; Hegde and Rokseth, 2020; Garvey et al.,
+2015; Ruz et al., 2020; Aljohani, 2023; Carbonneau
+et al., 2008), yet many focus on predictive perfor-
+mance at the expense of interpretability (Hendrik-
+sen, 2023; Makridis et al., 2023). Recent work has
+explored large language models (LLMs) in supply
+chain management (Ray, 2023), but interpretabil-
+ity remains a challenge. Our approach integrates
+LLMs to enhance both predictive accuracy and in-
+terpretability by extracting hierarchical knowledge-
+graph structures to forecast disruptions.
+Schema Induction & Learning. Building on early
+schema induction work (Anderson et al., 1979;
+
+
+[Page 3]
+Evans, 1967), LLMs (Brown et al., 2020; Rae et al.,
+2021) have shown strong schema-learning abili-
+ties with minimal supervision. Recent strategies,
+such as contextual explanations (Wei et al., 2021;
+Lampinen et al., 2022), rationale-augmented mod-
+els (Wang et al., 2022b), and incremental prompt-
+ing (Li et al., 2023), have further refined schema
+induction. Transformer-based methods (Li et al.,
+2020, 2021) excel at schema representation through
+graph structures, with human feedback playing a
+vital role in improving model accuracy (Mondal
+et al., 2023; Yang et al., 2024; Zhang et al., 2023).
+Our method leverages these advancements, com-
+bining human feedback with LLM-driven schema
+induction to improve accuracy and relevance in
+disruption prediction.
+Event Extraction & Analysis. Event extraction
+has evolved from handcrafted features (Ahn, 2006)
+to neural models like recurrent (Nguyen et al.,
+2016; Sha et al., 2018), convolutional (Chen et al.,
+2015), graph (Zhang and Ji, 2021), and transformer-
+based networks (Liu et al., 2020). Advances in
+argument extraction (Wang et al., 2019), zero-shot
+learning (Huang et al., 2018), and weak supervi-
+sion (Chen et al., 2015) have boosted performance.
+Our approach enhances event extraction by using
+fine-tuned RoBERTa models and graph convolu-
+tional networks (GCNs) to capture complex event
+relationships and cascading effects, offering deeper
+insights into supply chain disruptions compared to
+traditional methods.
+3 Schema Learning for Supply Chain
+Disruptions
+Schema Learning Dataset. Our dataset comprises
+239 diverse sources: 200 academic papers, 22 in-
+dustry reports, and 17 Wikipedia entries (Fig. 5 and
+Fig. 6). This collection provides an up-to-date view
+of the EV battery supply chain, covering advanced
+battery technologies (e.g. LFP, NiMH), produc-
+tion processes, and six key raw materials. We cat-
+egorized events into 8 categories, three with long-
+term impacts, subdivided into 18 subcategories.
+Our analysis includes five-year price trends for
+all materials, correlated with 39 significant sup-
+ply chain events. Industry expert feedback refined
+our categorization into 11 main categories with
+27 subcategories, each illustrated with 1-2 real-
+world events (Tab. 6). The academic dataset was
+distilled from 239 sources to 125 highly relevant
+entries. This dataset of over 1,000 events spans
+the EV battery lifecycle, enabling our methods to
+acquire expert knowledge for accurate, real-world
+predictions. More details are in Appx. B.1.
+Schema Generation & Merging. Building upon
+our collected dataset, our Schema Learning Sys-
+tem facilitates the extraction, visualization, and
+management of schemas from the 125 diverse tex-
+tual sources (Fig. 2). The process begins with data
+cleaning using regular expressions and a locally
+deployed Llama3-8b model. Subsequently, we em-
+ploy GPT-4o, Llama3-3b, and Llama3-70b with
+specific prompts to extract hierarchical structures
+(H) capturing main events ( E) and sub-events
+(Esub). More details are in Appx. C.
+The extracted structures are then converted into in-
+dividual schemas ( Si) and visualized as graphs,
+demonstrating the hierarchical nature of the
+schemas and the relationships between main events
+and sub-events. These schemas are then integrated
+into a single library (Sfinal), aggregating contexts
+(Cfinal = Sn
+i=1 Ci), merging events ( Efinal =Sn
+i=1 Ei), and updating event IDs for relations
+(Rfinal = Sn
+i=1 Ri). The detailed schema genera-
+tion and merging algorithm is provided in Appx. D.
+To ensure efficient retrieval and updates, a dedi-
+cated Database & Storage module manages schema
+storage, while the Schema Management System in-
+corporates a Schema Viewer, Editor, collaboration
+tools, and AI-driven suggestions are built to man-
+age and annotate schemas (Appx. E). This human-
+in-the-loop curated framework streamlines schema
+extraction and management, enabling interactive
+knowledge extraction from structured documents,
+leveraging supply chain experts’ insights.
+4 Dynamic Analysis of Supply Chain
+Disruptions
+Supply Chain News Dataset. We developed an EV
+Supply Chain News Dataset (January 2022 - De-
+cember 2023) to evaluate our system’s real-world
+performance (Appx. B.2). The dataset comprises
+247 articles from major news outlets and 118 en-
+terprise reports from EV battery-related companies
+(Fig. 7 and Fig. 8). After preprocessing—including
+text extraction, language standardization, and noise
+reduction—we obtained Meta data with 3,022 para-
+graphs. We then fused international news with con-
+temporaneous corporate stories in the meta data,
+creating 354 diverse documents comprising 12,070
+paragraphs. The final dataset contains approxi-
+
+
+[Page 4]
+Figure 3: Overview of the supply chain disruption prediction pipeline, illustrating the integration of GCN-based
+predictions, constrained prediction refinement, and argument coreference resolution.
+mately 660K words (Table 9), providing a robust
+foundation for evaluating supply chain disruption
+detection and analysis. Comprehensive replication
+details, including the full dataset and preprocessing
+pipeline, are provided to ensure reproducibility.
+Event Extraction . Our pipeline extracts multi-
+faceted events from textual data, focusing on their
+impact on the EV battery supply chain. We begin
+with custom-trained SpaCy models2 for tokeniza-
+tion, sentence segmentation, named entity recogni-
+tion, and dependency parsing (Appx. F).
+Building on this, we deploy a fine-tuned RoBERTa
+model for cross-sentence event detection:
+EventDetectmulti-sentence(T) → EC (1)
+where T represents the input text and EC the de-
+tected events. These events are then enriched with
+contextual information using BERT:
+BERTcontext(EC) → CE (2)
+generating contextual embeddings CE. To enhance
+analytical coherence, we implement coreference
+resolution and event linking:
+CorefLink(EC) → EL (3)
+This critical step, yielding linked events EL, main-
+tains contextual continuity across documents. Sub-
+sequently, Conditional Random Fields (CRFs) ex-
+tract event parameters PC:
+CRF(EL) → PC (4)
+Leveraging Graph Convolutional Networks
+(GCNs), we model complex event relationships
+2https://spacy.io/models
+and score each event’s impact as:
+ImpactScore(ei) = Centrality(ei)+Magnitude(ei)
+(5)
+This scoring mechanism balances two crucial fac-
+tors. Centrality(ei) represents the event’s impor-
+tance within the network, reflecting its centrality or
+influence in the supply chain context. Meanwhile,
+Magnitude(ei) quantifies the event’s impact inten-
+sity, indicating its severity or significance.
+Finally, we apply logical constraints and argument
+coreference to ensure robustness:
+LogicCoref(PC) → PF (6)
+producing a refined, logically consistent set of
+event parameters PF. More implementation details
+are in Appx. F.
+Event Matching & Instantiation . We link ex-
+tracted events with schema library to detect supply
+chain disruption patterns using a multi-dimensional
+approach of semantic and structural similari-
+ties. We align each extracted event Eext ∈ Eext (ex-
+tracted events) with each schema event Eschema ∈
+Eschema (schema events) using a composite similar-
+ity:
+Sim(Eext, Eschema) = α · SemSim(Eext, Eschema)
++ β · StrSim(Eext, Eschema)
+(7)
+where SemSim captures contextual meaning using
+BERT embeddings, and StrSim assesses structural
+similarity. Specifically, semantic similarity mea-
+sures contextual alignment using cosine similarity
+between BERT embeddings:
+SemSim(Eext, Eschema) = vext · vschema
+∥vext∥∥vschema∥ (8)
+where vext and vschema are BERT embeddings of
+extracted and schema events. Similarly, structural
+
+
+[Page 5]
+similarity evaluates parameter overlap using Jac-
+card similarity:
+StrSim(Eext, Eschema) = |Pext ∩ Pschema|
+|Pext ∪ Pschema| (9)
+where Pext and Pschema are the parameter sets for
+the extracted and schema events.
+Following the calculation of semantic and struc-
+tural similarities, we refine matching using heuris-
+tic rules from annotated datasets. Successful
+matches lead to event instantiation, enriching the
+event representation with schema attributes:
+Instantiate(Ematched, Sschema) → Einst (10)
+where Ematched represents the matched event,
+Sschema yields the schema library, and Einst refers
+to the instantiated event with enriched attributes.
+To ensure logical adherence to schema constraints,
+we perform consistency checks. These checks vali-
+date the instantiated events against the schema li-
+brary, ensuring they conform to predefined logical
+and structural constraints:
+ConsistencyCheck(Einst, Sschema) (11)
+This step is crucial for maintaining the integrity of
+the schema and the reliability of the predictions.
+Finally, we incorporate a continuous improvement
+process through manual review and feedback. Feed-
+back from domain experts is used to update and
+refine the models, ensuring they adapt to new pat-
+terns and maintain high performance. The complete
+process is summarized in Algorithm 3. More im-
+plementation details are in Appx. G.
+Algorithm 1 Supply Chain Disruption Prediction
+1: Input: Historical supply chain eventsE, adjacency matrix
+A, initial predictions ˆy
+2: Output: Refined predictions ˆy′
+3: GCN-based Prediction ▷ Initial prediction using GCN
+4: for l = 1 to L do
+5: H(l+1) = σ(AH(l)W(l)) ▷ Refer to Eq. 12
+6: end for
+7: ˆy ← H(L)
+8: Constrained Prediction ▷ Apply logical constraints
+9: for each prediction ˆyi do
+10: ˆy′
+i ← Constrain(ˆyi)
+11: such that C(ˆy′
+i) = true ▷ Refer to Eq. 14
+12: end for
+13: Coreference Resolution ▷ Link related events
+14: for each pair of events (Ei, Ej) do
+15: Rij ← Coref(Ei, Ej) ▷ Refer to Eq. 15
+16: if Rij is coreferential then
+17: Link Ei and Ej
+18: end if
+19: end for
+20: Return: Refined predictions ˆy
+Disruption Prediction. Building on the extracted
+and matched events, we employ Graph Convolu-
+tional Networks (GCNs), logical constraints, and
+argument coreference resolution to predict supply
+chain disruptions. Note that the events are repre-
+sented as nodes and interactions as edges using
+GCNs with the propagation rule:
+H(l+1) = σ(AH(l)W(l)) (12)
+where H(l) is the hidden state at layerl, A is the ad-
+jacency matrix, W(l) is the weight matrix, and σ is
+a non-linear activation function. We optimize using
+mean squared error loss with L2 regularization:
+L = 1
+N
+NX
+i=1
+(yi − ˆyi)2 + λ∥W∥2 (13)
+where yi and ˆyi are actual and predicted disruption
+scores, and λ is a regularization parameter. This
+approach balances prediction accuracy and model
+complexity, preventing overfitting.
+To ensure consistency with domain knowledge, we
+apply logical constraints, refining initial predictions
+(ˆy) to produce final predictions (ˆy′) that adhere to
+known rules:
+ˆy′ = arg min
+ˆy′∈Y
+Constrain(ˆy)
+subject to C(ˆy′) = true
+(14)
+where C represents constraint sets. For example, a
+constraint might ensure that a major supplier’s dis-
+ruption increases risk for dependent manufacturers.
+To further enhance the model’s contextual under-
+standing, we incorporate argument coreference:
+Rij = arg, max
+Ei,Ej ∈E
+; Coref(Ei, Ej)
+subject to Coref (Ei, Ej) = true
+(15)
+where (Ei, Ej) denotes each event pair andRij rep-
+resents their relation. This AllenNLP-based model
+links entities across event mentions, recognizing
+when different descriptions refer to the same inci-
+dent, thereby improving prediction accuracy and
+context comprehension. Algorithm 1 outlines our
+approach, combining GCN-based predictions, log-
+ical constraints, and argument coreference resolu-
+tion. Detailed examples and implementation guide-
+lines are provided in Appx. H.
+
+
+[Page 6]
+Table 1: Performance comparison of different LLMs on schema learning in stage 1.
+ChatGPT4o Llama3-3b Llama3-70b
+Individual Schemas Integrated LibraryIndividual Schemas Integrated LibraryIndividual Schemas Integrated Library
+Precision 0.637 0.184 0.198 0.018 0.353 0.019
+Recall 0.695 0.336 0.047 0.014 0.133 0.022
+F-score 0.652 0.238 0.068 0.016 0.175 0.020
+Table 2: Subjective evaluation by domain experts.
+Model Consistency Accuracy Completeness
+GPT-4o 4.5 4.3 4.6
+Llama3-3b 1.8 1.5 1.9
+Llama3-70b 3.0 2.7 3.1
+5 Experiments
+Our evaluation comprises two parts: (1) Schema
+Learning Assessment and (2) Supply Chain Disrup-
+tion Prediction. We assess learned schemas against
+expert knowledge and evaluate our schema induc-
+tion process’s effectiveness in predicting supply
+chain events. Detailed experimental setup and eval-
+uation metrics are in Appx. I.
+5.1 Schema Learning Performance
+We evaluate GPT-4o, Llama3-3b, and Llama3-70b
+for schema learning, comparing individual schema
+extraction and integrated library generation. Ta-
+bles 1 and 2 present quantitative metrics and sub-
+jective evaluations by domain experts. GPT-4o out-
+performs Llama models, achieving F-scores of
+0.652 and 0.238 for individual schemas and in-
+tegrated library generation, respectively. All mod-
+els perform better in individual schema extraction
+than integrated library generation, indicating chal-
+lenges in schema integration. Subjective assess-
+ments align with quantitative metrics, with GPT-
+4o scoring highest across all criteria (consistency:
+4.5, accuracy: 4.3, completeness: 4.6). Individual
+schemas show strong consistency and complete-
+ness but slightly lower accuracy, suggesting a trade-
+off between comprehensive coverage and precise
+detail representation.
+5.2 Disruption Detection Performance
+Event Extraction & Matching. Table 3 presents
+quarterly results for 2022 and 2023 on event ex-
+traction and matching using a supply chain news
+dataset. Our system maintains consistent perfor-
+mance across quarters, with F-scores ranging from
+0.671 to 0.700. This stability suggests robust gener-
+alization across different time periods and varying
+event types. The slight improvement in 2023 (av-
+erage F-score 0.687 vs 0.683 in 2022) indicates
+potential refinement in our model’s ability to adapt
+to evolving supply chain dynamics.
+Disruption Detection. Our advanced GCNs model,
+augmented with logical constraints and corefer-
+ence resolution, was rigorously evaluated against
+ablation versions and LLM+prompt methods. Ta-
+bles 4 and 5 present the comparative performance
+metrics. The full system achieved the highest F-
+score (0.732), significantly outperforming both ab-
+lation versions (GCNs+Logical Constraints: 0.707,
+GCNs only: 0.685) and LLM+prompt methods
+(GPT-4o: 0.624). However, the incremental im-
+provement from the GCNs-only model to our full
+system (0.685 to 0.732) suggests that while the
+additional components significantly enhance per-
+formance, there remains substantial potential for
+further optimization in the future.
+5.3 Qualitative Analysis & User Interface
+Our qualitative analysis of SHIELD’s disruption
+predictions, focusing on real-world case studies
+(detailed in Appx. J), complements the quantitative
+findings and further illuminates the system’s practi-
+cal utility. A particularly salient example emerged
+in SHIELD’s accurate prediction of a semiconduc-
+tor shortage resulting from geopolitical tensions,
+made three weeks prior to widespread reporting.
+This early insight enabled proactive adjustments
+to procurement strategies, thereby demonstrating
+the system’s considerable potential in mitigating
+complex supply chain risks. We have developed
+an interactive user interface (Fig. 4) for online dis-
+ruption analysis. This interface allows users to up-
+load news report texts (Fig. 4a), evaluate prediction
+scores, and edit visualization results for the final
+disruption analysis (Fig. 4b). More details can be
+found in Appx. K.
+5.4 Disruption Prediction Case Studies
+Our system effectively forecasted key supply chain
+disruptions, providing insights that enabled stake-
+holders to take proactive actions. For example, fol-
+lowing the passage of the Inflation Reduction Act
+
+
+[Page 7]
+(a) User interface for inputting news reports.
+ (b) Visualization and editing of final prediction results.
+Figure 4: User interface for online disruption analysis in stage 2, showing the process from news report input to the
+visualization and editing of prediction results. More examples are in Appx. K.
+Table 3: Event extraction and matching in supply chain news dataset.
+Year 2022 2023
+Quarter Q1 (Jan-Mar) Q2 (Apr-Jun) Q3 (Jul-Sep) Q4 (Oct-Dec) Q1 (Jan-Mar) Q2 (Apr-Jun) Q3 (Jul-Sep) Q4 (Oct-Dec)
+Precision 0.714 0.692 0.705 0.689 0.712 0.698 0.703 0.690
+Recall 0.675 0.662 0.678 0.655 0.688 0.670 0.681 0.657
+F-score 0.694 0.677 0.691 0.671 0.700 0.684 0.692 0.673
+Table 4: Performance comparison of different models on disruption prediction.
+Model Precision Recall F-score
+Our System (GCNs only) 0.701 0.670 0.685
+Our System (GCNs + Logical Constraints) 0.724 0.691 0.707
+Our System (GCNs + Logical Constraints + Coreference) 0.754 0.712 0.732
+Table 5: Performance comparison of direct human inter-
+action with LLMs on disruption prediction.
+Model Precision Recall F-score
+GPT-4o 0.641 0.608 0.624
+Llama3-3b 0.522 0.489 0.505
+Llama3-70b 0.557 0.523 0.540
+Our Method 0.754 0.712 0.732
+(2022), which incentivized domestic EV battery
+production, our system predicted potential material
+shortages. By analyzing shifts in global material
+flows and the effects of policy changes on supply-
+demand dynamics, it enabled early interventions
+to minimize risks. Similarly, during geopolitical
+tensions between Australia and China in 2023, our
+system identified vulnerabilities in the lithium sup-
+ply chain by monitoring export data and geopoliti-
+cal developments, helping stakeholders adapt their
+sourcing strategies in time. In another instance,
+the system anticipated cobalt supply issues result-
+ing from labor strikes and regulatory changes in
+the Democratic Republic of Congo (2023), allow-
+ing companies to diversify sources and increase
+inventory buffers. These cases, detailed further in
+Appendix J, illustrate how data-driven predictions
+enhance supply chain resilience and support timely
+decision-making in a volatile global market.
+6 Conclusion
+We present SHIELD, a two-stage framework that
+integrates Large Language Models (LLMs) with
+domain expertise, yielding promising results in EV
+battery supply chain analytics and risk assessment.
+While demonstrating particular strength in early
+disruption detection and event prediction for criti-
+cal battery materials, significant challenges remain
+in schema integration, real-time adaptability, and
+error reduction. Future research will systematically
+address these limitations, enhance the system’s ro-
+bustness, and explore broader applications across
+diverse industries and supply chain ecosystems.
+Acknowledgments
+This research was supported by the Carnegie Mel-
+lon Manufacturing Futures Institute and the Man-
+ufacturing PA Innovation Program. The authors
+also thank the School of Computer Science (SCS)
+at Carnegie Mellon University, particularly the
+High Performance Computing (HPC), for provid-
+ing essential computational resources. The views
+expressed are those of the authors and do not nec-
+essarily reflect those of the funding agencies.
+
+
+[Page 8]
+References
+David Ahn. 2006. The stages of event extraction. In
+Proceedings of the Workshop on Annotating and Rea-
+soning about Time and Events, pages 1–8.
+Abeer Aljohani. 2023. Predictive analytics and machine
+learning for real-time supply chain risk mitigation and
+agility. Sustainability, 15(20):15088.
+John R Anderson, Paul J Kline, and Charles M
+Beasley Jr. 1979. A general learning theory and its
+application to schema abstraction1. In Psychology of
+learning and motivation , volume 13, pages 277–318.
+Elsevier.
+Anjali Awasthi, Kannan Govindan, and Stefan Gold.
+2018. Multi-tier sustainable global supplier selection
+using a fuzzy ahp-vikor based approach. International
+Journal of Production Economics, 195:106–117.
+Hülya Behret, Ba¸ sar Öztay¸ si, and Cengiz Kahraman.
+2012. A fuzzy inference system for supply chain risk
+management. In Practical Applications of Intelligent
+Systems: Proceedings of the Sixth International Confer-
+ence on Intelligent Systems and Knowledge Engineer-
+ing, Shanghai, China, Dec 2011 (ISKE2011) , pages
+429–438. Springer.
+Maurício F Blos, Robson M Da Silva, and Paulo E
+Miyagi. 2015. Application of an agent-based sup-
+ply chain to mitigate supply chain disruptions. IFAC-
+PapersOnLine, 48(3):640–645.
+Tom Brown, Benjamin Mann, Nick Ryder, Melanie
+Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind
+Neelakantan, Pranav Shyam, Girish Sastry, Amanda
+Askell, et al. 2020. Language models are few-shot
+learners. Advances in neural information processing
+systems, 33:1877–1901.
+Shu Cai and Kevin Knight. 2013. Smatch: an evaluation
+metric for semantic feature structures. In Proceedings
+of the 51st Annual Meeting of the Association for Com-
+putational Linguistics (Volume 2: Short Papers), pages
+748–752.
+Alvaro Camarillo, José Ríos, and Klaus-Dieter Althoff.
+2018. Knowledge-based multi-agent system for manu-
+facturing problem solving process in production plants.
+Journal of manufacturing systems, 47:115–127.
+Real Carbonneau, Kevin Laframboise, and Rustam Vahi-
+dov. 2008. Application of machine learning techniques
+for supply chain demand forecasting. European journal
+of operational research, 184(3):1140–1154.
+Angel X Chang and Christopher D Manning. 2012. Su-
+time: A library for recognizing and normalizing time
+expressions. In Lrec, volume 12, pages 3735–3740.
+Yubo Chen, Liheng Xu, Kang Liu, Daojian Zeng, and
+Jun Zhao. 2015. Event extraction via dynamic multi-
+pooling convolutional neural networks. In Proceedings
+of the 53rd Annual Meeting of the Association for Com-
+putational Linguistics and the 7th International Joint
+Conference on Natural Language Processing (Volume
+1: Long Papers), pages 167–176.
+Rotem Dror, Haoyu Wang, and Dan Roth. 2022. Zero-
+shot on-the-fly event schema induction. arXiv preprint
+arXiv:2210.06254.
+Xinya Du, Zixuan Zhang, Sha Li, Pengfei Yu, Hongwei
+Wang, Tuan Lai, Xudong Lin, Ziqi Wang, Iris Liu, Ben
+Zhou, et al. 2022. Resin-11: Schema-guided event pre-
+diction for 11 newsworthy scenarios. In Proceedings of
+the 2022 Conference of the North American Chapter of
+the Association for Computational Linguistics: Human
+Language Technologies: System Demonstrations, pages
+54–63.
+Selby H Evans. 1967. A brief statement of schema
+theory. Psychonomic Science, 8(2):87–88.
+Maryam Gallab, Hafida Bouloiz, Youssef Lamrani
+Alaoui, and Mohamed Tkiouat. 2019. Risk assessment
+of maintenance activities using fuzzy logic. Procedia
+computer science, 148:226–235.
+A Deiva Ganesh and P Kalpana. 2022. Future of ar-
+tificial intelligence and its influence on supply chain
+risk management–a systematic review. Computers &
+Industrial Engineering, 169:108206.
+Myles D Garvey, Steven Carnovale, and Sengun
+Yeniyurt. 2015. An analytical framework for supply net-
+work risk propagation: A bayesian network approach.
+European Journal of Operational Research, 243(2):618–
+627.
+Mihalis Giannakis and Michalis Louis. 2011. A multi-
+agent based framework for supply chain risk manage-
+ment. Journal of Purchasing and Supply Management,
+17(1):23–31.
+Mihalis Giannakis and Michalis Louis. 2016. A multi-
+agent based system with big data processing for en-
+hanced supply chain agility. Journal of Enterprise In-
+formation Management, 29(5):706–727.
+Jeevith Hegde and Børge Rokseth. 2020. Applica-
+tions of machine learning methods for engineering risk
+assessment–a review. Safety science, 122:104492.
+Christian Hendriksen. 2023. Artificial intelligence for
+supply chain management: Disruptive innovation or
+innovative disruption? Journal of Supply Chain Man-
+agement, 59(3):65–76.
+Lifu Huang, Heng Ji, Kyunghyun Cho, Ido Dagan, Se-
+bastian Riedel, and Clare R V oss. 2018. Zero-shot trans-
+fer learning for event extraction. In 56th Annual Meet-
+ing of the Association for Computational Linguistics,
+ACL 2018, pages 2160–2170. Association for Computa-
+tional Linguistics (ACL).
+Andrew K Lampinen, Ishita Dasgupta, Stephanie CY
+Chan, Kory Matthewson, Michael Henry Tessler, Anto-
+nia Creswell, James L McClelland, Jane X Wang, and
+Felix Hill. 2022. Can language models learn from expla-
+nations in context? arXiv preprint arXiv:2204.02329.
+Manling Li, Sha Li, Zhenhailong Wang, Lifu Huang,
+Kyunghyun Cho, Heng Ji, Jiawei Han, and Clare V oss.
+2021. The future is not one-dimensional: Complex
+
+
+[Page 9]
+event schema induction by graph modeling for event
+prediction. arXiv preprint arXiv:2104.06344.
+Manling Li, Qi Zeng, Ying Lin, Kyunghyun Cho, Heng
+Ji, Jonathan May, Nathanael Chambers, and Clare V oss.
+2020. Connecting the dots: Event graph schema induc-
+tion with path language modeling. In Proceedings of
+the 2020 Conference on Empirical Methods in Natural
+Language Processing (EMNLP), pages 684–695.
+Sha Li, Ruining Zhao, Manling Li, Heng Ji, Chris
+Callison-Burch, and Jiawei Han. 2023. Open-
+domain hierarchical event schema induction by incre-
+mental prompting and verification. arXiv preprint
+arXiv:2307.01972.
+Jian Liu, Yubo Chen, Kang Liu, Wei Bi, and Xiaojiang
+Liu. 2020. Event extraction as machine reading com-
+prehension. In Proceedings of the 2020 conference
+on empirical methods in natural language processing
+(EMNLP), pages 1641–1651.
+Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Man-
+dar Joshi, Danqi Chen, Omer Levy, Mike Lewis, Luke
+Zettlemoyer, and Veselin Stoyanov. 2019. Roberta: A
+robustly optimized bert pretraining approach. arXiv
+preprint arXiv:1907.11692.
+Georgios Makridis, Philip Mavrepis, and Dimosthenis
+Kyriazis. 2023. A deep learning approach using natural
+language processing and time-series forecasting towards
+enhanced food safety. Machine Learning, 112(4):1287–
+1313.
+Ishani Mondal, Michelle Yuan, Aparna Garimella, Fran-
+cis Ferraro, Andrew Blair-Stanek, Benjamin Van Durme,
+Jordan Boyd-Graber, et al. 2023. Interactiveie: To-
+wards assessing the strength of human-ai collaboration
+in improving the performance of information extraction.
+arXiv preprint arXiv:2305.14659.
+Thien Huu Nguyen, Kyunghyun Cho, and Ralph Grish-
+man. 2016. Joint event extraction via recurrent neural
+networks. In Proceedings of the 2016 conference of the
+North American chapter of the association for computa-
+tional linguistics: human language technologies, pages
+300–309.
+Sanjoy Kumar Paul. 2015. Supplier selection for man-
+aging supply risks in supply chain: a fuzzy approach.
+The International Journal of Advanced Manufacturing
+Technology, 79:657–664.
+Sanjoy Kumar Paul, Ruhul Sarker, and Daryl Essam.
+2017. A quantitative model for disruption mitigation
+in a supply chain. European Journal of Operational
+Research, 257(3):881–895.
+Raúl Pino, Isabel Fernández, David de la Fuente, José
+Parreño, and Paolo Priore. 2010. Supply chain mod-
+elling using a multi-agent system. Journal of Advances
+in Management Research, 7(2):149–162.
+Sameer Pradhan, Alessandro Moschitti, Nianwen Xue,
+Hwee Tou Ng, Anders Björkelund, Olga Uryupina,
+Yuchen Zhang, and Zhi Zhong. 2013. Towards robust
+linguistic analysis using ontonotes. In Proceedings of
+the Seventeenth Conference on Computational Natural
+Language Learning, pages 143–152.
+Jack W Rae, Sebastian Borgeaud, Trevor Cai, Katie Mil-
+lican, Jordan Hoffmann, Francis Song, John Aslanides,
+Sarah Henderson, Roman Ring, Susannah Young, et al.
+2021. Scaling language models: Methods, analy-
+sis & insights from training gopher. arXiv preprint
+arXiv:2112.11446.
+Partha Pratim Ray. 2023. Leveraging deep learning
+and language models in revolutionizing water resource
+management, research, and policy making: A case for
+chatgpt. ACS ES&T Water, 3(8):1984–1986.
+Gonzalo A Ruz, Pablo A Henríquez, and Aldo Mas-
+careño. 2020. Sentiment analysis of twitter data during
+critical events through bayesian networks classifiers.
+Future Generation Computer Systems, 106:92–104.
+Alexander Schrijver. 1998. Theory of linear and integer
+programming. John Wiley & Sons.
+Lei Sha, Feng Qian, Baobao Chang, and Zhifang Sui.
+2018. Jointly extracting event triggers and arguments
+by dependency-bridge rnn and tensor-based argument
+interaction. In Proceedings of the AAAI conference on
+artificial intelligence, volume 32.
+Xiaoming Shi, Siqiao Xue, Kangrui Wang, Fan Zhou,
+James Zhang, Jun Zhou, Chenhao Tan, and Hongyuan
+Mei. 2024. Language models can improve event pre-
+diction by few-shot abductive reasoning. Advances in
+Neural Information Processing Systems, 36.
+Nathalie Silva, Luís Miguel DF Ferreira, Cristóvão
+Silva, Vanessa Magalhães, and Pedro Neto. 2017. Im-
+proving supply chain visibility with artificial neural net-
+works. Procedia Manufacturing, 11:2083–2090.
+Jannik Strötgen and Michael Gertz. 2013. Multilin-
+gual and cross-domain temporal tagging. Language
+Resources and Evaluation, 47:269–298.
+Naushad UzZaman, Hector Llorens, James Allen,
+Leon Derczynski, Marc Verhagen, and James Puste-
+jovsky. 2012. Tempeval-3: Evaluating events, time
+expressions, and temporal relations. arXiv preprint
+arXiv:1206.5333.
+Hongwei Wang, Zixuan Zhang, Sha Li, Jiawei Han,
+Yizhou Sun, Hanghang Tong, Joseph P Olive, and Heng
+Ji. 2022a. Schema-guided event graph completion.
+arXiv preprint arXiv:2206.02921.
+Sijia Wang, Mo Yu, Shiyu Chang, Lichao Sun, and Lifu
+Huang. 2021. Query and extract: Refining event extrac-
+tion as type-oriented binary decoding. arXiv preprint
+arXiv:2110.07476.
+Xiaozhi Wang, Ziqi Wang, Xu Han, Zhiyuan Liu, Juanzi
+Li, Peng Li, Maosong Sun, Jie Zhou, and Xiang Ren.
+2019. Hmeae: Hierarchical modular event argument
+extraction. In Proceedings of the 2019 Conference on
+empirical methods in natural language processing and
+the 9th international joint conference on natural lan-
+guage processing (EMNLP-IJCNLP), pages 5777–5783.
+
+
+[Page 10]
+Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc
+Le, Ed Chi, and Denny Zhou. 2022b. Rationale-
+augmented ensembles in language models. arXiv
+preprint arXiv:2207.00747.
+Jason Wei, Maarten Bosma, Vincent Y Zhao, Kelvin
+Guu, Adams Wei Yu, Brian Lester, Nan Du, An-
+drew M Dai, and Quoc V Le. 2021. Finetuned lan-
+guage models are zero-shot learners. arXiv preprint
+arXiv:2109.01652.
+Diyi Yang, Sherry Tongshuang Wu, and Marti A Hearst.
+2024. Human-ai interaction in the age of llms. In Pro-
+ceedings of the 2024 Conference of the North American
+Chapter of the Association for Computational Linguis-
+tics: Human Language Technologies (Volume 5: Tuto-
+rial Abstracts), pages 34–38.
+Tianyi Zhang, Isaac Tham, Zhaoyi Hou, Jiaxuan Ren,
+Liyang Zhou, Hainiu Xu, Li Zhang, Lara J Martin,
+Rotem Dror, Sha Li, et al. 2023. Human-in-the-loop
+schema induction. arXiv preprint arXiv:2302.13048.
+Zixuan Zhang and Heng Ji. 2021. Abstract meaning
+representation guided graph encoding and decoding for
+joint information extraction. In Proc. The 2021 Confer-
+ence of the North American Chapter of the Association
+for Computational Linguistics-Human Language Tech-
+nologies (NAACL-HLT2021).
+
+
+[Page 11]
+A Extended Related Work
+Supply Chain Risk Management. AI techniques
+have been increasingly applied to predict and mit-
+igate supply chain risks (Ganesh and Kalpana,
+2022). While agent-based approaches (Pino et al.,
+2010; Giannakis and Louis, 2011, 2016; Blos et al.,
+2015) enable inter-agent communication for fore-
+casting, they often lack robust predictive capabil-
+ities and have limited parameter sets. Rule-based
+reasoning methods (Gallab et al., 2019; Behret
+et al., 2012; Paul, 2015; Paul et al., 2017; Awasthi
+et al., 2018; Camarillo et al., 2018) offer decision-
+making frameworks but provide minimal quantita-
+tive insights. To address these limitations, Machine
+Learning (DL) and Deep Learning (DL) techniques
+have been employed (Silva et al., 2017; Hegde and
+Rokseth, 2020; Garvey et al., 2015; Ruz et al.,
+2020; Aljohani, 2023; Carbonneau et al., 2008),
+enhancing demand forecasting and disruption pre-
+diction (Hendriksen, 2023; Makridis et al., 2023).
+Recent studies have begun exploring the potential
+of large language models (LLMs) in supply chain
+management (Ray, 2023). However, most current
+works prioritize predictive performance over inter-
+pretability, hindering practitioners’ ability to make
+informed decisions. Our approach addresses this
+gap by integrating LLMs for schema induction, ex-
+tracting hierarchical knowledge-graph structures
+from academic resources to predict supply chain
+disruptions, thereby enhancing both predictive per-
+formance and interpretability.
+Schema Induction & Learning. Building on foun-
+dational works (Anderson et al., 1979; Evans,
+1967), recent advancements in language model-
+ing have revolutionized schema induction. Large-
+scale language models (LLMs) (Brown et al., 2020;
+Rae et al., 2021) have demonstrated remarkable
+capabilities in learning and generating schemas
+with minimal supervision. Researchers have ex-
+plored various strategies to enhance these mod-
+els, including contextual explanations (Wei et al.,
+2021; Lampinen et al., 2022), rationale-augmented
+ensembles (Wang et al., 2022b), and incremental
+prompting (Li et al., 2023). Transformer-based ap-
+proaches (Li et al., 2020, 2021) have proven partic-
+ularly effective in managing schema generation for
+complex scenarios, representing schemas as graphs.
+Integrating human feedback (Mondal et al., 2023;
+Yang et al., 2024; Zhang et al., 2023) has been
+crucial in refining schema induction processes, ad-
+dressing the limitations of automated methods. Our
+approach leverages these advancements by employ-
+ing an LLM-driven framework that integrates hu-
+man feedback and expert knowledge into a human-
+in-loop system, thereby enhancing the practical
+accuracy and relevance of induced schemas.
+Event Extraction & Analysis . Event extraction
+has evolved from manually crafted features (Ahn,
+2006) to neural models, including recurrent net-
+works (Nguyen et al., 2016; Sha et al., 2018), con-
+volutional networks (Chen et al., 2015), graph net-
+works (Zhang and Ji, 2021), and transformers (Liu
+et al., 2020). Recent research has focused on event
+argument extraction (Wang et al., 2019) and ex-
+plored zero-shot learning (Huang et al., 2018) and
+weak supervision (Chen et al., 2015) to enhance
+performance. Our approach incorporates various
+event extraction techniques, utilizing fine-tuned
+RoBERTa models and graph convolutional net-
+works (GCNs) to capture and analyze complex
+event relationships and their cascading impacts.
+This approach enables a deeper understanding of
+supply chain disruptions, distinguishing our system
+from traditional extraction techniques.
+B Dataset
+B.1 Schema Learning Dataset
+Our research began by examining the current state
+of EV batteries, focusing on the predominant types
+in use, such as lithium iron phosphate and nickel
+lithium batteries. We analyzed the battery produc-
+tion process and identified key raw materials, in-
+cluding lithium, cobalt, nickel, and graphite. Sub-
+sequently, we investigated the primary sources and
+production volumes of these materials. Through an
+extensive review of literature and statistical data,
+we categorized significant supply chain events into
+eight groups, three of which have long-term im-
+pacts. Each category was further divided into sub-
+categories, and real-world events were identified to
+illustrate their impact on raw material supplies.
+We also analyzed price trends for key raw mate-
+rials over the past five years, using data from the
+London Metal Exchange (LME) 3, to assess how
+news events influenced these prices. This research
+produced an initial scenario document listing the
+primary raw materials for EV batteries, their price
+trends, and an analysis of events causing supply
+chain issues and price fluctuations. Each category
+3https://www.lme.com/en/
+
+
+[Page 12]
+included at least one real-world example to demon-
+strate its impact.
+The initial document was then submitted for re-
+view by a supply chain expert. Based on the ex-
+pert’s feedback, we refined the events affecting the
+EV battery supply chain into 11 main categories,
+three with long-term impacts, and subdivided them
+into 27 subcategories. Each subcategory was il-
+lustrated with 1-2 real-world events, and raw ma-
+terials were further subdivided, such as different
+grades of nickel and types of lithium. Categories
+with minimal impact were removed, resulting in a
+comprehensive and refined scenario document.
+Based on the scenario document, we identified
+the raw materials and events related to the EV
+battery supply chain and began collecting an aca-
+demic document dataset. Our data sources included
+Wikipedia entries, supply chain-related papers, and
+industrial reports. After obtaining the raw data,
+we manually removed redundant information and
+noise, retaining only the paragraphs most relevant
+to the EV battery supply chain. Through meticu-
+lous organization, we compiled an academic doc-
+ument dataset consisting of 125 entries, distilled
+from 239 diverse sources: 200 academic papers,
+22 industry reports, and 17 Wikipedia entries. This
+curated dataset provides a focused knowledge base
+essential for analyzing and understanding the com-
+plexities of the EV battery supply chain.
+The resulting dataset encompasses a wealth of
+knowledge related to the EV battery supply chain,
+covering aspects such as raw material procurement,
+manufacturing processes, supply chain logistics,
+and market dynamics. Table 6 presents the event
+categories and example events. Events marked with
+* indicate potential long-term impacts, highlighting
+the various types of disruptions and their implica-
+tions for the supply chain. Fig. 5 and 6 illustrate the
+sources of the academic papers, Wikipedia entries,
+and industry reports used in compiling the dataset,
+demonstrating the breadth and diversity of our data
+sources. By synthesizing this information, we aim
+to provide a robust foundation for understanding
+the complexities and challenges associated with the
+EV battery supply chain.
+B.2 Supply Chain News Dataset
+To comprehensively test our system, we con-
+structed an EV Supply Chain News Dataset cov-
+ering the period from January 2022 to December
+2023. We initially developed a Python crawler us-
+ing the requests and BeautifulSoup packages
+to scrape news titles and summaries from multiple
+websites, such as Google News4 and Infoplease5.
+This resulted in a collection of 643 records. To filter
+out news unrelated to the supply chain, we designed
+a prompt leveraging GPT-4o’s language capabili-
+ties. Using the summaries from the list, GPT-4o
+helped categorize events into various types, such as
+natural disasters, wars, trade policy, and political
+issues, tagging the relevant countries and regions.
+Subsequently, we employed large language models
+(LLMs) to evaluate the relevance of each news
+event to the EV battery supply chain based on the
+following criteria, each worth 25 points:
+1. Whether natural disasters or humanitarian
+crises occurred in raw material production
+areas, such as China, Australia, Indonesia,
+Congo, Chile, Canada, or in EV production
+countries, such as China, Japan, South Korea,
+and the United States.
+2. Whether the event could affect trade relations
+in the aforementioned countries, including
+trade issues, sanctions, or wars.
+3. Whether the event could potentially disrupt
+international shipping routes due to conflicts
+or natural disasters near these routes.
+4. Whether the event is directly related to inter-
+national trade.
+Events scoring below 25 points were initially elim-
+inated, followed by a manual review of the remain-
+ing events, resulting in a refined list of 247 sup-
+ply chain-related news events. The text data was
+sourced from reputable media outlets, including
+Reuters6, BBC7, and CNN8. Additionally, to gather
+contemporaneous supply chain status information,
+we scraped company news and analysis reports
+from EV battery-related companies like Ford, V olk-
+swagen, and CATL, as well as supply chain-related
+websites, totaling 118 reports. The raw data, in-
+cluding titles, publication dates, and content, was
+organized chronologically.
+The raw data contained invalid information and
+4https://news.google.com/
+5https://www.infoplease.com/
+6https://www.reuters.com/
+7https://www.bbc.com/
+8https://edition.cnn.com/
+
+
+[Page 13]
+Table 6: Event Categories and Example Events. Events marked with * indicate potential long-term impacts.
+Event Category Subcategory Example
+Acquisition and Investment∗ Investment from U.S. or Ally U.S. invests in EV battery industry in Canada
+Investment from Other Country China invests in cobalt mines in DRC
+Changes in Supply and Demand Demand Change Demand for ore from the Philippines increases
+Supply Change Tight supplies of nickel ore in Indonesia
+Enterprise Issue
+Production Halt or Reduction Katanga halts cobalt mining
+Enterprise Crisis Katanga faces an equity crisis
+Production Plan Adjustment Kellyton Graphite increases production by 15%
+Economic Environment Macroeconomy The U.S. and EU face continued inflation
+Competition and Market Structure Competition from China’s low-priced EVs
+EV Battery Technology Progress∗ Product Upgrading CATL releases Kirin battery
+Production Technology Progress Development of graphene batteries
+Humanitarian and Ethical Crisis
+Forced Labor Forced labor in production
+Use of Child Labor Child labor in cobalt mining in DRC
+Human Rights Issue Large numbers of refugees enter Europe
+Natural Disaster Production Affected by Disaster Australia floods affect lithium mining
+Transportation Affected by Disaster Tsunami destroys ports, disrupts shipping
+Political Issue∗
+Regional Tension Tensions between North and South Korea
+Changes in International Relations China’s relations with the West deteriorate
+Industry Nationalization Nationalization of the lithium industry in Chile
+Government Intervention Europe promotes EVs for environmental reasons
+Sign a Supply Agreement Sign a Supply Agreement PE signs EV battery supply agreement with Tesla
+Trade Policy
+Export Controls China restricts graphite exports
+Tax and Duties China’s tax rebates to EV companies
+Trade Barriers US tariffs on Chinese EV batteries
+War and Conflict
+Internal Disorder or Rebellion Civil unrest in Yemen
+War Between Nations Russo-Ukrainian War
+Geopolitical Crisis Houthi rebels attack merchant ship
+advertisements, which were cleaned using regular
+expressions to remove most invalid information.
+We deployed Llama3-8b to filter out embedded ad-
+vertisements, ensuring the dataset’s purity and accu-
+racy. After cleaning, irrelevant content was reduced
+by 15%, and all data was systematically stored in a
+database, resulting in a refined meta dataset of 365
+news documents. The metadata contains approxi-
+mately 152,000 words and 3,000 paragraphs. To
+validate our system’s ability to detect connections
+between events, we randomly merged international
+news with contemporaneous corporate stories from
+the same quarter, creating 354 fused documents
+for a more diverse and challenging dataset. The fi-
+nal fusion dataset contains approximately 660,000
+words and 12,000 paragraphs.
+Upon completing dataset collection, we conducted
+preliminary statistics and analysis on the news
+dataset. Table 8 shows the number of event types
+included in each quarter in the news dataset, provid-
+ing a comprehensive overview of the various events
+tracked over time. Table 9 details the number of
+words and paragraphs in the dataset, highlighting
+the extensive scope of the collected data. Fig. 7
+presents the categories and examples of news ar-
+ticles in the dataset, while Fig. 8 shows the distri-
+bution of sources in the news dataset, emphasizing
+the dataset’s diversity and comprehensiveness. The
+dataset covers global events that could impact the
+supply chain, such as natural disasters, trade issues,
+wars, enterprise issues, etc.
+C Hierarchical Structure Extraction
+We utilize large language models (LLMs) to extract
+hierarchical structures (H) that capture main events
+(E) and sub-events (Esub) based on our prompt, as
+illustrated in Fig. 9.
+In a hierarchical structure (H):
+• An event (E) refers to anything that happens
+related to the EV battery supply chain. There
+can be multiple events ⟨E1, E2, . . . ,En⟩ in
+one hierarchical structure H.
+• An event_id is a unique identifier code as-
+signed for each specific event.
+
+
+[Page 14]
+• Academic Paper
+◼ Electric vehicle battery supply chain and critical materials: a brief survey of state of the art
+◼ Challenges and recent developments in supply and value chains of electric vehicle batteries: A sustainability perspective
+◼ Cost-effective supply chain for electric vehicle battery remanufacturing
+◼ The supply chain for electric vehicle batteries
+◼ Critical issues in the supply chain of lithium for electric vehicle batteries
+◼ Building a Robust and Resilient U.S. Lithium Battery Supply Chain
+◼ At the mining or extraction stage, major risks include the location of the deposit, cost, geopolitical environment, and 
+mining regulations
+◼ A SWOT Analysis of the UK EV Battery Supply Chain
+◼ Lithium-ion battery supply chain: enabling national electric vehicle and renewables targets
+◼ Sustainable electric vehicle batteries for a sustainable world: perspectives on battery cathodes, environment, supply 
+chain, manufacturing, life cycle, and policy
+◼ Developing pricing strategy to optimise total profits in an electric vehicle battery closed loop supply chain
+◼ Optimising quantity of manufacturing and remanufacturing in an electric vehicle battery closed-loop supply chain
+◼ Life-cycle implications and supply chain logistics of electric vehicle battery recycling in California
+◼ Analyzing challenges for sustainable supply chain of electric vehicle batteries using a hybrid approach of Delphi and 
+Best-Worst Method
+◼ Determining requirements and challenges for a sustainable and circular electric vehicle battery supply chain: A mixed-
+methods approach
+◼ Graphite resources, and their potential to support battery supply chains, in Africa
+◼ Lithium-ion battery supply chain considerations: analysis of potential bottlenecks in critical metals
+◼ The case for recycling: Overview and challenges in the material supply chain for automotive li-ion batteries
+◼ Global Value Chains: Graphite in Lithium-ion Batteries for Electric Vehicles
+◼ Traceability methods for cobalt, lithium, and graphite production in battery supply chains
+◼ The global cycle of Graphite - A dynamic Material Flow Analysis (2020-2050) of the natural, synthetic and recycled 
+graphite value chains to understand the supply of LIB anodes
+◼ Natural graphite demand and supply—Implications for electric vehicle battery requirements
+◼ Mateerial System Analysis of five battery-related raw materials: Cobalt, Lithium, Manganese, Natural Graphite, Nickel
+◼ Life cycle assessment of natural graphite production for lithium-ion battery anodes based on industrial primary data
+◼ Sustainability challenges throughout the electric vehicle battery value chain
+◼ Electric vehicle battery chemistry affects supply chain disruption vulnerabilities
+◼ Global competition in the lithium-ion battery supply chain: a novel perspective for criticality analysis
+◼ Supply risks of lithium-ion battery materials: An entire supply chain estimation
+◼ Vulnerable links in the lithium-ion battery supply chain
+◼ The global battery arms race: lithium-ion battery gigafactories and their supply chain
+◼ Towards the lithium-ion battery production network: Thinking beyond mineral supply chains
+◼ Challenges and opportunities in lithium-ion battery supply
+◼ Identifying supply risks by mapping the cobalt supply chain
+◼ The Cobalt Supply Chain and Environmental Life Cycle Impacts of Lithium-Ion Battery Energy Storage Systems
+◼ Environmental sustainability and supply resilience of cobalt
+◼ Perspectives on cobalt supply through 2030 in the face of changing demand
+◼ An integrated supply chain analysis for cobalt and rare earth elements under global electrification and constrained 
+resources
+◼ Sources of uncertainty in the closed-loop supply chain of lithium-ion batteries for electric vehicles
+◼ Battery technology and recycling alone will not save the electric mobility transition from future cobalt shortages
+◼ Global value chains: cobalt in lithium-ion batteries for electric vehicles
+◼ Global electrification of vehicles and intertwined material supply chains of cobalt, copper and nickel
+◼ The cobalt supply chain and life cycle assessment of lithium-ion battery energy storage systems
+◼ Towards the lithium-ion battery production network: Thinking beyond mineral supply chains
+◼ Vertically Integrated Supply Chain of Batteries, Electric Vehicles, and Charging Infrastructure: A Review of Three 
+Milestone Projects from Theory of Constraints Perspective
+◼ The behavioural evolution of the smart electric vehicle battery reverse supply chain under government supervision
+◼ Managing resource dependencies in electric vehicle supply chains: a multi-tier case study
+◼ Application of sustainable supply chain finance in end-of-life electric vehicle battery management: a literature review
+◼ Structural characteristics and disruption ripple effect in a meso-level electric vehicle Lithium-ion battery supply chain 
+network
+◼ Battery global value chain and its technological challenges for electric vehicle mobility
+◼ Building a competitive advantage for Indonesia in the development of the regional EV battery chain
+◼ Recycling mode selection and carbon emission reduction decisions for a multi-channel closed-loop supply chain of 
+electric vehicle power battery under cap-and-trade policy
+◼ A sustainable circular supply chain network design model for electric vehicle battery production using internet of things 
+and big data
+◼ The CO2 Impact of the 2020s Battery Quality Lithium Hydroxide Supply Chain
+◼ Electric vehicle supply chain management: A bibliometric and systematic review
+◼ Long-term Indonesia's Nickel Supply Chain Strategy for Lithium-Ion Battery as Energy Storage System
+◼ Battery Nickel Bottlenecks
+◼ Life-cycle analysis, by global region, of automotive lithium-ion nickel manganese cobalt batteries of varying nickel 
+content
+◼ Battery minerals from Finland: Improving the supply chain for the EU battery industry using a geometallurgical approach
+◼ Exploring recycling options in battery supply chains–a life cycle sustainability assessment
+◼ Assessment of social sustainability hotspots in the supply chain of lithium-ion batteries
+◼ Conflict minerals and battery materials supply chains: A mapping review of responsible sourcing initiatives
+◼ Analysis of nickel sulphate datasets used in lithium-ion batteries
+◼ Design of battery supply chains under consideration of environmental and socio-economic criteria
+◼ Analysis of international nickel flow based on the industrial chain
+◼ Value recovery from spent lithium-ion batteries: A review on technologies, environmental impacts, economics, and 
+supply chain
+◼ Dynamic evolution of the zinc-nickel battery industry and evidence from China
+◼ A perspective on the sustainability of cathode materials used in lithium‐ion batteries
+◼ An improved resource midpoint characterization method for supply risk of resources: integrated assessment of Li-ion 
+batteries
+◼ Deep‐sea nodules versus land ores: A comparative systems analysis of mining and processing wastes for battery‐metal 
+supply chains
+◼ Industrial policy, trade, and clean energy supply chains
+◼ The electric vehicle revolution: Critical material supply chains, trade and development
+◼ Industrial policy for electric vehicle supply chains and the US-EU fight over the Inflation Reduction Act
+◼ Strategic Battery Autarky: Reducing Foreign Dependence in the Electric Vehicle Supply Chain
+◼ Electric vehicle battery secondary use under government subsidy: A closed-loop supply chain perspective
+◼ Blockchain review for battery supply chain monitoring and battery trading
+◼ Trade structure and risk transmission in the international automotive Li-ion batteries trade
+◼ The EV Revolution: Critical Material Supply Chains, Trade, and Development
+◼ An Overview of the Lithium Supply Chain
+◼ Comparison of lithium-ion battery supply chains–a life cycle sustainability assessment
+◼ The ev transition: Key market and supply chain enablers
+◼ The Lithium Supply Crunch Doesn't Have to Stall Electric Cars
+◼ Hydrometallurgical Routes to Close the Loop of Electric Vehicle (EV) Lithium-Ion Batteries (LIBs) Value Chain: A Review
+◼ Global warming potential of lithium-ion battery cell production: Determining influential primary and secondary raw 
+material supply routes
+◼ Lithium mining: How new production technologies could fuel the global EV revolution
+◼ The cobalt and lithium global supply chains: status, risks and recommendations
+◼ Sustainable value chain of retired lithium-ion batteries for electric vehicles
+◼ Assessing the potential of quebec lithium industry: Mineral reserves, lithium-ion batteries production and greenhouse 
+gas emissions
+◼ Current and Future Global Lithium Production Till 2025
+◼ Lithium-Ion Batteries Recycling Trends and Pathways: A Comparison
+◼ Alternative battery chemistries and diversifying clean energy supply chains
+◼ Lithium and cobalt
+◼ A Study on the Cradle-to-Gate Environmental Impacts of Automotive Lithium-ion Batteries
+◼ Determining requirements and challenges for a sustainable and circular electric vehicle battery supply chain: A mixed-
+methods approach
+◼ Status and gap in rechargeable lithium battery supply chain: importance of quantitative failure analysis
+◼ Critical Factors to Consider in Purchasing for a Sustainable Inbound Supply Chain: A Perspective on Large Scale Lithium-
+ion Battery Manufacturing
+◼ Assessing batteries supply chain networks for low impact vehicles
+◼ A comparative assessment of value chain criticality of lithium-ion battery cells
+◼ Conflict minerals and battery materials supply chains: A mapping review of responsible sourcing initiatives
+◼ Battery Critical Materials Supply Chain Challenges and Opportunities: Results of the 2020 Request for Information (RFI) 
+and Workshop
+◼ Key Strategic Issues in Supply Chain Domain Pertaining to Battery Industry.
+◼ Identifying trends in battery technologies with regard to electric mobility: evidence from patenting activities along and 
+across the battery value chain
+◼ Electric Vehicle Battery Supply Chain and Critical Materials: A Brief Survey of State of the Art
+◼ Estimating the environmental impacts of global lithium-ion battery supply chain: A temporal, geographical, and 
+technological perspective
+◼ A SWOT Analysis of the UK EV Battery Supply Chain
+◼ The Electric Vehicle Supply Chain Ecosystem: Changing Roles of Automotive Suppliers
+◼ Electric Vehicle Battery Supply Chain and Critical Materials: A Brief Survey of State of the Art
+◼ Estimating the environmental impacts of global lithium-ion battery supply chain: A temporal, geographical, and 
+technological perspective
+◼ A SWOT Analysis of the UK EV Battery Supply Chain
+◼ The Electric Vehicle Supply Chain Ecosystem: Changing Roles of Automotive Suppliers
+◼ Building a North American electric vehicle supply chain
+◼ Friend-shoring battery supply chains
+◼ Estimating the environmental impacts of global lithium-ion battery supply chain: A temporal, geographical, and 
+technological perspective 
+◼ Global Supply Chains of EV Batteries
+◼ Building a Sustainable Electric Vehicle Battery Supply Chain
+◼ INVESTIGATING THE U.S. BATTERY SUPPLY CHAIN AND ITS IMPACT ON ELECTRIC VEHICLE COSTS THROUGH 2032
+◼ GLOBAL STATE OF Sustainable ELECTRIC VEHICLE BATTERIES
+◼ Collection and recycling decisions for electric vehicle end-of-life power batteries in the context of carbon emissions 
+reduction
+◼ The Paradox of Green Growth: Challenges and Opportunities in Decarbonizing the Lithium-Ion Supply Chain
+◼ Implications of the Electric Vehicle Manufacturers’ Decision to Mass Adopt Lithium-Iron Phosphate Batteries
+◼ Reducing new mining for electric vehicle battery metals: responsible sourcing through demand reduction strategies and 
+recycling
+◼ Automated assembly of Li-ion vehicle batteries: A feasibility study
+◼ Field Study and Multimethod Analysis of an EV Battery System Disassembly
+◼ COVID-19 disrupts battery materials and manufacture supply chains, but outlook remains strong
+◼ An overview of global power lithium-ion batteries and associated critical metal recycling
+◼ Does China's new energy vehicles supply chain stock market have risk spillovers? Evidence from raw material price 
+effect on lithium batteries
+◼ Deep-sea nodules versus land ores: A comparative systems analysis of mining and processing wastes for battery-metal 
+supply chains
+◼ A game theoretic approach for analyzing electric and gasoline-based vehicles’ competition in a supply chain under 
+government sustainable strategies: A case study of South Korea
+◼ China's lithium supply chain: Security dynamics and policy countermeasures
+◼ Exploring recycling options in battery supply chains – a life cycle sustainability assessment
+◼ Lithium-Ion Battery Recycling in the Circular Economy: A Review
+◼ Implications of circular production and consumption of electric vehicle batteries on resource sustainability: A system 
+dynamics perspective
+◼ On the influence of second use, future battery technologies, and battery lifetime on the maximum recycled content of 
+future electric vehicle batteries in Europe
+◼ Assessing batteries supply chain networks for low impact vehicles
+◼ Mapping a circular business opportunity in electric vehicle battery value chain: A multi-stakeholder framework to create 
+a win–win–win situation
+◼ An applied analysis of the recyclability of electric vehicle battery packs
+◼ A Novel Prediction Process of the Remaining Useful Life of Electric Vehicle Battery Using Real-World Data
+◼ Capturing the battery value-chain opportunity 
+◼ Digital Twin-Driven Framework for EV Batteries in Automobile Manufacturing
+◼ Electric vehicle battery state changes and reverse logistics considerations
+◼ Optimising the geospatial configuration of a future lithium ion battery recycling industry in the transition to electric 
+vehicles and a circular economy☆
+◼ Can Cobalt Be Eliminated from Lithium-Ion Batteries?
+◼ Sizing and Locating Planning of EV Centralized-Battery-Charging-Station Considering Battery Logistics System
+◼ Taming the Hydra: Funding the Lithium Ion Supply Chain in an Era of Unprecedented Volatility
+◼ Battery technology and recycling alone will not save the electric mobility transition from future cobalt shortages
+◼ Resilience assessment of the lithium supply chain in China under impact of new energy vehicles and supply interruption
+◼ Optimal policy for the recycling of electric vehicle retired power batteries
+◼ Data requirements and availabilities for a digital battery passport – A value chain actor perspective
+◼ Trade structure and risk transmission in the international automotive Li-ion batteries trade
+◼ The Supply Chain Diversification and India–South Korea Cooperation in a Contested East Asia in the Post-COVID-19 Era
+◼ Toward Sustainable Reuse of Retired Lithium-ion Batteries from Electric Vehicles
+◼ Steering extended producer responsibility for electric vehicle batteries
+◼ Traceability Management Strategy of the EV Power Battery Based on the Blockchain
+◼ Electric vehicle lithium-ion battery recycled content standards for the US – targets, costs, and environmental impacts
+◼ What is the contribution of different business processes to material circularity at company-level? A case study for 
+electric vehicle batteries
+◼ To shred or not to shred: A comparative techno-economic assessment of lithium ion battery hydrometallurgical 
+recycling retaining value and improving circularity in LIB supply chains
+◼ Value recovery from spent lithium-ion batteries: A review on technologies, environmental impacts, economics, and 
+supply chain
+◼ Optimal choice of power battery joint recycling strategy for electric vehicle manufacturers under a deposit-refund 
+system
+◼ Collection mode choice of spent electric vehicle batteries: considering collection competition and third-party economies 
+of scale
+◼ Electric vehicle battery capacity allocation and recycling with downstream competition
+◼ Tackling EV Battery Chemistry in View of Raw Material Supply Shortfalls
+◼ Which is better? Business models of partial and cross ownership in an NEV supply chain
+◼ Materials availability and supply chain considerations for vanadium in grid-scale redox flow batteries
+◼ Circularity of Lithium-Ion Battery Materials in Electric Vehicles
+◼ Assessment of end-of-life electric vehicle batteries in China: Future scenarios and economic benefits
+◼ The Resilience of the Renewable Energy Electromobility Supply Chain: Review and Trends
+◼ Industrial Policy, Trade, and Clean Energy Supply Chains
+◼ Concurrent design of product and supply chain architectures for modularity and flexibility: process, methods, and 
+application
+◼ A sustainable framework for the second-life battery ecosystem based on blockchain
+◼ Comparative evaluation and policy analysis for recycling retired EV batteries with different collection modes
+◼ HOW TECHNOLOGY, RECYCLING, AND POLICY CAN MITIGATE SUPPLY RISKS TO THE LONG-TERM TRANSITION TO ZERO-
+EMISSION VEHICLES
+◼ Decarbonizing the automotive sector: a primary raw material perspective on targets and timescales
+◼ The Emerging Electric Vehicle and Battery Industry in Indonesia: Actions around the Nickel Ore Export Ban and a SWOT 
+Analysis
+◼ The Emerging Electric Vehicle and Battery Industry in Indonesia: Actions around the Nickel Ore Export Ban and a SWOT 
+Analysis
+◼ Reverse Logistics Network Design of Electric Vehicle Batteries considering Recall Risk
+◼ Battery capacity needed to power electric vehicles in India from 2020 to 2035
+◼ The future of the automotive sector: Emerging battery value chains in Europe
+◼ Radical innovations as supply chain disruptions? A paradox between change and stability
+◼ End of Electric Vehicle Batteries: Reuse vs. Recycle
+◼ Securing Decarbonized Road Transport – a Comparison of How EV Deployment Has Become a Critical Dimension of 
+Battery Security Strategies for China, the EU, and the US.
+◼ A Review on Battery Market Trends, Second-Life Reuse, and Recycling
+◼ Life cycle impact assessment of electric vehicle battery charging in European Union countries
+◼ Assessing socio-economic risks in the supply chain of materials required for vehicle electrification
+◼ Intelligent disassembly of electric-vehicle batteries: a forward-looking overview
+◼ Research on decision optimization of new energy vehicle supply chain considering demand disruptions under dual credit 
+policy
+◼ Transition to electric vehicles in China: Implications for private motorization rate and battery market
+◼ Mirroring in production? Early evidence from the scale-up of Battery Electric Vehicles (BEVs)
+◼ Life-Cycle Assessment Considerations for Batteries and Battery Materials
+◼ Operation Management of Multiregion Battery Swapping–Charging Networks for Electrified Public Transportation 
+Systems
+◼ Spatial modeling of a second-use strategy for electric vehicle batteries to improve disaster resilience and circular 
+economy
+◼ On the sustainability of lithium ion battery industry – A review and perspective
+◼ Comparison of Electric Vehicle Lithium-Ion Battery Recycling Allocation Methods
+◼ Manufacturing value chain for battery electric vehicles in Pakistan: An assessment of capabilities and transition 
+pathways
+◼ The End of Globalized Production? Supply-Chain Resilience, Technological Sovereignty, and Enduring Global 
+Interdependencies in the Post-Pandemic Era
+◼ Environmental feasibility of secondary use of electric vehicle lithium-ion batteries in communication base stations
+◼ Supply chain risks of critical metals: Sources, propagation, and responses
+◼ Decentralized Planning of Lithium-Ion Battery Production and Recycling
+◼ Improvements in electric vehicle battery technology influence vehicle lightweighting and material substitution decisions
+◼ Rethinking Chinese supply resilience of critical metals in lithium-ion batteries
+◼ Optimal pricing strategy in the closed-loop supply chain using game theory under government subsidy scenario: A case 
+study
+◼ Predictive model for energy consumption of battery electric vehicle with consideration of self-uncertainty route factors
+◼ Perspectives on Cobalt Supply through 2030 in the Face of Changing Demand
+◼ McKinsey Electric Vehicle Index: Europe cushions a global plunge in EV sales
+◼ Lithium in International Law: Trade, Investment, and the Pursuit of Supply Chain Justice 
+Figure 5: Sources of academic papers.
+
+
+[Page 15]
+•Industry Report
+◼ The EV Battery Supply Chain Explained
+◼ Global Supply Chains of EV Batteries
+◼ Electric vehicle battery chemistry affects supply chain
+◼ Battery supply chain challenges - RMIS
+◼ Electric vehicle supply chain
+◼ The ultimate guide to the EV battery supply chain
+◼ Electric Vehicle Battery Supply Chain and Critical Materials
+◼ The geopolitics of electric car batteries - LSE Blogs
+◼ Global Supply Chains of EV Batteries
+◼ Supply Chain for EV Batteries: 2020 Trade and Value- ...
+◼ Achieving resilience and sustainability for the EV battery .
+◼ Electric Vehicle Batteries: A Guidebook for Responsible Corporate Engagement Throughout the Supply Chain
+◼ Trends in batteries Battery demand for EVs continues to rise
+◼ Baichuan Yingfu Lithium Carbonate Market Weekly Report Week 12
+◼ Shanghai Dongsheng Futures Nickel Annual Report: Oversupply continues, hidden dragon in the abyss (2024-01-23)
+◼ Minmetals Securities Fengchi "Tram" Series 2: Lithium carbonate prices are bottoming out, how far is the spring of 
+lithium battery positive electrode materials?
+◼ Baichuan Yingfu Cobalt Salt Market Weekly Report Week 12 (2024-03-21)
+◼ Minmetals Securities Lithium Thinking Series 1: Will lithium carbonate prices fall too much?
+◼ Baichuan Yingfu Nickel Market Weekly Report Week 12 (2024 3.15-3.21)
+◼ Kaiyuan Securities Nonferrous Metals Industry In-depth Report: Australian Mine 2023Q4 Tracking, Medium- and Short-
+term Expansion Projects Continue, Cost Reduction is the Main Goal for the 2024 Fiscal Year
+◼ Gold is Revealed after All the Yellow Sands are Blown Away - Investment Strategy for Energy Metals and Materials 
+Industry in 2024
+◼ 20240222-Huaxin Securities-Huaxin Securities Minor Metals Industry In-depth Report: Lithium Price Bottom-seeking 
+Journey, Latest Inventory of Global Lithium Resource Supply
+•Wikipedia Entries
+◼ Electric vehicle battery
+◼ Electric vehicle supply chain & Batteries
+◼ Lithium-ion battery
+◼ Lithium nickel manganese cobalt oxides(NMC)
+◼ Lithium iron phosphate battery(LFP）
+◼ Sodium-ion battery
+◼ Lithium nickel cobalt aluminium oxides(NCA)
+◼ The EV Battery Supply Chain Explained
+◼ Electric Vehicle Battery Supply Chains: The Basics
+◼ The EV Battery Supply Chain Explained
+◼ Electric Vehicle Battery Supply Chains: The Basics
+◼ Life Cycle Assessment studies of rare earths production - Findings from a systematic review
+◼ The EV Battery Supply Chain Explained
+◼ High concentration from resources to market heightens risk for power lithium-ion battery supply chains globally
+◼ The EV Battery Supply Chain Explained
+◼ Lithium extractivism and water injustices in the Salar de Atacama, Chile: The colonial shadow of green 
+electromobility
+◼ Nickel Mine
+Figure 6: Sources of Wikipedia entries and industry reports.
+Table 7: The number of event types included in each quarter in the news dataset.
+Event Type 2022Q1 2022Q2 2022Q3 2022Q4 2023Q1 2023Q2 2023Q3 2023Q4
+Acquisition and Investment 0 5 4 0 2 2 2 1
+Changes in Supply and Demand 6 5 4 3 3 1 2 3
+Enterprise Issue 3 1 1 3 0 1 0 0
+Economic Environment 3 3 5 6 4 2 6 1
+Humanitarian and Ethical Crisis 1 5 3 1 2 0 2 3
+Natural Disaster 6 8 6 5 6 6 6 6
+Political Issue 3 14 18 16 14 10 15 10
+EV Battery Technology Progress 1 1 1 2 4 3 2 0
+Sign a Supply Agreement 0 3 1 1 2 2 1 4
+Trade Policy 2 6 5 2 5 1 2 9
+War and Conflict 3 6 12 10 5 7 7 7
+Table 8: The number of times each country is mentioned in the news dataset in each quarter.
+Country 2022Q1 2022Q2 2022Q3 2022Q4 2023Q1 2023Q2 2023Q3 2023Q4
+USA 6 9 18 15 17 12 9 10
+China 1 10 12 6 12 4 4 9
+EU 3 11 6 4 8 4 8 2
+Japan 0 1 0 1 1 2 2 1
+Russia 4 10 4 14 6 6 4 3
+Other 20 42 38 33 31 23 35 40
+Table 9: Statistics of the number of words and para-
+graphs in the dataset.
+Total Paragraphs Total Words
+Meta Data 3,022 152,489
+Fusion Data 12,070 660,054
+• A description provides a detailed 2-3 sentence
+textual explanation of the event.
+• Participants include all sub-events (Esub) re-
+lated to the main event, and a subsubevent
+(Esubsub) can be used if an event is part of a
+sub-event within the hierarchy.
+The suffix P0.5 indicates the importance of a sub-
+event to its parent event. The Gate specifies the
+relationship between the main event and its sub-
+events:
+• Use ’and’ if no sub-events can be missing.
+• Use ’or’ if some sub-events can be missing.
+• Use ’xor’ if sub-events cannot exist simulta-
+neously.
+Relations describe the connections between events.
+For example, if ev1.2 is caused by (happens after)
+ev1.1, it is expressed as ’ev1.1>ev1.2’.
+Our prompt includes demonstration and chain of
+thought (CoT) techniques:
+• We manually annotated the hierarchical struc-
+ture for one text in the schema learning dataset
+to use as an example in the prompt.
+• We provided a step-by-step CoT, showing how
+E and Esub in H were extracted from specific
+sentences in the schema learning dataset.
+
+
+[Page 16]
+•  Acquisition and Investment
+◼ Exclusive: Canada to invest C$2 billion on mineral strategy for EV battery supply chain
+◼ China's EV battery materials industry set for $11bn capacity buildup
+◼ Why carmakers are pouring billions into new electric vehicle battery factories
+◼ Private equity in talks with UK's BMI for EV battery exposure
+◼ CATL and Indonesia jointly build a nearly $6 billion power battery industry chain project
+◼ Durham battery storage company raises $100 million
+◼ Volkswagen announces $20 billion effort to build its own EV batteries
+◼ Panasonic to open $4B EV battery plant in Kansas
+◼ CATL announces construction of second European factory in Hungary
+◼ Tesla co-founder’s startup gets $2 billion to boost EV battery production
+◼ CATL and HGP establish partnership to jointly promote 5GWh battery energy storage application
+◼ GM and POSCO Future M Investing $1bn in North American EV Battery Supply Chain
+◼ Companies invest in EV battery factories in Europe
+◼ Ecoprobm, SK, Ford investing in québec; building cathode plant to solidify EV supply chain in NA
+◼ Redwood Materials raises $1B to expand circular battery supply chain in US
+◼ Nissan leads $2.5 billion investment to build two more EVs in UK
+• Trade Policy
+◼ As the US struggles to “green” supply chains, new EU battery regulation offers lessons
+◼ The New Climate Bill Demands All-American EV Batteries
+◼ New US Climate Bill Seeks to Onshore Electric Vehicle Supply Chain
+◼ The Inflation Reduction Act places a big bet on alternative mineral supply chains
+◼ The New Climate Bill Demands All-American EV Batteries
+◼ U.S. Push to Secure EV Battery Supply Chains and the Role of China
+◼ U.S. strikes at China with EV battery deal
+◼ EU Could End Reliance On Chinese Battery Supply Chain By 2030 Says T&E
+◼ Ford-CATL Partnership Illustrates the Challenge of Decoupling EV Supply Chains
+◼ Global EV battery supply chain puzzles over China graphite curbs
+◼ US-Canada Critical Mineral, EV Battery, and Semiconductor Cross-Border Supply Chain Issue
+◼ New US rules on Chinese batteries could push up price of electric cars
+◼ China restricts exports of graphite as it escalates a global tech war
+◼ China says Biden plan to shut it out of US battery supply chain violates WTO rules
+◼ US to limit Chinese firms, battery parts from winning EV tax credits
+◼ Senator asks Treasury to bar Chinese battery firms, minerals from US EV tax credits
+◼ UK Issues New Round of Targeted Sanctions Against Russia
+◼ Further Sanctions Against Russia Being Discussed By EU
+◼ Gas Supplies To Poland And Bulgaria To Be Cut Off By Russia
+◼ Russian Billionaire Shields Assets From European Sanctions
+◼ Singapore's National Dish Affected By The Malaysian Export Ban
+◼ Gulf States Sanction And Boycott India After Unwanted Remarks
+◼ Russia’s Economy Will Be Hit By Further Sanctions
+◼ China Sanctions Pelosi, Halts Cooperation With The United States Over Pelosi’s Taiwan Trip
+◼ China Vows To Take Countermeasures As The United States Approves $1.1BN Arms Sales To 
+Taiwan
+◼ Grain Export Deal Between Ukraine And Russia Brokered By United Nations Suspended By Russia
+◼ Grain Deal Extended By Russia And Ukraine Amid Disagreement
+◼ G7 Request For Black Sea Grain Deal To Be Extended
+◼ Russia Confirm It Will Not Renew Grain Deal With Ukraine
+◼ Ukraine Welcomes The Arrival Of First Grain Ships Using New Route
+◼ China Promise To Deepen Trade Ties With Vietnam
+◼ Eight North Korean Sanctioned By South Korea Over Arms Trade
+• EV Enterprise Related
+◼ VW and Bosch to upscale EV battery output in Europe
+◼ Governor Ivey Joins Dura Automotive to Celebrate Grand Opening of High-Tech Factory in Muscle 
+Shoals for EV Battery Enclosures
+◼ Auto Giants Race to Build U.S. EV Battery Assembly Plants
+◼ CATL's German factory obtains battery cell production license
+◼ Automakers race to build EV battery supply chains in North America
+◼ General Motors Fortifies EV Battery Supply-Chain Links
+◼ GM's North American battery supply chain is key to EV profits
+◼ CATL's German factory successfully achieves battery cell production
+◼ The South is building the most vibrant EV and battery hub in the US
+•Production Technology Progress
+◼ The Transportation Transformation: Battery Research Today and Tomorrow
+◼ CATL releases Kirin battery with global highest integration
+◼ Ford releases new battery capacity plan, raw materials details to scale EVs
+◼ How the US plans to transform its lithium supply chain
+◼ Local, clean and circular supply chains: Panasonic advances EV battery tech
+◼ How Lithium Batteries Can Power the US Economy
+◼ Ford taps Michigan for new LFP battery plant; new battery chemistry offers customers value, 
+durability, fast charging, creates 2,500 more new American jobs
+◼ Electric Vehicle Battery Manufacturing Capacity in North America in 2030 is Projected to be 
+Nearly 20 Times Greater than in 2021
+◼ Ascend Elements Opens North America's Largest Electric Vehicle Battery Recycling Facility in 
+Georgia
+◼ Study unveils policy insights for reshoring EV battery production
+◼ Batteries: EVs to use silicon, solid state for next-generation batteries
+◼ BMW powers Spartanburg with ‘local for local’ battery supply chain
+◼ New EV Battery Materials Will Beget New Dilemmas
+◼ Panasonic needs four more EV battery plants, executive says
+•Economic Environment
+◼ Indonesia’s Battery Industrial Strategy
+◼ DOE makes $3.1B available for battery manufacturing incentives
+◼ Developing a resilient Canadian battery supply chain
+◼ Battery Policies and Incentives Database Contributes to U.S. Efforts To Build a Secure Electric 
+Vehicle Battery Supply Chain
+◼ US increases production to catch China in global battery race
+◼ The CHIPS Act Is Essential. So Is a Resilient EV Battery Supply Chain
+◼ EV tax credits could stall out on lack of US battery supply
+◼ Electric Vehicle Battery Production May Lead To Coal Country’s Return
+◼ DOE taps 20 companies to receive $2.8B for battery manufacturing, minerals processing build-out
+◼ The future of vehicles is electric': Biden announces $2.8B for battery supply chain
+◼ Canada Has an EV Edge, If It Acts Now
+◼ S2.8B U5 EV supply-chain push appears to favor red states
+◼ Why Canada has the potential to become an EV battery supply chain powerhouse
+◼ US battery supply chain investments reach US$92 billion since Biden took office
+◼ Biden’s EV bet is a gamble on critical minerals
+◼ Dead EV batteries turn to gold with US incentives
+◼ DOE intends to award up to $37M to advance EV battery recycling, transportation and design
+◼ UK Inflation Rate Reaches 40-Year High As Food Prices Surge
+◼ Bank Of England To Get More Aggressive With 50 BPS Hike Later In The Week
+◼ Huge Tax Cuts Are Being Questioned By Investors As Pounds Sinks
+◼ Biden Threatens Windfall Tax As He Accuses Oil Companies Of War Profiteering
+◼ Inflation Of The United Kingdom Jumps To 41-Year High Of 11.1%
+◼ China Sets 5% As Their Economic Growth Target For 2023
+◼ Ukraine Secures First IMF Loan To A Country At War
+◼ Largest Oil Refinery In Africa Launched By Aliko Dangote
+◼ China’s Economy Experienced A Growth Of 6.3% In The Second Quarter
+◼ China To Kickstart Economy, After Plans To Improve Internal Migration
+◼ A 40% Windfall Tax Was Approved By Italian Government As A Result Of Soaring Profits
+◼ France Plans To End The Use Of Fossil Fuels By 2030
+◼ South Africa Gets $1 Billion Loan From World Bank To Tackle Power Crisis
+•Changes in Supply and Demand
+◼ How a battery shortage could threaten US national security
+◼ EV battery report: Taiwan's rising role in the global supply chain
+◼ EV battery report: China remains dominant with growing production capacity and presence 
+worldwide
+◼ How a handful of metals could determine the future of the electric car industry
+◼ EV battery report: Malaysia may be dark horse in Southeast Asia's EV sphere
+◼ Raw materials in short supply for EV makers struggling to meet customer demand
+◼ EV Has a Problem: 90% of the Battery Supply Chain ‘Does Not Exist’
+◼ Do you like minting money?’: Musk urges entrepreneurs to enter lithium space as Tesla’s supply 
+woes persist
+◼ Tin’s Critical Role in the Battery Supply Chain
+◼ Surging EV sales hitting high lithium prices, supply chain constraints: experts
+◼ What is Vietnam’s Mining Capacity for EV Batteries?
+◼ Supply Chain Disruptions in the Energy Industry: Challenges with the Supply of Lithium-ion 
+Batteries
+◼ Making EVs without China’s supply chain is hard, but not impossible – 3 supply chain experts 
+outline a strategy
+◼ Ford's answer to EV supply chain hell: Cheaper batteries
+◼ Almost 400 new mines needed to meet future EV battery demand, data finds
+◼ Power spike: How battery makers can respond to surging demand from EVs
+◼ China’s Battery Supply Chain Tops BNEF Ranking for Third Consecutive Time, with Canada a Close 
+Second
+◼ Canada vaults to second spot ahead of the U.S. in global EV battery-supply chain ranking
+◼ Is the EV Battery Supply Chain Ready for the Approaching Demand?
+◼ Jump-starting electric car batteries: Will supply problems stall California’s mandate?
+◼ Chinese companies gain momentum in U.S. electric vehicle supply chain
+◼ EV batteries: Can the West catch up with China?
+◼ China Has Perfectly Tangled The Battery Value Chain With Electric Vehicles - A Combo The U.S. 
+And Europe Will Find Hard To Beat
+◼ It's official: The battery crunch is the new chip shortage
+◼ An EV Talent Gap Will Weaken the U.S. Battery Supply
+◼ Auto workers worry it takes less labor to build electric cars. Maybe not, some researchers say
+◼ Fear of cheap Chinese EVs spurs automaker dash for affordable cars
+• Natural Disaster 
+◼ Three Tiny Islands Have Borne the Brunt of Tonga’s Tsunami
+◼ More than 30,000 displaced by floods in Indonesia’s Sumatra
+◼ Second Round Of Cyclone Hits Madagascar In The Space Of Two Weeks
+◼ Heavy rains, landslides kill scores in Brazilian mountain city
+◼ Australian Flood Worsens As State Emergency Perform Evacuation
+◼ Wildfire Spreads Near Chernobyl Disaster Site
+◼ Tornadoes Break Out In Texas As Weather Worsens And 23 Are Injured
+◼ The Philippines Continue To Be Bombarded By Tropical Storm Megi
+◼ South Africa's Government To Begin Rebuilding After Disastrous Floods
+◼ Floods From Heavy Rain Destroys Kabul Homes Killing 22 People
+◼ Thunderstorms In Quebec And Ontario With 5 Recorded Deaths
+◼ Australia May Face A Summer Of Flood And Rains
+◼ Tens Of Thousands Of People Displaced Due To Flood In China
+◼ Japan Faces Its Worst Recorded Heat Wave Since 1875
+◼ Earthquake In The Southern Iranian Region Kills Five People
+◼ Floods From Torrential Rain Threatens Communities In Australia
+◼ Mayor Of London Declares Emergency Response To The Heatwave
+◼ Heatwaves And Wildfires Continue To Occur More Often
+◼ Factories Were Forced To Close Down As China Experiences Worst Heatwave In 6 Decades
+◼ Half A Million People Affected By Flood In Nigeria, According To Emergency Reports
+◼ More Than 80 People Reported Dead Trying To Escape Flood In Nigeria
+◼ Greenhouse Gases Reach Record High Levels In The Atmosphere
+◼ Carbon Emission To Hit Record High In 2022
+◼ Summer Heat Waves Estimated To Be Responsible For Up To 20,000 Deaths
+◼ Scientists Reveal Rising Fetal Distress Due To Climate Change
+◼ 60,000 People Reported With Covid-Related Death In China In Less Than 40 Days
+◼ Eastern Asia Witnessing Extreme Cold Temperature
+◼ Turkiye And Syria Devastated By Massive Earthquake
+◼ Multiple And Rapidly Spreading Wildfire Kills 23 In Chile
+◼ Death Toll Rises And Rescue Efforts Continue In Turkiye After Earthquake
+◼ Study Finds Ozone Recovery May Be Slowed By Australian Wildfires
+◼ Global Warming Cited As The Cause For Elongated Drought In The Horn Of Africa
+◼ Wildfire Destroys Region In Russia With Extensive Damage To Infrastructure
+◼ Key Measures Predict That The Earth Is Falling Sick
+◼ Pacific El-Nino To Increase The Heat Of The Planet In 2024
+◼ Early Data Report Showing 2023 To Be Hottest Year On Record
+◼ Heatwaves And Wildfire Smoke Sandwich The US In Fresh Climate Concerns
+◼ The World’s Hottest Day Recorded Since Recording Began In 1979
+◼ Panic In India As The Yamuna River Rises To Unprecedented Levels
+◼ Hail Storms Hit Italy, And A Fourth Heat Wave Predicted In Europe
+◼ Flood Triggered In Hong Kong After A Heavy Typhoon
+◼ Australians Exposed To Smoke Blanket Following Hazard Reduction Burns
+◼ New Reports Show That 10% Of Swiss Glaciers Depleted In 2 Years
+◼ New Climate Discovery Shows September As The Hottest Month On Record
+◼ Hailstorms Become More Severe Around Sydney, Australia
+◼ A Long Year Of Several Wildfires May Change The Climate Of Canada
+◼ Dreadful Heatwave Spreads Across Brazil
+◼ Heavy Flood And Rain In Tanzania Kill 47 In Hanang District
+◼ Fumes And Fires After Volcanic Eruption In Iceland
+Figure 7: Categories and examples of news articles in the dataset.
+
+
+[Page 17]
+• Sign a Supply Agreement 
+◼ LG Energy signs $9bn EV supply chain deal in Indonesia
+◼ GM signs agreement to source cobalt from Glencore
+◼ One-time tourist hotspot to supply key electric car battery ingredient for Stellantis
+◼ CATL and FlexGen reach 10GWh battery energy storage system supply agreement
+◼ Stellantis signs non-binding supply deal for raw materials needed for EV batteries
+◼ The U.S.-Zambia-DRC Agreement on EV Batteries Production: What Comes Next?
+◼ Honda signs supply deal with Ascend Elements for recycled battery materials
+◼ Renault signs deal for EV battery supply with Verkor
+◼ Ford inks long-term lithium supply contracts
+◼ Canada, Japan agree to work more closely on battery supply chains
+◼ Samsung SDI to supply EV batteries to Hyundai Motor starting 2026
+◼ Exclusive: US, Indonesia to discuss potential for deal on EV minerals
+◼ Honda, Mitsubishi Corp sign pact to optimise use of EV batteries
+◼ CATL and Stellantis Group sign strategic memorandum of understanding to supply lithium iron 
+phosphate batteries to Stellantis Group in European market
+•War and Conflict
+◼ Russia’s War in Ukraine Reveals a Risk for the EV Future: Price Shocks in Precious Metals
+◼ Russia-Ukraine conflict exposes risks in EV supply chains
+◼ America Prepares for a Russian Invasion of Ukraine
+◼ Russia Launches Military Attack On Ukraine
+◼ Putin Progress In Donbas Slow But Visible Says Boris Johnson
+◼ Battle Rages On In Eastern Europe As Explosions Rock Ukraine’s Capital
+◼ UK Defense Minister Visits Ukraine Amidst Crisis
+◼ Tension In Drone Crashes Into Russian Oil Refinery In A Possible Attack
+◼ Ukraine Engage In Exchange Of Prisoners of War With Separatist Region
+◼ Two More Britons Charged As Foreign Mercenaries By Separatist Region
+◼ Enemy Drones’ Attack On Gas Rig Shot Down By Israel
+◼ Ukrainian Flag To Be Hoisted On Snake Island After Russian Retreat
+◼ Rocket Attack On Apartment Building In Ukraine Leaves Six People Dead
+◼ Russian-Controlled Region Hit By Ukrainian Rockets In Preparation For A Counter-Attack
+◼ Ukraine Flags Russian Strike Risk, As They Set To Begin Grain Exports
+◼ Russia Confirms That Blast Has Killed 40 Ukrainian Prisoners
+◼ Ukraine Reports Extensive Damage To Nuclear Plants By Russian Rocket
+◼ A Recent Blast In Moscow Killed Daughter Of Putin Ally, Darya Dugina
+◼ Zelensky Vows Ukraine Will Take Back Crimea When It Chooses
+◼ Prime Minister Of Ukraine Expresses Gratitude To Germany And Calls For More Weapons
+◼ Zelensky Claims Significant Gains As Ukrainian Forces Retake A Key City
+◼ Russia Proclaims The Annexation Of Ukrainian Territory As Military Setback Looms
+◼ Lyman, A Key City In Eastern Ukraine, was Retaken, As Russian Troops Retreat
+◼ Ukrainian Tanks Break Through Russian Lines In Kherson, In The Southern Part Of Ukraine
+◼ Putin’s War Effort Suffers Huge Blow Following Massive Blasts Of Crimean Bridge
+◼ Moscow's Campaign In Ukraine Suffers A New Blow, As Gunmen Killed 11 People In Russia Army 
+Base
+◼ At Least Four People Were Killed When Russia Launched Kamikaze Drone Attack
+◼ The Conflict With Ukraine Intensifies In The East, Poland, NATO Say Missile Likely Not From Russia
+◼ Two Russian Airbases Far From Ukraine Frontline Rocked By Explosions
+◼ Russia's Missile Strike Leaves Ukraine's Second City, Kharkiv, Without Power
+◼ Three People Dead After Drone Attack On Russian Bomber Base
+◼ Russia Claims Victory After A Long Battle For The Salt Mine Town In Ukraine
+◼ Ukraine To Receive Leopard 2 Tanks From Germany
+◼ An Israeli Raid In Jericho Leaves Multiple Palestinian Militants Dead
+◼ United States Drone Crashes After Encounter With Russian Jet
+◼ Ukraine Receives Leopard 2 Tanks From Germany
+◼ Putin Travelled To Ukraine To Visit The Occupied Kherson Region
+◼ 25 People Dead, After Series Of Russian Air Strikes Hit Ukrainian Cities
+◼ Russia Launches Biggest Drone Attack In War With Ukraine
+◼ Hospital In Ukraine Destroyed By Missile Launched By Russia
+◼ Russian Strike Kills Two-Year-Old Girl In Ukraine
+◼ Advance On Moscow Halted By Wagner Chief, Yevgeny Prigozhin
+◼ Russian Air Strike Hits Idlib Market, Kills Nine People
+◼ Ukraine To Receive Cluster Munitions From The United States
+◼ Russian Strike Hits Center Of Ukraine, Kills Seven People
+◼ Russian Aircraft Destroyed By Ukrainian Drone
+◼ Wagner Boss, Yevgeny Prigozhin, Listed As Part Of The Crew Of Plane Crash With No Survivors
+◼ Attack On Market In A Ukrainian City Has Killed At Least 17 People
+◼ Several Missiles Has Been Launched By Ukraine On Crimea
+◼ Ukraine To Receive Long-Range Missiles From The United States
+◼ Ukraine To Receive Seized Iranian Ammunitions From United States
+◼ Israel In Bid To Repel Militants Declares War Against Hamas
+◼ Airstrike Hits Hospital In Gaza, Killing Over Hundred People
+◼ Missile Strike On Kharkiv Kills Six Postal Workers
+◼ 15 People Confirmed Dead In An Israeli Attack On An Ambulance In Gaza City
+◼ Hospital In Gaza Has Been Surrounded By Israeli Tanks
+◼ Israel-Hamas Truce Ends, As Israel Launches Attack On Gaza
+• Humanitarian and Ethical Crisis
+◼ China’s electric vehicle battery supply chain shows signs of forced labor, report says
+◼ EV battery imports face scrutiny under US law on Chinese forced labor
+◼ Sudan protesters: Ready to die for freedom
+◼ Amazon Rainforest Reaches Dire New Record For Deforestation
+◼ Evacuees In Ukrainian Azovstal Iron And Steel Works Share Horror Stories
+◼ North Korea Announces its first Covid Outbreak Since The Start of The Pandemic: Triggers 
+National Emergency
+◼ One Month Since Burkina Faso’s Zinc Mine Trap: Miners’ Wives Pray For Miracles
+◼ Floods And Monsoon Rain Lead To Humanitarian Crisis In Pakistan
+◼ Ukraine Government Confirm The Discovery Of 440 Bodies In Unmarked Graves
+◼ Gunman Attacks A Russian School In The City Of Izhevsk
+◼ Coal Mine Plans To Crush UK Climate Goals
+◼ Chaos Erupt During The Arrest Of El Chapo’s Son, Leaves At Least 29 Dead
+◼ Lethal Cough Syrup Kills 200 Children In Indonesia
+◼ Suicide Blast Kills At Least 54 People In Political Gathering In Pakistan
+◼ Aid Enters Into Gaza Through The Rafah Crossing Point
+◼ Gaza Healthcare Collapses As Palestine Plunges Into Humanitarian Disaster
+◼ Foreign Nationals And Injured Palestinians Allowed Through Rafah Border Crossing
+•  Political Issues
+◼ In 2024, Republican EV attacks may fall short as swing states reap investment
+◼ Burkina Faso: Military coup prompts fears of further instability
+◼ North Korea missile tests: What does Kim Jong-un want?
+◼ North Korean Missile Tests Reach New Milestone
+◼ Nuclear Weapons Testing Resumed In North Korea, According To Surrounding Countries
+◼ Amid Russian-Ukraine Crisis, Finland Pushes to Join NATO
+◼ Complete Reversal Of Trump’s Withdrawal As Biden Approves Redeployment Of US Troops To 
+Somalia
+◼ Turkey Moves To Block Finland And Sweden NATO Bid
+◼ Biden Pledges Support For Taiwan In A Statement That Has Raised Eyebrows
+◼ Russian Diplomat Resigns In Geneva To Protest Against Russia-Ukraine Tensions
+◼ South Korea Says North Korea Launched 8 Short-Range Ballistic Missiles
+◼ The US Has To Improve Bilateral Relationship, Says China’s Defense Chief
+◼ South Korea To Counter The North Korean Threat By Boosting Defense Capacity
+◼ Tension In Taiwan Strait From China’s Military Activities
+◼ Third Aircraft Carrier Launched By China To Boost Military Might
+◼ European Union Executives Back Ukraine’s Membership Bid
+◼ Putin Issues Warning To Finland And Sweden Against NATO Agenda
+◼ The United States Of America Intends To Increase Its Military Presence Throughout Europe
+◼ Islamic State Raids Medium Security Prison, Freeing Insurgents
+◼ Act As Partner, Not Opponent, China’s Wang Yi Tells Australia
+◼ State Of Emergency Declared In Sri Lanka As The President Flees To The Maldives
+◼ Biden Assures The Middle East That United State Will Remain An Active Partner
+◼ Ukraine President Zelenskiy Fires Spy Chief And Top State Prosecutor
+◼ Fresh Crisis Loom In Sri Lanka As Parliament Elects Ranil Wickremesinghe As President
+◼ EU Has Launched Four Legal Cases Against the UK Over The Northern Ireland Protocol
+◼ Top Delegation From The US Visits Kyiv, Promises Their Continued Support
+◼ Taiwan: Pelosi Departs Taipei Due To Sound Of Chinese Fury
+◼ South Korea's Aid Offer Rejected By North Korea, Calls President Yoon Simple
+◼ Final Draft Of Nuclear Disarmament Treaty At The United Nations Gets Blocked By Russia
+◼ World Largest Electronic Market Shut Down In China As Shenzhen Imposes Lockdown
+◼ Russian Envoy Confirms That Putin And Xi Will Meet In Person Next Week
+◼ India Confirms It Discovers Fraudulent Shell Companies Linked With China
+◼ With Nuclear Talks At Halt, Israel Gives Stern Warning Over The Capability Of Iran On Uranium
+◼ An Arrest Warrant Has Been Issued In South Korea For The Developer Of The Cryptocurrency Luna
+◼ The United States Has Been Accused By China Of Sending Dangerous Signals To Taiwan
+◼ In Anticipation Of United States Vice President’s Visit, North Korea Fire Ballistic Missile
+◼ A Ballistic Missile Launched By North Korean Is Believed To Have Flown Over Japan
+◼ Coup Leader Ibrahim Traore Named As Transitional President Of Burkina Faso
+◼ President Xi Jinping Announced That China Would Never Renounce The Right To Use Force Over 
+Taiwan
+◼ Chief Of Cybersecurity In Germany Sacked Over Reports Of Ties With Russia
+◼ A Rare Talk Between United States And Russia Defense Ministers, As They Discuss Ukraine War
+◼ Xi Jinping Begins His Third Term, Marking Him As The Most Powerful Leader Of China In Decades
+◼ China Accused Of Establishing Illegal Police Station In The Netherlands
+◼ A Law To Mobilize Convicted Russians Has Been Signed By Putin
+◼ North Korea Fires Four Ballistic Missiles As Seoul And U.S. Ends Drill
+◼ Yevgeny Prigozhin, An Ally Of Putin, Admits Interfering In United State Elections
+◼ North Korea Denies Being Involved In Arms Deal With Russia
+◼ President Of Taiwan, Tsai Ing-Wan, Emphasizes The Sovereignty Of Taiwan
+◼ United Kingdom’s Prime Minister, Rishi Sunak, Pledges His Support During Visit To Kyiv
+◼ Russia Demands Recognition Of Annexed Region Before Negotiations
+◼ Prisoner Swap: Brittney Griner For “The Merchant Of Death”
+◼ Ukraine President Volodymyr Zelensky Addresses The Us Congress Upon Visit
+◼ North Korea Accuses U.S. Of Escalation As They Deliver Tanks To Ukraine
+◼ Ukraine Disappointed As U.K. And U.S. Refuse To Send Them Their Fighter Jets
+◼ European Union Calls For Urgent Joint Arm Purchase To Help Ukraine
+◼ Ballistic Missile Fired By North Korea Off East Coast
+◼ Biden Visits Ukraine For The First Time Since Russia’s Invasion
+◼ China At G20 Meeting Calls For Join Action In Debt Settlement
+◼ U.K. And EU Come To An Agreement Over Northern Ireland
+◼ Xi Jinping Secures Third Term As The President Of China
+◼ U.S., U.K., And Australia Reach Agreement On Nuclear Submarine Project
+◼ President Of Honduras Confirms Her Country Has Switched Ties From Taiwan To China
+◼ International Criminal Court Issues Arrest Warrant For Russian President
+◼ Russia’s President, Vladimir Putin, Pays Surprise Visit To Mariupol
+◼ President Of China, Xi Jinping Visits Russia For The First Time Since Russia’s Invasion
+◼ Honduras Announces Ending Its Diplomatic Tie With Taiwan
+◼ Finland's Bid To Join NATO Approved By Turkey
+◼ Japan Reveals Plans To Develop Long-Range Missile Amid Tension With China
+◼ Agreement On Vital Nuclear Weapons Deal Reached By United States And South Korea
+◼ Syria Reinstated Into Arab League After Relations With Assad Normalize
+◼ Former Pakistan’s Prime Minister, Imran Khan, Arrested In Islamabad
+◼ Joint Action Against China To Be Pledge By United States And EU
+◼ Zelensky Plans To Attend The G7 Summit In Japan
+◼ Immunity Granted To Putin And Bric Leaders By South Africa
+◼ Ceasefire Of 24 Hours In Sudan Announced By United States And Saudi Arabia
+◼ Chinese Control Of Pirelli, Blocked By Italian Government
+◼ Former Security Officials In Ukraine Have Been Charged With Treason
+◼ NATO Chief Confirms That Sweden’s NATO Bid Backed By Turkey
+◼ North Korea Launches Ballistic Missile After Threatening The United States
+◼ President Of South Korea Promises Ukraine $150m Aid
+◼ Zelenskiy Dismisses Ukraine’s Ambassador To London
+◼ Niger’s President Removed, As Soldiers Announce Coup On National Television
+◼ Leader Of Niger Coup, Abdourahmane Tchiani, Declares Himself Leader Of The Country
+◼ Former Pakistan Prime Minister Imran Khan Sentenced To Three Years In Prison
+◼ Assassination Plot Against The President Of Ukraine Neutralized
+◼ Politicians And Journalists In The United Kingdom Sanctioned By Russian Government
+◼ French Ambassador In Niger Given 48 Hours To Leave The Country
+◼ Coup Plotters Take Over Gabon And Put The President Under House Arrest
+◼ Constitutional Court In Gabon Swears In Military Junta Leader As Interim President
+◼ Emmanuel Macron Says French Ambassador In Niger Is Being Held Captive
+◼ Canada And India Both Expels Envoys Over The Killing Of Sikh Leader
+◼ Canada Asked By India To Withdraw Its Diplomatic Staff From India
+◼ European Union Says Ukraine Is Ready To Start Accession Talks
+◼ Ceasefire Deal Of Four Days Have Been Agreed By Israel And Hamas
+◼ First Day Of Ceasefire Begins, With Hamas Releasing 24 Hostages
+◼ Qatar Confirms the Extension of Ceasefire Between Israel And Hamas By Two Days
+◼ President Putin Orders Increase In The Size Of Russian Military
+◼ President Putin Confirms He Would Run For Fifth Term As The President Of Russia
+◼ General Assembly Of The United Nations Has Voted For An Immediate Ceasefire In Gaza
+◼ Russian Opposition Leader, Navalny Found In Remote Penal Colony
+Figure 8: Distribution of sources in the news dataset.
+
+
+[Page 18]
+According to the provided paragraphs:
+### {}_Paragraphs_provided ###
+extract a detailed hierarchical structure related to the EV battery supply chain.
+The hierarchical structure should include the following levels:
+- **Event**: Anything that happens related to the EV battery supply chain.
+- **Event ID**: A unique identifier for each event.
+- **Description**: A detailed 2-3 sentence explanation of the event.
+- **Participants**: All sub-events related to this event and their importance, the importance needs
+to be set as 0 ~ 1, the higher the more important.
+- **Gate**: The relationship between an event and its sub-events:
+- Use **’and’** if no sub-events can be missing.
+- Use **’or’** if some sub-events can be missing.
+- Use **’xor’** if sub-events cannot exist simultaneously.
+- **Relations**: The event-event relations (e.g., ev1.1>ev1.2, which means ev1.2 happens after ev1.1)
+.
+- If any level is empty, set its value to ’xxxx’.
+Strictly use the exact following format for each event:
+‘‘‘
+Event N
+event: [Event Name]
+event_id: evN
+description: [Detailed Description]
+participants: [Subevent 1] evN.1_P[Importance], [Subevent 2] evN.2_P[Importance], ...
+Gate: [Gate]
+Relations: [Event Relations]
+Subevent N.1
+subevent: [Subevent Name]
+event_id: evN.1
+description: [Detailed Description]
+participants: [Subsubevent 1] evN.1.1_P[Importance], ...
+Gate: [Gate]
+Relations: [Event Relations]
+Subsubevent N.1.1
+subsubevent: [Subsubevent Name]
+event_id: evN.1.1
+description: [Detailed Description]
+participants: [Subsubsubevent 1] evN.1.1.1_P[Importance], ...
+Gate: [Gate]
+Relations: [Event Relations]
+‘‘‘
+Figure 9: Example of hierarchical structure extraction. (Part 1)
+The prompt given to the LLMs is detailed and spe-
+cific, ensuring that the models understand the ex-
+act format and type of information we are extract-
+ing. By integrating demonstration and CoT tech-
+niques, our prompt provides clear guidance to the
+LLMs, improving the accuracy and relevance of
+the extracted structures. Below is an example of
+the prompt used in Fig. 9.
+To validate our approach, we tested the prompt with
+various texts from the schema learning dataset. The
+hierarchical structures extracted were compared
+with manually annotated structures to ensure accu-
+racy and consistency. This process ensured that the
+LLMs reliably produced high-quality hierarchical
+structures that aligned with expert knowledge in
+the EV battery supply chain domain.
+D Schema Generation & Merging
+With human-in-the-loop schema induction, our
+schema learning dataset generated 125 individ-
+ual schemas ⟨S1, S2, . . . ,S125⟩. To create a single
+comprehensive schema, it is essential to merge all
+individual schemas into a final schema (Sfinal). The
+process of merging schema format files involves
+systematically integrating multiple schemas into
+a cohesive schema. The key components include
+context, id, events, and relations. These compo-
+nents determine the information in each event and
+its correlation with other events, hence the merging
+process must address all of them.
+
+
+[Page 19]
+Use the provided example for guidance:
+### Example:
+**Input Paragraph**:
+‘‘‘
+Three main methods are used in lithium-ion recycling: pyrometallurgical, hydrometallurgical,
+bioleaching, and direct recycling. The battery is melted in a hot furnace to recover some of the
+cathode metal in pyrometallurgy. Pyrometallurgy employs extreme heat to transform metal oxides
+into cobalt, copper, iron, and nickel alloys. Although it has a straightforward process and a
+reasonably mature technology, the main drawbacks are its high cost and high environmental
+pollution. Hydrometallurgy is a metal recovery method involving aqueous solutions to perform
+leaching processes to precipitate a particular metal. In hydrometallurgy, specialized solution
+reagents are primarily used to leach the targeted metals out from the cathode substance.
+Although it is a highly effective and power-efficient method, its drawbacks include a lengthy
+production time and a complicated process. Combinations of both pyrometallurgy and
+hydrometallurgy are also used due to their advantages in sorting starting materials for cells.
+The bioleaching technique uses bacteria to retrieve precious metals, but it is challenging
+because the bacteria need a substantial amount of time to grow and are easily susceptible to
+contamination.
+‘‘‘
+**Extracted Hierarchical Structure**:
+‘‘‘
+Event 1
+event: lithium-ion recycling
+event_id: ev1
+description: Methods for recycling lithium-ion batteries including pyrometallurgical,
+hydrometallurgical, bioleaching, and direct recycling.
+participants: pyrometallurgical ev1.1_P1, hydrometallurgical ev1.2_P1, bioleaching ev1.3_P1
+Gate: or
+Relations: ev1.1>ev1.3, ev1.2>ev1.3
+Subevent 1.1
+subevent: pyrometallurgical
+event_id: ev1.1
+description: Employs extreme heat to transform metal oxides into cobalt, copper, iron, and nickel
+alloys.
+participants: metal oxides ev1.1.1_P1, cobalt ev1.1.2_P0.5, copper ev1.1.3_P0.5, iron ev1.1.4_P0.5,
+nickel alloys ev1.1.5_P0.5
+Gate: and
+Relations: ev1.1.1>ev1.1.2, ev1.1.1>ev1.1.3, ev1.1.1>ev1.1.4, ev1.1.1>ev1.1.5
+Subevent 1.2
+subevent: hydrometallurgy
+event_id: ev1.2
+description: Uses aqueous solutions to leach targeted metals out from the cathode substance.
+participants: xxxx
+Gate: xxxx
+Relations: xxxx
+Subevent 1.3
+subevent: bioleaching
+event_id: ev1.3
+description: Uses bacteria to retrieve precious metals.
+participants: xxxx
+Gate: xxxx
+Relations: xxxx
+‘‘‘
+Think about this extracted structure step by step:
+Starting with the first sentence in the paragraph ’Three main methods are used in lithium-ion
+recycling: pyrometallurgical, hydrometallurgical, bioleaching, and direct recycling.’ From this
+sentence, we learn that ’pyrometallurgical’, ’hydrometallurgical’, ’bioleaching, and direct
+recycling’ are three methods of ’lithium-ion recycling’, so select ’lithium-ion recycling’ as
+the event, and the three methods as subevents and participants of ’lithium-ion recycling’.
+Figure 9: Example of hierarchical structure extraction. (Part 2)
+
+
+[Page 20]
+Algorithm 2 Schemas Merging Pseudocode
+1: Input: List of schemas
+2: Output: Merged schema
+3: 1. Merge contexts from all schemas:
+4: for all schema in schemas do
+5: for all context in schema["@context"] do
+6: if context not in merged_contexts then
+7: Add context to merged_contexts
+8: end if
+9: end for
+10: end for
+11: 2. Merge events from all schemas by event name:
+12: for all schema in schemas do
+13: for all event in schema["events"] do
+14: event_name = event["name"]
+15: if event_name not in merged_events then
+16: merged_events[event_name] = event
+17: else
+18: merged_events[event_name] =
+merge_event_details(merged_events[event_name],
+event)
+19: end if
+20: end for
+21: end for
+22: 3. Merge relations / update event IDs by event names:
+23: for all schema in schemas do
+24: for all relation in schema["relations"] do
+25: subject_name = GET event name by event ID
+relation["relationSubject"]
+26: object_name = GET event name by event ID rela-
+tion["relationObject"]
+27: if subject_name in name_to_id and object_name
+in name_to_id then
+28: relation["relationSubject"] =
+name_to_id[subject_name]
+29: relation["relationObject"] =
+name_to_id[object_name]
+30: if relation not in merged_relations then
+31: Add relation to merged_relations
+32: end if
+33: end if
+34: end for
+35: end for
+36: 4. Final Schema:
+37: The final merged schema includes all merged contexts,
+events, and relations, and is saved for evaluation.
+To begin the merging process, we first aggregate
+the context data from all schemas. Each context is
+added to a merged_contexts_list, ensuring that du-
+plicate contexts are avoided. This step is crucial to
+maintain a unified context for the merged schema.
+Next, we proceed to merge events from all schemas.
+Using the event name as the identifier, we check if
+the event already exists in the merged_events_list.
+If the event exists, its details are merged with the
+existing event; otherwise, the event is added di-
+rectly to the list. This ensures that all events are
+comprehensively integrated without duplication.
+Following the merging of events, we then merge
+relations and update event IDs. This involves re-
+trieving the event names from the event IDs for re-
+lationSubject and relationObject and updating the
+relations accordingly. It is important to ensure that
+both subject_name and object_name are present
+in the name_to_id dictionary, which stores event
+names and their related event IDs. The updated
+relation is added to the merged_relations list if it
+is not already present, ensuring all connections are
+accurately maintained.
+Finally, the comprehensive merged schema (Sfinal)
+is created by including all merged contexts, events,
+and relations. The detailed pseudocode for merging
+schemas is shown in Algorithm 2. This algorithm
+ensures that all relevant information is retained and
+accurately integrated, resulting in a comprehen-
+sive schema that encapsulates the full breadth of
+the data from the schema learning dataset. The
+final schema (Sfinal) enables accurate and efficient
+knowledge extraction and organization, enhancing
+the utility of the dataset for downstream tasks such
+as event prediction and analysis.
+E Schema Management System
+The schema management interface (Fig. 10) facili-
+tates the visualization, editing, and management of
+schemas. It includes the following modules:
+E.1 Schema Viewer
+The schema viewer is crucial for visualizing
+schemas, providing an intuitive representation of
+events. It organizes events into a left-to-right tree
+structure, highlighting parent-child relationships.
+Within this structure, before-after relationships
+among child nodes are indicated through arrows
+and vertical ordering. Users can expand event
+nodes to reveal details such as descriptions, im-
+portance levels, and participant roles.
+Key features of the schema viewer include:
+• Interactive Exploration: Users can click
+on nodes to expand or collapse details about
+events and sub-events.
+• Contextual Information: Hovering over a
+node displays additional context and metadata
+associated with the event.
+• Dynamic Layout: The tree structure dynam-
+ically adjusts to accommodate the addition
+or removal of nodes, maintaining a clear and
+organized visual representation.
+• Collapsible Subtrees: Users can collapse and
+expand subtrees to manage large schemas.
+
+
+[Page 21]
+Figure 10: User interface for our schema management system.
+• Search Functionality: A search bar allows
+users to quickly locate specific events or enti-
+ties within the schema.
+• Real-Time Data Binding: The viewer up-
+dates in real-time as changes are made, ensur-
+ing the displayed schema is always current.
+• Highlighting and Filtering: Users can high-
+light specific paths or filter events based on
+criteria such as importance or type.
+E.2 Schema Editor
+The schema editor allows users to interactively
+modify schemas. Users can add, edit, and delete
+events, sub-events, and relationships within the
+schema. Key functionalities include:
+• Drag-and-Drop Interface: Users can drag
+and drop nodes to reassign parent-child rela-
+tionships or reorder events.
+• Form-Based Editing: Clicking on a node
+opens a form where users can edit event de-
+tails, such as descriptions, importance levels,
+and participant roles.
+• Validation Checks: The editor performs real-
+time validation to ensure that all changes ad-
+here to the schema format and constraints.
+• Undo/Redo Features: Users can easily undo
+or redo changes to maintain the integrity of
+the schema editing process.
+• Schema Versioning:The editor maintains dif-
+ferent versions of schemas, allowing users to
+track changes over time and revert to previous
+versions if necessary.
+• Bulk Operations: Users can perform bulk
+operations such as adding multiple events or
+updating several nodes at once.
+• Conflict Resolution: The editor provides
+tools to resolve conflicts when multiple users
+make changes simultaneously.
+E.3 Frontend Architecture
+The frontend of system is implemented as a single-
+page web application using React and TypeScript.
+This setup connects to an API server that provides
+application logic and access to a centralized schema
+database. The use of a browser-based application
+offers several advantages, including no need for
+user installations, centralized data management,
+and extensive functionality through JavaScript li-
+braries. Key components include:
+• React9: A JavaScript library for building user
+interfaces, providing the foundation for the
+application’s dynamic and responsive design.
+9https://react.dev/
+
+
+[Page 22]
+• TypeScript10: A statically typed superset
+of JavaScript, enhancing code reliability and
+maintainability.
+• GoJS11: A JavaScript library for creating in-
+teractive diagrams, enabling robust schema
+visualization.
+• API Integration: The frontend communi-
+cates with the backend through API calls,
+fetching and submitting schema data.
+• Responsive Design: The application is op-
+timized for various screen sizes and devices,
+ensuring usability across different platforms.
+• State Management: The application uses
+state management libraries such as Redux
+to manage and synchronize the state of the
+schema data across different components.
+• Performance Optimization: Techniques
+such as code splitting and lazy loading are em-
+ployed to ensure fast load times and smooth
+interactions.
+The client-side application requests Schema Defini-
+tion Files (SDF) from the API server and displays
+them to users. Edits to the SDF are maintained
+locally until the user saves the changes, synchro-
+nizing the server-side copy with the client’s modifi-
+cations. A simple locking mechanism is employed
+to prevent simultaneous edits by multiple users on
+the same schema, ensuring data integrity.
+E.4 Backend Architecture
+The backend of the interface is developed in
+Python, leveraging the Falcon web server frame-
+work, served by Gunicorn and nginx, and supported
+by a SQLite database. The backend is designed to
+be lightweight, minimalist, and easy to compre-
+hend. Most functionalities are concentrated in the
+frontend to maintain responsiveness and interactiv-
+ity, allowing the backend to focus primarily on data
+management. Python’s versatility and popularity
+make it a suitable choice for the dynamic require-
+ments of the system. Static typing in Python is
+enforced using Mypy12 to facilitate development
+and reduce trivial bugs. Key components include:
+• Falcon13: A minimalist web framework for
+building high-performance APIs, facilitating
+efficient communication between the frontend
+and backend.
+10https://www.typescriptlang.org/
+11https://gojs.net/latest/index.html
+12https://mypy-lang.org/
+13https://falcon.readthedocs.io/
+• Gunicorn14: A Python WSGI HTTP server
+for running web applications, ensuring robust
+and scalable performance.
+• nginx15: A high-performance web server and
+reverse proxy, providing load balancing and
+enhancing security.
+• SQLite16: A lightweight, disk-based database,
+chosen for its simplicity and reliability.
+• RESTful API 17: The backend exposes a
+RESTful API for the frontend to interact with
+schema data, supporting CRUD operations.
+• Security Features: Implementations such as
+HTTPS, authentication, and authorization to
+ensure data privacy and integrity.
+• Scalability: The architecture is designed to
+scale horizontally, with load balancers and
+database replication as needed.
+E.5 AI-Driven Suggestions
+The interface incorporates AI-driven suggestions
+to assist users in schema creation and modification.
+Large Language Models (LLMs) analyze existing
+schemas and user inputs to provide recommenda-
+tions for schema elements, relationships, and struc-
+tures. These suggestions are presented in real-time,
+enhancing user productivity and ensuring the cre-
+ation of accurate and comprehensive schemas.
+Key features of AI-driven suggestions include:
+• Contextual Recommendations: The system
+provides context-aware suggestions based on
+the current schema and user actions.
+• Smart Auto-Completion: As users type or
+modify schema elements, the interface offers
+auto-completion options to expedite the edit-
+ing process.
+• Error Detection: The AI models detect po-
+tential errors or inconsistencies in the schema
+and suggest corrections.
+• Learning from User Feedback: The AI mod-
+els improve over time by learning from user
+feedback and interactions, refining their sug-
+gestions and increasing accuracy.
+• Interactive Tutorials: The interface includes
+tutorials and guidance to help users under-
+stand and leverage AI-driven suggestions ef-
+fectively.
+14https://gunicorn.org/
+15https://nginx.org/en/
+16https://www.sqlite.org/
+17https://restfulapi.net/
+
+
+[Page 23]
+F Details of Event Extraction
+F.1 Event Span Identification
+Event span identification involves locating and
+marking the spans of events within input text. We
+use two models for this task:
+Base Model: This model is a fine-tuned version
+of the RoBERTa-large language model (Liu et al.,
+2019), trained on an internally annotated dataset.
+The task is formulated as sequence tagging, where
+the model identifies the start and end positions of
+event spans. For instance, in the context of sup-
+ply chain disruptions, the model identifies spans
+corresponding to events like factory shutdowns,
+transport delays, or material shortages. This aligns
+with the cross-sentence event detection described
+in the main text:
+EventDetectmulti-sentence(T) → EC (16)
+where T represents the input text and EC the de-
+tected events. The model uses contextual informa-
+tion from neighboring sentences to accurately de-
+tect event boundaries, ensuring that even complex
+events spanning multiple sentences are correctly
+identified.
+Guided Model: Inspired by Wang et al. (2021),
+this model uses a query-based approach to focus on
+schema-related events. The process involves two
+stages as follows:
+1. Discriminator Stage: Queries representing
+event types are paired with sentences to pre-
+dict if the query corresponds to an event type
+mentioned in the sentence. For example,
+queries include "factory shutdown due to la-
+bor strike" or "delay in shipping materials."
+This stage helps in filtering sentences that are
+likely to contain relevant events.
+2. Span Extraction Stage: Sentences identi-
+fied in the discriminator stage are further pro-
+cessed to extract event spans using sequence
+tagging. This ensures that the extracted spans
+are relevant to the supply chain context. By
+using sequence tagging, the model accurately
+marks the start and end points of events within
+the identified sentences.
+This approach supports the cross-sentence event de-
+tection described in the main text, enriching event
+spans with relevant context and ensuring high pre-
+cision in event identification.
+F.2 Event Argument Extraction
+Event argument extraction involves identifying the
+roles and participants associated with events. This
+task is framed as extractive question answering,
+where the model extracts argument spans from the
+text based on role-specific questions. We fine-tune
+RoBERTa-large (Liu et al., 2019) on our internally
+annotated dataset with a sequence tagging loss
+function. For supply chain disruptions, arguments
+might include the specific factories, transportation
+modes, or materials directly affected by the event.
+The extraction process is as follows:
+1. Role-Specific Questions: The model is
+trained to answer questions like "Which fac-
+tory was shut down?" or "What material was
+delayed?" This method ensures that the argu-
+ments are specific and relevant.
+2. Contextual Embeddings: This step is en-
+riched by contextual embeddings generated
+by BERT:
+BERTcontext(EC) → CE (17)
+generating contextual embeddings CE. These
+embeddings provide rich semantic informa-
+tion, enabling the model to better understand
+the context and improve the accuracy and rel-
+evance of the extracted arguments.
+F.3 Time Expression Linking &
+Normalization
+Time expression linking connects time expressions
+to their corresponding events. Similar to argu-
+ment extraction, this task uses extractive question
+answering to find start and end times for events.
+We fine-tune RoBERTa-base using the TempEval3
+dataset (UzZaman et al., 2012).
+The process includes:
+1. Extraction: The model identifies time expres-
+sions within the text and links them to the
+corresponding events, ensuring that the time-
+line of events is accurately captured.
+2. Normalization: Identified time expressions
+are then normalized into standard formats us-
+ing SUTime (Chang and Manning, 2012) and
+HeidelTime (Strötgen and Gertz, 2013). For
+example, expressions like "next Monday" are
+converted into specific dates.
+
+
+[Page 24]
+For supply chain disruptions, this ensures that time-
+lines for events like "shipment delayed from March
+15 to March 20" are accurately captured. This inte-
+grates into the event parameter extraction process,
+ensuring coherence and consistency.
+F.4 Event Temporal Ordering
+Event temporal ordering determines the chrono-
+logical sequence of events. We frame this task as
+extractive question answering to address label im-
+balance issues, fine-tuning RoBERTa-large (Liu
+et al., 2019) with a sequence tagging loss.
+Steps include:
+1. Pairwise Temporal Relations: The model
+identifies pairwise temporal relations between
+events, such as "Event A happened before
+Event B."
+2. Consistency Checking: Pairwise temporal re-
+lations are processed using Integer Linear Pro-
+gramming (ILP) (Schrijver, 1998) to ensure
+consistency and resolve any conflicts. This
+method helps in constructing a coherent time-
+line of events.
+This is crucial for understanding the sequence of
+disruptions in supply chains, such as how a factory
+shutdown leads to delayed shipments. This aligns
+with the logical constraints and argument corefer-
+ence to maintain event relationships modeled by
+GCNs:
+LogicCoref(PC) → PF (18)
+F.5 Coreference Resolution
+We perform both within-document and cross-
+document coreference resolution using models fine-
+tuned on datasets like OntoNotes 5.0 (Pradhan
+et al., 2013).
+The resolution process involves:
+1. Entity Clustering: Entity and event coref-
+erence clusters are identified and linked to
+ensure consistency across documents. This
+helps in tracking the same entities and events
+mentioned in different parts of the text.
+2. Cross-Document Linking: Linking entities
+and events across multiple documents ensures
+that all references to a specific factory, sup-
+plier, or shipment are recognized as the same
+entity.
+This is critical for tracking entities like factories,
+suppliers, and shipments across multiple reports of
+supply chain disruptions. This supports the corefer-
+ence resolution and event linking described in the
+main text:
+CorefLink(EC) → EL (19)
+yielding linked events EL.
+F.6 Graph Convolutional Networks (GCNs)
+for Event Relationship Modeling
+We leverage Graph Convolutional Networks
+(GCNs) to model complex event relationships and
+assess each event’s impact. This involves construct-
+ing a graph where events are nodes and their inter-
+actions are edges.
+Steps include:
+1. Node Importance Calculation: Each node’s
+importance is calculated using centrality mea-
+sures, such as degree centrality, betweenness
+centrality, and eigenvector centrality. These
+measures help in understanding the influence
+of each event within the network.
+2. Edge Impact Calculation: Edges represent
+the magnitude of impact, quantified by mea-
+sures such as event severity and frequency of
+occurrence.
+The impact score is then calculated as:
+ImpactScore(ei) = Centrality(ei)+Magnitude(ei)
+(20)
+where Centrality(ei) reflects the event’s impor-
+tance within the network, and Magnitude(ei) quan-
+tifies the event’s impact intensity.
+F.7 Logical Constraints and Argument
+Coreference
+To ensure the robustness of our event extraction
+pipeline, we apply logical constraints and argument
+coreference resolution.
+This involves multiple steps to refine the extracted
+event parameters and ensure logical consistency:
+Logical Constraints Application:
+1. Defining Logical Rules: We define a set of
+logical rules to maintain consistency within
+the extracted events. These rules include:
+• Temporal constraints: An event must oc-
+cur before another if there is a chrono-
+logical dependency.
+
+
+[Page 25]
+• Causal relationships: If Event A causes
+Event B, then Event A must be identified
+as a precursor to Event B.
+2. Implementation: The defined logical rules
+are implemented using a logic-based reason-
+ing system that checks for any violations and
+rectifies them. For instance, if an event is
+detected as occurring before its cause, the sys-
+tem flags this inconsistency and corrects the
+sequence.
+Argument Coreference Resolution:
+1. Coreference Detection: We identify coref-
+erences within and across documents. This
+involves detecting instances where different
+expressions refer to the same entity or event.
+• Within-Document Coreference: Ensures
+that all mentions of an entity within a
+single document are linked.
+• Cross-Document Coreference: Links
+mentions of the same entity or event
+across multiple documents to ensure
+global consistency.
+2. Refinement Process:
+• Cluster Formation: Entities and events
+identified as coreferent are grouped into
+clusters.
+• Coreference Chains: We create chains
+of coreferent mentions, which are used
+to refine event parameters and ensure
+that all related mentions are consistently
+linked.
+• Manual Verification: After automatic
+coreference resolution, manual verifica-
+tion is performed by domain experts to
+ensure accuracy and address any ambi-
+guities.
+Combining Logical Constraints & Coreference:
+1. Integration: The logical constraints and
+coreference resolution processes are inte-
+grated to produce a coherent and logically
+consistent set of event parameters:
+LogicCoref(PC) → PF (21)
+2. Validation: The final set of event parameters
+PF undergoes a validation process to ensure
+that all logical rules and coreference chains
+are satisfied. This step is crucial for main-
+taining the integrity of the event extraction
+pipeline.
+3. Feedback Loop: A continuous feedback loop
+is established where the output is reviewed
+and refined based on new data and expert feed-
+back. This iterative process helps in improv-
+ing the model’s performance over time.
+By applying these detailed logical constraints and
+advanced coreference resolution techniques, we
+ensure that the event extraction pipeline produces
+high-quality, reliable, and contextually accurate
+event data, which is essential for robust supply
+chain disruption analysis.
+G Details of Event Matching &
+Instantiation
+Event matching and instantiation involve aligning
+a schema from the schema library with events ex-
+tracted by the schema extraction component, specif-
+ically for predicting supply chain disruptions. This
+process begins by instantiating one of the Eschema
+from the integrated library or selecting the ex-
+tracted event Eext that best matches the schema
+event Eschema. Subsequently, the task entails match-
+ing events in the Eschema with their correspond-
+ing events in Eext extracted from the news dataset.
+Events in both Eext and Eschema are organized in
+a highly structured manner, with parent events
+divided into child events. Events also contain
+temporal information, indicating that some events
+must precede others. Logical relationships are also
+defined: AND-gates connect all necessary child
+events for a parent event, OR-gates connect one or
+more needed child events, and XOR-gates indicate
+that only one child event can be present.
+For example, a document about a raw material
+shortage in the EV battery supply chain might align
+with a "Supply Chain Disruption" schema in the
+schema library. Following the instantiation, a "no-
+tify suppliers" event in the schema might match
+with a graph G event describing a notification sent
+to cobalt suppliers. The "suppliers" participant of
+the schema event might match with the "cobalt
+suppliers" participant of the extracted event.
+G.1 Matching Process & Techniques
+Our approach to event matching and instantiation
+involves several key steps and techniques to en-
+
+
+[Page 26]
+sure accurate alignment between schema events
+and extracted events. This is particularly critical
+in the context of predicting supply chain disrup-
+tions, where precise event matching can provide
+actionable insights.
+G.1.1 Similarity Calculation
+To determine the similarity between schema events
+and extracted events, we calculate a similarity score
+based on semantic and structural similarities. Se-
+mantic similarity (SemSim) is computed using sen-
+tence transformers to encode the semantic content
+of events. Structural similarity (StrSim) takes into
+account the hierarchical and temporal relationships
+between events.
+Semantic Similarity: We use a sentence trans-
+former model to encode events into semantic vec-
+tors. The cosine similarity between these vectors
+provides a measure of how semantically similar
+two events are:
+SemSim(Eext, Eschema) = vext · vschema
+∥vext∥∥vschema∥ (22)
+where vext and vschema are BERT embeddings of
+extracted and schema events.
+Structural Similarity: We consider the context
+of events within their respective hierarchies. For
+example, an event’s predecessors and successors,
+its parent event, and its child events all contribute to
+its structural context. Events with similar structures
+in both schema and extracted graphs are more likely
+to match:
+StrSim(Eext, Eschema) = |Pext ∩ Pschema|
+|Pext ∪ Pschema| (23)
+where Pext and Pschema are the parameter sets for
+the extracted and schema events.
+G.1.2 Event Matching
+Once the similarity scores are calculated, we match
+each extracted event Eext with the schema event
+Eschema that has the highest similarity score. This
+involves instantiating the schema event with infor-
+mation from the extracted event, ensuring that all
+relevant details and relationships are preserved.
+Example: Consider a schema event "notify suppli-
+ers" in the context of a raw material shortage. An
+extracted event describing an email notification to
+cobalt suppliers would match this schema event if
+the similarity score is high. The instantiation pro-
+cess involves mapping the "suppliers" participant
+in the schema to the "cobalt suppliers" entity in the
+extracted event:
+Instantiate(Ematched, Sschema) → Einst (24)
+where Einst is the instantiated event enriched with
+attributes from the schema.
+G.1.3 Consistency Checks
+After matching events, we perform consistency
+checks to ensure that the instantiated schema ad-
+heres to logical and temporal constraints. This
+includes verifying that:
+• All necessary child events are present (AND-
+gates).
+• At least one required child event is present
+(OR-gates).
+• Only one of the mutually exclusive child
+events is present (XOR-gates).
+These checks ensure that the instantiated schema is
+logically coherent and temporally consistent:
+ConsistencyCheck(Einst, Sschema) (25)
+G.2 Continuous Improvement
+To enhance the accuracy and robustness of our
+matching and instantiation process, we incorporate
+continuous improvement through manual review
+and feedback from domain experts. This involves:
+• Validating the instantiated events with domain
+experts to ensure they accurately reflect real-
+world scenarios.
+• Refining our models based on feedback, ad-
+justing similarity metrics, and improving our
+semantic and structural encoding techniques.
+• Iteratively updating our schema library and
+extraction models to incorporate new insights
+and improve performance.
+By leveraging domain expertise and feedback, we
+continually refine our event matching and instan-
+tiation process, ensuring it remains effective and
+relevant for predicting and analyzing supply chain
+disruptions.
+H Details of Disruption Prediction
+Given an instantiated event graph Ginst = (N, E),
+where N represents event nodes (e.g., specific sup-
+ply chain activities) and E denotes event-event
+
+
+[Page 27]
+Algorithm 3 Event Matching and Instantiation
+1: Input: Extracted events Eext, schema library events
+Eschema
+2: Output: Instantiated events Einst
+3: Calculate Similarity ▷ Compute similarities
+4: for each Eext in Eext do
+5: for each Eschema in Eschema do
+6: Sim (Eext, Eschema) ← α·SemSim(Eext, Eschema)+
+β · StrSim(Eext, Eschema)
+7: end for
+8: end for
+9: Match Events ▷ Match extracted events to schema events
+10: for each Eext in Eext do
+11: Ematched ← arg max
+Eschema
+Sim(Eext, Eschema)
+12: Einst ← Instantiate(Ematched, Sschema)
+13: Perform ConsistencyCheck( Einst, Sschema)
+14: end for
+15: Continuous Improvement ▷ Manual review and
+feedback
+16: for each Einst do
+17: UpdatedModels ← ValidateRefine(Einst)
+18: end for
+19: Return: Instantiated events Einst
+temporal links (e.g., dependencies or sequences
+of activities), the goal is to classify whether un-
+matched schema events (nodes) could potentially
+occur within this graph.
+Formally, let I be the set of matched schema events
+within the graph. The task involves classifying
+each node in the remaining schema event nodes,
+represented by N \ I, as a missing event (positive
+or negative) given the instantiated graph.
+To address the limitations of existing methods, we
+developed a novel approach that leverages the struc-
+tural information within the schema graph and in-
+corporates logic gates and hierarchies. Our ap-
+proach consists of three stages: (1) schema-guided
+prediction, (2) constrained prediction, and (3) argu-
+ment coreference.
+H.1 Schema-Guided Prediction
+In this stage, we utilize a trained graph neural net-
+work specifically designed for schema graphs to
+score and select unmatched events in the instanti-
+ated graph. Key steps include:
+• Graph Neural Network: A GCN is trained
+on schema graphs to learn representations of
+nodes and edges. The propagation rule is
+given by:
+H(l+1) = σ(AH(l)W(l)) (26)
+where H(l) is the hidden state at layer l, A is
+the adjacency matrix, W(l) is the weight ma-
+trix, and σ is a non-linear activation function.
+• Node Scoring: Using the learned representa-
+tions, the GCN scores and selects unmatched
+events in the instantiated graph.
+• Prediction Output: The first-stage predic-
+tion output consists of the most likely missing
+events.
+H.2 Constrained Prediction
+This stage applies logical constraints and hierarchi-
+cal relations to refine the initial predictions from
+the schema-guided prediction stage. Key steps in-
+clude:
+• Logical Constraints: We refine initial predic-
+tions (ˆy) to produce final predictions (ˆy′) that
+adhere to known rules:
+ˆy′ = arg min
+ˆy′∈Y
+Constrain(ˆy)
+subject to C(ˆy′) = true
+(27)
+where C represents constraint sets. For ex-
+ample, a constraint might ensure that a major
+supplier’s disruption increases risk for depen-
+dent manufacturers.
+• Hierarchical Relationships:
+– Child-to-Parent Propagation: If a child
+event node is predicted or matched, its
+parent node is also predicted.
+– AND-Siblings Propagation: If a pre-
+dicted node has AND-sibling nodes, all
+its siblings are also predicted.
+– Iterative Refinement: The constrained
+prediction approach is applied iteratively
+until no further nodes can be predicted.
+H.3 Argument Coreference
+In this phase, we utilize coreference entity links
+and instantiated entities to generate predictions for
+the arguments associated with the predicted events.
+Key steps include:
+• Coreference Links: Coreference entity links
+specified in the schema are used to ensure
+consistency among entity mentions:
+Rij = arg, max
+Ei,Ej ∈E
+Coref(Ei, Ej)
+subject to Coref (Ei, Ej) = true
+(28)
+where (Ei, Ej) denotes each event pair and
+Rij represents their relation.
+
+
+[Page 28]
+• Instantiated Entities: Instantiated entities
+from the previous stages are leveraged to gen-
+erate arguments for predicted events.
+• Final Output: This stage produces the final
+prediction output, including both events and
+their arguments.
+I Experiment Details
+I.1 Experiment Setup
+In Experiment 5.1, we evaluate the efficacy of three
+distinct Large Language Models (LLMs) in ex-
+tracting hierarchical structures from our schema
+learning dataset. Leveraging domain expert knowl-
+edge, we annotate individual schemas for each
+article in our academic corpus using our propri-
+etary system viewer and editor. We then employ
+the methodology outlined in Appx. D to synthesize
+these schemas into an integrated library. This com-
+bination of individual schemas and the integrated
+library serves as the ground truth for our hierar-
+chical information extraction phase. Our schema
+learning performance evaluation consists of two
+key components. First, we compare the hierarchical
+information extracted by the three LLMs against
+our established ground truth. Second, we assess
+the consistency, accuracy, and completeness of the
+hierarchical structures derived from the textual con-
+tent of each article in the schema learning dataset,
+with domain experts actively participating in this
+evaluation process.
+In Experiment 5.2, we apply a similar annotation
+methodology to our news dataset as used for the
+schema learning dataset. However, annotating the
+news dataset presents unique challenges, as news
+reports typically do not explicitly elucidate the con-
+nections between events. Instead, they often em-
+ploy speculative language to describe event interre-
+lations. To ensure annotation accuracy, we heavily
+rely on domain knowledge derived from scenario
+documents throughout the annotation process. Sub-
+sequently, we utilize the ground truth extracted
+from these reports to evaluate our system’s perfor-
+mance in predicting news report outcomes.
+I.2 Evaluation Metrics
+Subjective Schema Learning . For subjective
+schema evaluation, we ensure that the event
+schemas generated from each paper and news re-
+port are consistent, accurate, and complete. The
+schema derived from academic papers demon-
+strates a logical hierarchical structure, while the
+schema produced from news reports presents a
+well-defined temporal sequence. Experts manu-
+ally review the schemas to verify these attributes,
+providing qualitative feedback on the logical co-
+herence and comprehensiveness of the extracted
+structures. Each schema is rated on a scale from 1
+to 5, where 1 indicates poor quality and 5 indicates
+excellent quality.
+Objective Disruption Detection. We compare the
+instantiated schemas learned by our system with
+manually annotated ground truth to assess the de-
+gree of overlap. This comparison uses an evalu-
+ation metric similar to Smatch (Cai and Knight,
+2013), which involves breaking down both our
+schema and the ground truth into quadruples of the
+form relation(event1, event2, importance). For in-
+stance, the event of Raw Material Mining includes
+the subevent of Lithium Mining with an associ-
+ated importance value, represented by the quadru-
+ple subevent(raw material mining, lithium mining,
+importance). Other relations include participants,
+gates, sequential events, etc.
+To evaluate the results, we 1) map the events in
+the learned schema Sl to those in the ground-truth
+schema Sgt, 2) establish a one-to-one mapping of
+quadruples between the learned schema Sl and the
+ground-truth schema Sgt, 3) calculate Precision,
+Recall, and F-score as follows:
+Precision = number of matched quadruples in Sl
+total quadruples in Sl
+(29)
+Recall = number of matched quadruples in Sl
+total quadruples in Sgt
+(30)
+F-score = 2 · Precision · Recall
+Precision + Recall (31)
+J Disruption Prediction Case Studies
+J.1 Case 1: Impact of the Inflation Reduction
+Act in August 2022
+In August 2022, the United States passed the Infla-
+tion Reduction Act, which included significant in-
+centives for domestic EV battery production. This
+led to a rapid increase in investments but also high-
+lighted potential material shortages, causing disrup-
+tions in the EV battery supply chain.
+
+
+[Page 29]
+System Prediction: Our system predicted the pos-
+sibility of short-term material shortages by analyz-
+ing the market response data to the Inflation Re-
+duction Act, monitoring global distribution reports
+of EV battery materials, and assessing the impact
+of increased domestic production incentives on the
+supply and demand balance.
+Outcome: The system identified the risks posed by
+the sudden increase in demand for battery materials,
+providing early warnings to stakeholders. This
+allowed them to take proactive measures such as
+securing long-term supply contracts and exploring
+alternative materials to mitigate potential shortages.
+J.2 Case 2: Lithium Supply Chain Disruption
+in Early 2023
+In early 2023, significant disruptions in the lithium
+supply chain were caused by escalating geopolitical
+tensions between Australia and China. As Australia
+is one of the world’s largest suppliers of lithium,
+political factors heavily influenced its export poli-
+cies, severely impacting the global supply chain for
+EV batteries, which rely heavily on lithium.
+System Prediction: Our system accurately pre-
+dicted the potential supply disruption by analyzing
+various news reports on geopolitical developments
+and export data. The system monitored news re-
+lated to geopolitical tensions between Australia and
+China, analyzed export data indicating changes in
+Australia’s lithium export policies, and integrated
+insights from scenario documents highlighting the
+dependence of the EV battery supply chain on Aus-
+tralian lithium exports.
+Outcome: The system flagged the risk of Aus-
+tralia’s export restrictions to China, providing early
+warnings of potential disruptions in the EV bat-
+tery supply chain. This allowed stakeholders to
+proactively seek alternative sources and mitigate
+the impact on production.
+J.3 Case 3: Nickel and Cobalt Supply Issues
+in March 2023
+In March 2023, a major disruption in the global
+supply chain occurred due to large-scale worker
+strikes and regulatory changes in the Democratic
+Republic of Congo (DRC), a primary supplier of
+cobalt. Cobalt is crucial for EV batteries, and the
+disruption had a significant negative impact on the
+global supply chain.
+System Prediction: Our system successfully fore-
+casted the potential supply chain interruptions by
+analyzing news reports on strike activities and up-
+dates on government regulations in the DRC. It
+also assessed historical data on cobalt supply and
+demand to identify vulnerabilities and integrated
+expert feedback on the impact of labor strikes and
+regulatory changes on cobalt production.
+Outcome: The system provided early warnings
+about the potential disruptions, enabling compa-
+nies to adjust their supply chain strategies. This
+included diversifying sources of cobalt and increas-
+ing inventories to buffer against supply shortages.
+K SHIELD’s User Interface
+The SHIELD user interface is designed to be in-
+tuitive and user-friendly, facilitating the efficient
+upload and analysis of news reports.
+News Report Upload. On the right side of the in-
+terface, users can upload their collected news report
+texts. It includes a text box for input and a submis-
+sion button to upload the report (see Fig. 11a). Key
+features include:
+• Upload Box: Allows users to paste or type
+their news report texts.
+• Submit Button: Initiates the analysis process
+once the report is uploaded.
+• Uploaded Reports List: Displays previously
+uploaded news reports, enabling users to re-
+view and compare past submissions easily.
+Disruption Analysis Results. After submitting a
+news report, users can view the real-time results of
+the disruption analysis on the left side of the inter-
+face (see Fig. 11b). The comprehensive overview
+of the analysis include:
+• Generated Schema: Displays the hierarchi-
+cal of events identified in the news report.
+• Events List: Lists all detected events and
+their details, allowing to see which events
+were identified and how they are connected.
+• Evaluation Score: Shows the real-time eval-
+uation score, assessed against the schema li-
+brary for accuracy and completeness.
+• Schema Editing: Allows to edit the gener-
+ated schema. Users can make changes to the
+structure, relationships, and details of events.
+• Regenerate Evaluation: Users can choose to
+regenerate the evaluation score based on the
+edited schema, ensuring that the modifications
+are reflected in the updated score.
+
+
+[Page 30]
+L Author Contributions
+Schema Learning Dataset:
+• Yuzhi Hu: Created the scenario document.
+• Yifei Dong: Collected paper lists and Wiki-
+data lists.
+• Aike Shi: Collected Wikipedia lists and
+weekly report lists.
+• Yifei Dong, Wei Liu, and Aike Shi: Extracted
+paragraphs from collected articles.
+Supply Chain News Dataset:
+• Yuzhi Hu: Conducted data crawling and clas-
+sification.
+• Yuzhi Hu, Yifei Dong, Wei Liu, and Aike Shi:
+Labeled ground truth for the news dataset.
+Schema Learning:
+• Yifei Dong and Aike Shi: Designed and mod-
+ified prompts for generating structured infor-
+mation, designed the format for structured in-
+formation, wrote scripts for converting struc-
+tured information to SDF, and for generating
+structured information using Llama3.
+• Yifei Dong, Aike Shi, Wei Liu, and Yuzhi
+Hu: Generated structured information using
+GPT-4o with zero-shot learning.
+Human Curation:
+• Yifei Dong, Wei Liu, Aike Shi, and Yuzhi Hu:
+Curated LLM-generated SDFs.
+• Yifei Dong and Aike Shi: Wrote scripts for
+schema merging.
+System Construction:
+• Zhi-Qi Cheng: Provided guidance for system
+implementation, designed the system proto-
+type, and performed system implementation.
+• Yifei Dong and Aike Shi: Performed system
+debugging and testing.
+Evaluation:
+• Wei Liu and Yifei Dong: Designed evaluation
+metrics.
+• Aike Shi and Yifei Dong: Wrote evaluation
+scripts.
+Frontend Interface:
+• Aike Shi and Yifei Dong: Provided the design.
+• Wei Liu: Optimized the design.
+• Aike Shi: Implemented the interface.
+Paper:
+• Yifei Dong: Contributed to schema learning
+parts.
+• Yuzhi Hu: Contributed to the news dataset
+and schema dataset parts and created and opti-
+mized Figs. 5, 6, 7, and 8.
+• Wei Liu, Yifei Dong, and Aike Shi: Con-
+tributed to Figs. 1, 2, 3, 4, 9, 10, and 11.
+– Yifei Dong and Wei Liu designed all fig-
+ures.
+– Wei Liu created and optimized all fig-
+ures.
+– Aike Shi designed the user interface ele-
+ments for Figs. 4, 10, and 11.
+• Jason O’Connor: Contributed to paper revi-
+sions and suggestions.
+• Zhi-Qi Cheng: Organized and rewrote the en-
+tire paper, and supervised the modification of
+all figures.
+Presentation and Project Webpage:
+• Aike Shi and Zhi-Qi Cheng: Presented the
+paper.
+• Yifei Dong: Built the project website.
+• Aike Shi: Created the video demo.
+• Wei Liu and Yuzhi Hu: Provided materials for
+the project website.
+Feedback and Guidance:
+• Jason O’Connor: Provided feedback and
+project guidance from a supply chain expert
+perspective.
+• Zhi-Qi Cheng, Kate S. Whitefoot, and Alexan-
+der G. Hauptmann: Provided guidance and
+supervision for the entire project.
+
+
+[Page 31]
+(a) News report upload section of the user interface.
+(b) Visualization and editing of the final prediction results.
+Figure 11: User interface for the disruption prediction analysis in SHIELD.

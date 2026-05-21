@@ -1,0 +1,1604 @@
+[Page 1]
+Beyond Isolated Investor: Predicting Startup Success via Roleplay-Based
+Collective Agents
+Zhongyang Liu1 ,Haoyu Pei 1 ,Xiangyi Xiao 1 ,Xiaocong Du 1 ,Yihui Li 1 ,Suting
+Hong2 ,Kunpeng Zhang 3 ,Haipeng Zhang 1∗
+1ShanghaiTech University
+2Xi’an Jiaotong-Liverpool University
+3University of Maryland
+{liuzhy12024, peihy2024, xiaoxy, duxc2023, liyh, zhanghp}@shanghaitech.edu.cn,
+sutinghong@gmail.com, kpzhang@umd.edu
+Abstract
+Due to the high value and high failure rates of
+startups, predicting their success is a critical chal-
+lenge. Existing approaches typically model startup
+success from a single decision-maker’s perspec-
+tive, overlooking the collective dynamics that dom-
+inate real-world venture capital (VC) decision-
+making. We proposeSimVC-CAS, a collective
+agent system that simulates VC decisions as a
+multi-agent interaction process. By designing role-
+playing agents and a GNN-based supervised in-
+teraction module, we reformulate startup financing
+prediction as a group decision-making task, cap-
+turing both enterprise fundamentals and investor
+network dynamics. Each agent represents an in-
+vestor with distinct traits and preferences, enabling
+heterogeneous evaluations and realistic information
+exchange over a graph-structured co-investment
+network. Using both proprietary and public VC
+data with strict anti-leakage controls, we show that
+SimVC-CAS significantly improves predictive per-
+formance, achieving approximately 25% relative
+improvement in average precision@10, while ex-
+hibiting consistency with real investor decisions.
+The interaction mechanism is particularly effective
+for network-central startups, confirming the impor-
+tance of network in VC decision-making. Analy-
+sis of agents’ reasoning for decision changes fur-
+ther reveals how network environment influence
+decision quality, demonstrating the system’s in-
+terpretability. Our approach may generalize to
+broader group decision-making scenarios. Our
+code is available 1.
+1 Introduction
+Startups contributed 60% of global new jobs (2010-
+2020) [33] yet face a 90% failure rate [47]. This significant
+contrast has made the prediction of early-stage startup suc-
+cess (e.g., financing outcomes and IPO potential) a central
+∗Corresponding author
+1https://anonymous.4open.science/r/SimVC-CAS-888C
+yes/no
+Previous Method Our Method
+startup 
+information
+startup 
+information
+Decision tree; Bert;
+GNN; LLM......
+yes/no
+yes/noyes/no
+yes/no yes/no
+Figure 1: Unlike prior single perspective approaches, our method
+jointly models the collective behaviors of startups and investors by
+incorporating multiple decision-makers.
+problem in interdisciplinary research [91; 9]. Among various
+success indicators, early-stage financing plays a critical role,
+serving as the “lifeline” for startup survival and growth [24].
+Access to capital not only provides essential financial re-
+sources but also shapes long-term strategic direction. Con-
+sequently, predicting whether a startup can successfully se-
+cure financing has emerged as a core task in startup success
+prediction [91; 29].
+In venture capital (VC), investors typically base their de-
+cisions on comprehensive evaluations that consider factors
+such as team composition, business model, and market po-
+tential [60; 48]. Following this logic, prior automated meth-
+ods have primarily modeled financing outcomes from the per-
+spective of individual decision-making by extracting firm-
+level features using various technical paradigms. Represen-
+tative lines of work include: (i) traditional machine learn-
+ing on engineered features [49; 81 ]; (ii) graph neural net-
+work (GNN)-based modeling of investment networks [91;
+9]; and (iii) pre-trained language models for textual anal-
+ysis [57].Despite methodological diversity, these ap-
+proaches share a common assumption: they aim to sim-
+ulate a single, idealized investor.
+In reality, investor decisions directly shape startup fi-
+nancing outcomes and subsequent development trajectories.
+The absence of investment can trigger immediate survival
+crises, while investors’ heterogeneous resources, expertise,
+and networks can profoundly influence long-term growth
+paths [30; 60 ].Importantly, real-world VC evaluations
+are rarely conducted in isolation. Instead, startups are
+arXiv:2512.22608v3  [cs.AI]  3 May 2026
+
+
+[Page 2]
+assessed by multiple potential investors embedded within
+co-investment networks, where information exchange and
+peer influence play a central role [40; 54; 36 ].Our data
+confirm this dynamic: the average graph distance among in-
+vestors who eventually co-invest in the same startup is only
+2.16, compared to 4.23 across the entire VC network. As a
+result, financing outcomes often emerge from the collective
+judgment of an investor group, and startups of similar qual-
+ity may experience markedly different outcomes depending
+on the composition of their investor collective. This “investor
+collective effect” is not captured by existing single-decision-
+maker models. Given the inherent multi-agent nature of real-
+world VC decision-making, a multi-agent framework is a nat-
+ural and necessary modeling choice.
+However, existing multi-agent systems fail to capture two
+defining characteristics of VC forecasting:(i)thecollective
+natureof syndicated decision-making and(ii)thecomplex
+relational dynamicsamong co-investors.First, most frame-
+works rely on agent specialization to simulate compartmen-
+talized reasoning across information dimensions—assigning
+individual agents to analyze different dimensions of informa-
+tion [90; 92; 87; 62 ]. While effective for simulating the in-
+ternal reasoning process of a single investor, this paradigm
+fails to capture the diversity and interaction of multiple inde-
+pendent investors.Second, existing agent interaction mech-
+anisms are largely heuristic-based [83; 84; 53 ] and cannot
+model the nuanced, asymmetric relationships observed in
+real co-investment behavior—relationships shaped by net-
+work topology, investor heterogeneity, and startup-specific
+context.
+To address these challenges, we proposeSimVC-CAS: a
+collective agent system for simulating real-world venture cap-
+ital decision-making. The core idea is to reframe financing
+prediction as the outcome of a simulated collective decision
+process carried out by a network of investors, each modeled
+as an autonomous agent. SimVC-CAS jointly captures en-
+terprise fundamentals and multi-investor decision dynamics.
+Given a target startup, the system simulates (i) heterogeneous
+individual evaluations by distinct investor agents and (ii) col-
+lective decision updates shaped by a co-investment network.
+The resulting group-level verdict forms the basis for financ-
+ing prediction. As shown in Figure 1, this framework en-
+ables joint modeling of both company-level attributes and
+investor-collective behaviors, offering a more realistic and in-
+terpretable approach to VC forecasting.
+Specifically, SimVC-CAS consists of three modules:1.
+Startup Panoramic Portrait.This module integrates di-
+verse startup data - including basic information, founding
+team backgrounds, and financing history - to construct a com-
+prehensive profile that serves as shared context for all investor
+agents.2. Heterogeneous Investor Portraits.We construct
+the potential investor pool from the startup’s historical in-
+vestors and their past co-investment partners. Empirically,
+77.35% of investors in new financing rounds originate from
+this group in our dataset. Each investor agent is assigned
+a distinct profile based on background information, experi-
+ence, and historical investment behavior. Leveraging the role-
+playing capabilities of large language models (LLMs) [73;
+86], agents interpret startup information through personal-
+ized lenses, capturing heterogeneous preferences, cognitive
+biases, and decision patterns.3. Collective Agent Inter-
+action Modeling.Investor interactions depend not only on
+their own attributes and network structure, but also vary with
+the characteristics of the evaluated startup, forming startup-
+centric interaction modes [31; 51]. To model these dynam-
+ics, we design a graph attention network with virtual nodes
+(VGAT), where a virtual node represents the target startup
+and serves as an information hub connected to all investor
+agents. Investor nodes are linked via edges derived from his-
+torical co-investment relationships. Through VGAT, SimVC-
+CAS captures multi-dimensional interaction patterns that bal-
+ance investor heterogeneity, startup characteristics, and graph
+topology, thereby approximating realistic group deliberation
+processes.
+Our contributions are summarized as follows:
+• We introduce a simulation-based paradigm that reframes
+startup financing prediction as a collective decision-
+making process by integrating LLM role-playing with
+multi-agent modeling.
+• We proposeSimVC-CAS, which jointly models com-
+pany fundamentals and investor dynamics through scal-
+able profiles and graph-based interactions, achieving
+significant performance improvements on proprietary
+and public datasets, with behavioral alignment with real
+investors.
+• We demonstrate that the interaction mechanism is par-
+ticularly effective for network-central startups, confirm-
+ing the importance of network structure in VC decision-
+making. Analysis of agents’ reasoning for decision
+changes further reveals how network environment influ-
+ence decision quality, demonstrating the system’s inter-
+pretability. Beyond VC, our design may generalize to
+other group decision-making problems.
+2 Related Work
+2.1 Startup Success Prediction
+Predicting early-stage startup success is a critical task. Early
+research identified key predictive factors [75; 72] which in-
+formed manual feature engineering efforts. Initial methods
+used commercial datasets such as PitchBook, Crunchbase to
+design features based on domain knowledge and heuristics for
+traditional machine learning models [81; 13]. As large-scale
+datasets become available, the field evolved toward three
+main approaches: (1) graph neural networks (GNNs) [91;
+9], which mine relational structures for investment patterns;
+(2) pre-trained language models (LMs) [57], which extract
+semantic features from company descriptions and filings; and
+(3) multi-agent systems [87; 39; 62], which assign different
+agents to analyze complementary aspects of a company’s ob-
+jective information, aiming to address the interpretability and
+scalability limitations.
+Despite these advances, existing models all focus on
+single-investor decision frameworks, failing to capture the
+multi-perspective evaluation and group dynamics typical of
+the real world. Even when employing multi-agent ap-
+proaches, they merely use multiple agents to analyze different
+
+
+[Page 3]
+dimensional information [87; 39], remaining within a single
+decision-maker perspective.
+2.2 LLM Agents in Decision Simulation
+Large Language Models have shown significant potential in
+simulating human intelligence and are increasingly used as a
+foundational component in autonomous agent systems [55;
+43; 94 ]. In decision simulation, LLM agents have been
+deployed to model user search behavior and predict click-
+through rates [93], forecast legislative bill outcomes based on
+policymaker behavior [53], and replicate group voting pat-
+terns from demographic data [11].
+However, the application of LLMs to simulate investor
+decision-making in VC remains largely underexplored. Cur-
+rent approaches are insufficient for modeling the heteroge-
+neous, relational dynamics inherent in VC investment net-
+works. To address this gap, we propose a graph neural
+network-based multi-agent interaction framework for simu-
+lating VC investment decisions. Beyond VC, this framework
+offers a generalizable foundation for decision modeling in
+other complex, heterogeneous network environments.
+3 Task Definition
+This study focuses on predicting the success of early-stage
+startups. Following prior work [91], we define early-stage
+startups as those have completed their first round of formal
+financing (seed or angel round), but have not yet raised sub-
+sequent rounds (e.g., Series A). These companies enter the
+venture capital ecosystem for the first time through initial in-
+vestors. While success is often measured by whether a startup
+secures Series A funding [91; 29 ], prior studies have used
+different observation windows, potentially introducing time
+biases. To alleviate this, we adopt a consistent one-year ob-
+servation window, which aligns with stage-based evaluation
+practices and helps control for external environmental factors
+such as market cycles and macroeconomic shocks [16]. Ac-
+cordingly, the core task of this study is defined as:predicting
+whether a startup secures subsequent funding within one
+year of its initial financing.
+4 Method
+This section details the core framework of our proposed
+method, shown in Figure 2. We begin by constructing a
+comprehensive profile for each target startup, integrating ba-
+sic information, team composition, and historical financing
+records. This profile serves as the fundamental input for in-
+vestment evaluation. Meanwhile, we generate heterogeneous
+profiles for potential investors, encompassing personal infor-
+mation, investment experience, and professional background.
+To simulate investor decision-making, we employ an LLM-
+based agent to model the investment preferences of individual
+investors through role-playing. Building on this, we intro-
+duce a collective agent interaction system: for each startup,
+we construct a co-investment network linking its potential in-
+vestors based on historical co-investment relationships. In
+addition, we designed a GAT with virtual nodes (VGAT) to
+capture the investor interaction patterns centered on startups
+in this network, enabling us to approximate the collective
+decision-making dynamics in the real world. This collective
+modeling enhances the predictive accuracy of startup success.
+4.1 Startup Panoramic Portrait
+To predict success, we construct a panoramic profile captur-
+ing the target startup’s foundational characteristics as a holis-
+tic input for subsequent agents.
+Basic Information:Founding date, industry, description, lo-
+cation, products, keywords, and other core attributes. In clas-
+sic financial theory, these fundamental characteristics serve
+as critical signals for screening potential investments and re-
+ducing information asymmetry between entrepreneurs and in-
+vestors [45; 78].
+Team Composition:Background on key team members
+(gender, education history, prior employment records, per-
+sonal investment experience, roles), reflecting the “bet on the
+jockey” hypothesis in VC, which posits that human capital is
+often a more significant predictor of success than the business
+idea itself [46; 38].
+Historical Financing Records:This section summarizes the
+startup’s past funding rounds, including the amounts raised
+and investor backgrounds. Reflecting the mechanism of cap-
+ital staging used to monitor progress and mitigate agency
+costs [37; 70], these records provide essential cues regarding
+the firm’s valuation trajectory and external validation.
+Affiliated Companies:In VC networks, startups sharing
+key individuals (e.g., co-investors) with the target often pro-
+vide valuable context. We define such entities as affiliated
+companies and incorporate their information into the target’s
+panoramic profile. These shared links facilitate information
+spillovers and social endorsements, allowing affiliated firms’
+attributes to serve as high-fidelity signals of the target’s po-
+tential [79; 44].
+4.2 Heterogeneous Investor Portraits
+For each target startup, we construct a real-time, heteroge-
+neous profile of its potential investors. The candidate investor
+set is constructed based on the following rule:We randomly
+samplekindividuals from the union of the startup’s his-
+torical investors and their past co-investment partners.
+Empirically, 77.35% of investors in new financing rounds
+originate from this group in our dataset. Based on this can-
+didate set, we generate detailed investor profiles and simulate
+their behavior through a role-playing agent architecture. Each
+agent represents a distinct investor persona, offering differen-
+tiated analysis and decision-making support. This profiling
+system is highly extensible and can integrate data from mul-
+tiple sources, such as demographic information, professional
+experience, and past investment records. Each investor pro-
+file includes the following core components:
+Personal InformationThis contains information such as the
+investor’s name, gender and educational background.
+Past Investment ExperienceThis section details the in-
+vestor’s historical funding activity and is further divided
+into: (i) early-stage investments - focused on seed and Se-
+ries A rounds; these are the primary reference points for our
+model. (ii) Other investments - covers mid-to-late-stage or
+non-startup investments, serving as supplementary context.
+All investment records are paired with structured summaries
+
+
+[Page 4]
+Embedding graph
+Collective interaction
+Startup
+Startup Panoramic Portrait
+Basic Information
+Team Composition
+Historical Financing 
+Records
+Information of 
+affiliated companies
+Co-investment network
+Co l l e c t i v e  Int e r a c t i o n M o de l i ng
+Startup
+Interaction graph
+Individual decision-making
+Personal 
+Information 
+Past Investment 
+Experiences
+Employment History 
+Investors
+Heterogeneous Investor Portraits
+ VGAT
+w
+MLP
++
+Cross Attention
+CE- Loss
+Contrastive Loss
+MLP
+Node Encoder Local GAT Global GAT
+Figure 2: The overall framework of our proposed method.
+of the invested startups to provide a comprehensive view of
+the investor’s track record.
+Employment HistoryThis details the investors’ professional
+background, including previous roles and affiliations.
+4.3 Collective Agent Interaction Modeling
+To better approximate real-world investor decision-making
+dynamics, we design a collective agent interaction framework
+supervised by a graph neural network. In this system, each in-
+vestor agent first performs an individual evaluation of the tar-
+get startup based on their profile and outputs an initial invest-
+ment decision. Next, the historical co-investment network is
+used (along with VGAT) to determine the interaction struc-
+ture among these investor agents. Finally, the agents interact
+according to the learned topology, updating their beliefs and
+assessments based on peer influence. This dynamic group
+reasoning process allows agents to revise their initial deci-
+sions, resulting in a final, aggregated investment decision that
+reflects both individual judgment and collective insight.
+VGAT
+To model investor interaction patterns shaped jointly by the
+characteristics of the target startup, the attributes of individual
+investors, and the topology of the co-investment network, we
+design the Virtual Node Graph Attention Network (VGAT).
+In this architecture, the target company is introduced as a vir-
+tual node, serving as a global query to attend to relevant in-
+vestor interactions.
+Formally, letG= (V,E, ω)be an undirected weighted
+graph. The node set is defined asV=V R ∪ {v target},
+whereV R ={v 1, . . . , vn}represents real investor nodes and
+vtarget /∈ VR denotes the virtual node (i.e., the target com-
+pany). The edge set consists of two parts:E=E R ∪ E V ,
+whereE R ⊆ V R × V R represents real investor connections,
+andE V ={(v target, vi)| ∀v i ∈ V R}connects the virtual
+node to all real nodes. A weight functionω:E →R + as-
+signs positive weights to all edges.
+The VGAT model processesGthrough three sequential
+components. First, a global Graph Attention (GAT) layer up-
+dates embeddings for all nodes:
+{h(1)
+v }v∈V =GAT(G).(1)
+Second, a local GAT layer refines the embeddings specifically
+for real investor nodes:
+{h(2)
+v }v∈VR =GAT(G[V R]).(2)
+Concurrently, the virtual node embedding is transformed via
+an MLP to serve as the global query vector:
+h∗
+vtarget =MLP(h (1)
+vtarget).(3)
+To determine the importance of each co-investment relation-
+ship, we compute an attention score for each real edgee ij =
+(vi, vj)∈ E R. The cross-attention mechanism uses the vir-
+tual node as the query and the edges as keys. The normalized
+attention coefficientα ij is computed via a Softmax operation
+over all edges in the batch:
+αij =Softmax eij ∈ER
+ 
+(h∗
+vtarget W Q)(mijW K)⊤
+√dk
+!
+,(4)
+whered k is the scaling dimension. The final edge embedding
+eij is then obtained by weighting the value projection:
+eij =α ij(mijW V ),(5)
+where the base edge representationm ij concatenates the
+node features and edge weight:
+mij =
+h
+h(2)
+vi ∥h (2)
+vj ∥ω ij
+i
+.(6)
+Here,W Q,W K,andW V are learnable projection matrices.
+We formulate the interaction prediction as abinary clas-
+sification task. Since direct data on investor communica-
+tions is private and unobservable, we employfuture co-
+investment relationshipsas a proxy for effective interaction.
+The rationale is that if two investors co-invest in the same
+startup within a specific future window, they likely engaged in
+meaningful interaction or shared similar decision logic to mit-
+igate selection uncertainty [52; 44]. Thus, the goal is to pre-
+dict the existence of a valid future co-investment link (Class
+1) versus a non-existent one (Class 0).
+The model is optimized jointly using cross-entropy and
+contrastive losses. The Cross-Entropy Loss is defined as:
+LCE =− 1
+|ER|
+X
+eij ∈ER
+NCX
+c=1
+yc
+ij log
+ 
+ˆyc
+ij
+
+,(7)
+
+
+[Page 5]
+whereN C = 2is the number of classes.y c
+ij indicates the
+ground truth label derived from future co-investment data,
+andˆyc
+ij is the predicted probability derived frome ij.
+The Contrastive Loss enhances the distinctiveness of edge
+embeddings:
+LContrast =− 1
+|P|
+X
+(eij ,ekl)∈P
+log
+exp
+
+e⊤
+ij ekl
+τ∥e ij ∥∥ekl∥
+
+P
+emn∈Nij
+exp
+ e⊤
+ij emn
+τ∥e ij ∥∥emn∥
+ ,
+(8)
+wherePis the set of positive pairs,N ij represents negative
+samples, andτis the temperature parameter. The final loss
+is:
+L=L CE +λL Contrast,(9)
+whereλis a hyperparameter balancing the two terms.
+Training and Validation:We strictly adhered to the tempo-
+ral split strategy of the main experiment (see Sec.5.1) to train
+and evaluate VGAT: data prior to September 2021 was uti-
+lized for training and validation, while subsequent data was
+reserved for testing. As shown in Table 1, VGAT significantly
+outperforms the GAT baseline (F1: 79.31% vs. 73.47%).
+This confirms that explicitly modeling the startup as a global
+query node enables the network to more accurately discern
+context-specific investor interaction patterns.(Please refer to
+theAppendix 1.2for VGAT training data construction meth-
+ods and full training details.)
+Table 1: Performance comparison on the link prediction task
+Method Precision Recall F1
+GAT 69.62 77.76 73.47
+VGAT 76.18 82.70 79.31
+Investor Agent Decision-Making
+Given a set ofkinvestor agents{A 1, A2, . . . , Ak}, we
+construct a heterogeneous profileP i for each investorA i.
+Through role-playing, conditioned on the startup profileS,
+each agent generates an initial independent decisionD (0)
+i us-
+ing a frozen LLM:
+D(0)
+i =LLM(S|P i)(10)
+We construct a co-investment networkGwhere nodesV=
+{A1, . . . , Ak} ∪ {v target}represent investors and the target
+startup. Edges encode historical co-investments and connec-
+tions to the target. Using a pre-trained 2 encoder, we embed
+investor profiles and the startup profile:
+• Investor embedding:h i =NodeEncoder(P i).
+• Startup embedding:h vtarget =NodeEncoder(S).
+These embeddings form the input graphG embed for VGAT to
+infer interaction edges:
+Einteract =VGAT(G embed).(11)
+These edges define the peer influence topology for the second
+decision round.
+2https://huggingface.co/jinaai/jina-colbert-v2. We selected this
+model for its superior long-context processing capabilities
+Agents revise their decisions by incorporating insights
+from interaction neighbors. Specifically, agentA i updates
+D(0)
+i toD (1)
+i :
+D(1)
+i =LLM
+
+D(0)
+i ,
+n
+D(0)
+j , Pj |(A i, Aj)∈ E interact
+o
+|(S, P i)
+
+.
+(12)
+The overall investment confidence scoreC invest is defined
+as the proportion of agents opting to invest:
+Cinvest = 1
+k
+kX
+i=1
+δi,(13)
+whereδ i = 1ifD (1)
+i is an investment decision, and 0 other-
+wise. This score aggregates individual assessments and col-
+lective peer influence.
+5 Experiments
+This section presents the main results; consistency analysis,
+prompt details, and explainability cases are in the Appendix.
+5.1 Datasets
+PitchBook.We compile a comprehensive global venture cap-
+ital dataset from PitchBook 3 covering the period from 2005
+to November 2023. The dataset includes 263,729 startups
+and 1,014,157 individuals, with rich information on invest-
+ment histories, demographic backgrounds, and detailed com-
+pany profiles. For evaluation, we focus on 2,507 startups that
+received their initial funding between September 2021 and
+November 2022. The task is to determine whether a startup
+secures follow-on financing within one year of its initial fund-
+ing round, resulting in 533 positive samples and 1,974 nega-
+tive samples. To avoid look-ahead bias, all startup profiles
+are constructed exclusively using information available prior
+to the initial funding event.
+Crunchbase.Besides the private dataset, we used an open-
+source 2013 Crunchbase snapshot 4. However, its age raises
+data leakage concerns; we report results in the Appendix 1.3.
+5.2 Evaluation Metrics
+While standard classification metrics (e.g., F1 score) are re-
+ported, we prioritize Average Precision at K (AP@K) to align
+with the practical VC objective of identifying top-tier op-
+portunities from a large candidate pool. In our proposed
+SimVC-CAS, to reflect real-world co-investment dynamics,
+a startup is considered positively predicted if at least one in-
+vestor agent chooses to invest; rankings are then determined
+by the confidence scoreC invest, mirroring how investment de-
+cisions aggregate in practice. Following prior work [74; 91;
+9], we use Precision at K (P@K) to measure the success rate
+among the top-K ranked startups. To ensure temporal robust-
+ness, AP@K is computed by averaging P@K across monthly
+rolling windows. This metric directly quantifies the model’s
+efffectiveness in shortlisting high-potential investments over
+time.
+3https://pitchbook.com/
+4https://github.com/datahoarder/crunchbase-october-2013
+
+
+[Page 6]
+5.3 Implementation Details
+We employ GPT-3.55 (knowledge cutoff: Sep 2021) on a test
+dataset collected post-September 2021 toensure strict tem-
+poral isolation and prevent data leakage. For reproducibil-
+ity, the temperature is fixed at 0.The number of candidate
+investorskis set to 10, which we empirically found to
+balance performance gains and computational efficiency
+(detailed analysis in Appendix 1.1). All reported results
+represent the average of five independent runs with random
+investor sampling.
+5.4 Baselines
+To evaluate the effectiveness of our proposed method, we
+benchmark it against six diverse baselines:Random, which
+predicts based on historical success rates;BERT Fusion[57],
+which combines structured variables with BERT-encoded un-
+structured text for classification;SHGMNN [91], a heteroge-
+neous graph neural network that learns representations end-
+to-end;GST [9], a spatiotemporal graph model that employs
+incremental graph self-attention to capture dynamic node rep-
+resentations;GNN-RAG [58], which synergizes GNN em-
+beddings with RAG-retrieved shortest paths as context for
+LLMs; andSSFF [87], a multi-agent framework that, unlike
+our interactive approach, analyzes dimensions in isolation be-
+fore aggregating insights via a single centralized decision-
+maker.
+Table 2: Performance comparison on the test set
+Method AP@10 AP@30 Precision Recall F1
+Random− −19.98 19.02 19.49
+BERT Fusion 24.67 25.33 23.63 24.95 24.27
+SHGMNN 25.41 26.22 20.51 82.37 32.97
+GST 25.71 27.86 21.7583.5434.51
+GNN-RAG 27.53 26.17 22.81 71.10 34.54
+SSFF 30.02 27.26 23.23 69.41 34.81
+SimVC-CAS 37.52 30.83 24.1974.0736.47
+5.5 Experimental Results
+The main experimental results on the PitchBook dataset
+are presented in Table 2.The proposed model significantly
+outperforms baselines across all evaluation metrics except re-
+call, demonstrating its strong effectiveness in predicting the
+early-stage startup success. In particular, our SimVC-CAS
+achieves substantial gains on ranking-based metrics, with
+AP@10 improving by 25.0%, and AP@30 by 13.1% relative
+to the strongest baseline.These results highlight SimVC-
+CAS’s superior capability to prioritize and rank startups
+with high success potential.
+Further comparative analysis shows that graph-based
+models, including both traditional GNN approaches (e.g.,
+SHGMNN and GST) and LLM RAG-enhanced variants like
+GNN-RAG, consistently underperform relative to SimVC-
+CAS. This underscores the importance of explicitly model-
+ing potential investor relationships surrounding startups. Ad-
+ditionally, the notably weaker performance of the traditional
+multi-agent method SSFF furthervalidates the advantage of
+incorporating multi-decision-maker interaction dynamics
+over single-decision mechanisms.
+5https://platform.openai.com/docs/models/gpt-3.5-turbo
+Furthermore, we find that while GNN methods (such as
+GST) achieve high recall (83.54%) through aggressive pre-
+diction, their precision drops significantly (21.75%). SimVC-
+CAS demonstrates overwhelming superiority in the most
+decision-critical AP@10 metric (37.52% vs 25.71%, a rel-
+ative improvement of 46.1%), with precision and overall F1
+scores also significantly outperforming GNN methods.
+Results on the public Crunchbase dataset align with
+our main findings, showing improvements of +6.82% in
+AP@10, +2.66% in AP@30, and +1.66% in F1 over the
+strongest baseline (see Appendix 1.3 for details).
+Table 3: Ablation study and comparison of interaction methods
+Method AP@10 AP@30 F1 Decision
+Consistency
+w/o roleplay(single LLM)26.58 23.44 33.14 -
+w/o interaction35.43 28.04 35.62 0.68
+F ullInteraction32.14 27.85 33.64 0.62
+N etworkInteraction36.43 29.28 35.87 0.67
+GAT Interaction36.89 29.74 36.07 0.69
+SimVC-CAS 37.52 30.83 36.47 0.71
+SimVC-CAS (4o-mini) 38.11 31.24 37.02 0.73
+SimVC-CAS (Claude 3.5) 38.27 31.79 37.39 0.74
+5.6 Ablation Study
+Table 3 shows ablation results.w/o roleplay, where a sin-
+gle LLM jointly processes the startup profile and allkin-
+vestor resumes without simulating individual personas, suf-
+fers the most significant performance drop.This further
+validates that centralized reasoning cannot substitute for
+the collective intelligence of diverse agents.Similarly,
+w/o interactionremoves the interaction module and under-
+performs the full model, demonstrating the effectiveness of
+our interaction design.
+We further compare different interaction strategies.
+F ullInteraction, where all agents communicate indiscrim-
+inately, performs worse than the non-interaction baseline
+(w/o interaction) (F1: 33.64 vs 35.62),suggesting that un-
+structured communication introduces detrimental noise.
+In contrast,N etworkInteraction, which restricts interac-
+tions to historical co-investors, outperforms both (F1: 35.87),
+validating the importance of leveraging established co-
+investment topologies.Finally, whileGAT Interactionim-
+proves uponN etworkInteraction, it still lags behind our
+full model (F1: 36.07 vs 36.47).This confirms that our
+VGAT mechanism, by explicitly modeling the startup con-
+text, captures interaction patterns more effectively than
+standard GNNs.
+Finally, benchmarking with upgraded backbones (GPT-4o-
+mini6, Claude 3.5 Sonnet 7) yields consistent improvements,
+confirming the robustness of our framework across different
+LLMs. However, we acknowledge thatdata leakagein these
+newer models likely contributes to the gains.
+5.7 Consistency with Real Investors
+To evaluate whether our agents simulate real investor behav-
+ior, we introduce theDecision Consistencymetric. For all
+6https://platform.openai.com/docs/models/gpt-4o-mini
+7https://docs.anthropic.com/en/docs/about-claude/models
+
+
+[Page 7]
+investor-startup pairs, this metric measures the alignment be-
+tween simulated and actual decisions, defined as the percent-
+age of simulated decisions matching ground truth, for which
+the random baseline is 0.50. 8 Despite potential noise where
+investors simply missed unseen opportunities rather than re-
+jecting them, this metric validates that our agents capture spe-
+cific preferences beyond chance.
+As shown in Table 3, SimVC-CAS achievesthe
+highest Decision Consistency (0.71), outperforming
+w/o interaction(0.68) and the random baseline (0.50).
+The failure ofF ullInteraction(0.62) confirms thatour
+selective, graph-based interaction design is essentialfor
+modeling real VC dynamics.
+5.8 Decision Benefit from Modeling Interactions
+To quantify the marginal contribution of the collective in-
+teraction mechanism, we introduceConfidence Alignment
+Gain(∆C), which captures whether interaction steers pre-
+dictions closer to ground truth:
+∆C= (C (1)
+invest −C (0)
+invest)·(2y−1), y∈ {0,1},(14)
+whereC (1)
+invest andC (0)
+invest are confidence scores after and be-
+fore interaction, andyis the ground-truth label. The term
+(2y−1)ensures that∆C >0indicates improved alignment
+with ground truth—higher confidence for successful startups
+or lower confidence for failed ones.
+We investigate the correlation between this gain and startup
+network centrality (Figure 3). We calculate the PageRank
+score for each startup in the test set based on the investor-
+startup bipartite graph and compute the mean∆Cacross
+PageRank bins. A linear regression with 95% confidence
+interval reveals a clear trend: confidence alignment gain in-
+creases with PageRank. A higher PageRank indicates that
+the startup is embedded in a denser VC network, making it
+more critical to capture complex investor interaction dynam-
+ics. The trend validates thatfor startups embedded in ac-
+tive investment networks, our interaction design is partic-
+ularly effective.
+0.2 0.4 0.6 0.8 1.0
+Startup's PageRank £10−5
+−0.5
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+Confidence Alignment Gain
+Average Alignment Gain
+Linear Trend (95% CI)
+Figure 3: Impact of startup network centrality on collective interac-
+tion gain.
+5.9 Why Change Decisions After Interaction?
+To understand what drives decision changes, we prompt
+agents who revised their decisions after interaction to se-
+8We use a balanced dataset (all positive samples + equal ran-
+dom negatives) to calculate Decision Consistency. In raw VC data,
+“Invest” decisions are rare, so consistency is dominated by “Pass”
+decisions—allowing trivial “always Pass” strategies to score high.
+Balancing forces the metric to equally weight the agent’s ability to
+identify “Invest” opportunities and correctly “Pass”.
+Consensus
+Pressure
+Authority
+Influence
+Information
+Completion
+Risk
+Sharing
+Synergy
+Effect
+Others0
+10
+20
+30
+40
+50
+60
+70
+80Percentage (%)
+59.1%
+23.5%
+10.1%
+3.5% 2.2% 1.6%
+60.4%
+23.0%
+9.6%
+3.3% 2.1% 1.6%
+55.8%
+24.7%
+11.3%
+4.0% 2.4% 1.7%
+All Revisions
+Incorrect Revisions
+Correct Revisions
+Figure 4: Reasons for decision revisions across groups.
+lect from predefined reasons. As shown in Figure 4 (bars
+in blue),Consensus Pressure (59.1%), Authority Influence
+(23.5%), and Information Completion (10.1%)emerge as
+the most frequently cited factors. We further distinguish be-
+tween correct revisions (changes aligning with ground truth,
+in green) and incorrect revisions (orange). Notably,cor-
+rect revisions rely less on conforming to majority opin-
+ionsfrom surrounding agents (55.8% vs 60.4%), butplace
+more weight on deferring to established investors(24.7%
+vs 23.0%) andincorporating new factual detailsthrough
+the network (11.3% vs 9.6%), suggesting thateffective de-
+cisions prioritize expert opinions and facts from the net-
+work over surrounding consensus [76; 12]. See Appendix
+1.4 for classification details.
+6 Conclusion
+From the perspective of investor groups, this study proposes
+SimVC-CAS, a collective agent system designed to simu-
+late the decision-making dynamics of venture capital. Un-
+like traditional approaches that overlook the investor collec-
+tive effect, SimVC-CAS explicitly models the interactions
+among investors during the investment decision-making pro-
+cess. Our experiments demonstrate that this collective model-
+ing approach achieves significant performance improvements
+and reveals how network environment shape decision quality,
+particularly for network-central startups. The SimVC-CAS
+framework is designed to be general and may extend to other
+complex group decision-making settings.
+
+
+[Page 8]
+References
+[1] H. Abelson, G. J. Sussman, and J. Sussman,Structure
+and Interpretation of Computer Programs. Cambridge,
+Massachusetts: MIT Press, 1985.
+[2] R. Baumgartner, G. Gottlob, and S. Flesca, “Visual
+information extraction with Lixto,” inProceedings
+of the 27th International Conference on Very Large
+Databases. Rome, Italy: Morgan Kaufmann, Septem-
+ber 2001, pp. 119–128.
+[3] R. J. Brachman and J. G. Schmolze, “An overview of the
+KL-ONE knowledge representation system,”Cognitive
+Science, vol. 9, no. 2, pp. 171–216, April–June 1985.
+[4] G. Gottlob, N. Leone, and F. Scarcello, “Hypertree de-
+compositions and tractable queries,”Journal of Com-
+puter and System Sciences, vol. 64, no. 3, pp. 579–627,
+May 2002.
+[5] G. Gottlob, “Complexity results for nonmonotonic log-
+ics,”Journal of Logic and Computation, vol. 2, no. 3,
+pp. 397–425, June 1992.
+[6] H. J. Levesque, “A logic of implicit and explicit belief,”
+inProceedings of the Fourth National Conference on
+Artificial Intelligence. Austin, Texas: American As-
+sociation for Artificial Intelligence, August 1984, pp.
+198–202.
+[7] ——, “Foundations of a functional approach to knowl-
+edge representation,”Artificial Intelligence, vol. 23,
+no. 2, pp. 155–212, July 1984.
+[8] B. Nebel, “On the compilability and expressive power
+of propositional planning formalisms,”Journal of Arti-
+ficial Intelligence Research, vol. 12, pp. 271–315, 2000.
+[9] S. Lyu, X. Li, S. Hong, Q. Ke, J. Gu, K. Zhang,
+and H. Zhang, “Help me screen: Analyzing and
+predicting the success of start-ups in dynamic venture
+capital networks,”ACM Trans. Intell. Syst. Technol.,
+vol. 16, no. 6, Oct. 2025. [Online]. Available:
+https://doi.org/10.1145/3763001
+[10] R. Nanda, S. Samila, and O. Sorenson, “The per-
+sistent effect of initial success: Evidence from
+venture capital,”Journal of Financial Economics, vol.
+137, no. 1, pp. 231–248, 2020. [Online]. Avail-
+able: https://www.sciencedirect.com/science/article/pii/
+S0304405X20300337
+[11] L. P. Argyle, E. C. Busby, N. Fulda, J. R. Gubler, C. Ryt-
+ting, and D. Wingate, “Out of one, many: Using lan-
+guage models to simulate human samples,”Political
+Analysis, vol. 31, no. 3, pp. 337–351, 2023.
+[12] A. V . Banerjee, “A simple model of herd behavior,”The
+Quarterly Journal of Economics, vol. 107, no. 3, pp.
+797–817, 1992.
+[13] F. J. Bargagli-Stoffi, J. Niederreiter, and M. Riccaboni,
+“Supervised learning for the prediction of firm dy-
+namics,” inData Science for Economics and Finance:
+Methodologies and Applications. Springer Interna-
+tional Publishing Cham, 2021, pp. 19–41.
+[14] L. Bergset and K. Fichter, “Green start-ups–a new ty-
+pology for sustainable entrepre-neurship and innovation
+research,”Journal of innovation management, vol. 3,
+no. 3, pp. 118–144, 2015.
+[15] S. Bikhchandani, D. Hirshleifer, and I. Welch, “A theory
+of fads, fashion, custom, and cultural change as infor-
+mational cascades,”Journal of political Economy, vol.
+100, no. 5, pp. 992–1026, 1992.
+[16] G. Boocock and M. Woods, “The evaluation criteria
+used by venture capitalists: evidence from a uk venture
+fund,”International Small Business Journal, vol. 16,
+no. 1, pp. 36–57, 1997.
+[17] J. A. Brander, R. Amit, and W. Antweiler, “The venture-
+capital syndication network,”Journal of Economics &
+Management Strategy, vol. 11, no. 3, pp. 423–452,
+2002.
+[18] W. J. Clancey, “The Engineering of Qualitative Mod-
+els,” 2021, forthcoming.
+[19] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit,
+L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin,
+“Attention is all you need,” 2017.
+[20] NASA, “Pluto: The ’other’ red planet,” https://
+www.nasa.gov/nh/pluto-the-other-red-planet, 2015, ac-
+cessed: 2018-12-06.
+[21] W. J. Clancey, “Transfer of Rule-Based Expertise
+through a Tutorial Dialogue,” Ph.D. diss., Dept. of Com-
+puter Science, Stanford Univ., Stanford, Calif., 1979.
+[22] ——, “Communication, Simulation, and Intelligent
+Agents: Implications of Personal Intelligent Machines
+for Medical Education,” inProceedings of the Eighth
+International Joint Conference on Artificial Intelligence
+(IJCAI-83). Menlo Park, Calif: IJCAI Organization,
+1983, pp. 556–560.
+[23] ——, “Classification Problem Solving,” inProceedings
+of the Fourth National Conference on Artificial Intelli-
+gence. Menlo Park, Calif.: AAAI Press, 1984, pp.
+45–54.
+[24] G. Cassar, “The financing of business start-ups,”Jour-
+nal of business venturing, vol. 19, no. 2, pp. 261–283,
+2004.
+[25] T. J. Chemmanur, K. Krishnan, and D. K. Nandy, “How
+does venture capital financing improve efficiency in pri-
+vate firms? a look beneath the surface,”The Review of
+Financial Studies, vol. 24, no. 12, pp. 4037–4090, 2011.
+[26] J. H. Cochrane, “The risk and return of venture capital,”
+Journal of financial economics, vol. 75, no. 1, pp. 3–52,
+2005.
+[27] H. Tuet al., “qi’o,”arXiv preprint arXiv:2509.10698,
+2025.
+[28] A. G. De Carvalho, C. W. Calomiris, and J. A. de Matos,
+“Venture capital as human resource management,”Jour-
+nal of Economics and Business, vol. 60, no. 3, pp. 223–
+255, 2008.
+
+
+[Page 9]
+[29] D. Dellermann, N. Lipusch, P. Ebel, K. M. Popp, and
+J. M. Leimeister, “Finding the unicorn: Predicting
+early stage startup success through a hybrid intelligence
+method,”arXiv preprint arXiv:2105.03360, 2021.
+[30] D. W. Diamond and R. G. Rajan, “Banks, short-term
+debt and financial crises: theory, policy implications and
+applications,” inCarnegie-Rochester conference series
+on public policy, vol. 54, no. 1. Elsevier, 2001, pp.
+37–71.
+[31] T. Elfring and W. Hulsink, “Networking by en-
+trepreneurs: Patterns of tie—formation in emerging or-
+ganizations,”Organization studies, vol. 28, no. 12, pp.
+1849–1872, 2007.
+[32] R. Engelmore and A. Morgan, Eds.,Blackboard Sys-
+tems. Reading, Mass.: Addison-Wesley, 1986.
+[33] E. Union,The Missing Entrepreneurs 2019 Policies for
+Inclusive Entrepreneurship. OECD Publishing, 2019.
+[34] L. Zhanget al., “The gaining paths to invest-
+ment success: Information-driven llm graph reason-
+ing for venture capital prediction,”arXiv preprint
+arXiv:2512.23489, 2025.
+[35] Z. Gao and Y . Xiao, “Enhancing startup success
+predictions in venture capital: A graphrag aug-
+mented multivariate time series method,”arXiv preprint
+arXiv:2408.09420, 2024.
+[36] I. Goldstein, Y . Xiong, and L. Yang, “Information shar-
+ing in financial markets,”Journal of Financial Eco-
+nomics, vol. 163, p. 103967, 2025.
+[37] P. A. Gompers, “Optimal investment, monitoring, and
+the staging of venture capital,”The Journal of Finance,
+vol. 50, no. 5, pp. 1461–1489, 1995.
+[38] P. A. Gompers, W. Gornall, S. N. Kaplan, and I. A. Stre-
+bulaev, “How do venture capitalists make decisions?”
+Journal of Financial Economics, vol. 135, no. 1, pp.
+169–190, 2020.
+[39] B. Griffin, J. Ternasky, F. Alican, and Y . Ihlamur,
+“Random rule forest (rrf): Interpretable ensembles of
+llm-generated questions for predicting startup success,”
+2025. [Online]. Available: https://arxiv.org/abs/2505.
+24622
+[40] B. Han and L. Yang, “Social networks, information
+acquisition, and asset prices,”Management Science,
+vol. 59, no. 6, pp. 1444–1457, 2013.
+[41] D. W. Hasling, W. J. Clancey, and G. Rennels,
+“Strategic explanations for a diagnostic consulta-
+tion system,”International Journal of Man-Machine
+Studies, vol. 20, no. 1, pp. 3–19, 1984. [Online]. Avail-
+able: https://www.sciencedirect.com/science/article/pii/
+S0020737384800036
+[42] D. W. Hasling, W. J. Clancey, G. R. Rennels, and
+T. Test, “Strategic Explanations in Consultation—
+Duplicate,”The International Journal of Man-Machine
+Studies, vol. 20, no. 1, pp. 3–19, 1983.
+[43] J. He, C. Treude, and D. Lo, “Llm-based multi-agent
+systems for software engineering: Literature review, vi-
+sion, and the road ahead,”ACM Transactions on Soft-
+ware Engineering and Methodology, vol. 34, no. 5, pp.
+1–30, 2025.
+[44] Y . V . Hochberg, A. Ljungqvist, and Y . Lu, “Whom you
+know matters: Venture capital networks and investment
+performance,”The journal of finance, vol. 62, no. 1, pp.
+251–301, 2007.
+[45] S. N. Kaplan and P. Str ¨omberg, “Characteristics, con-
+tracts, and actions: Evidence from venture capitalist
+analyses,”The Journal of Finance, vol. 59, no. 5, pp.
+2177–2210, 2004, foundational paper on VC screening
+criteria.
+[46] S. N. Kaplan, B. A. Sensoy, and P. Str¨omberg, “Should
+investors bet on the jockey or the horse? evidence from
+the evolution of firms from early business plans to pub-
+lic companies,”The Journal of Finance, vol. 64, no. 1,
+pp. 75–115, 2009.
+[47] W. R. Kerr, R. Nanda, and M. Rhodes-Kropf, “En-
+trepreneurship as experimentation,”Journal of Eco-
+nomic Perspectives, vol. 28, no. 3, pp. 25–48, 2014.
+[48] D. Kim and S. Y . Lee, “When venture capitalists are
+attracted by the experienced,”Journal of Innovation and
+Entrepreneurship, vol. 11, no. 1, p. 31, 2022.
+[49] A. Krishna, A. Agrawal, and A. Choudhary, “Predicting
+the outcome of startups: less failure, more success,” in
+2016 IEEE 16th international conference on data min-
+ing workshops (ICDMW). IEEE, 2016, pp. 798–805.
+[50] R. La Porta, F. Lopez-de Silanes, A. Shleifer, and
+R. Vishny, “Investor protection and corporate gover-
+nance,”Journal of financial economics, vol. 58, no. 1-2,
+pp. 3–27, 2000.
+[51] I. Lee, E. Kim, and E. M. Marcotte, “Modes of interac-
+tion between individuals dominate the topologies of real
+world networks,”PloS one, vol. 10, no. 3, p. e0121248,
+2015.
+[52] J. Lerner, “The syndication of venture capital invest-
+ments,”Financial Management, vol. 23, no. 3, pp. 16–
+27, 1994.
+[53] H. Li, R. Gong, and H. Jiang, “Political actor agent:
+Simulating legislative system for roll call votes predic-
+tion with large language models,” inProceedings of
+the AAAI Conference on Artificial Intelligence, vol. 39,
+no. 1, 2025, pp. 388–396.
+[54] Y . Liu, “Why do large investors disclose their informa-
+tion?”Swiss Finance Institute Research Paper, no. 18-
+17, 2017.
+[55] J. Luo, W. Zhang, Y . Yuan, Y . Zhao, J. Yang, Y . Gu,
+B. Wu, B. Chen, Z. Qiao, Q. Longet al., “Large lan-
+guage model agent: A survey on methodology, applica-
+tions and challenges,”arXiv preprint arXiv:2503.21460,
+2025.
+[56] S. Lyu, S. Ling, K. Guo, H. Zhang, K. Zhang,
+S. Hong, Q. Ke, and J. Gu, “Graph neural network
+
+
+[Page 10]
+based vc investment success prediction,”arXiv preprint
+arXiv:2105.11537, 2021.
+[57] A. Maarouf, S. Feuerriegel, and N. Pr ¨ollochs, “A fused
+large language model for predicting startup success,”
+European Journal of Operational Research, vol. 322,
+no. 1, pp. 198–214, 2025.
+[58] C. Mavromatis and G. Karypis, “Gnn-rag: Graph neu-
+ral retrieval for large language model reasoning,”arXiv
+preprint arXiv:2405.20139, 2024.
+[59] P. X. McCarthy, X. Gong, F. Stephany, F. Braesemann,
+M.-A. Rizoiu, and M. L. Kern, “The science of startups:
+The impact of founder personalities on company suc-
+cess,”arXiv preprint arXiv:2302.07968, 2023.
+[60] T. Miloud, A. Aspelund, and M. Cabrol, “Startup valua-
+tion by venture capitalists: an empirical study,”Venture
+Capital, vol. 14, no. 2-3, pp. 151–174, 2012.
+[61] E. Ozince and Y . Ihlamur, “Automating venture capi-
+tal: Founder assessment using llm-powered segmenta-
+tion, feature engineering and automated labeling tech-
+niques,”arXiv preprint arXiv:2407.04885, 2024.
+[62] H. Pei, Z. Liu, X. Xiao, X. Du, S. Hong, K. Zhang,
+and H. Zhang, “The gaining paths to investment
+success: Information-driven llm graph reasoning for
+venture capital prediction,” 2026. [Online]. Available:
+https://arxiv.org/abs/2512.23489
+[63] J. M. Podolny, “Networks as the pipes and prisms of the
+market,”American journal of sociology, vol. 107, no. 1,
+pp. 33–60, 2001.
+[64] IJCAI Proceedings, “IJCAI camera ready submission,”
+https://proceedings.ijcai.org/info.
+[65] A. L. Robinson, “New ways to make microcircuits
+smaller,”Science, vol. 208, no. 4447, pp. 1019–1022,
+1980. [Online]. Available: https://science.sciencemag.
+org/content/208/4447/1019
+[66] ——, “New Ways to Make Microcircuits Smaller—
+Duplicate Entry,”Science, vol. 208, pp. 1019–1026,
+1980.
+[67] J. Rice, “Poligon: A System for Parallel Problem Solv-
+ing,” Dept. of Computer Science, Stanford Univ., Tech-
+nical Report KSL-86-19, 1986.
+[68] A. M. Robb and D. T. Robinson, “The capital structure
+decisions of new firms,”The Review of Financial Stud-
+ies, vol. 27, no. 1, pp. 153–179, 2014.
+[69] J. B. Roure and R. H. Keeley, “Predictors of success
+in new technology based ventures,”Journal of business
+venturing, vol. 5, no. 4, pp. 201–220, 1990.
+[70] W. A. Sahlman, “The structure and governance of
+venture-capital organizations,”Journal of Financial
+Economics, vol. 27, no. 2, pp. 473–521, 1990.
+[71] D. S. Scharfstein and J. C. Stein, “Herd behavior and
+investment,”The American Economic Review, pp. 465–
+479, 1990.
+[72] J. Sevilla-Bernardo, B. Sanchez-Robles, and T. C.
+Herrador-Alcaide, “Success factors of startups in re-
+search literature within the entrepreneurial ecosystem,”
+Administrative Sciences, vol. 12, no. 3, p. 102, 2022.
+[73] M. Shanahan, K. McDonell, and L. Reynolds, “Role
+play with large language models,”Nature, vol. 623, no.
+7987, pp. 493–498, 2023.
+[74] B. Sharchilev, M. Roizner, A. Rumyantsev, D. Ozornin,
+P. Serdyukov, and M. De Rijke, “Web-based startup suc-
+cess prediction,” inProceedings of the 27th ACM in-
+ternational conference on information and knowledge
+management, 2018, pp. 2283–2291.
+[75] M. Song, K. Podoynitsyna, H. Van Der Bij, and J. I.
+Halman, “Success factors in new ventures: A meta-
+analysis,”Journal of product innovation management,
+vol. 25, no. 1, pp. 7–27, 2008.
+[76] M. Sørensen, “How smart is smart money? a two-sided
+matching model of venture capital,”The Journal of Fi-
+nance, vol. 62, no. 6, pp. 2725–2762, 2007.
+[77] O. Sorenson and T. E. Stuart, “Syndication networks
+and the spatial distribution of venture capital invest-
+ments,”American Journal of Sociology, vol. 106, no. 6,
+pp. 1546–1588, 2001.
+[78] M. Spence, “Job market signaling,”The Quarterly Jour-
+nal of Economics, vol. 87, no. 3, pp. 355–374, 1973,
+nobel Prize paper on Signaling Theory.
+[79] T. E. Stuart, H. Hoang, and R. C. Hybels, “Interor-
+ganizational endorsements and the performance of en-
+trepreneurial ventures,”Administrative science quar-
+terly, vol. 44, no. 2, pp. 315–349, 1999.
+[80] T. T. Tyebjee and A. V . Bruno, “A model of ven-
+ture capitalist investment activity,”Management sci-
+ence, vol. 30, no. 9, pp. 1051–1066, 1984.
+[81] C. ¨Unal and I. Ceasu, “A machine learning approach
+towards startup success prediction,” IRTG 1792 Discus-
+sion Paper, Tech. Rep., 2019.
+[82] B. Uzzi, “Embeddedness in the making of financial
+capital: How social relations and networks benefit
+firms seeking financing,”American sociological review,
+vol. 64, no. 4, pp. 481–505, 1999.
+[83] H. Wang, S. Zhao, J. Wang, Z. Qiang, B. Qin, and
+T. Liu, “Beyond frameworks: Unpacking collaboration
+strategies in multi-agent systems,” inProceedings
+of the 63rd Annual Meeting of the Association for
+Computational Linguistics (Volume 1: Long Papers),
+W. Che, J. Nabende, E. Shutova, and M. T. Pilehvar,
+Eds. Vienna, Austria: Association for Computational
+Linguistics, Jul. 2025, pp. 21 361–21 375. [Online].
+Available: https://aclanthology.org/2025.acl-long.1037/
+[84] C. Qian, Z. Xie, Y . Wang, W. Liu, K. Zhu,
+H. Xia, Y . Dang, Z. Du, W. Chen, C. Yang,
+Z. Liu, and M. Sun, “Scaling large language model-
+based multi-agent collaboration,” inThe Thirteenth
+International Conference on Learning Representations,
+
+
+[Page 11]
+2025. [Online]. Available: https://openreview.net/
+forum?id=K3n5jPkrU6
+[85] L. Wang, J. Zhang, H. Yang, Z. Chen, J. Tang, Z. Zhang,
+X. Chen, Y . Lin, R. Song, W. X. Zhaoet al., “User
+behavior simulation with large language model based
+agents,”arXiv preprint arXiv:2306.02552, 2023.
+[86] N. Wang, Z. Peng, H. Que, J. Liu, W. Zhou, Y . Wu,
+H. Guo, R. Gan, Z. Ni, J. Yanget al., “Rolellm: Bench-
+marking, eliciting, and enhancing role-playing abilities
+of large language models,” inFindings of the Associa-
+tion for Computational Linguistics: ACL 2024, 2024,
+pp. 14 743–14 777.
+[87] X. Wang, Y . Ihlamur, and F. Alican, “Ssff: Investigating
+llm predictive capabilities for startup success through
+a multi-agent framework with enhanced explainability
+and performance,” 2025. [Online]. Available: https:
+//arxiv.org/abs/2405.19456
+[88] S. Weixiang, M. Qamruzzaman, W. Rui, and R. Kler,
+“Retracted: An empirical assessment of financial liter-
+acy and behavioral biases on investment decision: Fresh
+evidence from small investor perception,”Frontiers in
+psychology, vol. 13, p. 977444, 2022.
+[89] R. Wilson, “The theory of syndicates,”Econometrica:
+journal of the Econometric Society, pp. 119–132, 1968.
+[90] Y . Yu, Z. Yao, H. Li, Z. Deng, Y . Jiang, Y . Cao, Z. Chen,
+J. Suchow, Z. Cui, R. Liuet al., “Fincon: A synthe-
+sized llm multi-agent system with conceptual verbal re-
+inforcement for enhanced financial decision making,”
+Advances in Neural Information Processing Systems,
+vol. 37, pp. 137 010–137 045, 2024.
+[91] S. Zhang, H. Zhong, Z. Yuan, and H. Xiong, “Scal-
+able heterogeneous graph neural networks for predict-
+ing high-potential early-stage startups,” inProceedings
+of the 27th ACM SIGKDD Conference on Knowledge
+Discovery & Data Mining, 2021, pp. 2202–2211.
+[92] W. Zhang, L. Zhao, H. Xia, S. Sun, J. Sun, M. Qin,
+X. Li, Y . Zhao, Y . Zhao, X. Caiet al., “A multimodal
+foundation agent for financial trading: Tool-augmented,
+diversified, and generalist,” inProceedings of the 30th
+acm sigkdd conference on knowledge discovery and
+data mining, 2024, pp. 4314–4325.
+[93] E. Zhang, X. Wang, P. Gong, Y . Lin, and J. Mao, “Usim-
+agent: Large language models for simulating search
+users,” inProceedings of the 47th International ACM
+SIGIR Conference on Research and Development in In-
+formation Retrieval, 2024, pp. 2687–2692.
+[94] Q. Zhang, K. Ding, T. Lv, X. Wang, Q. Yin, Y . Zhang,
+J. Yu, Y . Wang, X. Li, Z. Xianget al., “Scientific large
+language models: A survey on biological & chemical
+domains,”ACM Computing Surveys, vol. 57, no. 6, pp.
+1–38, 2025.
+1 10 20 30
+k
+26
+28
+30
+32
+34
+36
+38F1 Score (%)
+26.36
+36.47
+37.37 37.81
+No interaction
+Traditional Interaction
+Network Interaction
+GAT Interaction
+OurModel
+Figure 5: Performance comparison (F1 score) across varied interac-
+tion strategies with differentkvalues.
+7 Appendix
+7.1 Impact of Candidate Investor Scale (k)
+To evaluate the impact of the number of candidate investors
+kon our method, we conducted experiments withk=
+1,10,20,and30. Meanwhile, we examined the performance
+differences across various interaction modes under different
+kvalues. As shown in Figure 5, which presents F1 score line
+graphs for each interaction mode across the testedkvalues,
+all interaction modes - except for the traditional interaction -
+demonstrate improved F1 askincreases. However, the rate of
+improvement diminishes significantly whenk >10.Based
+on these observations, we considerk= 10to be a cost-
+effective choice: randomly selecting 10 investors around
+a startup provides a representative approximation of the
+broader investor group’s decision-making. Given that
+real-world VC decisions involve substantial capital and
+complex evaluations, the computational overhead intro-
+duced by this model is minimal in comparison. Therefore,
+scaling up the number of candidate investors emerges as a
+practical and effective strategy for enhancing model per-
+formance.
+Furthermore, it was found that when k=1, the F1 is lower
+thanw/o roleplay(26.36 vs 30.03). At this point, the model
+does not involve multi-role interaction and is essentially a
+few-shot learning with biases.This indicates that relying
+solely on the experience of a single investor for few-shot
+learning will introduce significant decision biases, result-
+ing in the model’s performance being weaker than the
+zero-shot capability of the LLM.
+7.2 Details of VGAT training
+To simulate the investor interaction pattern jointly determined
+by the characteristics of the target company, the attributes of
+individual investors and the topology of the co-investment
+network, we designed the VGAT model. In the method sec-
+tion of the main text, we have already elaborated on the de-
+tails of VGAT. Here, we will introduce the training process
+of VGAT. We train VGAT using the AdamW optimizer with
+a learning rate configuration of1e −3. The contrast learning
+hyperparameterαset to 0.01. All the aforementioned ex-
+periments are conducted on two RTX 3090 GPUs. All the
+aforementioned experiments are conducted on two RTX 3090
+GPUs.
+Introduction to Training Data
+Our training objective is to utilize supervised learning to en-
+able the model to capture the interaction patterns among in-
+vestors. The data records the historical investment informa-
+
+
+[Page 12]
+tion of each startup company. We use its future joint invest-
+ment relationship with investors as a supervisory signal - this
+is a stricter indicator for measuring investor interaction. Al-
+though this standard is rather strict and may lose some poten-
+tial interaction signals, the main experimental results in the
+text show that this method is effective.
+To ensure no time overlap with the main evaluation task
+(based on companies that received their first round of financ-
+ing from October 2021 to November 2022), we selected the
+data of companies that received their first round of financ-
+ing from October 2016 to September 2021 for training and
+evaluation. The company used needs to meet the condition
+of obtaining the next round of financing within the next year,
+which provides the required data on future joint investment
+relationships. The dataset is divided as follows: Training set:
+Companies that received their first round of financing from
+October 2016 to September 2019; Validation set: Companies
+that received their first round of financing from October 2019
+to March 2020; Test set: Companies that received their first
+round of financing from April 2020 to September 2020.
+For each eligible startup company, in order to be consis-
+tent with the main experiment, we randomly selectedk= 10,
+20, and 30 potential candidate investors respectively to con-
+struct three independent joint investment relationship predic-
+tion networks. In each network, if two investors connected
+by an edge do indeed jointly invest in the company within the
+next year, that edge is marked as a positive sample. Other-
+wise, it is marked as a negative sample.
+Since candidate investors are randomly selected, the result-
+ing co-investment graphs are naturally sparse, leading to ex-
+treme class imbalance in some instances. To ensure training
+stability and prevent the model from collapsing into a trivial
+”always-negative” predictor, we filter out networks with an
+extremely low signal-to-noise ratio (positive-to-negative edge
+ratio<0.05). After this necessary preprocessing to handle
+sparsity, the final dataset comprises 1,992 training networks,
+247 validation networks, and 222 test networks. Crucially,
+even after filtering, the average positive-to-negative ratio re-
+mains low at 0.2062, preserving the challenge of identifying
+sparse interaction signals while removing only the most un-
+informative noise
+Evaluation indicators and model performance
+To quantitatively evaluate our model, we assess its classifica-
+tion performance by computing the average Precision (P), av-
+erage Recall (R), and average F1-score (F1) for graphs within
+each test set.
+To highlight the rationality of the VGAT design through
+comparison, we adopted a two-layer GAT model as the base-
+line model for comparison. In this baseline model: 1. Vir-
+tual nodes are not introduced; 2. The embedding represen-
+tation of company information is directly concatenated after
+the feature vectors of each investor node. 3. The character-
+istics of an edge are ultimately formed by the characteristics
+of the two associated investor nodes and the concatenate of
+the edge weights. In addition, the other structural designs
+and loss functions of the model are consistent with those of
+VGAT.
+As shown in Table 4, VGAT demonstrates significant ad-
+Method Precision Recall F1
+GAT 69.62 77.76 73.47
+VGAT76.18 82.70 79.31
+Table 4: The performance of GAT and VGAT
+vantages in the joint investment relationship prediction task.
+Compared with the baseline GAT model, VGAT improved by
+6.56%, 4.94% and 5.84% respectively in the three indicators
+of precision (76.18% vs 69.62%), recall (82.70% vs 77.76%)
+and F1 value (79.31% vs 73.47%). This consistency advan-
+tage validates the effectiveness of the virtual node design: by
+explicitly modeling the global impact of company character-
+istics on investment interaction patterns, VGAT more accu-
+rately captures the collaborative behaviors among investors.
+7.3 Crunchbase Public-Dataset Evaluation
+Dataset.To facilitate reproducibility, we use the publicly
+available Crunchbase 2013 snapshot 9 containing 196,553
+companies and 226,708 individuals funded between 2005–
+2013.Although smaller in scale, it preserves relational
+structures consistent with PitchBook.
+Task and labels.We align our task formulation with the
+main experiments: predicting whether a startup that receives
+seed/angel funding at timet 0 will successfully raise Series A
+capital within the subsequent year. The binary label is defined
+asy= 1if the next financing round occurs during the interval
+[t0, t0+12months], andy= 0otherwise.
+Splits.Data is partitioned strictly by time to prevent
+temporal information leakage, resulting in an approximate
+train:val:test ratio of 7:1:2. The dataset yields a total of
+4,375 labeled samples, with the training and validation pe-
+riods strictly preceding the testing window. As discussed in
+the main text, given the vintage of this public dataset, we ac-
+knowledge that the LLMs employed in our framework may
+have been exposed to this historical data during pre-training,
+making implicit data leakage unavoidable.
+Training and baselines.All model components, prompts,
+and evaluation protocols follow the main experiments. We
+compare SimVC-CAS against the same baselines under iden-
+tical metric definitions.
+Results.Table 5 reports results on Crunchbase. SimVC-
+CAS achieves consistent improvements over the strongest
+baseline:+6.82%AP@10,+2.66%AP@30, and+1.66%
+F1, matching the trends observed on PitchBook.We also
+note that all models exhibit varying degrees of perfor-
+mance degradation on Crunchbase compared to Pitch-
+Book, likely due to the fact that this public snapshot con-
+tains less comprehensive information than the proprietary
+PitchBook dataset.
+9https://github.com/mtwilliams/crunchbase-in-2013
+
+
+[Page 13]
+Table 5: Performance on public Crunchbase data.
+Method AP@10 AP@30 Precision Recall F1
+BERT Fusion 25.57 25.26 23.54 48.10 31.61
+SHGMNN 26.38 26.13 18.85 64.82 29.12
+GST 26.54 26.32 19.6468.4530.48
+GNN-RAG 27.12 25.26 20.88 58.34 30.70
+SSFF 27.36 25.41 22.15 51.92 31.05
+SimVC-CAS 34.18 28.98 24.0554.1233.27
+7.4 Taxonomy and Classification of Decision
+Revision
+Task Definition
+To interpret the collective dynamics within SimVC-CAS,
+we analyze the rationale behind investors’ decision updates.
+specifically, for every investor agent who changes their de-
+cision (e.g., from “Pass” to “Invest” or vice versa) after the
+interaction phase, we aim to categorize the primary driver of
+this revision. This analysis provides qualitative insights into
+how the simulated agents influence each other.
+Category Taxonomy
+We establish a taxonomy of six decision revision reasons,
+grounded in classic venture capital and behavioral finance lit-
+erature:
+1.Information Completion:The investor revises their
+decision after acquiring critical overlooked information
+(e.g., market details, technical barriers) from peers.(Ba-
+sis: Information Asymmetry & Social Learning)
+2.Authority Influence:The investor is swayed by the op-
+posing judgment of a more senior or reputable investor
+(e.g., a lead investor).(Basis: Reputation Effect & Sta-
+tus)
+3.Consensus Pressure:The investor alters their confi-
+dence upon perceiving that the majority of peers hold
+a contrary opinion.(Basis: Herding Behavior)
+4.Synergy Effect:The decision changes because the entry
+of specific investors is expected to bring complementary
+resources.(Basis: Value-Added Syndication)
+5.Risk Sharing:The investor decides to invest after see-
+ing others join, thereby reducing the perceived idiosyn-
+cratic risk.(Basis: Risk Diversification)
+6.Others:Any rationale that does not fit into the above
+categories (e.g., purely random fluctuations or vague ex-
+planations).
+Automated Classification with GPT-4o
+To scale this analysis across all test samples, we employ
+GPT-4oas an automated annotator. The model is provided
+with the investor’s self-reported “Revised Reasoning” and
+tasked with mapping it to one or more of the defined cate-
+gories. The prompt used for this classification is presented in
+Figure 6.
+Prompt for Decision Revision Classification
+Role:You are a professional Venture Capital Analyst.
+Task:Analyze the reason why an investor changed
+their decision after communicating with peers. Read the
+[Decision Revision Explanation] and classify it into one or
+more of the following categories:
+Categories:
+A. [Information Completion]: Gained overlooked key info
+(market, tech, team) from peers.
+B. [Authority Influence]: Influenced by senior investors or
+lead investors.
+C. [Consensus Pressure]: Confidence changed due to
+majority opposing opinion.
+D. [Synergy Effect]: Expected resource complementarity
+from specific co-investors.
+E. [Risk Sharing]: Perceived risk reduced due to others
+joining.
+F. [Others]: Reasons not fitting above.
+Input:
+[Decision Revision Explanation]:{Input Text}
+Output Requirement:
+Output only the matched Category ID and Name (e.g., “A.
+[Information Completion]; C. [Consensus Pressure]”).
+Figure 6: The prompt used for classifying decision revision reasons.
+7.5 Consistency Analysis
+Unlike embedding based models, large language models may
+produce different results over multiple runs. Therefore, we
+analyzed the consistency of the results generated by SimVC-
+CAS. We randomly select 20 startups and repeat the experi-
+ment 20 times.
+The experimental results are shown in Figure 7. The hori-
+zontal axis represents different experimental results, the ver-
+tical axis represents each start-up company, and different col-
+ors reflect various scores output by the system. Overall, only
+a very small number of samples showed differences in results
+across different experiments, which fully demonstrates that
+our model has excellent consistency performance.
+7.6 Prompt Display
+As shown in Figure 8, we present the design ideas of the
+prompts used in the model for initial decision-making and
+interactive corrective decision-making.
+7.7 Explainability Display
+As shown in the figure 9 and figure 10, we present two exam-
+ple to illustrate the interpretability of the SimVC-CAS predic-
+tion results. In this example, the investor first introduced him-
+self, then presented his independent analysis and investment
+decision, and finally, after interacting with other investors, the
+investor revised his decision.
+
+
+[Page 14]
+1 10 20
+Number of experiments
+11020
+Startups
+0.8
+0.2 0.2
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Figure 7: The consistency experiment results.
+ 
+This is your personal profile: {investor profile}.
+Now it's {The time of the first round of financing for start-up}, and you will play the role of 
+{investor’s name}, conducting investment analysis for a start-up company and deciding wh
+ether to invest in it within the next year.
+Mandatory Process: 
+------ Phase 1: Declaration ------
+1. Self-introduction and profile-based capability assessment.
+2. If lacking relevant experience: Explicitly state impact on decision validity.
+------ Phase 2: Investment Analysis Framework ------
+Evaluate startup risks using:
+A.  Team Validation.  B.  Company fundamental assessment.  C.  Industry Window Analysis
+. D.  Benchmarking analysis (Comparison with your past investments).
+------ Phase 3: Decision Protocol ------
+•  Output : Binary conclusion (True/False).
+•  Constraints : Follow-on investment within 12 months.
+Target startup’s portrait: {startup's portrait}.
+In addition, we will also provide you with your initial analysis and decision as well as those
+ of other investors for your reference.
+Your last analysis and decision: {investor’s initial analysis and decision}
+Other investor’s profile, analysis and decision: 
+                      [{other investor’s profile, other investor’s analysis and decision}......]
+For this evaluation, you must incorporate your past decisions and other investors' choices 
+and the level of other investors.  If your current conclusion materially differs from historical 
+patterns, explicitly explain newly identified risks or opportunities.
+Initial analysis and decision
+   Interaction and remediate decision
+Figure 8: Prompt display
+
+
+[Page 15]
+ScienceIO 
+ Austin Rief
+ I'm Austin Rief, co-founder and Chief Operating Officer of Morning Brew. My experience mainly revolves around establishing and expanding 
+enterprises, especially in the fields of news briefs and digital media. I have also been involved ......
+After making the initial decision, I had the opportunity to learn the views of several other investors, including Ankur Nagpal 
+and Scott Belsky, who all decided to invest in ScienceIO.  Ankur pointed out that although the team's experience might be limited, their academic background is 
+very strong, and innovations in the field of medical technology often come from teams with a solid academic foundation.  Scott emphasized the huge potential of 
+the biomedical data analysis market, believing that even in a highly competitive environment, companies with a clear value proposition can still gain a 
+considerable market share.  Joshua Buckley also shared ......Through the viewpoints of other investors.   I realized that I might have focused too much on the 
+team's lack of experience and failed to fully consider their academic background and innovative potential.   Although experience is important, in the field of 
+medical technology, a profound academic background and a deep understanding of problems are equally crucial.   I have also rethought the essence of market 
+competition.   Although the medical technology field is indeed highly competitive, it is also a huge and constantly growing market with ample room to 
+accommodate multiple successful players.   ScienceIO focuses on the specific field of biomedical data simplification and analysis, which gives them a clear 
+positioning.   Furthermore, I re-examined my investment experience in the field of basic medicine.   Looking back at the time when I invested in basic medicine, 
+I also faced similar challenges.   However, with its powerful products and clear market strategy, it has successfully established a leading position in the market.   
+Final investment decision: True
+The founding team of ScienceIO includes co-founders Lara Yuan, Will Manidis and Gaurav Kaushik.     Lara Yuan 
+graduated from Princeton University, which indicates that she has a strong academic background.     The experiences and educational backgrounds of Will 
+Manidis and Gaurav Kaushik were not elaborated, but having a co-founder with a good academic background is a positive indicator.     However, due to the lack 
+of detailed information about their previous entrepreneurial or industry-specific experiences, I am concerned about whether they can handle the complexity of the 
+medical technology field....... However, in the fierce competition, as established enterprises consolidate their positions, the window for new entrants is 
+narrowing...... In my investment experience, I have collaborated with companies in the medical and technology sectors, such as Foundation Medicine, which 
+focuses on cancer diagnosis.     Basic medicine has become a leader in this field. When there is a suitable product market and implementation, it proves the 
+potential for the success of medical technology...... Based on team analysis, industry window analysis and benchmark comparison, I think investing in ScienceIO is 
+a mistake.     The team lacks sufficient validation in terms of experience. With the increasingly fierce market competition, enterprises must clearly define their 
+differentiation strategies if they want to succeed.     Final investment decision: False
+Figure 9: An example demonstrating how investors make investment decisions and ultimately revise their investment decisions through
+interaction with other investors.
+  First Automation
+ Yoshihiko Kinoshita
+I am Yoshihiko Kinoshita, an executive at Skyland Ventures with a background in investment, particularly in the technology and software 
+sectors.  My investment experience includes various companies, such as Aidemy and Audiostock......
+By comparing with the viewpoints of other investors, I have gained a more comprehensive perspective: Masao Ito came to the 
+conclusion that investing in First Automation is definite (True), citing the existence of credible investors and the growth potential of the automation industry. 
+However, he also admitted that further due diligence was needed on the core team. Shun Sakurai reached a negative (False) conclusion, emphasizing the core 
+team's insufficient expertise in automation and hardware fields and the specific market conditions of the automated services. The divergence in investors' 
+conclusions highlights a key risk: the uncertainty surrounding the core team's capabilities and the specific market dynamics of the automation services 
+industry. Although Masao Ito saw potential based on overall market growth, Shun Sakurai and I were both concerned about the team's limited professional 
+background in automation hardware and unclear market positioning. This indicates that although there may be opportunities in the field of automation, the 
+execution risk remains high due to the team's inadequate industry-specific experience. Taking everything into consideration, my decision is consistent with Shun 
+Sakurai's assessment, emphasizing caution due to the team's insufficient automation hardware expertise and my limited experience in the hardware field. 
+Therefore, regarding the investment in First Automation, I maintain the final conclusion of negative (False). Final investment decision: False
+The team of First Automation includes Yuya Murakami, Masao Ito and Shun Sakurai. Although I didn't work 
+directly with Yuya or Shun, Masao Ito has a reliable track record in investing in various technology companies, including Aidemy. The presence of experienced 
+investors can be seen as a positive signal, but the core team appears to lack substantial professional backgrounds in the fields of automation and hardware, which 
+is concerning. "First Automation" was established in 2020 and is in a relatively early stage in the automation industry. In the post-pandemic era, as enterprises 
+pursue efficiency improvement, the market for automated services is growing. However, the company's classification as "other hardware" may indicate that its 
+market positioning is not clear enough, which could limit its growth potential. When comparing "First Automation" with the companies I have invested in (such 
+as Aidemy and Cover Corporation), I find that my successful investments are mainly concentrated in the fields of software and educational technology rather than 
+hardware. For instance, Aidemy has achieved success in the field of educational software, which is quite different from the hardware automation services that 
+"First Automation" focuses on. This difference in industry focus might limit the applicability of my previous investment insights to this startup. Based on the 
+limited experience in hardware investment, the core team's insufficient expertise in automation and hardware, and the ambiguity of the market positioning of 
+"First Automation", I initially believe that the investment decision should be negative. Final investment decision: False
+Figure 10: An example demonstrating how investors make investment decisions and ultimately revise their investment decisions through
+interaction with other investors.

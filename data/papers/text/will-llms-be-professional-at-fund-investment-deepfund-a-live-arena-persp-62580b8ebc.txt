@@ -1,0 +1,464 @@
+[Page 1]
+arXiv:2503.18313v2  [cs.MA]  26 Jun 2025
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+Will LLMs be Professional at Fund Investment?
+DeepFund: A Live Arena Perspective
+Changlun Li1,2 Yao Shi1,2 Yuyu Luo1 Nan Tang1∗
+1The Hong Kong University of Science and Technology (Guangzhou)
+2PAI Lab
+Abstract
+Large Language Models (LLMs) have demonstrated impressive capabilities across various
+domains, but their effectiveness in financial decision-making remains inadequately evaluated.
+Current benchmarks primarily assess LLMs’ understanding on financial documents rather than
+the ability to manage assets or dig out trading opportunities in dynamic market conditions.
+Despite the release of new benchmarks for evaluating diversified tasks on the financial domain,
+we identified four major problems in these benchmarks, which are data leakage, navel-gazing,
+over-intervention, and maintenance-hard. To pave the research gap, we introduce DeepFund,
+a comprehensive arena platform for evaluating LLM-based trading strategies in a live environ-
+ment. Our approach implements a multi-agent framework where they serve as multiple key
+roles that realize the real-world investment decision processes. Moreover, we provide a web in-
+terface that visualizes LLMs’ performance with fund investment metrics across different market
+conditions, enabling detailed comparative analysis. Through DeepFund, we aim to provide a
+more realistic and fair assessment on LLM’s capabilities in fund investment, offering diversified
+insights and revealing their potential applications in real-world financial markets. Our code is
+publicly available athttps://github.com/HKUSTDial/DeepFund.
+1 Introduction
+The financial industry has witnessed a revolution with the integration of artificial intelligence
+technologies over the past decade [10, 11, 31]. From high-frequency trading algorithms [15,
+1, 34, 14] to risk assessment models [2, 32, 6], AI has transformed how financial institutions
+operate and make decisions. Recently, Large Language Models (LLMs) have emerged as partic-
+ularly promising tools for financial analysis because of their ability to process vast amounts of
+contextual information, understand market sentiment, and generate insights from diverse data
+sources[25,29,27,21,26]. Furthermore,theAgenticAItechniqueisincreasinglybeingdeployed
+in autonomous trading flow, which can make investment decisions based on multi-modal market
+information, such as regional policy, earnings reports, technical indicators, etc [22, 20, 28, 30, 9].
+For the sake of a comprehensive evaluation on LLM-based approaches in the field of Financial
+AI, researchers have conducted a series of benchmarking studies. Current evaluation benchmarks
+such as TAT-QA [33], FinanceBench [5], CFBenchmark [7] and FinNLI [16] have made valuable
+contributions by assessing LLMs’ understanding of financial documents, terminology, and basic
+reasoning. For example, LLM is required to answer questions about financial documents, such
+as balance sheets, income statements or financial news articles. However, these benchmarks pri-
+marily focus on the representation learning of financial knowledge rather than exploring models’
+abilities to make effective investment decisions in dynamic market conditions. Therefore, sev-
+eral modern benchmarks gradually shift their focus to the decision-making tasks, such as FinRL-
+Meta [13], FinBen [23] and InvestorBench [8].
+A primary limitation in existing benchmarks lies in the backtest methodology—the standard
+methodforassessingtradingstrategies. Thisapproachisparticularlyproblematicwhenappliedto
+LLMs, asthesemodelshavelikelybeenpre-trainedonsubstantialportionsoffinancialhistory[18,
+∗Corresponding author: nantang@hkust-gz.edu.cn
+1
+
+
+[Page 2]
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+Pr oblems in Existing Benchmarks
+Y et w e ar e not r ealizing
+Dedicat ed T o Build a Whole Ne w T est bed
+Data Leakage
+R eal-time Updat e M a s t e r i n g  W a r  b y  W a r A gent Driv en F ull Aut omation
+Na v al-Gazing M a i n t e n a n c e - H a r dO v e r - I n t e r v e n t i o n
+T raditional backt esting 
+r elies on past static data, 
+which also ser v es as t he 
+training corpus f or lar ge 
+models.
+Daily updat e ar ena, mak e 
+sur e e v er y data is fr esh 
+and useful.
+V i s u a l l y  v a l i d a t e  t h e  
+g e n e r a t e d  r e p o r t ' s  
+a c c u r a c y  t h r o u g h  t h e  
+m o d e l ' s  r e p r e s e n t a t i o n .
+A g e n t ' s  s e l f - r e g u l a t e d  
+t r a d i n g  s y s t e m ,  l e a v i n g  
+e v e r y t h i n g  t o  t h e  a g e n t .
+A  u n i f i e d  d e s i g n  a r c h i t e c t u r e  
+a n d  u s e r - f r i e n d l y  i n t e r f a c e  
+e n s u r e  s e a m l e s s  a u t o m a t i c  
+u p d a t e s  f o r  t h e  e n t i r e  s y s t e m .
+E x c e s s i v e  m a n u a l  
+i n t e r v e n t i o n  b a s e d  o n  s e t  
+s t r a t e g i e s  h i n d e r s  e f f e c t i v e  
+a s s e s s m e n t  o f  t h e  m o d e l ' s  
+i n h e r e n t  c a p a b i l i t i e s .
+The absence of periodic 
+mark et data r efr esh 
+pr e v ent s k eeping pace 
+wit h model updat es.
+M o s t  m o d e l s  l a c k  p r a c t i c a l  
+a p p l i c a t i o n ,  f o c u s i n g  s o l e l y  
+o n  t e x t  a n d  r e p o r t  a n a l y s i s  
+w i t h o u t  c o r r e s p o n d i n g  
+e v a l u a t i o n .
+DeepFund
+Daily U pdates
+Deep Fund
+Figure 1: The problem in existing solutions and our vision.
+12]. As revealed in technical reports, different LLMs have varying knowledge cutoffs—DeepSeek-
+R1’strainingdataendsinDecember2023[3], whileGPT-4o’sextendstoJune2024[4]. Whenan
+LLM trained on data up to a certain date is evaluated on historical market data from before that
+date, information leakage[24, 19, 17] becomes inevitable, creating misleading assessments of
+the model’s true predictive capabilities. Apart from that, we discuss more problems in Section 2.
+To address these limitations, we introduceDeepFund, a comprehensive arena platform for
+evaluatingLLM-basedtradingstrategiesinaliveenvironment. Ourapproachdiffersfromprevious
+solutions in several contributions:
+• We construct a holistic arena platform that mimics real-time trading environment, mitigat-
+ing the information leakage problem inherent in traditional backtesting.
+• We implement a multi-agent framework where LLMs serve as trading planner, analysts and
+managers, creating more realistic investment decision processes.
+• We provide a complete web interface that visualizes model performance across different
+market conditions and investment parameters.
+• We establish standardized evaluation metrics specifically designed for assessing financial
+decision-making capabilities of LLMs.
+2
+
+
+[Page 3]
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+2 Problems in Existing Solutions
+While significant progress has been made in applying LLMs to financial markets, current ap-
+proaches face several critical limitations that hinder their effective evaluation and real-world ap-
+plication. In this section, we identify and analyze four major problems in existing solutions.
+2.1 Data Leakage
+The most fundamental issue in evaluating LLM-based financial strategies is data leakage—where
+models are tested on historical data they may have already encountered during pre-training. This
+creates a critical flaw in the traditional backtesting methodology when applied to LLMs. The
+phenomenon ofpre-training contaminationemerges because LLMs are typically trained on vast
+internet corpora that include financial news, market reports, and analyst discussions covering
+historical market events. When these models are subsequently evaluated on historical market
+data from periods prior to their training cutoff dates, they have effectively already “seen” both
+the market conditions and expert analyses of those conditions. This contamination leads tomis-
+leading performance metricsthat may reflect the model’s ability to recall information rather
+than its ability to make genuinely predictive judgments. A model might appear to make remark-
+ably accurate predictions about historical market movements not because it understands market
+dynamics, but because it has memorized the historical narrative. Further complicating this issue
+is the problem ofknowledge cutoff inequity—different LLMs have different knowledge cutoff
+dates, making direct comparison unfair. A model with a more recent cutoff will have seen more
+of the “test” data during training compared to a model with an earlier cutoff date, creating an
+uneven evaluation landscape.
+2.2 Navel-Gazing
+CurrentevaluationsofLLMsinfinancesufferfromwhatweterm“navel-gazing”—anover-reliance
+on theoretical frameworks and backtesting rather than real-time performance assessment. A sig-
+nificanttheory-practice gappersists in these evaluations, which often focus on how well models
+can explain financial theories or concepts rather than how effectively they can apply these con-
+ceptsindynamicmarketconditions. AmodelmayexcelatexplainingModernPortfolioTheorybut
+fail to construct an effective portfolio under realistic constraints, revealing a disconnect between
+theoretical knowledge and practical application. The prevalence ofstatic evaluationmethodolo-
+gies further exacerbates this issue, as benchmarks typically evaluate models on fixed datasets,
+missing the adaptive reasoning required in real markets where conditions change continuously
+and unpredictably. Most concerning is the widespreadlack of forward testing—few evaluation
+frameworks implement true forward testing, where models make predictions about future mar-
+ket movements without access to subsequent information. This approach, which more accurately
+reflects the task faced by human investment professionals, remains underutilized in current LLM
+evaluation frameworks, reinforcing the disconnection between evaluation metrics and real-world
+performance.
+2.3 Over-Intervention
+ManycurrentimplementationsofLLMsinfinancerelyheavilyonhumanintervention,limitingour
+understanding of the models’ autonomous capabilities. The pervasiveprompt engineering de-
+pendenceinfinancialapplicationsofLLMsintroducessignificantvariabilityinperformance, mak-
+ing it difficult to assess the model’s intrinsic capabilities separate from the skill of the prompt engi-
+neer. This dependency means that performance metrics often conflate model quality with prompt
+craftsmanship, obscuring the genuine capabilities of the underlying system. The widespread re-
+liance onhuman-in-the-loop processingfurther complicates evaluation, as many systems de-
+pend on humans to filter, interpret, or validate model outputs before making actual investment
+decisions. While practical for commercial applications, this human mediation makes it difficult to
+evaluate the model’s independent decision-making ability, as the final outcomes reflect a hybrid
+human-AI process rather than the model’s autonomous judgment. Adding to these challenges is
+3
+
+
+[Page 4]
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+the lack of standardizationacross implementation approaches, with varying degrees of human
+intervention making direct comparisons between models challenging. It becomes increasingly
+difficult to determine whether performance differences stem from the models themselves or from
+differences in the human intervention processes, creating an evaluation landscape that lacks re-
+producibility.
+2.4 Maintenance-Hard
+Financial benchmarks face unique maintenance challenges that static benchmarks in other do-
+mains do not encounter. The necessity forcontinuous data updatesarises because financial
+markets generate new data ceaselessly. To remain relevant, benchmarks must be regularly up-
+dated with fresh data that post-dates all models’ training cutoffs, requiring significant ongoing
+resource commitment and creating a perpetual maintenance burden. Complicating this further,
+financial markets undergoshifting market regimes, where previously reliable patterns and cor-
+relations change fundamentally. Benchmarks must account for these shifts to provide fair and
+relevant evaluations across different market conditions, necessitating not just data updates but
+conceptual recalibration of the evaluation framework itself. The substantialcost of data access
+presents another significant barrier, as high-quality financial data is expensive and often subject
+to licensing restrictions, creating obstacles to creating comprehensive, open-source benchmarks
+accessible to the broader research community. Perhaps most scientifically concerning are there-
+producibility issues that emerge as market conditions change, causing results from financial
+benchmarks to become less reproducible over time and challenging the scientific rigor of the field.
+This temporal dependency creates a fundamental tension between the static nature of scientific
+reproducibility and the dynamic nature of financial markets.
+These four interrelated problems—data leakage, navel-gazing, over-intervention, and main-
+tenance challenges—highlight the need for a new approach to evaluating LLMs in financial con-
+texts. The limitations of current methodologies motivate our development ofDeepFund, which
+addresses these issues through a forward-looking, standardized arena approach.
+3 Our Vision
+To address the limitations in current evaluation methodologies, we propose four interconnected
+objectives forDeepFund that target the fundamental causes of existing problems.
+To combat data leakage, we implement a forward-testing focus where models predict future
+market movements rather than analyze historical patterns they may have encountered during
+training. Our time-controlled live environment provides information chronologically, ensuring
+models access only data available at each decision point. All evaluation datasets use market
+data after knowledge cutoffs of assessed models, creating fair comparison conditions regardless
+of when models were trained.
+For the navel-gazing problem, we establish bridges between theory and practice by exposing
+models to diverse market conditions—normal trading periods, high volatility intervals, varied
+economic environments, and unexpected information shocks. Models must manage diversified
+portfoliosacrossmultipleassetclasses,demonstratingpracticalallocationskillsbeyondtheoretical
+knowledge. Weevaluateperformanceacrossvariousinvestmenthorizons,fromshort-termtrading
+to long-term investment strategies.
+To minimize human intervention, we create a standardized evaluation framework with a con-
+sistent protocol for information exchange and decision communication, reducing variability from
+different prompting strategies or human filtering. Emphasis on autonomous operation allows
+clear assessment of intrinsic capabilities without human judgment interference. Transparent pro-
+cedures ensure replicability and enable fair comparisons across different models.
+For maintenance challenges, we develop a sustainable, extensible platform with modular ar-
+chitecture facilitating updates to data, metrics, and model interfaces without complete system
+redesign. Open standards for data formats and protocols foster collaborative development, while
+resource optimization ensures efficient operation despite growing financial data volumes.
+4
+
+
+[Page 5]
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+St ock P ool
+Curr ent P osition
+T r ading Memor y
+A gent Planner Analyst s A gent Manager
+Insider F u n d a m e n t a l C o m m u n i t y
+M e d i a
+Ev en mor e analyst s! W e 
+allo w user t o define t heir 
+o wn trade analyst s!
+.  .  .
+T e c h n i c a l
+Decision
+R epor t
+FinalInt erimInitial
+H O L D
+B U Y
+S E L L
+Decision Log
+A A P L   1 0 0 3 / 2 0 B U Y
+N V D A   1 0 0 3 / 2 0 H O L D
+A M Z N   1 0 0 3 / 2 1 S E L L
+N V D A    1 0 0 3 / 2 1 B U Y
+M S F T   1 0 0 3 / 2 1 H O L D
+Ticker
+Pr o f o lio
+Ticker s
+Ticker
+New
+. . .
+M e m o r y
+A n a l y s t  I n - t h e - l o o p R e s u l t s  f r o m  A n a l y s t s
+A n a l y s t  1  
+W e b  API
+T e c h n i c a l
+M A 9 9 :  G o l d e n  C r o s s ROE  R isi n g  t o 15%
+RO A K eep U nchan g e d  8%R S I :  <  3 0
+B o l l i n g e r  B a n d s :  R i s e
+S i g n a l :  B U Y
+S i g n a l :  B U Y
+S i g n a l :  H O L D
+S i g n a l :  S E L L
+L a r g e   b y  
+C - S u i t e  E x e c u t i v e s
+P u r c h a s e s
+C o m p a n y   B u y b a c k s
+I n s i d e r
+F u n d a m e n t a l
+M e d i a
+A n a l y s t  2
+.  .  .+ +
+A n a l y s t  3
+ A n a l y s t  4
+.  .  .+ +
+D e b t / e qu it y :  < 0.5
+Figure2: Architectureof DeepFund: Athree-phaseworkflowmovingfrominitialdatapreparation
+through interim multi-agent analysis to final decision making.
+Finally, through these integrated objectives,DeepFund creates a new paradigm for evaluating
+LLMs in finance—addressing fundamental limitations while providing a platform that evolves
+with advances in financial markets and AI technology.
+4 Our Proposal: DeepFund
+Our design follows a three-phase workflow as illustrated in Figure 2, moving from initial data
+preparation through interim multi-agent analysis to final decision-making.
+The DeepFundplatform architecture addresses specific challenges in LLM financial evaluation
+through four integrated components. OurLive Trading Environmentdirectly confronts the data
+leakage problem by creating a controlled ecosystem that mimics real-time market conditions.
+This environment provides LLMs with current market data, news, and financial information on
+a day-by-day basis, ensuring models make decisions with only the information available at that
+specificpointintime. Theworkflowbeginswiththreecoreinputs: adiversestockpoolcontaining
+potential investment targets, current position information reflecting existing portfolio allocations,
+and trading memory that captures historical transaction data and performance metrics.
+At the heart of our approach lies a sophisticatedMulti-Agent Frameworkthat bridges the-
+ory and practice. As shown in the framework illustration, we implement a hierarchical system
+with three distinct agent types. The Agent Planner orchestrates the overall analysis process, de-
+termining which stocks require evaluation and distributing analytical tasks. Multiple specialized
+Analysts—categorized as Technical, Fundamental, Insider, and Media analysts—process market
+information to generate domain-specific insights. Each analyst type applies different methodolo-
+gies and focuses on distinct aspects of financial evaluation: technical analysts examine price pat-
+terns and market indicators, fundamental analysts assess company financial and business models,
+insider analysts track executive transactions and corporate changes, and media analysts monitor
+news sentiment and market narratives. Finally, the Agent Manager synthesizes these diverse an-
+alytical perspectives to make final investment decisions (buy, hold, or sell) and generates detailed
+decision reports. This structure mimics real-world investment processes while eliminating human
+intervention in decision pathways.
+Supporting our goal of creating a sustainable and extensible platform, ourModel Integration
+Interface provides a modularic solution for seamless integration of different foundation LLMs as
+well as various upstream financial data sources. The interface enables fair comparison across
+models regardless of their underlying architecture or training methodology. As acknowledged
+that the existing analysts may not be able to provide the best analysis for all tickers, in light of the
+5
+
+
+[Page 6]
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+Figure 3:DeepFundcurrently envisions a front-end rendering, which is under rapid development
+and does not represent the final effect. Demo Link:http://deepfund.paradoox.ai/.
+open-source nature of the platform, we encourage the community to extend the platform with
+new signal analysis via curated analysis and data sources.
+Our comprehensivePerformance Monitoring and Visualizationmodule tracks and visual-
+izes model performance across various dimensions. The decision logs capture not only the final
+buy/hold/sell actions but also the reasoning analysis from each specialist. This multi-faceted view
+enables a detailed examination of investment strategies and outcomes through both traditional
+financial metrics and LLM-specific evaluation criteria. Finally, as shown in Figure 3, we present
+the trading performance of the model in a user-friendly web interface, which allows for easy com-
+parison and analysis across different market conditions.
+5 Conclusion
+In the realm of evaluating LLMs for fund investment, existing benchmarks face several critical
+limitations. To address these limitations, we proposedDeepFund, a live arena benchmarking
+tool that establishes a holistic architecture, including four essential modules, the Live Trading En-
+vironment, Multi-Agent Framework, Model Integration Interface, and Performance Monitoring
+and Visualization. DeepFund creates a new paradigm for evaluating LLMs in fund investment,
+which can potentially contribute to the development of more reliable and effective AI-based fi-
+nancial decision-making tools. Meanwhile, LLM live benchmarking remains a promising research
+direction in financial domain as well as our research priority.
+6
+
+
+[Page 7]
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+References
+[1] Antonio Briola, Jeremy D. Turiel, Riccardo Marcaccioli, and Tomaso Aste. Deep reinforce-
+ment learning for active high frequency trading.ArXiv, abs/2101.07107, 2021.
+[2] Paolo Giudici. Fintech risk management: A research challenge for artificial intelligence in
+finance. Frontiers in Artificial Intelligence, 1:1, 2018.
+[3] DayaGuo, DejianYang, HaoweiZhang, JunxiaoSong, RuoyuZhang, RunxinXu, QihaoZhu,
+Shirong Ma, Peiyi Wang, Xiao Bi, et al. Deepseek-r1: Incentivizing reasoning capability in
+llms via reinforcement learning.arXiv preprint arXiv:2501.12948, 2025.
+[4] Aaron Hurst, Adam Lerer, Adam P Goucher, Adam Perelman, Aditya Ramesh, Aidan Clark,
+AJ Ostrow, Akila Welihinda, Alan Hayes, Alec Radford, et al. Gpt-4o system card.arXiv
+preprint arXiv:2410.21276, 2024.
+[5] Pranab Islam, Anand Kannappan, Douwe Kiela, Rebecca Qian, Nino Scherrer, and Bertie
+Vidgen. Financebench: A new benchmark for financial question answering.arXiv preprint
+arXiv:2311.11944, 2023.
+[6] Haider Ali Javaid. Ai-driven predictive analytics in finance: Transforming risk assessment
+and decision-making.Advances in Computer Sciences, 7(1), 2024.
+[7] Yang Lei, Jiangtong Li, Dawei Cheng, Zhijun Ding, and Changjun Jiang. Cfbench-
+mark: Chinese financial assistant benchmark for large language model. arXiv preprint
+arXiv:2311.05812, 2023.
+[8] Haohang Li, Yupeng Cao, Yangyang Yu, Shashidhar Reddy Javaji, Zhiyang Deng, Yueru He,
+Yuechen Jiang, Zining Zhu, Koduvayur Subbalakshmi, Guojun Xiong, Jimin Huang, Lingfei
+Qian, Xueqing Peng, Qianqian Xie, and Jordan W. Suchow. Investorbench: A benchmark for
+financial decision-making tasks with llm-based agent.ArXiv, abs/2412.18174, 2024.
+[9] Xiangyu Li, Yawen Zeng, Xiaofen Xing, Jin Xu, and Xiangmin Xu. Hedgeagents: A balanced-
+aware multi-agent financial trading system.arXiv preprint arXiv:2502.13165, 2025.
+[10] Yinheng Li, Shaofei Wang, Han Ding, and Hang Chen. Large language models in finance:
+A survey. InProceedings of the fourth ACM international conference on AI in finance, pages
+374–382, 2023.
+[11] Junhua Liu. A survey of financial ai: Architectures, advances and open challenges.ArXiv,
+abs/2411.12747, 2024.
+[12] Pengfei Liu, Weizhe Yuan, Jinlan Fu, Zhengbao Jiang, Hiroaki Hayashi, and Graham Neu-
+big. Pre-train, prompt, and predict: A systematic survey of prompting methods in natural
+language processing.ACM Computing Surveys, 2021.
+[13] Xiao-Yang Liu, Ziyi Xia, Jingyang Rui, Jiechao Gao, Hongyang Yang, Ming Zhu, Chris Wang,
+Zhaoran Wang, and Jian Guo. Finrl-meta: Market environments and benchmarks for data-
+driven financial reinforcement learning.SSRN Electronic Journal, 2022.
+[14] Xiao-Yang Liu, Hongyang Yang, Qian Chen, Runjia Zhang, Liuqing Yang, Bowen Xiao, and
+Christina Dan Wang. Finrl: A deep reinforcement learning library for automated stock
+trading in quantitative finance.arXiv preprint arXiv:2011.09607, 2020.
+[15] Yang Liu, Qi Liu, Hongke Zhao, Zhen Pan, and Chuanren Liu. Adaptive quantitative trad-
+ing: An imitative deep reinforcement learning approach. InAAAI Conference on Artificial
+Intelligence, 2020.
+[16] Jabez Magomere, Elena Kochkina, Samuel Mensah, Simerjot Kaur, and Charese H. Smiley.
+Finnli: Novel dataset for multi-genre financial natural language inference benchmarking. In
+North American Chapter of the Association for Computational Linguistics, 2025.
+7
+
+
+[Page 8]
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+[17] Shiwen Ni, Xiangtao Kong, Chengming Li, Xiping Hu, Ruifeng Xu, Jia Zhu, and Min Yang.
+Trainingonthebenchmarkisnotallyouneed. ProceedingsoftheAAAIConferenceonArtificial
+Intelligence, 39(23):24948–24956, 2025.
+[18] Fabio Petroni, Tim Rocktäschel, Patrick Lewis, Anton Bakhtin, Yuxiang Wu, Alexander H
+Miller, and Sebastian Riedel. Language models as knowledge bases? arXiv preprint
+arXiv:1909.01066, 2019.
+[19] Mathieu Ravaut, Bosheng Ding, Fangkai Jiao, Hailin Chen, Xingxuan Li, Ruochen Zhao,
+Chengwei Qin, Caiming Xiong, and Shafiq Joty. How much are large language mod-
+els contaminated? a comprehensive survey and the llmsanitize library. arXiv preprint
+arXiv:2404.00699, 2024.
+[20] Saizhuo Wang, Hang Yuan, Lionel M Ni, and Jian Guo. Quantagent: Seeking holy grail in
+trading by self-improving large language model.arXiv preprint arXiv:2402.03755, 2024.
+[21] Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski, Mark Dredze, Sebastian Gehrmann,
+Prabhanjan Kambadur, David Rosenberg, and Gideon Mann. Bloomberggpt: A large lan-
+guage model for finance.arXiv preprint arXiv:2303.17564, 2023.
+[22] Yijia Xiao, Edward Sun, Di Luo, and Wei Wang. Tradingagents: Multi-agents llm financial
+trading framework.arXiv preprint arXiv:2412.20138, 2024.
+[23] Qianqian Xie, Weiguang Han, Zhengyu Chen, Ruoyu Xiang, Xiao Zhang, Yueru He, Mengxi
+Xiao, Dong Li, Yongfu Dai, Duanyu Feng, et al. Finben: A holistic financial benchmark
+for large language models.Advances in Neural Information Processing Systems, 37:95716–
+95743, 2024.
+[24] Ruijie Xu, Zengzhi Wang, Run-Ze Fan, and Pengfei Liu. Benchmarking benchmark leakage
+in large language models.ArXiv, abs/2404.18824, 2024.
+[25] Hongyang Yang, Xiao-Yang Liu, and Christina Dan Wang. Fingpt: Open-source financial
+large language models.FinLLM Symposium at IJCAI 2023, 2023.
+[26] Hongyang Yang, Boyu Zhang, Neng Wang, Cheng Guo, Xiaoli Zhang, Likun Lin, Jun-
+lin Wang, Tianyu Zhou, Mao Guan, Runjia Zhang, et al. Finrobot: an open-source ai
+agent platform for financial applications using large language models. arXiv preprint
+arXiv:2405.14767, 2024.
+[27] Xinli Yu, Zheng Chen, Yuan Ling, Shujing Dong, Zongyi Liu, and Yanbin Lu. Temporal data
+meets llm–explainable financial time series forecasting.arXiv preprint arXiv:2306.11025,
+2023.
+[28] Yangyang Yu, Haohang Li, Zhi Chen, Yuechen Jiang, Yang Li, Denghui Zhang, Rong Liu,
+Jordan W Suchow, and Khaldoun Khashanah. Finmem: A performance-enhanced llm trad-
+ing agent with layered memory and character design. InProceedings of the AAAI Symposium
+Series, pages 595–597, 2024.
+[29] Boyu Zhang, Hongyang Yang, and Xiao-Yang Liu. Instruct-fingpt: Financial sentiment anal-
+ysis by instruction tuning of general-purpose large language models.FinLLM Symposium at
+IJCAI 2023, 2023.
+[30] Wentao Zhang, Lingxuan Zhao, Haochong Xia, Shuo Sun, Jiaze Sun, Molei Qin, Xinyi Li,
+Yuqing Zhao, Yilei Zhao, Xinyu Cai, et al. A multimodal foundation agent for financial
+trading: Tool-augmented,diversified,andgeneralist. In Proceedingsofthe30thACMSIGKDD
+Conference on Knowledge Discovery and Data Mining, pages 4314–4325, 2024.
+[31] Huaqin Zhao, Zhengliang Liu, Zihao Wu, Yiwei Li, Tianze Yang, Peng Shu, Shaochen Xu,
+Haixing Dai, Lin Zhao, Gengchen Mai, et al. Revolutionizing finance with llms: An overview
+of applications and insights.arXiv preprint arXiv:2401.11641, 2024.
+8
+
+
+[Page 9]
+PARADOOX AI
+FinLLM Workshop at IJCAI 2025
+[32] Xiao-lin Zheng, Meng-ying Zhu, Qi-bing Li, Chao-chao Chen, and Yan-chao Tan. Finbrain:
+when finance meets ai 2.0. Frontiers of Information Technology & Electronic Engineering,
+20(7):914–924, 2019.
+[33] Fengbin Zhu, Wenqiang Lei, Youcheng Huang, Chao Wang, Shuo Zhang, Jiancheng Lv, Fuli
+Feng, and Tat seng Chua. Tat-qa: A question answering benchmark on a hybrid of tabular
+and textual content in finance.ArXiv, abs/2105.07624, 2021.
+[34] Chuqiao Zong, Chaojie Wang, Molei Qin, Lei Feng, Xinrun Wang, and Bo An. Macrohft:
+Memory augmented context-aware reinforcement learning on high frequency trading. In
+Knowledge Discovery and Data Mining, 2024.
+9

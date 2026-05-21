@@ -1,0 +1,880 @@
+[Page 1]
+Vol.:(0123456789)
+The Review of Socionetwork Strategies (2024) 18:255–278
+https://doi.org/10.1007/s12626-024-00169-z
+ARTICLE
+Event Identification for Supply Chain Risk Management 
+Through News Analysis by Using Large Language Models
+Maryam Shahsavari1  · Omar Khadeer Hussain1 · Morteza Saberi2 · 
+Pankaj Sharma1
+Received: 12 February 2024 / Accepted: 28 June 2024 / Published online: 15 July 2024 
+© The Author(s) 2024
+Abstract
+Event identification is important in many areas of the business world. In the sup-
+ply chain risk management domain, the timely identification of risk events is vital 
+to ensure the success of supply chain operations. One of the important sources of 
+real-time information from across the world is news sources. However, the analy -
+sis of large amounts of daily news cannot be done manually by humans. On the 
+other hand, extracting related news depends on the query or the keyword used in the 
+search engine and the news content. Recent advancements in artificial intelligence 
+have opened up opportunities to leverage intelligent techniques to automate this 
+analysis. This paper introduces the LUEI framework, a lightweight framework that, 
+with only the event’s name as input, can autonomously learn all the related phrases 
+associated with that event. It then employs these phrases to search for relevant news 
+and presents the search engine results with a label indicating their relevance. Hence, 
+by conducting this analysis, the LUEI framework is able to identify the occurrence 
+of the event in the real world. The framework’s novel contribution lies in its ability 
+to identify those events (termed as the Contributing Events (CEs)) that contribute 
+to the occurrence of a risk event, offering a proactive approach to risk management 
+in supply chains. Pinpointing CEs from vast news data gives supply chain managers 
+actionable insights to mitigate risks before they escalate.
+Keywords Supply chain risk management · Event identification · Risk 
+identification · Large language models · Bayesian network · Natural language 
+processing · Information retrieval
+ * Maryam Shahsavari 
+ m.shahsavari@unsw.edu.au
+1 School of Business, UNSW Canberra, Northcott Drive, Campbell, Canberra, ACT  , Australia
+2 School of Computer Science, UTS, 15 Broadway Ultimo, Sydney, NSW, Australia
+
+
+[Page 2]
+256 The Review of Socionetwork Strategies (2024) 18:255–278
+1 Introduction
+Supply chain risk management (SCRM) is a systematic and iterative approach 
+involving risk identification, assessment, treatment, and monitoring to manage sup-
+ply chain business operations [1–3]. This research focuses on the step of risk identi-
+fication, which involves identifying disruptive events before their potential impact on 
+operations is quantified. The successful completion of the risk identification phase is 
+important as it allows the risk manager to develop appropriate strategies to address 
+these vulnerabilities during the risk management process. By using quantitative or 
+qualitative approaches, existing works on proactive risk identification aim to deter -
+mine the risk event/s that have the potential to impact the outcome to be achieved 
+[4–9]. While this is beneficial, it does not consider the contributing events (CEs) 
+leading to the risk event, thereby limiting their ability to proactively determine the 
+occurrence of the risks. This is supported by Cohen et al. [10] and Chapman et al. 
+[11] who state that a company assessing its supply chain risk exposure, apart from 
+merely identifying the risk event/s, must also identify the potential causes and CEs 
+leading to such risk event/s. To explain with an example, during the COVID-19 pan-
+demic, staff shortage was one of the risk events impacting supply chain companies. 
+However, this risk event occurs for many reasons. For example, an increased number 
+of COVID cases will result in border closures (see Fig  1). It will also result in the 
+likelihood of more staff becoming sick, so they must quarantine. When these fac-
+tors occur simultaneously, they lead to the risk event of staff shortage. As shown in 
+Fig  1, in this scenario, the red node is the risk event, and all the other nodes are CEs. 
+This paper emphasises that the early identification of any of these CEs can help in 
+the early detection of the risk event and the organization can proactively implement 
+any preventive actions it deems necessary to take. Thus, constructing a network of 
+CEs that may lead to specific risks is an important first step.
+Fig. 1  CEs leading to the occurrence of a risk event
+
+
+[Page 3]
+257
+The Review of Socionetwork Strategies (2024) 18:255–278 
+To achieve this aim, in this paper, we propose an artificial intelligence (AI)-based 
+framework named Contributing Event-based Risk Identification and Assessment 
+(CERIA) for supply chains. CERIA comprises two steps: (a) it builds a causal rela-
+tionship between a risk event and its CEs by analyzing past news data and utilizing a 
+Bayesian network (BN) to map these relationships, and (b) it continuously monitors 
+the daily news to detect the occurrence of these CEs. After identifying the occur -
+rence of a CE in the daily news, CERIA evaluates its likelihood of occurrence and 
+integrates it into the BN, which calculates the probability of the occurrence of the 
+potential risk event. This paper focuses on CERIA’s second step, identifying the 
+occurrence of CEs in news sources. Many researchers have tackled this problem 
+by developing data-processing AI models that identify the events in a sentence. For 
+these models to work, they need huge preprocessed or annotated data, to train them-
+selves before being applied to real-world data, otherwise they will not have meaning-
+ful output. While having training data is achievable if these methods aim to ascertain 
+a commonly occurring risk event (which may be limited in number), it is impracti-
+cable when they need to be applied to multiple CEs, particularly when these risk 
+events are previously unknown. This may be due to various reasons, the primary one 
+being the lack of data related to these CEs on which the data-processing AI models 
+can be trained. This paper addresses this problem by utilizing the notion of seed 
+phrases related to the CEs. Seed phrases are keywords related to the CEs that are 
+utilised to find relevant news articles for that particular CE. Our proposed approach, 
+which we term a Lightweight Unsupervised Event Identification (LUEI) framework, 
+addresses this gap by developing a lightweight and unsupervised method that does 
+not require such a large amount of preprocessing to achieve results. The research 
+question addressed in this paper is:
+Given an established causal relationship between a risk event and its CEs, how 
+can the occurrences of these CEs in real-world news articles be determined without 
+any training data?
+To demonstrate the working of the LUEI framework, we consider a case scenario 
+where the supply chain manager considers delivery delays as the risk event of inter -
+est. Using the first part of CERIA, the supply chain manager identifies increase in 
+COVID-19 cases, Australian Football League (AFL) matches leading to  road clo-
+sures, s  hortage of airport staff, and construction workers’ strike  (both leading 
+to road closures) as the CEs leading to delivery delays. Using advanced AI-based 
+methods, the LUEI framework ascertains the occurrence of an event in real-world 
+news articles. So, the competency requirements that we define to analyse the effec-
+tiveness of the LUEI framework are:
+1.1  Competency Requirements to Address the Research Question
+1- How does the LUEI framework identify the seed phrases related to a CE?
+2- How effective is the LUEI framework in identifying the occurrences of an event 
+in the real world by monitoring and analyzing news articles?
+The remainder of the paper is organized as follows. Section  2 discusses the 
+related work. Section  3 details the CERIA framework and its different modules. In
+
+
+[Page 4]
+258 The Review of Socionetwork Strategies (2024) 18:255–278
+Section  4, we delve into the methodology of the LUEI framework. Section  5 pre-
+sents the results of the LUEI framework and compares its efficiency with other 
+approaches  of selecting news that contain the  event of interest. Section  6 demon-
+strates how the LUEI framework answers the competency questions. Section  7 con-
+cludes the paper with a discussion on future work.
+2  Related Work
+Event extraction is part of information retrieval, one of the Natural Language Pro-
+cessing (NLP) applications [12]. The goal of event extraction from text is to detect 
+any instance of the event and its type and attributes. To extract events, research-
+ers aim to identify the event and its related information, which is the answer to the 
+5W1H questions (i.e. who, when, where, what, why, how) related to that event [12]. 
+Leban, Fortuna, Brank and Grobelnik [13] developed an approach to detect events 
+in news articles by clustering the news that mentions them. The clustering model is 
+trained using manually labelled data. To detect the events in each cluster, the name 
+entities are extracted, and based on their frequency of use, they are weighted. One 
+of the important parts of the learning process in deep learning and machine learn-
+ing techniques is the training data. Chen, Xu, Liu, Zeng and Zhao [14] developed 
+an event extraction method to automatically extract lexical-level and sentence-level 
+learning features and then pass this training data to the neural network. In this way, 
+the human effort required to preprocess the data is reduced. The authors also devel-
+oped a dynamic multi-pooling convolutional neural network (DMCNN) for event 
+extraction. Other researchers such as Yang, Feng, Qiao, Kan and Li [15] used the 
+BERT pre-trained language model, which automatically generates training data 
+instead of manually annotated data. They also proposed a method for overcoming 
+the role overlap problem. Zhang et al. [16] introduced a multi-task learning approach 
+to address the challenges of data scarcity and the under-utilization of training data 
+in event detection. This approach effectively harnesses additional knowledge. To be 
+more precise, the authors introduce two methods for integrating a bi-directional neu-
+ral language model at both the word and character levels.
+Han, Huang and Liu [17] proposed a method for news recommendation. They 
+proposed a model for event extraction and then used the trained model for news 
+recommendation. Zhukov, Andrianova and Trifonova [18] proposed a method that 
+can predict the events in news feeds based on an analysis of the dynamic characters 
+of the events. However, it does not identify or detect the occurrence of an event. 
+Bhokare, Sonawane and Sonawane [19] focused on financial event detection using 
+classification. However, this, too, requires data for the model to train on it first. 
+Other researchers used other text sources, such as social network data for event iden-
+tification using text features and long short-term memory (LSTM), multi-task learn-
+ing (MTL) or locality sensitive hashing (LSH) methods for training their proposed 
+model [20–23]. While these approaches use different methods, they have a common 
+goal: identifying events in a sentence. This is done using preprocessed data manually 
+curated or generated by a system. In both scenarios, the availability of training data 
+is crucial for achieving meaningful results. In scenarios where this is not possible,
+
+
+[Page 5]
+259
+The Review of Socionetwork Strategies (2024) 18:255–278 
+these methods fail. The proposed LUEI framework addresses this by recognizing the 
+occurrence of events with only the event’s name as input. We evaluated the proposed 
+LUEI framework in two different ways. In the first approach, we compared the short-
+listed news given by the LUEI framework (by using the determined seed phrases for 
+the searching event) with those shortlisted news articles when only the name of the 
+event or the name, along with its synonyms, were used. In the second approach, we 
+compared the final output of the LUEI framework with two other approaches from 
+the literature namely EventRegistry and Aylien. This has been explained in section 5 
+after explaining the LUEI framework.
+3  CERIA Framework
+Figure  2 illustrates the CERIA framework architecture comprising different mod-
+ules. We first define the key terms before explaining the different modules of the 
+CERIA framework.
+3.1  Key Terms
+3.1.1  Risk Event
+A risk event is any unexpected event that can negatively affect supply chains and 
+cause disruptions. As shown in Fig.  1, staff shortage can be a risk event in the sup-
+ply chain.
+Fig. 2  CERIA framework (Recreated from [27])
+
+
+[Page 6]
+260 The Review of Socionetwork Strategies (2024) 18:255–278
+3.1.2  Contributing Events (CEs)
+CEs are those events that can either occur before a risk event or are a precursor to it. 
+As shown in Fig.  1, events such as an increase in COVID cases, more staff getting 
+sick and an increase in home quarantine are events that lead to the risk event of s t a ff 
+shortage. These events are termed CEs to the risk event.
+3.1.3  Seed Phrases
+Seed phrases refer to an event’s variant names. For example, "fall" is a variant of 
+"autumn". Similarly, "strike" is a variant of "industrial action". Fall and strike are 
+members of the seed phrases set for autumn and industrial action, respectively and 
+are used when news about autumn and industrial action is being searched for. This is 
+crucial as they uncover a broader range of news articles about a specific event.
+3.1.4  Bayesian Networks (BNs)
+BNs are mathematical models representing the interaction between variables with 
+cause-effect connections. Such models explicitly represent the uncertain information 
+and propagate this uncertainty to generate the model outputs [24, 25].
+3.1.5  Natural Language Processing (NLP)
+NLP techniques are machine learning methods that assist machines to process text in 
+a similar way to a human.
+3.1.6  Large Language Model (LLM)
+LLMs are models that are trained on large amounts of data and can perform NLP-
+related tasks with a high level of accuracy [26].
+3.2  Modules of the CERIA Framework
+3.2.1  Causal Relationship Extractor Module
+As shown in Fig.  2, the first module of CERIA is the Causal Relationship Extractor 
+which builds the causal relationships between the CEs and risk events. This is done 
+by analyzing historical news related to risk events and identifying the key CEs lead-
+ing to that risk event. The details of this module are as follows:
+Input of this module: Risk events for which the risk manager wants to build a BN.
+Output of this module: The BN of causal relationship between risk event and 
+CEs.
+Process to achieve it: AI techniques that analyse news to find the causal relation-
+ships between the risk event and the CEs.
+
+
+[Page 7]
+261
+The Review of Socionetwork Strategies (2024) 18:255–278 
+3.2.2  Seed Collector Module
+Seed Collector is the second module of CERIA. For each CE, this module gener -
+ates its seed phrases. This step is crucial as different instances of a CE can be used 
+to refer to it in news articles. For instance, "fall" might also be called "autumn". So, 
+this module generates the seed phrases for each CE, aiding in their subsequent iden-
+tification in news articles. The details of this module are as follows:
+Input of this module: The CEs.
+Output of this module: Seed phrases for each CE.
+Process to achieve it: Different NLP techniques to analyze news articles from the 
+previous 3 years.
+3.2.3  News Crawler Module
+News Crawler is the third module of CERIA. This module utilizes the seed phrases 
+for each CE to search for relevant news articles on Google News, a prominent online 
+news aggregator. The details of this module are as follows:
+Input of this module: The seed phrases of each CE.
+Output of this module: News articles which mention the CE.
+Process to achieve it: Application Programming Interface (API) for searching 
+Google news.
+3.2.4  Event Detector Module
+The Event Detector Module is the fourth module of CERIA. This module analyzes 
+each news article from the previous module to ascertain whether it relates to the 
+occurrence of the CEs. This module returns a binary value of 0 or 1. A value of 1 
+means that the event is recognized to be happening, while 0 indicates the reverse. 
+The details of this module are as follows:
+Input of this module: News articles from the previous module.
+Output of this module: The binary value of occurrence of a CE.
+Process to achieve it: AI techniques and LLMs to analyse the news articles.
+3.2.5  Probability Assigner Module
+The Probability Assigner Module is the fifth module of CERIA [27]. If a CE is iden-
+tified as occurring, this module will process the relevant news articles collected in 
+the News Crawler Module and analyze them to assign them a probability score of 
+occurring. The details of this module are as follows:
+Input of this module: CEs marked with a label of 1, indicating they are occurring.
+Output of this module: the probability of the occurrence of the CE.
+Process to achieve it: analyzing the news list related to the CE
+
+
+[Page 8]
+262 The Review of Socionetwork Strategies (2024) 18:255–278
+Table 1  Inputs/Outputs and Processes of the different modules of the CERIA framework
+Module Input Output Process
+Causal Relationship Extractor Risk event BN of causal relationship AI techniques to find the causal relationships 
+between events
+Seed Collector The CEs Seed phrases for each CE NLP techniques to analyze news articles from 
+the previous 3 years
+News Crawler The seed phrases for each CE News articles which mention the CE as hap-
+pening
+API for searching Google news
+Event Detector News articles from News Crawler module The binary value of occurrence of a CE AI techniques and LLMs to analyse the news 
+articles
+Probability Assigner CEs marked with a label of 1 The probability of the occurrence of the CE Analyzing the news list related to the CE
+Output Generator CEs with a probability of occurrence Probability of occurrence of the risk event Propagating the probability in BN
+
+
+[Page 9]
+263
+The Review of Socionetwork Strategies (2024) 18:255–278 
+3.2.6  Output Generator Module
+The Output Generation Module is the sixth and last module of CERIA. This module 
+integrates the probability of the occurrence’s score ascertained for each CE in the 
+BN to generate CERIA’s final output, the probability of the risk event occurring. 
+The details of this module are as follows:
+Input of this module: CEs with a probability of occurrence.
+Output of this module: Probability of occurrence of the risk event.
+Process to achieve it: Propagating the probability in BN.
+Table  1 shows input, output and the process of each module in summary. As dis-
+cussed in Sect.  1, this paper focuses on CERIA’s step of identifying the occurrences 
+of CEs from news sources. So, it assumes that the Causal Relationship Extractor 
+module has determined the causal relationship of the risk event of interest with its 
+corresponding CEs. To identify their occurrence, these CEs will be given as the 
+input to CERIA’s second module, followed by modules 3 and 4. The LUEI frame-
+work encompasses modules 2, 3 and 4. Figure  3 shows the hierarchy of CERIA and 
+LUEI framework.
+4  Working Details of the LUEI Framework
+Figure  4 shows our LUEI framework which automatically discovers news articles 
+related to the predefined CEs and identifies the occurrence of the CE by analyzing 
+the news. The proposed framework incorporates Modules 2, 3 and 4 of the CERIA 
+framework. The first module, Seed Collector, uses WordNet and news articles from 
+Fig. 3  Relationship between LUEI and CERIA framework
+
+
+[Page 10]
+264 The Review of Socionetwork Strategies (2024) 18:255–278
+the past 3 years to generate a set of phrases, termed Seed − Phrases , related to the 
+CE. The second module, News Crawler, uses the Seed − Phrases to search for news 
+articles that are related to the CE. We utilize Google News as the news source in this 
+research. However, it is important to note that the presence of the Seed − Phrases in 
+the body of the news does not guarantee that it relates to the CE. So, Event Detector 
+is the fourth module that thoroughly analyses the news article’s content to determine 
+if it relates to the CE. In this section, we comprehensively explain the workings of 
+each module in the proposed method.
+4.1  Seed Collector Module
+To conduct a comprehensive search on Google News for each event, we must avoid 
+restricting our search to a specific term. This is done to ensure that other contextu-
+ally relevant news articles are not missed if they do not contain the exact keyword 
+used in the search. Therefore, for each CE, we need a set of appropriate phrases 
+known as Seed − Phrases that are contextually similar to the name of the CE. For 
+instance, "industrial action" is equivalent to "strike". If we only use the keyword 
+"strike" for the search, we may overlook news articles that do not contain the word 
+"strike" but instead include the phrase "industrial action." Hence, "industrial action" 
+should be included as one of the Seed − Phrases for the event "strike." The Seed 
+Collector module determines the Seed − Phrases for each CE and has two steps, 
+explained as follows:
+Fig. 4  LUEI framework
+
+
+[Page 11]
+265
+The Review of Socionetwork Strategies (2024) 18:255–278 
+4.1.1  Step 1. Finding the Equivalent Phrases of a CE Using WordNet
+This step utilizes WordNet to identify each CE’s synonyms or equivalent phrases in 
+two sub-steps:
+Step 1.1: Generating initial Seed − Phrases for the CE’s name using WordNet: 
+Since WordNet only provides synonyms for individual words, we divide the name 
+of each CE into its constituent words. For example, if our event of interest is 
+“staff shortage”, then we consider “staff” and “shortage” separately. So the out-
+put of this process for the event “staff shortage” is: “staff” + “shortage”. After 
+this, WordNet is used to find the synonyms for each word. For example, the syno-
+nyms for “staff” would be “staff”, “faculty”, and “stave”, and for “shortage,” it 
+would be “shortage”, “deficit”, “shortfall”, “dearth” and “famine”. By maintain-
+ing the word order in each CE’s name, we merge all the synonyms to generate 
+new equivalents for each CE. This involves considering all possible combinations 
+of words. For example, the output of this step encompasses various combinations 
+and consists of phrases such as "staff shortage", "staff deficit", "staff shortfall", 
+"staff dearth", "staff famine", "stave shortfall", "stave dearth", and "stave fam-
+ine". All these terms are added to the Seed − Phrases set. The size of this set is ∏n
+i=1 mi , where n refers to the number of words in the CE’s name and mi refers to 
+the number of equivalents for the ith word returned by WordNet. Seed − Phrasej 
+is defined as jth seed-phrase in the Seed − Phrases set. It is important to note that 
+not all equivalents provided by WordNet carry the same contextual meaning we 
+seek. Therefore, a filtering process is necessary, which is undertaken in Step 1.2.
+Step 1.2. Pruning the initial Seed − Phrases set using semantic similarity to the CE’s name:  
+Some phrases created in Step 1.1 may not be semantically equal to the event’s 
+name. For example, the words "stave shortage" or "stave deficit" are contextu-
+ally different to the CE of "staff shortage" because stave means a wooden log 
+and semantically doesn’t have the same meaning as the CE’s name and should be 
+omitted. We use SBERT sentence embedding [28] for the embedding process and 
+then cosine similarity to compute the semantic similarity between the equivalents 
+and the CE’s name. Multiple pre-trained sentence embedding models are avail-
+able for this purpose. Since the length of the query (equivalent - new phrase) 
+and the length of the passage (CE’s name) are similar, a symmetric semantic 
+search model is utilized. Three different models were tested, and the "multi-qa-
+mpnet-base-dot-v1" model was the most suitable for this task, as it is specifically 
+designed for a symmetric semantic search. The cosine similarity between the vec-
+tors generated for each equivalent phrase and the CE is calculated to determine 
+their similarity. Ultimately, only the equivalents with a similarity score of 0.8 or 
+higher are selected as equivalent phrases for the event’s name. Algorithm 1 shows 
+the working process of Step 1.2. The working process of Step 1, including its sub-
+steps, is illustrated in Fig. 5  for the event "Staff Shortage".
+
+
+[Page 12]
+266 The Review of Socionetwork Strategies (2024) 18:255–278
+Algorithm 1  (offline mode). Pruning the initial Seed-Phrases  for event’s name by 
+using semantic similarity
+4.1.2  Step 2. Adding More Related Phrases to Seed − Phrases Set by Analyzing News 
+from the Past 3 Years
+In this step, we use the pruned Seed − Phrases set to conduct a targeted search for 
+them in Google News for the past 3 years. This is to achieve two aims. The first 
+aim is to ensure the seed phrase is relevant and returns at least one news article 
+from the past 3 years. Including news from more than 3 years ago would collect 
+outdated phrases, potentially incorporating those no longer in use. On the other 
+hand, limiting the analysis to a period shorter than 3 years may result in losing 
+important recent seed phrases. Thus, the search period of 3 years is considered 
+as it is recent enough to reflect current trends and terminologies yet sufficient to 
+observe evolving patterns and recurring themes in news events.
+Fig. 5  Working process of Step 1 of the Seed Collector module for the event: "Staff Shortage"
+
+
+[Page 13]
+267
+The Review of Socionetwork Strategies (2024) 18:255–278 
+The second aim is to find more terms related to the event’s name to expand the 
+search scope. To achieve the first aim, news articles are searched for each phrase 
+from the Seed − Phrases . The obtained collection of news articles is referred to 
+as News − Collection . If no news articles are found for a certain phrase from the 
+Seed − Phrases , that phrase is excluded from the final Seed − Phrases set. How -
+ever, if any news articles are discovered to contain a particular phrase, that phrase 
+will remain in the final Seed − Phrases set. The matched news articles related 
+to each phrase are analyzed to extract their keywords by using KeyBERT [29], 
+which identifies the most important phrases within a document. Each extracted 
+keyword’s cosine similarity with CE’s name is calculated using symmetric 
+semantic similarity. As shown in our previous work [30], it was observed that all 
+the equivalents with a similarity score of equal to or more than 0.8 have the same 
+meaning as the main phrase. So, we chose 0.8 as the threshold to consider that 
+equivalent as the seed phrase. Therefore, if the similarity between the extracted 
+keyword and CE’s name is equal to or greater than 0.8, and the keyword does not 
+already exist in the Seed − Phrases set, it is added to the Seed − Phrases set (see 
+Fig.  6). Algorithm  2 shows the pseudocode for updating the Seed − Phrases set 
+using the past 3 years’ history of news articles. For example, for the event "con-
+struction workers hold strike", "construction workers hold industrial action" is 
+one of the seed phrases added to the Seed − Phrases set in Step 1.1. By using this 
+seed phrase as the search query, a collection of news articles ( News − Collection ) 
+is built. For each news article ( Newsj ) in News − Collection , a list of key -
+words is extracted and stored in Keyword_Collectionj . For each keywordk in 
+Keyword_Collectionj , its semantic similarity with the event’s name is determined 
+using the process described in Step 1.2, and if it is greater than the threshold, it is 
+added to the Seed − Phrases set.
+Fig. 6  Step 2 of Seed Collector module for the event: "Staff Shortage"
+
+
+[Page 14]
+268 The Review of Socionetwork Strategies (2024) 18:255–278
+Algorithm 2  (offline mode). Adding more related phrases to Seed − Phrases
+Once the Seed-Collector finishes collecting the seed phrases, the Seed − Phrases 
+set is passed on to the next module called the "News Crawler" module to find the 
+pertinent news articles related to each event within the specified time frame.
+4.2  News Crawler Module
+As previously discussed, we use the Google News search engine as the source of 
+news. To crawl the news in Google News, we use the pygooglenews API (https:// 
+pypi. org/ proje ct/ pygoo glene ws/). This API gets some parameters as input such 
+as, keyword, date, language and country, and returns the news which match the 
+parameters. These news are extracted from Google News search engine. The output 
+of the "News Crawler" module is the news articles that contain phrases from the 
+Seed − Phrase set. However, these may be in different combinations. For instance, if 
+we search for the phrase "increase in COVID cases," the search results include news 
+articles that mention the words "increase", "in", "COVID" and "cases" in the body 
+of the article or, in some cases, news articles that don’t have these keywords in their 
+body, but some of the words appear somewhere in the margin of the news. Although 
+enclosing the search phrase in double quotation marks to retrieve exact matches is 
+possible, this approach may yield limited results. We may also get news articles with 
+different meanings to the CE’s name. For example, if we search for "staff shortage," 
+we might come across news articles that discuss improving staff performance in one 
+paragraph and address a shortage of tools or equipment in the workplace in another. 
+Although both words of the search phrase are present in the news article, the article 
+itself may not be relevant to the desired CE. To filter out such noisy data from our 
+news collection, the next module analyzes each news article, based on which it will 
+decide whether the event of interest is happening.
+4.3  Event Detector Module
+This module aims to filter out news articles which are irrelevant to the CE’s name. 
+This is done by utilizing the SBERT sentence embedding technique and the "multi-
+qa-MiniLM-L6-cos-v1" pre-trained model to convert the entire text of a news article
+
+
+[Page 15]
+269
+The Review of Socionetwork Strategies (2024) 18:255–278 
+into a vector. The same process is applied to the event of interest. Semantic search is 
+then performed by calculating the cosine similarity between the two vectors. If the 
+semantic similarity is more than 0.5, then the news article is considered to relate to 
+CE. For example, for the event, "staff shortage", this module converts the news arti-
+cle related to that term into a vector along with the term "staff shortage". The cosine 
+similarity between these vectors is then computed, and if it is more than 0.5, it is 
+considered relevant. We selected the threshold 0.5 by examining over 1000 news 
+articles for four CEs and determined the threshold level that gives the correct match-
+ing results. The output of this module is a binary label with values "0" and "1." 
+News articles labeled "1" indicate that they suggest the event is mentioned in the 
+news article as either happening or will happen, while those labeled "0" are recog-
+nized as non-relevant news articles that do not pertain to the event. Clearly, when 
+the system designates at least one event as "1," it implies a positive occurrence of 
+that event. The risk manager can use this information for further analysis. For events 
+identified as relevant, the CERIA assigns a probability score for their occurrence. 
+This score is then utilized in the BN to evaluate the probability of the risk event 
+happening.
+The next section discusses the experiments we performed to demonstrate the 
+effectiveness of the proposed approach.
+5  Results and Evaluation
+To evaluate the performance of the LUEI framework, we evaluated the Seed Collec-
+tor module, followed by the News Crawler module. Then, using the results generated 
+by these modules, we evaluated the performance of the Event Detector Module in 
+two different ways. Firt we made the evaluation against manual approach in which 
+we used the output of Google search news. In the second approach we compared 
+the output of LUEI framework with other two frameworks. In both scenarios we 
+used expert knowledge. To conduct the first approach of evaluation  we have  con-
+sidered four CEs, namely "Increase In COVID Cases", "AFL Matches Happen-
+ing", "Airport Staff Shortage" and "Construction Workers Hold Strike" which 
+lead to the risk event of "Delay in Delivery". We aim to evaluate the performance of 
+the LUEI framework and assess its ability to recognize the relevant news related to 
+these CEs and separate the non-relevant ones. As mentioned in the previous section, 
+Step 1 of the Seed Collector module consists of two steps. Step 1.1 involves extract-
+ing WordNet equivalents for the CE’s name. After completing this step for the CE 
+"Increase in Covid cases", 1537 equivalents were identified for the CE’s name. Step 
+1.2 calculated the semantic similarity between the equivalents and the CE’s name, a 
+snapshot of which is shown in Table   2 for the CE "Increase in COVID Cases". Only 
+equivalents with a semantic similarity score of 0.8 or higher with the CE’s name 
+were added to the initial Seed − Phrases set. The initial Seed − Phrases set was used 
+in Step 2 to generate the final Seed − Phrases set as shown in Tables   3, 4, 5 and   6. 
+These terms are later used to search for news articles related to CEs.
+In the first approach of evaluation we demonstrate the effectiveness of the LUEI 
+framework in searching for the CEs by conducting three experiments. In the first
+
+
+[Page 16]
+270 The Review of Socionetwork Strategies (2024) 18:255–278
+Table 5  Final seed-phrase set for event: "Airport Staff Shortage"
+Airport staff deficit Airport staff shortage
+Airport staff shortfall Insufficient staffing airports
+Airport labor shortage Inadequate airport staff
+Dearth of airport staff
+Table 2  A snapshot of the outcome of step 1 of the Seed Collector module for the event "Increase in 
+Covid cases"
+WordNet equivalents Semantic similarity
+Increase in covid instance 0.87
+Increase inward covid character 0.68
+Addition inward covid cause 0.63
+Addition inward covid suit 0.53
+Gain indium covid typeface 0.35
+Step-up indium covid pillow_slip 0.16
+Step-up indium covid showcase 0.2
+Increase inch covid instance 0.7
+Growth indium covid suit 0.46
+Addition indium covid slip 0.28
+Table 3  Final seed-phrase set for event: "Increase in Covid cases"
+Increase in covid instances Steep increase in coronavirus infections
+Increase in covid cases  Growth in covid cases
+Rise in coronavirus cases  Covid cases risen
+Table 4  Final seed-phrase set for event: "AFL Matches Happening"
+AFL match happening AFL match occurrence
+Aflw matches happening Teams afl play
+Aflw match happening Aflw game
+Afl match starting Matches week afl
+Aflw showdown Aflw showdown slated
+Blockbuster afl match Afl season fixture
+Rivalries going afl Afl showdown game
+Afl championship match Live AFL contests
+Playing AFL encounters In-session AFL bouts
+In-play AFL confrontations Unfolding AFL games
+Present AFL competitions Currently playing AFL matchups
+Real-time AFL battles On-field AFL confrontations
+Running AFL showdowns Happening AFL face-offs
+
+
+[Page 17]
+271
+The Review of Socionetwork Strategies (2024) 18:255–278 
+experiment (termed Single Keyword), we used only the CE’s name, for example, 
+"increase in Covid cases", as the keyword for searching the relevant news. Two 
+experts labelled the news as relevant or non-relevant on the returned results. In the 
+second experiment (termed Keyword + WordNet Equivalent), we used the CE’s 
+name and its equivalents created in Step 1 of the Seed Collector module to search for 
+relevant news. We again asked the two experts to label the news as relevant or non-
+relevant on the returned results. In the third experiment (termed LUEI), we used the 
+final Seed − Phrases set generated by LUEI framework to search for news related to 
+the CE. As explained in Section  4.3, the LUEI framework classifies the news articles 
+into two categories: "0" (non-relevant), indicating that the news does not mention 
+the event as likely to happen, and "1" (relevant) indicating that the shortlisted news 
+refers to the CE as occurring. We again asked the two experts to label the news as 
+relevant or non-relevant on the returned results. Once the labelling by the experts 
+on the different sets of experiments was done, the True Positive (TP), False Positive 
+(FP), True Negative (TN), and False Negative (FN) of each method were computed 
+(see Tables 7, 8, 9 and 10). The semantics of the measures are as follows:
+• TP: This measure shows the number of news articles a model recommended and 
+confirmed by both experts as relevant.
+• FP: This measure shows the number of news articles a model recommended but 
+labelled by any one of the experts as irrelevant.
+Table 6  Final seed-phrase set for event: "Construction Workers Hold Strike"
+Construction worker hold strike Building worker strike
+Structure worker strike Construction workers protest
+Building site worker industrial action Construction labor unrest
+Table 7  Confusion matrix for "Increase In Covid Cases"
+Category Single Keyword  Keyword + WordNet Equivalents LUEI framework
+TP 6 23 60
+FP 13 207 4
+TN 0 0 640
+FN 68 56 8
+Table 8  Confusion matrix for "AFL Matches Happening"
+Category Single keyword  Keyword + WordNet Equivalents LUEI framework
+TP 2 5 24
+FP 8 14 2
+TN 0 0 29
+FN 24 21 2
+
+
+[Page 18]
+272 The Review of Socionetwork Strategies (2024) 18:255–278
+• TN: This measure shows the number of news articles a model has recommended 
+as irrelevant to the CE’s name and that both experts have confirmed the news as 
+irrelevant. In the first two categories of experiments (using "Single Keyword" or 
+"Keyword + WordNet Equivalent"), this measure is always zero. This is because 
+as we are using Google News for our search, it will only show us articles that it 
+considers relevant, without any label. This is not the case in the third model that 
+labels the news as relevant or irrelevant.
+• FN: This measure shows the number of news articles that a model has not rec-
+ommended as relevant to the CE’s name but has been confirmed by both experts 
+as relevant. For the first two categories of experiments (using "Single Keyword" 
+or "Keyword + WordNet Equivalent"), this measure shows the number of news 
+articles that were not shown by these methods as relevant but were marked as 
+relevant by the third experiment and confirmed by both the experts. For the third 
+experiment, this measure shows the number of news articles incorrectly labelled 
+as non-relevant but marked as relevant by both experts. This also considers news 
+articles shown as relevant in the first two experiments and confirmed by the 
+experts but not shown as relevant in the third experiment.
+Tables  11, 12, 13 and 14 show the evaluation metrics for each experiment. The 
+results show that the proposed approach performs significantly better than only 
+using the CE’s name as the search keyword and/or the CE’s name + synonyms. This 
+is because the proposed approach, apart from just using the CE’s name, expands 
+its search scope by also using relevant terms. The number of FNs in the first and 
+the second experiments (Tables  7, 8, 9 and 10) demonstrates this. Another advan-
+tage of the proposed approach is that it only shows news articles relevant to the CE. 
+For example, as the CE’s name is "increase in COVID cases", the first and second 
+experiments show many news articles with COVID in them but do not specifically 
+Table 9  Confusion matrix for "Airport Staff Shortage"
+Category Single keyword  Keyword + WordNet Equivalents LUEI framework
+TP 4 7 11
+FP 9 11 2
+TN 0 0 25
+FN 8 5 1
+Table 10  Confusion matrix for "Construction Workers Hold Strike"
+Category Single keyword  Keyword + WordNet Equivalents LUEI framework
+TP 3 6 20
+FP 10 23 7
+TN 0 0 28
+FN 17 14 0
+
+
+[Page 19]
+273
+The Review of Socionetwork Strategies (2024) 18:255–278 
+Table 11  Evaluation metrics for different approaches for the event "Increase in COVID Cases"
+Performance metric Single keyword  Keyword + WordNet 
+equivalents
+LUEI framework
+Accuracy 6.89% 8.04% 98.31%
+Precision 31.75% 10% 93.75%
+Recall 8.10% 29.11% 88.23%
+F1 Score 12.90% 14.88% 90.90%
+relate to an increase in COVID cases. This is shown in the number of FPs they have. 
+The LUEI framework avoids this by only showing articles related to an increase 
+in COVID cases, as shown by the number of FPs and TNs in its analysis. In other 
+words, the proposed approach does not show a news article if it merely has the name 
+of the CE. Hence, it has a higher accuracy, precision, recall and F1 score in deter -
+mining the occurrence of the CE in the news articles. Tables  15 and 16 show the 
+total confusion matrix and evaluation metrics for all the experiments.
+Table 12  Evaluation Metrics for Different Approaches for the Event "AFL Matches Happening"
+Performance Metric Single Keyword  Keyword + WordNet 
+Equivalents
+LUEI framework
+Accuracy 5.88% 12.5% 92.98%
+Precision 20% 26.32% 92.31%
+Recall 7.69% 19.23% 92.31%
+F1 Score 11.11% 22.22 % 92.31%
+Table 13  Evaluation metrics for different approaches for the event "Airport Staff Shortage"
+Performance metric Single keyword  Keyword + WordNet 
+Equivalents
+LUEI framework
+Accuracy 19.05% 30.43% 92.31%
+Precision 30.77% 38.89% 84.62%
+Recall 33.33% 58.33% 91.67%
+F1 Score 32% 46.67% 88.0%
+Table 14  Evaluation metrics for different approaches for the event "Construction Workers Hold Strike"
+Performance metric Single keyword  Keyword + WordNet 
+Equivalents
+LUEI framework
+Accuracy 10% 13.95% 82.27%
+Precision 23.08% 20.69% 74.04%
+Recall 15 % 30% 100%
+F1 Score 18.18 % 24.49 % 85.11%
+
+
+[Page 20]
+274 The Review of Socionetwork Strategies (2024) 18:255–278
+In the second approach of evaluation we demonstrate the superiority of the 
+proposed LUEI framework, by  comparing its results with that of EventRegis-
+try [13], and Aylien (https:// aylien. com/). We used each of the three models to 
+determine the relevant news articles to the CE "increase in COVID cases" for 
+a period of one day. EventRegistry returned 100 news articles, which was later 
+reduced to 54 after deleting the duplicates. Aylien returned 839 news articles 
+in total, whereas the LUEI framework, which used all seed phrases related to 
+"increase in Covid cases" rather than just the phrase for finding the relevant 
+news, returned 71 news articles. To determine the accuracy of the results, we 
+asked experts to read the results from each approach and tag them based on their 
+relevance to the "increase in COVID cases" or if they confirm that this event is 
+happening. An article recognised by the experts as relevant to the CE was tagged 
+as "true positive" (TP), whereas an irrelevant article was tagged as "false posi-
+tive" (FP). Furthermore, if an article was identified as relevant by one framework 
+and confirmed by the experts as a TP but did not appear in the output of another 
+framework, it was tagged as a "false negative" (FN) for the latter. So, in other 
+words, a news article that was not ranked as TP by a method but was confirmed 
+Table 15  Total confusion matrix
+Category Single keyword  Keyword + WordNet equivalents LUEI framework
+TP 15 41 115
+FP 40 255 15
+TN 0 0 722
+FN 117 96 11
+Table 16  Total evaluation metrics
+Performance Metric Single Keyword  Keyword + WordNet 
+Equivalents
+LUEI framework
+Accuracy 8.72% 10.46% 98.31%
+Precision 27.27% 13.85% 93.75%
+Recall 11.36% 29.93% 88.23%
+F1 Score 16.04% 18.94% 90.90%
+Table 17  Confusion matrix for different methods for the event "Increase in Covid Cases"
+Category LUEI  EventRegistery Aylien
+TP 15 6 4
+FP 0 48 835
+TN 53 0 0
+FN 8 13 17
+
+
+[Page 21]
+275
+The Review of Socionetwork Strategies (2024) 18:255–278 
+as a TP by the other methods was considered an FN for the former. As the LUEI 
+framework categorizes news articles as relevant and irrelevant, they also have 
+true negatives (TN) or false negatives (FN). However, this was not the case with 
+the other two frameworks. Tables  17 and 18 presents the evaluation results. The 
+results show that EventRegistry and Aylien generate significant noise as they 
+return any news containing any part of the CE. When we attempted to search 
+for the CE using double quotation marks, both frameworks returned only one 
+result, which was also irrelevant. This was not the case with the proposed LUEI 
+framework. It identified the occurrence of the CE with minimal steps in a large 
+dataset by following its lightweight and unsupervised approach. The working of 
+LUEI framework approach is versatile and not restricted to a particular domain 
+as it is not trained on data from a specific field. Furthermore, it doesn’t require 
+an annotated dataset, and the risk manager only needs to input the CE’s name for 
+the framework to determine whether the event is occurring.
+6  Efficacy of the LUEI Framework in Answering the Competency 
+Question
+This section demonstrates the effectiveness of the LUEI framework in detecting 
+real-world events, aligning with the competency questions outlined in Sect.  1.1 
+as follows:
+1-How does the LUEI framework identify the seed phrases related to a 
+CE? The efficacy of the LUEI framework in aggregating seed phrases for each 
+event, derived from news analysis, is substantiated by Tables  3 through 6 . This 
+approach enables the LUEI framework to broaden its search scope when mining 
+news data. The augmentation of these seed phrases in search queries, as evi-
+denced by Tables  7, 8, 9 and 10, significantly enhances the volume of the related 
+news captured. This enhancement is essential in accurately detecting real-world 
+events.
+2- How effective is the LUEI framework in identifying the occurrences of 
+an event in the real world by monitoring and analyzing news articles? Tables 
+11–18 present a comparative analysis, demonstrating the high efficiency of the 
+LUEI framework in news labelling after using seed phrases. When compared 
+to manual methods that employ either a single keyword or a combination of a 
+Table 18  Evaluation metrics for different methods for the event "increase in Covid cases"
+Performance metric LUEI  EventRegistery Aylien
+Accuracy 89.47% 8.96% 0.47%
+Precision 100% 11.11% 0.48%
+Recall 65.22% 31.58% 19.05%
+F1 Score 78.95% 16.44% 0.91%
+
+
+[Page 22]
+276 The Review of Socionetwork Strategies (2024) 18:255–278
+keyword and its synonyms, or compared against other approaches like Even-
+tRegistery or Aylien, the LUEI framework’s output closely mirrors expert opin-
+ions. This alignment with expert analysis underscores the primary objective of 
+this research: to develop a system that can reliably and accurately identify real-
+world events with no training data available for these events.
+7  Conclusion and Future Work
+In this paper, we proposed the LUEI framework to identify the occurrence of events 
+of interest. As opposed to existing models, LUEI is a lightweight and unsupervised 
+approach that, without any training data, recommends news articles that are relevant 
+to the search term of interest to the risk manager. As previously discussed, the LUEI 
+framework is a part of the CERIA framework that quantifies the chance of the occur-
+rence of risk events in supply chains by finding out the cause-and-effect relationship 
+between the events that can lead to the occurrence of those risk events. In future 
+work, we will develop an approach to model the cause-and-effect network of the 
+risk events and analyze the daily news to quantify the probability of the occurrence 
+of the risk event. We will also extend our experiments to demonstrate our proposed 
+framework’s effectiveness.
+Acknowledgements The first author acknowledges the financial support received from The University of 
+New South Wales, Australia for this work.
+Funding Open Access funding enabled and organized by CAUL and its Member Institutions.
+Data availability The data that support the findings of this study are available from the corresponding 
+author upon reasonable request.
+Declarations 
+Conflict of interest On behalf of all authors, the corresponding author states that there is no Conflict of 
+interest.
+Open Access This article is licensed under a Creative Commons Attribution 4.0 International License, 
+which permits use, sharing, adaptation, distribution and reproduction in any medium or format, as long 
+as you give appropriate credit to the original author(s) and the source, provide a link to the Creative 
+Commons licence, and indicate if changes were made. The images or other third party material in this 
+article are included in the article’s Creative Commons licence, unless indicated otherwise in a credit line 
+to the material. If material is not included in the article’s Creative Commons licence and your intended 
+use is not permitted by statutory regulation or exceeds the permitted use, you will need to obtain permis-
+sion directly from the copyright holder. To view a copy of this licence, visit http://creativecommons.org/
+licenses/by/4.0/.
+References
+ 1. Fan, Y., & Stevenson, M. (2018). A review of supply chain risk management: Definition, theory, and 
+research agenda. International Journal of Physical Distribution & Logistics Management, 48, 205–230.
+ 2. Zsidisin*, G., Melnyk, S. & Ragatz, G. (2005). An institutional theory perspective of business continuity 
+planning for purchasing and supply management. International Journal of Production Research., 43, 
+3401–3420.
+
+
+[Page 23]
+277
+The Review of Socionetwork Strategies (2024) 18:255–278 
+ 3. Peck, H. (2005). Drivers of supply chain vulnerability: An integrated framework. International Journal of 
+Physical Distribution & Logistics Management., 35, 210–232.
+ 4. Deiva Ganesh, A., & Kalpana, P. (2022). Supply chain risk identification: A real-time data-mining 
+approach. Industrial Management & Data Systems., 122, 1333–1354.
+ 5. Aboutorab, H., Hussain, O., Saberi, M., & Hussain, F. (2022). A reinforcement learning-based framework 
+for disruption risk identification in supply chains. Future Generation Computer Systems, 126, 110–122.
+ 6. Kumar, S. & Sharma, S. (2023). Integrated Model for Predicting Supply Chain Risk Through Machine 
+Learning Algorithms. International Journal Of Mathematical, Engineering & Management Sciences, 
+8.
+ 7. Wong, L., Tan, G., Ooi, K., Lin, B., & Dwivedi, Y. (2022). Artificial intelligence-driven risk management 
+for enhancing supply chain agility: A deep-learning-based dual-stage PLS-SEM-ANN analysis. Inter-
+national Journal Of Production Research. pp. 1–21.
+ 8. Xu, Z., Ni, W., Liu, S., Wang, F., & Li, J. (2023). Logistics Supply Chain Network Risk Prediction Model 
+Based on Intelligent Random Forest Model. IEEE Transactions On Engineering Management.
+ 9. Dong, Y., Xie, K., Bohan, Z., & Lin, L. (2021). A machine learning model for product fraud detection 
+based on svm. 2021 2nd International Conference On Education, Knowledge And Information Man-
+agement (ICEKIM). pp. 385-388
+ 10. Cohen, M., & Kunreuther, H. (2007). Operations risk management: Overview of Paul Kleindorfer’s 
+contributions. Production And Operations Management., 16, 525–541.
+ 11. Chapman, P., Christopher, M., Jüttner, U., Peck, H., & Wilding, R. (2002). Identifying and managing 
+supply chain vulnerability. Logistics And Transport Focus, 4.
+ 12. Xiang, W., & Wang, B. (2019). A survey of event extraction from text. IEEE Access., 7, 
+173111–173137.
+ 13. Leban, G., Fortuna, B., Brank, J., & Grobelnik, M. (2014). Event registry: learning about world events 
+from news. Proceedings Of The 23rd International Conference On World Wide Web. pp. 107-110.
+ 14. Chen, Y., Xu, L., Liu, K., Zeng, D., & Zhao, J. (2015). Event Extraction via Dynamic Multi-Pooling 
+Convolutional Neural Networks. Proceedings Of The 53rd Annual Meeting Of The Association For 
+Computational Linguistics And The 7th International Joint Conference On Natural Language Process-
+ing (Volume 1: Long Papers). pp. 167–176.
+ 15. Yang, S., Feng, D., Qiao, L., Kan, Z., & Li, D. (2019,7). Exploring Pre-trained Language Models for 
+Event Extraction and Generation. Proceedings of the 57th Annual Meeting of the Association for Com-
+putational Linguistics. pp. 5284–5294.
+ 16. Zhang, Y., Xu, G., Wang, Y., Liang, X., Wang, L., & Huang, T. (2019). Empower event detection with 
+bi-directional neural language model. Knowledge-Based Systems, 167, 87–97.
+ 17. Han, S., Huang, H., & Liu, J. (2021). Neural news recommendation with event extraction. ArXiv Pre-
+print arXiv: 2111. 05068.
+ 18. Zhukov, D., Andrianova, E., & Trifonova, O. (2021). Stochastic diffusion model for analysis of dynam-
+ics and forecasting events in news feeds. Symmetry., 13, 257.
+ 19. Bhokar, P., Sonawane, A., Sonawane, S., & Joshi, H. (2023). Detection and Classification of Financial 
+Events from News Articles.
+ 20. Goyal, P., Kaushik, P., Gupta, P., Vashisth, D., Agarwal, S., & Goyal, N. (2019). Multilevel event detec-
+tion, storyline generation, and summarization for tweet streams. IEEE Transactions On Computational 
+Social Systems., 7, 8–23.
+ 21. Akbari, M., Hu, X., Liqiang, N., & Chua, T. (2016). From Tweets to Wellness: Wellness Event Detec-
+tion from Twitter Streams. Proceedings Of The Thirtieth AAAI frameworkI Conference On Artificial 
+Intelligence. pp. 87–93.
+ 22. Rahimizadeh, P., & Shayegan, M. (2022). Event Detection in Twitter by Weighting Tweet’s Features. 
+2022 8th International Conference On Web Research (ICWR). pp. 203–209.
+ 23. Kaleel, S., & Abhari, A. (2015). Cluster-discovery of Twitter messages for event detection and trending. 
+Journal of Computational Science, 6, 47–57.
+ 24. Newton, A. (2010). Use of a Bayesian network for Red Listing under uncertainty. Environmental Mod-
+elling & Software., 25, 15–23.
+ 25. Hamilton, S., & Pollino, C. (2012). Good practice in Bayesian network modelling. Environmental Mod-
+elling & Software, 37.
+ 26. Kasneci, E., Seßler, K., Küchemann, S., Bannert, M., Dementieva, D., Fischer, F., Gasser, U., Groh, G., 
+Günnemann, S., Hüllermeier, E., Krusche, S., Kutyniok, G., Michaeli, T., Nerdel, C., Pfeffer, J., Poquet, 
+O., Sailer, M., Schmidt, A., Seidel, T., & Kasneci, G. (2023). ChatGPT for Good? On Opportunities 
+and Challenges of Large Language Models for Education.
+
+
+[Page 24]
+278 The Review of Socionetwork Strategies (2024) 18:255–278
+ 27. Shahsavari, M., Hussain, O., & Saberi, M., & Sharma, P. (2024). Empowering Supply chains Resil-
+ience: LLMs-Powered BN for Proactive Supply Chain Risk Identification.
+ 28. Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Net-
+works. Proceedings Of The 2019 Conference On Empirical Methods In Natural Language Processing.
+ 29. Grootendorst, M. (2020). KeyBERT: Minimal keyword extraction with BERT. (Zenodo).
+ 30. Shahsavari, M., Hussain, O., Saberi, M., & Sharma, P. (2023). A lightweight and unsupervised 
+approach for identifying risk events in news articles. 2023 IEEE International Conference On Data 
+Mining Workshops (ICDMW). pp. 37-43.
+Publisher’s Note Springer Nature remains neutral with regard to jurisdictional claims in published maps and 
+institutional affiliations.

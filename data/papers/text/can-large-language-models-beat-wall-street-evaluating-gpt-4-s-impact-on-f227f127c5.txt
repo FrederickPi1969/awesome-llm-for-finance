@@ -1,0 +1,1547 @@
+[Page 1]
+Can Large Language Models Beat Wall Street? Unveiling the Potential of AI in Stock
+Selection
+George Fatourosa,b, Kostas Metaxasa, John Soldatosc, Dimosthenis Kyriazisb
+aAlpha Tensor Technologies Ltd., 15 Bowling Green Lane, London, 100190, UK
+bDepartment of Digital Systems, University of Piraeus, Karaoli and Dimitriou 80, Piraeus, 18534, Greece
+cInnov-Acts Limited, Kolokotroni 6, Nicosia, 1101, Cyprus
+Abstract
+This paper introduces MarketSenseAI, an innovative framework leveraging GPT-4’s advanced reasoning for selecting stocks
+in financial markets. By integrating Chain of Thought and In-Context Learning, MarketSenseAI analyzes diverse data sources,
+including market trends, news, fundamentals, and macroeconomic factors, to emulate expert investment decision-making. The
+development, implementation, and validation of the framework are elaborately discussed, underscoring its capability to generate
+actionable and interpretable investment signals. A notable feature of this work is employing GPT-4 both as a predictive mechanism
+and signal evaluator, revealing the significant impact of the AI-generated explanations on signal accuracy, reliability and acceptance.
+Through empirical testing on the competitive S&P 100 stocks over a 15-month period, MarketSenseAI demonstrated exceptional
+performance, delivering excess alpha of 10% to 30% and achieving a cumulative return of up to 72% over the period, while
+maintaining a risk profile comparable to the broader market. Our findings highlight the transformative potential of Large Language
+Models in financial decision-making, marking a significant leap in integrating generative AI into financial analytics and investment
+strategies.
+Keywords: Artificial Intelligence, Large Language Models, GPT-4, Finance, Stock Selection, Investment Strategy, MarketSenseAI
+PACS: C45, C61, G11, G15
+2000 MSC: 68T07, 68T50, 91G10, 91G15
+1. Introduction
+1.1. Background and motivation
+Capital markets serve as an e fficient conduit for capital al-
+location within an economy, and their price discovery process
+plays a key role in maintaining the health and stability of the
+financial system Kidwell et al. (2016). The price discovery pro-
+cess depends on a complex interplay of factors, including com-
+pany and sector specific elements, macroeconomic data, mo-
+mentum effects, as well as political and geopolitical influences
+Lewellen (2002). Market participants collectively participate in
+this intricate machinery of price discovery, thereby ensuring the
+efficient functioning of the financial markets Malkiel (2003).
+Stock selection essentially operates as a price discovery
+mechanism through which market participants focus on stocks
+perceived as ”mispriced”, thereby offering the potential for at-
+tractive returns relative to the broader market. This principle
+forms the essence of value investing Greenwald et al. (2020).
+However, the concept of ”mispricing” can be expanded upon,
+as it may also relate to the market’s perceived fair price of an as-
+set, which may not necessarily align with its fundamental value.
+Email addresses: george@alpha-tensor.ai (George Fatouros),
+kostas@alpha-tensor.ai (Kostas Metaxas), jsoldat@innov-acts.com
+(John Soldatos), dimos@unipi.gr (Dimosthenis Kyriazis)
+This can encompass expectations of future growth for a com-
+pany, a strategy often referred to as ”growth investing”, which
+sometimes overlooks current fundamentals. Beyond the realms
+of value and growth investing, there are other factors that influ-
+ence and add complexity to stock selection. The significance
+of passive investing, capital flows, derivative-related flows, and
+macroeconomic factors all contribute to a financial system that
+is inherently probabilistic and often chaotic by nature Bouchaud
+et al. (2003).
+Market participants make decisions by understanding and us-
+ing a wide range of information. However, retail investors often
+struggle with analyzing individual stocks. This challenge stems
+from their limited capacity to analyze information, susceptibil-
+ity to behavioral biases, and lack of robust risk management
+skills. As a result, they might miss promising investment op-
+portunities or expose themselves to undue risks. In this context,
+Exchange Traded Funds (ETFs) offer a practical solution. ETFs
+enable these investors to engage with the broader market more
+effectively, an approach often referred to as investing in ”beta”.
+Similarly, small to medium-sized asset or wealth manage-
+ment firms encounter their own set of challenges. They may
+find it difficult to conduct in-depth analysis of individual stocks
+due to resource constraints or limited selection scope. For these
+firms, ETFs can also be an appealing option, providing a more
+manageable and diversified investment approach.
+In contrast, larger professional firms are typically well-
+Preprint submitted to Neural Computing and Applications April 5, 2024
+arXiv:2401.03737v2  [q-fin.CP]  4 Apr 2024
+
+
+[Page 2]
+Figure 1: Conceptual architecture of MarketSenseAI, highlighting the core components, data flow, and outcome for a selected stock (e.g., Amazon).
+equipped with advanced technology, infrastructure, and skilled
+personnel. This enables them to conduct superior analysis
+and risk management of their investment portfolios. These
+firms often have dedicated teams of stock analysts, economists,
+and traders whose collective knowledge and reasoning ability
+are focused on capitalizing potential investment opportunities.
+However, even with these advantages, their ability to outper-
+form the market is not guaranteed. They face unique challenges
+often associated with large-scale organizations, such as silos,
+poor communication, and diverse incentives Weiss-Cohen et al.
+(2019).
+During the last 15 years and following the financial crisis
+of 2008, there have been significant changes in the fabric and
+functioning of the capital markets, with lasting effects on price
+discovery. More specifically:
+1. Central banks policies: The 2008 crisis led to a strong be-
+lief among market participants that central banks would
+intervene to stabilize markets using every tool at their dis-
+posal. An over-reliance on central bank interventions,
+risks distorting market mechanisms and incentives as it
+can give rise to an underpricing of risk, and lead to moral
+hazard and potential increases in system-wide externalities
+BIS (2022).
+2. The rise of passive investing: ETFs offer ”blind” participa-
+tion in market-weighted indices, treating all participating
+stocks irrespective of their fundamental value. This can
+allow stocks to substantially deviate from their fair value.
+It is evident that stocks that are widely held by passive in-
+vestors are more likely to be a ffected than stocks that are
+not Goyal and He (2015).
+3. The significant impact of retail investors: The emergence
+of retail investors, with easy access to gamified, lever-
+aged, and derivative-enabled trading platforms, has also
+significantly impacted price discovery. One example is
+a highly popular retail product, zero-day expiry options
+(0DTE), which are option contracts that expire within a
+single day Brogaard et al. (2023). In 2022 0DTE ac-
+counted for approximately 43% of the total S&P 500 op-
+tions volume compared with just 6% in 2017. Another
+example is meme stocks, such as GameStop, where retail
+herd behavior drove the price of the stock to astronomical
+levels Anand and Pathak (2022).
+The aforementioned factors collectively disrupt the proper
+functioning of price discovery, leading to reduced incentives for
+investors to accurately assess risk and value assets. In today’s
+market environment, this underscores the urgent need for more
+sophisticated tools. These tools should not only enhance the
+analytical capabilities of human decision-makers but also aug-
+ment their capacity to navigate the increasingly complex and
+data-rich financial landscape. With such tools, investors can
+achieve precision and insight, critical for making informed de-
+cisions in the current market dynamics.
+1.2. Potential of LLMs in Stock Selection and Financial Analy-
+sis
+The emergence of Large Language Models (LLMs) like
+ChatGPT holds promise for substantial enhancements in finan-
+cial analysis and stock selection. These sophisticated Artificial
+Intelligence (AI) systems, trained in vast amounts and types of
+corpora, have not only demonstrated the capacity to replicate
+intricate facets of human cognition but, in numerous instances,
+have surpassed them OpenAI (2023a).
+2
+
+
+[Page 3]
+Quickly parsing through vast financial data, LLMs can dis-
+cern intricate details from earnings reports to macroeconomic
+studies and process vast amounts of unstructured data, such as
+news articles or expert opinions, more e fficiently than human
+analysts Guo et al. (2023). This swift deep content analysis en-
+ables them to pinpoint patterns often missed in traditional anal-
+ysis Alshami et al. (2023).
+While humans may be influenced by cognitive biases, LLMs
+provide a more objective lens. They operate largely free from
+the emotional and cognitive biases that can cloud human judg-
+ment, although some biases from their training persist Abram-
+ski et al. (2023); Atreides and Kelley (2023). Furthermore,
+LLMs transcend the limitations of individual or team analysts,
+seamlessly scaling this capacity across products, markets and
+most importantly investors.
+In addition, LLMs play a crucial role in minimizing biases
+in stock selection. Unlike human analysts, LLMs are not in-
+fluenced by emotional or cognitive biases, providing a more
+objective perspective in financial analysis Tjuatja et al. (2023).
+This objectivity is critical in making unbiased investment de-
+cisions, as LLMs rely on data-driven insights rather than sub-
+jective judgments. While some biases inherent in their training
+data can persist, LLMs significantly reduce the influence of hu-
+man biases, such as overconfidence or confirmation bias, on
+investment decisions Abramski et al. (2023); Atreides and Kel-
+ley (2023). Furthermore, LLMs can process and analyze vast
+amounts of financial data, transcending the limitations of indi-
+viduals or team analysts.
+Although such AI systems may outperform humans in some
+specific tasks, their predominant value proposition lies in sup-
+porting human capabilities. They serve as robust tools that
+enhance decision-making, elevate the quality of analytical en-
+deavors, and augment overall productivity Noy and Zhang
+(2023). For instance, complex tasks such as consolidating mul-
+tiple financial statements from diverse subsidiaries of a large
+corporation can be streamlined by an LLM-based system Kim
+et al. (2023). The latter is capable of highlighting discrepan-
+cies, flagging outliers, and providing an executive summary, a
+task that would be both time-consuming and susceptible to er-
+rors if done manually.
+Validating the aforementioned observations, prominent play-
+ers in the financial sector, including JPMorgan and Bloomberg,
+have recently launched AI-powered initiatives. Announcements
+of an AI-enable advisory platform CNBC (2023) and the re-
+lease of a finance-centric LLM Wu et al. (2023) from these
+entities, respectively, reaffirm the prominence of generative AI
+within the financial sector. Furthermore, Morgan Stanley has
+utilized OpenAI’s models to develop a chatbot that aids finan-
+cial advisors by leveraging the bank’s extensive research data
+OpenAI (2023b). In a similar vein, Broadridge, through its
+subsidiary LTX, has introduced BondGPT, a chatbot powered
+by GPT-4 designed to assist institutional investors in bond trad-
+ing LTXtrading (2023). It is crucial to note, however, that many
+major financial institutions like Goldman Sachs and BlackRock
+have dedicated AI departments working on specialized initia-
+tives. Nonetheless, the details of such innovations in investment
+banking are often closely guarded within these institutions for
+competitive and proprietary reasons, thereby limiting the pub-
+lic disclosure of comprehensive information about these signif-
+icant developments.
+1.3. Paper Contributions
+This paper makes several key contributions to the evolving
+discourse on the fusion of AI and financial analysis, primar-
+ily through the presentation of an innovative service for stock
+analysis, named MarketSenseAI1, rooted in the power of LLMs.
+The salient contributions are outlined as follows:
+1. A novel LLM-driven Investment Service : Integrating
+various data sources to provide holistic stock investment
+insights.
+2. Explainable Investment Signals: Explainable investment
+insights to empower investors and ensure transparency.
+3. V ersatile Use Cases: MarketSenseAI’s design allows for
+individual usage of service components, catering to di-
+verse investor needs.
+4. Empirical Evaluation: Demonstrating the reliability and
+statistical significance of the service’s recommendations.
+5. Superior Performance: Highlighting its potential to out-
+shine high-performing indices.
+6. An Independent Financial Advisor : Democratizing ac-
+cess to premium investment insights for retail investors,
+asset managers and other stakeholders.
+In essence, this paper pioneers the integration of multi-source
+data analysis with the cognitive capabilities of LLMs to rede-
+fine stock selection and portfolio management. The resultant
+service not only enhances the quality of stock recommenda-
+tions but ensures they are backed by robust, explainable reason-
+ing. At the core of MarketSenseAI, the LLM generates concise
+summaries from vast amounts of numerical and textual data, ex-
+tracting crucial insights about a company’s developments and
+stock potential. Subsequently, it analyzes these summaries,
+considering the investment horizon, to make investment sug-
+gestions on specific stocks. This dual-process approach, har-
+nessing the summarization and analytical power of AI, offers a
+sophisticated tool for investors navigating the complexities of
+the stock market.
+Furthermore, MarketSenseAI’s modular architecture allows
+for diverse applications in the financial domain. Each com-
+ponent of this architecture provides specific insights, such as
+news, fundamentals, and macroeconomic summaries, that can
+be exploited separately. It can facilitate the construction of AI-
+based portfolios using the generated signals and their explana-
+tions, offering a revolutionary approach to asset management.
+This framework can be tailored to make personalized invest-
+ment decisions, taking into account user preferences on risk,
+investment horizon, and goal. This adaptability demonstrates
+the framework’s potential in various areas of finance, extending
+far beyond stock selection.
+1MarketSenseAI is available at https://www.marketsense-ai.com/.
+3
+
+
+[Page 4]
+Overall, MarketSenseAI bridges domain knowledge and the
+latest AI advancements, providing a novel and applicable sys-
+tem in investment finance. This tool holds significant promise
+for asset managers and retail investors seeking advanced finan-
+cial advice, especially those with limited resources and access
+to premium financial services.
+The rest of this paper is structured as follows: Section 2 re-
+views related works, particularly focusing on AI in investment
+finance and the significance of LLMs. Section 3 introduces
+MarketSenseAI, detailing its architecture and key components.
+Section 4 describes the evaluation methodology, touching upon
+the data utilized and the comparison methods. Empirical find-
+ings are shared in Section 5. Section 6 concludes the paper
+summarizing the primary contributions and insights.
+2. Related Work
+The integration of AI techniques in finance has experienced a
+pronounced surge in the past decade, increasingly overshadow-
+ing traditional statistical or algorithmic methodologies OECD
+(2021). Various dimensions of the financial domain have seen
+the infusion of AI, encompassing risk assessment Fatouros et al.
+(2023a), banking services Kotios et al. (2022), and trading op-
+erations Bloomberg (2019). Concurrently, the ascendance of
+foundational models, particularly the successive iterations of
+the Generative Pre-trained Transformer (GPT) and their a ffili-
+ated chat interfaces, is effecting transformative shifts across di-
+verse sectors. Notably, the financial sector is increasingly incor-
+porating insights from such models into its business operations
+Chui et al. (2023).
+Despite the relatively recent public accessibility of these
+models — with ChatGPT API (Application Programming In-
+terface), for instance, becoming openly available only in March
+2023 — a plethora of research endeavors have surfaced, eluci-
+dating methodologies that harness these Generative AI frame-
+works to augment investment paradigms.
+Research presented by Zaremba and Demir (2023) elucidates
+ChatGPT’s potential in finance, especially for tasks necessitat-
+ing natural language processing capabilities, such as sentiment
+analysis of financial news and summarizing earnings reports.
+Such tasks demonstrate a marked correlation with stock mar-
+ket dynamics Tetlock et al. (2008). Furthermore, Lopez-Lira
+and Tang (2023) establishes the accuracy of ChatGPT in senti-
+ment analysis of financial news, emphasizing the positive corre-
+lation between ChatGPT-generated scores and subsequent stock
+returns. Under several investment strategies, they found that
+ChatGPT outperforms traditional sentiment analysis methods,
+with the news sentiment contributing to impressive returns.
+In comparative evaluations, Li et al. (2023) posits that Chat-
+GPT and GPT-4 surpass domain-specific models like FinBERT
+Araci (2019) and BloombergGPT Wu et al. (2023) in sev-
+eral tasks including named entity recognition and news clas-
+sification. Notably, while FinBERT exhibits superiority in fi-
+nancial sentiment analysis over ChatGPT, the research lacks
+prompt engineering and utilizes a dataset that inherently fa-
+vors FinBERT. In contrast, Fatouros et al. (2023b) presents ev-
+idence that ChatGPT outperforms FinBERT in financial senti-
+ment analysis both in terms of classification performance and
+correlation with actual returns, even when applied with zero-
+shot prompting. Zero-shot prompting enables ChatGPT to per-
+form tasks without prior specific training which indicates that it
+can be effective in sentiment analysis based on its comprehen-
+sive training, despite no explicit financial data training.
+Further, Kim et al. (2023) advocates the utility of GPT-3.5 in
+summarizing corporate disclosures, suggesting that sentiment
+derived from these summaries provides a more accurate pre-
+dictor of stock market reactions than the original documents.
+This finding underscores the value GPT offers to investors seek-
+ing concise and targeted information. Kirtac and Germano
+(2024) extended this analysis, demonstrating GPT-3.5’s e ffec-
+tiveness in sentiment analysis for predicting next-day stock re-
+turns, while outperforming FinBERT and lexicon-based mod-
+els. Yu et al. (2023) and Chen et al. (2023) further explored
+sentiment indicators derived from LLMs, and how these can
+be used to enhance forecasting models for stock movements,
+indicating LLMs’ superior performance in predicting stock di-
+rections.
+In summary, current research on LLMs in financial applica-
+tions aligns with and reinforces the methodologies underpin-
+ning each component of the proposed system. However, to the
+best of our knowledge, the presented approach is distinct both
+in its design and evaluation methodology as it leverages multi-
+modal financial data, instead of barely news or news with his-
+torical prices, to deliver actionable and interpretable investment
+recommendations for the analyzed stocks while it outperforms
+high-performing ETFs. Unlike traditional methods that lean
+heavily on quantitative analysis, where sentiment indicators are
+used as features of predictive models, MarketSenseAI empha-
+sizes language understanding and reasoning to generate invest-
+ment insights after processing numerical and text data. This ap-
+proach allows for the provision of detailed, AI-generated expla-
+nations for each recommendation, enhancing the interpretabil-
+ity and trustworthiness of the investment decisions. What is
+more, the evaluation considers transaction costs and the number
+of trades, highlighting MarketSenseAI’s applicability in real-
+world settings.
+3. Methods
+MarketSenseAI’s architectural framework, depicted in Fig-
+ure 1, merges four core components responsible for data in-
+puts with a fifth component to facilitate the final recommenda-
+tion (i.e., buy, hold, or sell). This component synthesizes all
+the information and provides a concise explanation for the re-
+spective decision. Each component is built upon OpenAI’s API
+and employs the GPT-4 model (OpenAI, 2023a), utilizing zero-
+shot prompting and in-context learning to execute distinct tasks
+(Dong et al., 2022).
+The framework is designed to emulate the decision-making
+process of a professional investment team. This process in-
+volves tracking recent developments of the company or its sec-
+tor (via a news summarizer), analyzing the company’s latest
+financial statements (through a fundamentals summarizer), and
+4
+
+
+[Page 5]
+conducting a macroeconomic analysis of the prevailing envi-
+ronment while taking into account the price action dynamics
+(via marco and price dynamics summaries).
+The following paragraphs present the key components of this
+architecture in detail.
+3.1. Progressive News Summarizer
+The influence of company-specific news — encompassing
+announcements, reports, analyst opinions, and research find-
+ings — on market sentiment and subsequently stock prices can-
+not be understated (Malik, 2011). Depending on their content,
+such news could have a short, long-term, or minimal influence
+(Alqahtani et al., 2020). Hence, the sourcing and interpretation
+of news, demand meticulous handling in stock analysis.
+The Progressive News Summarizer ( PNS ,t) is responsible
+for news acquisition, condensation, and crafting a progressive
+synopsis of a stock’s most influential news. As portrayed in
+Figure 2, daily news items corresponding to a specific stock
+are fetched from available APIs. The study utilized EODHD 2
+Stock Market and Financial News API for news sourcing.
+Equation 1 and 2 model the processes for obtaining the daily
+and the progressive news summaries, respectively.
+NS ,τ =
+tM
+i=t−τ
+Summarize(NS ,i) (1)
+PNS ,t = Summarize(PNS ,t=t−1, NS ,τ) (2)
+Where,
+PNS ,t : Progressive News Summary for stock S
+at time t.
+Summarize() : Function to synthesize an updated summary.
+NS ,τ : Aggregated news summaries for stock S
+over the latest τ days.
+NS ,i : Available news articles for stock S on day i.
+τ : Number of days included in the aggregation,
+representing the time window for news
+progressive summary.M
+: Denotes the operation of concatenating
+daily news summaries.
+The daily news for a company is preprocessed to exclude text
+unrelated to the company, such as clickbait articles, thus ensur-
+ing it is in an appropriate format for entry into the prompt. GPT-
+4, accessed via OpenAI’s API, is systematically prompted to
+distill the stock’s daily news and generate a concise daily news
+summary (NS ,i). The latter is stored in a centralized repository.
+While this method provides a summary for a specific date,
+it is essential to include the ongoing narrative of news-related
+2https://eodhd.com/financial-apis/stock-market-
+financial-news-api/
+Figure 2: Progressive News Summarizer
+content for the company, particularly older news that remains
+significant. For example, in the case of a merger or legal
+dispute, an announcement about the company’s better-than-
+expected results may be less influential in the overall decision-
+making process. The Progressive News Summarizer addresses
+this by integrating the latest news summaries ( NS ,τ) with the
+preceding progressive summary ( PNS ,t−1). More specifically,
+the prompt structure instructs GPT-4 to mimic the role of a fi-
+nancial analyst with the task of synthesizing an updated sum-
+mary for a specific stock by integrating various types of infor-
+mation. The prompt includes:
+• Current Summary: The latest summary of the company
+and its stock as of a specific month and year.
+• Daily News Summary: News articles, divided into factual
+news and analysts’ opinions for the company over a given
+month.
+• Instructions: Integrate the most pertinent information,
+distinguish factual news and analysts’ opinions.
+This summary is a synthesis that takes into account both the
+daily news summaries of the past month and the Progressive
+News Summary formulated in the previous month. This pro-
+cess ensures that the summarizer consistently reflects the latest,
+most relevant, and significant developments, o ffering a com-
+prehensive and current snapshot of the company’s status in the
+news.
+While the Progressive News Summarizer in this study is tai-
+lored for monthly intervals, its design o ffers adaptability for
+various frequencies to match di fferent investment approaches.
+The effects of adjusting the summarizer’s frequency for differ-
+ent intervals on the e ffectiveness of diverse investment strate-
+gies, remain an area for future exploration.
+As illustrated by Table 1, the Progressive News Summarizer
+effectively captures the evolving narrative surrounding Apple
+Inc. (AAPL.US) over two distinct months in 2023. The sum-
+maries encompass a wide range of topics, from the company’s
+5
+
+
+[Page 6]
+ongoing financial performance to its strategic initiatives and
+market challenges.
+In October, the focus was on Apple’s significant role in the
+tech industry, marked by the launch of the iPhone 15 series and
+updates to its Apple Watch and AirPods. This period also high-
+lighted challenges in smartphone sales, the impact of geopolit-
+ical issues, and fluctuations in stock performance. Unique to
+this month were reports on Apple’s interest in acquiring For-
+mula 1 broadcasting rights and the sale of company stock by
+CEO Tim Cook, underscoring the company’s diverse strategic
+interests and executive decisions.
+By November, while many earlier themes continued, new
+elements emerged. The summary shed light on Apple’s sales
+slowdown, competitive pressures in the smartphone market, and
+its strategic shift in partnerships, including the termination of its
+credit card agreement with Goldman Sachs. Notably, the com-
+pany’s sustainability efforts and the launch of the M3 chip were
+highlighted, alongside its expansion in streaming content.
+This table demonstrates the adaptive capability of the Pro-
+gressive News Summarizer to integrate the latest corporate de-
+velopments, market dynamics, and strategic maneuvers. It
+proves invaluable as a tool for delivering a comprehensive
+and current analysis of investment opportunities and industry
+trends. An example of a summary produced by this component
+is provided in Table 2.
+Table 1: Apple Inc. Progressive News Summary (October vs November 2023)
+Topic October November
+Financial Performance Yes Yes
+Guidance for Q4 2023 Yes Yes
+iPhone 15 Launch Yes Yes
+New Apple Watch and AirPods Yes No
+Smartphone Sales Challenges Yes Yes
+Geopolitical Issues Impact Yes Yes
+Stock Performance Yes Yes
+Partnership with DuckDuckGo Yes No
+CEO Tim Cook’s Stock Sale Yes No
+Interest in Formula 1 Broadcasting Yes No
+Product Lineup including M3 Chip No Yes
+Sales Slowdown and Competition No Yes
+Appeal Win in UK No Yes
+Partnership with Goldman Sachs No Yes
+Regulatory Issues in Payment Apps No Yes
+3.2. Fundamentals Summarizer
+Fundamental data is crucial in predictive financial analytics,
+offering quantifiable metrics that reflect a company’s current
+health and future trajectory. As depicted in Figure 3, we uti-
+lize EODHD’s Fundamental Data API to source this quarterly
+information. To facilitate the comparison of financial data, we
+preprocess the data before inputting it into the prompt. This
+preprocessing includes a specific numerical abbreviation tech-
+nique, which converts large numbers into a more compact for-
+mat by representing them with prefixes like ”million”, ”billion”,
+or ”thousand”. For example, numbers in the billions are format-
+ted as ’X billion’, where X is the original number divided by 1
+billion, rounded to two decimal places. This approach stan-
+dardizes the financial data, ensuring consistency and clarity in
+the inputs fed to the LLM. We found that this preprocessing
+step is crucial for allowing GPT-4 to accurately compare and
+interpret complex financial figures.
+Additionally, data from different quarters are placed side by
+side in a table format. The resulting prompt, fed to the GPT-4
+model, delves into aspects such as profitability, revenue trajec-
+tory, debt metrics, and cash flow dynamics by comparing the
+most recent quarterly financial statements. This focus on re-
+cent data enables the LLM to detect shifts in financial perfor-
+mance, potentially correlating it with progressive news. More
+specifically, MarketSenseAI models the financial condition of
+company using the following formula:
+Fs = Summarize
+Standardize
+
+n[
+i=1
+FinancialDatas,qi
+
+ (3)
+Where,
+FinancialDatas,qi : Financial data for stock s in quarter qi,
+where i = 1, . . . ,n (the last n quarters).
+Standardize() : Applies standardization techniques like
+numerical abbreviation.
+Summarize() : Generates a comprehensive summary
+from this standardized data.
+The prompt structure guides GPT-4 to adopt the role of a
+financial analyst focusing on recent trends. The AI is tasked
+with evaluating the financial health of a specified company’s
+stock by analyzing its latest quarters. The prompt includes:
+• Financial Tables: Key financial data from Balance Sheet,
+Income Statement, and Cash Flow for the latest quarters.
+• Analysis Focus: Recent trends and developments in prof-
+itability, revenue growth, debt levels, and cash flow gener-
+ation.
+• Instructions: Conduct a bullet-form analysis.
+Although LLMs traditionally face challenges in compre-
+hending complex numerical data, our preprocessing approach,
+combined with GPT-4’s capabilities, ensures accurate compar-
+ison and interpretation. The fundamentals summarizer is de-
+signed to present an unbiased, factual overview of a company’s
+financial status, avoiding any direct investment recommenda-
+tion. Table 3 showcases how the Fundamentals Summarizer
+distills key insights from financial statements, including in-
+come, balance, and cash flow statements. Similar to the Pro-
+gressive News Summarizer, this component can be employed
+independently to provide a concise financial overview of the
+company being analyzed.
+6
+
+
+[Page 7]
+Table 2: Apple Inc. Progressive News Summary (November 2023)
+Category News Summary
+Market Position Dominant in the tech sector with record services revenue and robust product lineup, including the iPhone 15
+series and new Mac products.
+Sales Performance Experiencing a slowdown, potentially dropping 5% in iPhone sales due to challenges in China and Japan.
+Stock Analysis Recent dip viewed as a buying opportunity by analysts, seasonal performance aligns with product launch
+cycle.
+Legal and Strategic Moves Won UK appeal on mobile browser and cloud gaming services, potentially ending credit card partnership with
+Goldman Sachs.
+Innovation and Sustainability Launched M3 silicon chip based on 3-nanometer technology, expanding streaming content on Apple TV +.
+Regulatory Challenges Faces oversight of digital wallets and payment apps, navigating geopolitical and economic risks.
+Investment Consideration Despite challenges, presents a promising opportunity with strategic expansion, innovative products, and strong
+services division.
+Table 3: Apple Inc. Fundamentals Summary (2023-Q3)
+Category Fundamentals Summary
+Profitability Apple’s net income has increased from $19.88 billion in Q2 2023 to $22.96 billion in Q3 2023, indicating a strong
+profitability. The company’s gross profit also increased from $36.41 billion to $40.43 billion over the same period.
+Revenue Growth Total revenue increased from $81.80 billion in Q2 2023 to $89.50 billion in Q3 2023, showing a positive revenue growth
+Debt Levels The company’s total liabilities increased from $274.76 billion in Q2 2023 to $290.44 billion in Q3 2023. The long-
+term debt decreased slightly from $98.07 billion to $95.28 billion, but the short-term debt increased from $11.21 billion
+to $15.81 billion. The net debt also increased slightly from $80.87 billion to $81.12 billion. This indicates that the
+company’s debt level is increasing, which could be a concern if not managed properly.
+Cash Flow The company’s net cash from operating activities decreased from $26.38 billion in Q2 2023 to $21.60 billion in Q3
+2023. However, the end period cash flow increased from $29.90 billion to $30.74 billion, indicating a positive cash flow
+generation.
+Assets and Equity Total assets increased from $335.04 billion in Q2 2023 to $352.58 billion in Q3 2023. The total stockholder equity also
+increased from $60.27 billion to $62.15 billion, indicating a growth in the company’s assets and equity.
+Conclusion Apple Inc. shows strong profitability and revenue growth. However, the increasing debt level needs to be monitored. The
+company has a positive cash flow generation, and its assets and equity are growing.
+Figure 3: Stock’s Fundamentals Summary
+3.3. Stock Price Dynamics Summarizer
+The Stock Price Dynamics Summarizer, a key component of
+MarketSenseAI, analyzes and contextualizes the price move-
+ments and financial metrics of stocks. As shown in Figure 4,
+this component not only examines the target stock but also com-
+pares its performance with the five most similar stocks, based
+on company description and sector, and includes the broader
+market context represented by the S&P 500 index. The math-
+ematical representation of the Stock Price Dynamics Summary
+is given by Equation 4.
+PS ,t = Summarize
+MetricsS ,t,
+n[
+j=1
+MetricsP j,t
+ (4)
+Where,
+PS ,t : Stock Price Dynamics Summary
+for stock S at time t.
+MetricsS ,t : Performance metrics for stock S at time t.
+MetricsP j,t : Performance metrics for each peer stock P j
+at time t.umber (5)[
+: Union of metrics of the peer stocks for
+comparison.
+Summarize() : Function to condense the analysis
+into a concise, factual report.
+The prompt structure includes:
+• Performance Metrics : Analysis of the stock’s perfor-
+mance using metrics such as Cumulative Returns, V olatil-
+ity, Sharpe Ratio, Maximum Drawdown, and a Correlation
+Matrix.
+7
+
+
+[Page 8]
+• Comparative Analysis : Comparing the stock’s perfor-
+mance with related stocks and the S&P 500 index.
+• Instructions: Summarize the findings in a concise and
+factual report.
+Figure 4: Stock Price Dynamics Summary
+The methodology for identifying similar stocks is outlined
+in Algorithm 1, utilizing the MPNet language model to gen-
+erate embeddings and compute similarity scores (Song et al.,
+2020). More specifically, stock descriptions are encoded by
+MPNet into high-dimensional vectors, capturing each com-
+pany’s unique characteristics and activities. This facilitates the
+computation of pairwise similarity scores among companies
+listed in the S&P 500. These scores are crucial in identify-
+ing stocks with attributes similar to the target stock, thereby
+ensuring a comprehensive comparative analysis that integrates
+individual stock performance with broader market trends.
+Algorithm 1 Identifying Stock Universe Using Embeddings
+1: procedure StockUniverse(targetS tock, descriptions , n)
+2: Generate embeddings for each stock description using
+a pre-trained language model
+3: Compute similarity scores between the target stock’s
+embedding and others
+4: Rank the stocks based on their similarity scores to the
+target stock
+5: Select the top n stocks with the highest similarity scores
+6: return List of top n similar stocks based on embed-
+dings
+7: end procedure
+The summarizer fetches market data for the target stock, its
+similar stocks, and the S&P 500 index. It analyzes key finan-
+cial indicators, including cumulative returns and Sharpe ratios
+over 3, 6, and 12 months, and calculates volatility and max-
+imum drawdown. These metrics, especially the Sharpe ratio
+and maximum drawdown, are crucial as they provide insights
+into the risk-adjusted returns and resilience of the stocks during
+market downturns, respectively (Korn et al., 2022). This com-
+prehensive analysis offers a broad understanding of the stock’s
+performance relative to its peers and the broader market.
+An example of the summarizer’s output is illustrated in Ta-
+ble 4, showcasing its ability to distill complex data into acces-
+sible insights. This provides a multi-dimensional view of the
+stock’s market dynamics in relation to similar companies and
+the overall market trends.
+3.4. Macroeconomic Environment Summary
+Conducting an in-depth macroeconomic analysis is essential
+for making informed investment decisions and effective capital
+allocation. Such analysis o ffers vital insights into the overall
+economic health and performance, significantly influencing the
+profitability and value of individual companies as well as the
+broader stock market. By considering major forces that shape
+the investment landscape, such as the Covid-19 pandemic or the
+war in Ukraine, investors can make better-informed decisions.
+To facilitate this, MarketSenseAI includes a component
+named MarketDigest, depicted in Figure 5. This component
+synthesizes investment reports and research articles biweekly,
+providing succinct summaries of complex economic data and
+trends. MarketDigest sources information from a variety of
+publicly accessible reports from leading banks and investment
+institutions, including Goldman Sachs, Morgan Stanley, UBS,
+and BlackRock. The mathematical representation for Market-
+SenseAI’s Macroeconomic Environment Summary component,
+MarketDigest, can be formulated as follows:
+Mt = Summarize
+
+N[
+j=1
+Summarize
+
+Report j,t
+ (6)
+Where,
+Mt : Macroeconomic summary at time t.
+Summarize() : Function that synthesizes data into a
+concise overview.[
+: Union of individual summaries.
+Report j,t : Investment report or article j at time t.
+N : Number of reports/articles analyzed at time t.
+The process begins by transforming these reports and arti-
+cles into text form. Subsequently, the component utilizes GPT-
+4 to summarize individual reports, and then, in a second step,
+it condenses these individual summaries into a comprehensive
+overview. This approach allows MarketDigest to encapsulate
+diverse perspectives and analyses into a coherent narrative, of-
+fering a consensus view on the macroeconomic climate, central
+bank policies, preferred sectors or countries, as well as geopo-
+litical trends. The output is concise yet thorough, accounting
+for potential contradictions or differing viewpoints among mar-
+ket analysts and experts. The prompt structure for MarketDi-
+gest includes:
+8
+
+
+[Page 9]
+Table 4: Apple Inc. Stock Price Dynamics Summary (November 2023)
+Metric Price Dynamics Summary
+Cumulative Return Apple Inc demonstrated a 29.0% return, outperforming the S&P 500 index’s 13.7% but underperforming tech peers
+like Adobe Systems and Amazon.com Inc.
+Sharpe Ratio Apple’s Sharpe Ratio of 1.34 indicates a favorable risk-adjusted return compared to the market index Sharpe Ratio
+of 0.99, suggesting better compensation for the risk taken.
+V olatility Apple’s volatility at 21.7% is lower than that of Alphabet Inc, Adobe, and Amazon, indicating less erratic stock price
+movements.
+Maximum Drawdown Apple experienced a maximum drawdown of -16.0%, which is less severe than the drawdowns of Adobe, Amazon,
+and Best Buy Co. Inc.
+Correlation Apple shows a high correlation with the S&P 500 (0.76) and moderate correlation with other tech stocks like Mi-
+crosoft Corporation and Amazon.
+Conclusion Apple has shown resilience and strong risk-adjusted performance relative to the broader market and some tech peers,
+with lower volatility and a relatively modest maximum drawdown.
+Figure 5: Macroeconomic Environment Summary (MarketDigest)
+• Initial Summary Focus: Summarization of individual re-
+ports, emphasizing critical macroeconomic elements in-
+cluding central bank policies, geopolitical insights, and
+market outlooks.
+• Synthesis and Sentiment Analysis : An in-depth analy-
+sis of all reports to extract consensus and divergent views,
+with focus on sentiment analysis categorized by asset class
+or investment dimension.
+• Instructions: Demanding a detailed and factual report,
+with emphasis on prevailing market sentiments and ana-
+lytical categorization by asset class.
+Table 5 provides an example of a MarketDigest summary.
+Notably, KM Cube Asset Management3 initiated MarketDigest
+in March 2023 serving as a critical analytical tool, providing
+succinct market overviews to its clients. Distributed bi-weekly,
+it facilitates an enhanced understanding of market dynamics for
+both private and institutional clients, thereby informing their
+investment decision-making processes (Metaxas, 2023). Fur-
+thermore, MarketDigest is integral to the company’s monthly
+3https://www.km3am.com/
+investment committee meetings, where it substantially con-
+tributes to the deliberation and formulation of strategies for in-
+vestment portfolios and the management of discretionary prod-
+ucts.
+3.5. Signal Generation
+The signal generation component, as the final stage in the
+MarketSenseAI pipeline (Figure 1), integrates the textual out-
+puts from the news, fundamentals, price dynamics, and macroe-
+conomic analysis components. This process results in a com-
+prehensive investment recommendation for a specific stock,
+paired with a detailed rationale.
+In essence, we argue that an investment decision for a stock
+is a function of the most important developments for the under-
+lying company available in some extent in the news, the com-
+pany’s financial health, stock’s performance in relation to com-
+petitors and the market, as well as the broader macroeconomic
+environment. The decision model is represented as:
+Is = f (Ns, Fs, Ps, M) (7)
+Where, Ns, Fs, Ps, and M are stock-specific ( s) textual rep-
+resentations of current news, fundamentals, price dynamics,
+and macroeconomic conditions available from the components
+present in sections 3.1-3.4.
+We posit that the state-of-the-art LLM, GPT-4, possesses the
+requisite capacity to weigh and reason upon these different cat-
+egories of data, as evidenced by its demonstrated proficiency
+in complex financial reasoning tasks (Callanan et al., 2023). In
+its operation, the GPT-4 model is prompted to adopt the role
+of an expert financial analyst. This approach employs a Chain
+of Thought methodology (Wei et al., 2022), guiding the model
+through a logical, multi-step reasoning process that reflects an
+expert financial analyst’s thinking pattern. By applying this
+technique, MarketSenseAI can e ffectively analyze and synthe-
+size news, company fundamentals, stock performance data, and
+macroeconomic factors that could influence the given stock,
+thus providing reasoned and structured insights into stock se-
+lection. This approach is particularly useful in complex do-
+mains like finance, where the ability to navigate through multi-
+faceted data and reason like an expert is crucial. Concurrently,
+9
+
+
+[Page 10]
+Table 5: Macroeconomic Environment Summary (November 2023)
+Category Macro Summary
+Inflation US core PCE inflation eased to 3.5% in October, indicating a disinflation trend.
+Interest Rates Market-implied pricing suggests potential rate cuts in March 2024 for both the US and Europe.
+Japan’s Monetary Policy Bank of Japan expected to weaken or abandon yield curve control due to domestic inflation.
+ECB Policy European Central Bank has begun balance sheet unwind.
+Bond Market Outlook Positive outlook on short- to medium-term developed market sovereign bonds.
+Equity Market Stance Neutral stance on developed market equities, with US stocks as largest allocation.
+Global Growth Global economy expected to experience below-trend growth in 2024.
+Investment Strategy Portfolios should maintain neutral exposure to risk and equities, overweight allocation to quality fixed income.
+US Dollar US dollar’s position as leading global reserve currency showing signs of vulnerability.
+Employment Risks Risks to employment are on the downside, with leading indicators of employment deteriorating significantly.
+Market Rally Global financial markets experiencing significant rally, boosted by cooling inflation and falling Treasury yields.
+Contradictions Positive outlook on bonds but neutral on equities; US dollar vulnerability but remains a key currency.
+Positive Sentiment Short- to medium-term bonds, inflation-linked bonds, private market income, quality fixed income, US stocks.
+Negative Sentiment Credit, US Treasury, private markets, small-cap equities, Chinese equities.
+Neutral Sentiment Developed market equities, investment-grade credit, real estate, private equity funds, emerging markets outside
+China.
+in-context learning is employed to dynamically adjust the anal-
+ysis based on current financial situations and evolving market
+data (Dong et al., 2022). This dual strategy allows Market-
+SenseAI to provide deep insights that adapt in changing market
+conditions and investors’ preferences, representing a significant
+advancement in AI-driven financial analysis. The prompt struc-
+ture is as follows:
+• News Analysis: The model first evaluates the latest news
+summaries regarding the target company, assessing their
+potential impact on the stock’s performance.
+• Price Dynamics Analysis : Next, it compares the stock’s
+price dynamics with those of related stocks and the overall
+market, offering a relative performance perspective.
+• Macroeconomic Environment Analysis: The model then
+assesses the broader macroeconomic landscape and its im-
+plications for the target company, considering global eco-
+nomic trends and events.
+• Fundamentals Analysis: The final step involves a review
+of the company’s fundamental financial data, analyzing its
+current financial health and future prospects.
+The model’s output, structured in a concise format, includes
+a decision (”buy”, ”sell”, or ”hold”) along with a clear, step-by-
+step explanation of the reasoning behind this choice. The terms
+”buy” and ”sell” are defined within the context of portfolio po-
+sitioning (long and short positions, respectively), while ”hold”
+indicates no inclusion in the portfolio’s composition regarding
+the specific stock.
+Table 6 demonstrates MarketSenseAI’s functionality in gen-
+erating an explainable investment recommendation for Apple
+Inc. at the end of November 2023, suggesting a ”hold” position
+in the rebalanced portfolio for the following month. The table
+reveals mixed signals, balancing positive developments such as
+strong financials and successful product launches against chal-
+lenges like sales slowdowns, competitive pressures, and regula-
+tory scrutiny. The overall decision to ”hold” reflects a prudent
+approach, considering the various contrasting factors at play.
+The analysis of text similarity in MarketSenseAI, as shown
+in Figure 6 and detailed in Table 7, reveals how the model’s
+reasoning aligns with the dynamics of the input data, crucial
+for generating monthly investment signals. The high similarity
+scores in the ”News” and ”Price Dynamics” summaries (mean
+scores of 0.923 and 0.907, respectively) reflect the model’s em-
+phasis on these rapidly changing factors, recognizing their im-
+mediate impact on stock prices. This is especially relevant for
+short-term, monthly predictions where current developments
+and price trends can significantly sway market behavior.
+In contrast, outputs from ”Fundamentals” and ”Macro” com-
+ponents, with mean similarity scores of 0.849 and 0.803, re-
+spectively, exhibit a lesser direct influence on the model’s
+monthly decisions. The fundamentals, updated quarterly, pro-
+vide a stable but less frequently changing view of a company’s
+financial health, while macroeconomic data, being broader and
+more generic, have a more moderate impact on short-term in-
+vestment decisions.
+Figure 6: MarketSenseAI Components’ Text Similarity with Signal
+This analysis underscores MarketSenseAI’s ability to pro-
+cess and integrate various data categories, tailoring its decision-
+10
+
+
+[Page 11]
+Table 6: Apple Inc. Generated Signal and Explanation (November 2023)
+Decision Explanation
+HOLD The analysis [...] presents a mixed picture. Starting with the news analysis, while Apple remains a dominant player in the tech
+sector with solid financials and a successful product launch in South Korea, it faces challenges such as a sales slowdown, com-
+petitive pressures, and regulatory scrutiny. The Chinese government ban and sluggish sales in China and Japan are concerning,
+but analysts see the recent stock dip as a buying opportunity, suggesting underlying strength. The company’s strategic moves,
+such as potentially ending its credit card partnership with Goldman Sachs, indicate a focus on its services business, which is a
+positive sign. However, the legal challenges and geopolitical risks cannot be ignored. In terms of price dynamics, Apple has
+outperformed the S&P 500 [...] strong risk-adjusted performance. However, the maximum drawdown and the high correlation
+with the market suggest that Apple is not immune to market downturns. The macro environment analysis reveals a disinflation
+trend in the US and potential rate cuts in 2024, which could be favorable for equities. However, the global economy is expected
+to grow below trend, and there is a neutral stance on developed market equities, suggesting caution. The positive outlook on
+quality fixed income and US stocks is encouraging, but the vulnerability of the US dollar and downside risks to employment
+add uncertainty. Fundamentals analysis shows strong profitability and revenue growth for Apple, with increased net income
+and gross profit. The company’s debt levels have risen, which warrants monitoring, but the positive cash flow generation and
+growth in assets and equity are reassuring. Considering the mixed signals [...] a ”hold” decision is prudent[...]
+Note: Green text highlights positive developments for the company/stock, while red text marks elements with negative sentiment.
+Table 7: Statistics of Text Similarity between Signals and Components
+Component mean std min max
+News 0.923573 0.016005 0.865069 0.967842
+Price Dynamics 0.907652 0.013444 0.854822 0.942414
+Fundamentals 0.849269 0.033589 0.769349 0.934139
+Macro 0.802891 0.017896 0.752009 0.870194
+making process to the nature of the input data. This approach
+is key to providing accurate and timely investment recommen-
+dations considering investment horizon.
+4. Experiments
+This section outlines the data sources and methodologies em-
+ployed in MarketSenseAI’s analysis, along with the experimen-
+tal setup used to evaluate and interpret the generated investment
+signals and explanations.
+4.1. Data
+The evaluation of MarketSenseAI’s performance leverages
+stocks listed in the S&P 100 index, comprising the 100 largest
+and most established companies in U.S. equity markets. These
+stocks, due to their public visibility and the volume of analysis
+they attract, present a challenging environment for achieving
+superior stock-selection performance, especially when consid-
+ering transaction costs (Fontinelle, 2022).
+The assessment period spans from December 1, 2022, to
+March 31, 2024. During this time, MarketSenseAI utilized di-
+verse datasets for its in-context learning processes:
+1. News: A total of 163,483 articles published from Decem-
+ber 1, 2022, to February 29, 2024, averaging 4.57 articles
+per day per stock, with a standard deviation of 5.49. The
+mean number of tokens per article was 867, with a stan-
+dard deviation of 1196. These data produced 35,229 daily,
+company-specific, news summaries and 1,500 monthly
+progressive summaries.
+2. Fundamentals: Financial data were gathered from 612
+quarterly reports of the S&P 100 stocks, starting from the
+second quarter of 2022. This data set produced 608 unique
+fundamentals summaries, averaging about 6 per stock.
+3. Descriptions: Concise descriptions of each stock and its
+sector, employed by Algorithm 1 to identify similar stocks.
+4. Prices: Historical daily stock prices (adjusted close) from
+January 1, 2022, to February 29, 2024, were analyzed to
+compute stock price dynamics. This data was employed
+by the Stock Price Dynamics component to produce one
+summary per month for each stock, totaling 1,500 sum-
+maries.
+5. Macro: 187 investment reports (20-30 pages each) from
+major financial institutions published between April 2023
+and February 2023, were analyzed by MarketDigest. For
+predictions made from January to March 2023, macroe-
+conomic summaries were not available for the signal gen-
+eration component, resulting in 11 macroeconomic sum-
+maries used for signal generation.
+To evaluate the system, the ”Signal Generation” component
+was fed at the end of each month with the latest available sum-
+maries (news, fundamentals, price dynamics, macro). While
+macroeconomic summaries were identical for all stocks, fun-
+damental summaries were updated only when a new quarterly
+report for a stock became available. News and price sum-
+maries, being more dynamic, provided updated stock-specific
+insights each month. The investment signals generated by Mar-
+ketSenseAI were subsequently assessed based on the actual
+stock performance in the month following the signal. Overall,
+1,500 signals produced (15 months x 100 stocks), a breakdown
+of these signals reveals 338 ”buy”, 1150 ”hold”, and 12 ”sell”
+signals.
+4.2. Evaluation
+The evaluation of MarketSenseAI’s generated signals fo-
+cused on comparing them against bootstrapped signals and ac-
+tual stock price movements under various investment strategies.
+11
+
+
+[Page 12]
+Additionally, GPT-4’s capability to rank ”buy” signals based on
+their explanations was utilized as an indirect assessment of the
+quality of the signals and their accompanying explanations.
+4.2.1. Bootstrapping
+Bootstrapping is a statistical method that involves resampling
+data with replacement to estimate the variability of specific
+statistics, including standard errors, confidence intervals, and
+various accuracy metrics (Efron and Tibshirani, 1986). This
+method is particularly useful when dealing with complex or un-
+known data distributions.
+In this study, bootstrapping was employed to evaluate
+MarketSenseAI’s performance and its statistical significance
+against randomized investment signals. For this purpose, a ma-
+trix of signals for MarketSenseAI ([nmonths × nstocks]) was used,
+from which samples were drawn randomly, representing ”sell”
+(-1), ”hold” (0), and ”buy” (1) positions. It is crucial to note
+that the distribution of these randomly generated signals might
+not mirror the distribution within the MarketSenseAI dataset.
+This approach ensures that the findings are not due to random
+chance and provides a robust assessment of the model’s perfor-
+mance. After an iterative examination, we settled on creating
+10,000 random portfolios for bootstrapping, observing that ad-
+ditional samples did not significantly alter the evaluation out-
+comes.
+In this context, multiple randomized signals were gener-
+ated for the stocks under consideration over the designated
+time frame. MarketSenseAI’s performance was then compared
+against these randomized signals using two primary metrics.
+Firstly, the portfolio’s cumulative returns were calculated by ad-
+hering to ”buy”, ”sell”, or both signals, applying equal weight
+to each and implementing monthly rebalancing (as depicted in
+Figure 7 and defined in Equation 8). Secondly, the effectiveness
+of the signals was evaluated using a hit ratio, with the following
+month’s actual returns serving as the reference benchmark (as
+detailed in Equation 9).
+Figure 7: Bootstrapping-based Evaluation
+The portfolio performance (cumulative return) is given by:
+Performance =
+nY
+i=1
+1 +
+PN
+j=1 PL(i, j)
+signals per month at i
+ (8)
+The hit ratio is calculated as:
+HRL =
+P
+(i, j)∈VL I(PL(i, j) > 0)
+length(VL) (9)
+where,
+PL(i, j) : Performance of asset j at time i, defined as
+PL(i, j) = m(i, j) × r(i, j).
+L : Indicator representing the evaluated signals, Llong
+for long, Lshort for short, and Lboth for both signals.
+m(i, j) : Model predictions (signals) for asset j at time i.
+r(i, j) : Actual returns for asset j at time i.
+VL : Set of returns based on model predictions and L.
+I(x) : Indicator function, returning 1 if x is true
+and 0 otherwise.
+This methodology ascertains the substantive impact of Mar-
+ketSenseAI as it discerns the tangible benefits of Market-
+SenseAI’s recommendations as opposed to adhering to random
+trading signals.
+4.2.2. Market Performance
+This part of the assessment compares the performance of
+portfolios constructed based on MarketSenseAI’s signals with
+actual market prices. The design of the MarketSenseAI-based
+portfolios and the baseline portfolios and the evaluation metrics
+are detailed in Table 8 and Table 9, respectively. The Market-
+SenseAI portfolios were formulated by following the service’s
+signals, generated on the last day of each month after market
+closure, and held for one month.
+4.2.3. Ex-post evaluation with Ranking
+An additional layer of analysis was introduced to evaluate
+the quality and context of the explanations accompanying the
+”buy” signals. This process involved incorporating a ranking
+mechanism into the system, as depicted in Figure 8. The GPT-4
+model was fed with all explanations that led to ”buy” signals
+for each stock within a given month. The set included all expla-
+nations E(S i) associated with a ”buy” indication for each stock
+S i|S 1=buy. The prompt directed GPT-4 to rank these explanations
+on a scale of 0 to 10, with 10 indicating a strong buy.
+The rationale behind this approach is that if MarketSenseAI’s
+outputs are insightful, specific, and actionable, GPT-4 should be
+able to rank them effectively (Shu et al., 2023; Liu et al., 2023).
+Stocks with higher scores are expected to contribute to better-
+performing portfolios. This method also provides an alternative
+ranking, filtering, and weighting mechanism for portfolio man-
+agement. This evaluation approach was implemented in the last
+three investment strategies listed in Table 8.
+4.3. Setup
+The implementation of MarketSenseAI was executed us-
+ing Python 3.11, leveraging the LangChain framework (Chase,
+2022) for prompt construction and utilizing OpenAI’s API
+12
+
+
+[Page 13]
+Table 8: Evaluated Investments Strategies on S&P 100 Stocks
+Abbreviation Description
+MS Equally weighted portfolio rebalanced
+monthly based on both ”buy” and ”sell”
+signals of MarketSenseAI.
+MS-L Equally weighted portfolio rebalanced
+monthly based on the ”buy” signals of Mar-
+ketSenseAI.
+MS-L-Cap Capitalization-weighted portfolio rebal-
+anced monthly based on the ”buy” signals
+of MarketSenseAI.
+MS-Top10-SR Equally weighted portfolio rebalanced
+monthly based on the 10 stocks with the
+best Sharpe Ratio of all the stocks with a
+”buy” signal.
+S&P100-Eq Equally weighted portfolio of all the stocks
+of the S&P 100 index.
+S&P100 Capitalization-weighted S&P 100 index
+(OEF ETF).
+Naive Equally weighted portfolio rebalanced
+monthly for all S&P 100 stocks with price
+above their corresponding 200 day moving
+average, fully allocated.
+Naive-Top10 Equally weighted portfolio rebalanced
+monthly based on the 10 stocks with the
+best Sharpe Ratio and their price above
+their corresponding 200 day moving aver-
+age, fully allocated.
+MS-TopN-GPT Equally weighted portfolio rebalanced
+monthly based on the N stocks with the
+best score produced by GPT-4 after pro-
+cessing of all the stocks with a ”buy” sig-
+nal.
+MS-High-GPT Equally weighted portfolio rebalanced
+monthly based on stocks with score grater
+than 7 /10 produced by GPT-4 after pro-
+cessing of all the stocks with a ”buy” sig-
+nal.
+MS-Low-GPT Equally weighted portfolio rebalanced
+monthly based on stocks with score lower
+or equal than 7 /10 produced by GPT-4 af-
+ter processing of all the stocks with a ”buy”
+signal.
+MS-TopN-Cap-GPT Capitalization-weighted portfolio rebal-
+anced monthly based on the N stocks with
+the best score produced by GPT-4 after pro-
+cessing of all the stocks with a ”buy” sig-
+nal.
+for accessing the GPT-4 model. Each component of Market-
+SenseAI, as outlined in Section 3, functions independently, run-
+ning as a standalone script. The outputs from these components
+are systematically stored in a datastore, ensuring organized and
+efficient data management. As MarketSenseAI accesses GPT-4
+through OpenAI’s API, the operational aspects fall under Ope-
+nAI’s operational jurisdiction. This arrangement allows our
+framework to leverage the capabilities of GPT-4 efficiently, en-
+suring consistent processing times per stock, while o ffloading
+the computational and hardware management responsibilities
+Table 9: Portfolio Evaluation Metrics
+Metric Description
+Total Return The portfolio cumulative returns (%) over a spe-
+cific period (Equation 8)
+Sharpe Ratio A measure of risk-adjusted return; calculated as
+the average return earned in excess of the risk-
+free rate per unit of volatility.
+Sortino Ratio Similar to the Sharpe Ratio, but measures re-
+turns relative to downside risk, focusing on neg-
+ative asset volatility.
+V olatility A statistical measure of the dispersion of returns
+for a given security or market index, measured
+using standard deviation.
+Win Rate The percentage of trades that are profitable out
+of the total number executed.
+Maximum
+Drawdown
+(Ddn)
+The maximum observed percentage loss from
+a peak to a trough of a portfolio, before a new
+peak is attained.
+Figure 8: Signals Ranking by GPT-4
+to OpenAI’s robust infrastructure.
+For the backtesting of the portfolios used in the evaluation
+process, the VectorBT PRO library 4 was chosen. This library
+is known for its versatility and e fficiency in conducting finan-
+cial analysis and backtesting investment strategies, making it
+a suitable choice for rigorously evaluating the performance of
+MarketSenseAI-generated portfolios.
+To identify the most similar stocks of a given stock, a pre-
+requisite for the Stock Price Dynamics Summarizer, we use the
+mpnet-base-v2 model available from Hugging Face’s Trans-
+formers framework and cosine similarity function from
+Scikit-Learn Python library.
+Experiments are run on a desktop computer with an AMD
+Ryzen 5 5600x 6-Core CPU, 32GiB of RAM, and an NVIDIA
+GeForce RTX 3070 GPU. For data storage a dedicated cloud
+based S3 bucket was used hosted on Amazon Web Services
+(AWS).
+4https://vectorbt.pro/
+13
+
+
+[Page 14]
+5. Results
+This section presents the empirical findings obtained from
+the multifaceted evaluations outlined in Section 4.
+5.1. Bootstrapping Evaluation Results
+Table 10 displays the outcomes of the bootstrapping evalua-
+tion, which is instrumental in contrasting the e fficacy of Mar-
+ketSenseAI with various bootstrapped portfolios. This evalu-
+ation includes an assessment of MarketSenseAI’s performance
+with detrended returns, providing a refined analysis of its signal
+generation capability. The detrending of returns is mathemati-
+cally expressed as:
+r′(i, j) = r(i, j) − r(i, ·) (10)
+In this formula,r′(i, j) denotes the detrended return for assetj at
+time i, r(i, j) is the actual return, and r(i, ·) is the average return
+at time i across all assets. This detrending process is crucial as
+it helps to isolate the performance of individual stocks from the
+broader market trends, thereby offering a clearer perspective on
+MarketSenseAI’s signal precision.
+The table evaluates both cumulative returns (R) and hit ratios
+(HR), along with their respective quantiles ( QR and QHR), de-
+livering an extensive view of the system’s effectiveness in com-
+parison to randomized strategies.
+Table 10: MarketSenseAI vs Bootstrapped Portfolios
+Signals R Q R HR Q HR
+Detrend-Buy 7.67 97.85 51.86 99.50
+Buy 35.48 98.70 60.34 99.35
+Detrend-Sell 22.62 100 72.73 100
+Sell 0.10 100 63.64 100
+Detrend-Both 8.41 99.55 52.61 94.20
+Both 33.87 100 60.46 100
+Note: MarketSenseAI cumulative returns R and hit ratio HR (%)
+and their quantiles (QR, QHR) in the bootstrapped distribution.
+The results from the bootstrapping evaluation reveal that
+MarketSenseAI’s signals notably outperform random chance,
+as evident from the high quantiles achieved in both cumulative
+returns (R) and hit ratios (HR) across diverse signal categories.
+This superior performance holds true even when assessing de-
+trended returns, indicating MarketSenseAI’s proficiency in dis-
+cerning profitable investment opportunities from broader mar-
+ket movements.
+A particularly key observation is the high hit ratio quantile
+for the ”Buy” signals following detrending. Considering the
+upward trend of the market during the evaluation period, this in-
+dicates that MarketSenseAI’s recommendations have a greater
+probability of success compared to a random signal genera-
+tion approach. This finding is significant as it highlights the
+model’s capability in effectively pinpointing potential market-
+outperforming opportunities.
+In essence, the bootstrapping evaluation robustly demon-
+strates MarketSenseAI’s capacity to produce trading signals
+that significantly surpass what would be expected by mere
+chance.
+5.2. Market Performance Evaluation Results
+It is important to note that the period of the experiments is
+characterized by disparate performances between the stocks.
+While technology giants and AI-centric companies experienced
+a robust year, others showed modest returns (Thompson, 2023).
+Our analysis places special emphasis on equal-weighted in-
+dices, which helps counterbalance this disparity and illustrates
+MarketSenseAI’s potential. Additionally all results presented
+below account for transaction costs to assess real-world appli-
+cability and effectiveness of MarketSenseAI-derived strategies.
+5.2.1. V anilla strategies
+The assessment of MarketSenseAI’s vanilla strategies, as de-
+tailed in Table 11 and illustrated in Figure 9, reveals the e ffi-
+cacy of LLM-driven investment strategies. The strategy follow-
+ing the complete set of MarketSenseAI’s signals (MS) equally
+weighted, yields an impressive total return of 35.48% (32.94%
+after transaction costs) with a Sharpe and Sortino ratio of 2.49
+and 3.87, respectively. The long-only version (MS-L) that takes
+into account only the ”buy” signals of MarketSenseAI gives
+similar results given the relatively few ”sell” signals generated.
+These results significantly outperform the equally-weighted
+S&P 100 (S&P100-Eq) both in total and risk-adjusted returns,
+with an ”alpha” of approximately 10% and 28% higher Sortino
+ratio. The naive trend-following strategy (Naive), often used by
+market participants, yielded significantly lower results.
+In terms of capitalization-weighted performance, the MS-L-
+Cap emerges as a top performer in terms of Sharpe and Sortino
+ratios, as well as total return, reaching an impressive 66% to-
+tal return. This is a significant outperformance of 43% to the
+S&P100 ETF as depicted in Figure 10.
+Figure 9: Performance of Equally-Weighted Portfolios
+5.2.2. Rank-based strategies
+Continuing the exploration of MarketSenseAI’s perfor-
+mance, Table 12 and Figure 11 provide a detailed analysis of
+rank-based strategies derived from MarketSenseAI’s signals.
+14
+
+
+[Page 15]
+Table 11: MarketSenseAI Performance of Vanilla Strategies
+Strategy Total Return(%) Sharpe Sortino V ol(%) Win Rate(%) Max Ddn(%)
+MS 35.48 (32.94) 2.49 3.87 15.76 65.68 8.47
+MS-L 35.79 (34.82) 2.41 3.75 16.44 65.02 9.00
+S&P100-Eq 25.22 (25.12) 1.98 3.02 14.72 76.36 10.66
+Naive 17.89 (17.45) 1.47 2.14 14.71 65.09 11.00
+MS-L-Cap 66.22 (65.25) 2.90 4.95 22.81 65.88 9.64
+S&P100 43.27 (43.20) 2.86 4.61 16.17 N/A 9.24
+Note: Values at bold indicate the best scores among the weighted strategies, while underlined values indicate the best scores among the
+equally weighted strategies. Values in parenthesis represent the total returns after transaction costs (5bps/trade).
+Figure 10: Performance of Capitalization-Weighted Portfolios
+These results delve into the practical applications of these sig-
+nals, focusing on portfolios with a manageable number of assets
+(around 10), and highlight how different strategic implementa-
+tions can impact investment results.
+The MS-Top10-SR strategy, which selects the ”buy” stocks
+with the highest Sharpe ratio, delivered a total return of 23.13%
+(22.12% after transaction costs). However, strategies utiliz-
+ing GPT-4 to rank stocks exhibit significantly superior per-
+formance, both in total and risk-adjusted returns, highlighting
+the advanced analytical capabilities of LLM in selecting high-
+potential investments as well as the importance of the informa-
+tion generated by MarketSenseAI.
+The MS-Top5-GPT and MS-Top10-GPT strategies, which
+select the top 5 and top 10 GPT-4 ranked stocks respectively,
+achieved remarkable total returns of 50.96% (49.67% after
+costs) and 49.09% (48.07% after costs). These strategies not
+only surpassed the returns of MS-Top10-SR and the Naive-
+Top10 benchmarks but also demonstrated impressive Sharpe
+and Sortino ratios, indicating high returns per unit of risk.
+Notably, the MS-Top10-GPT strategy also achieved the high-
+est win rate of 74.1% and the lowest maximum drawdown
+of 7.66, further evidencing the robustness of GPT-4’s ranking
+mechanism in navigating market volatilities and capitalizing on
+growth opportunities.
+The di fferentiation between MS-High-GPT and MS-Low-
+Figure 11: Performance of Ranked Portfolios
+GPT strategies, yielding 39.47% (38.35% after costs) and
+25.66% (24.27% after costs) respectively, elucidates the signif-
+icant advantage of selecting stocks based on MarketSenseAI’s
+explanations. This distinction highlights the added value of AI
+ranking over conventional financial engineering methods that
+may focus solely on historical returns or volatility.
+Furthermore, the MS-Top10-Cap-GPT strategy, which ap-
+plies a capitalization-weighted approach to the top GPT-4
+ranked stocks, stands out with a staggering total return of
+72.87% (71.64% after costs), the highest among the strategies
+evaluated.
+5.2.3. GPT ranking
+Building upon the insights gained from GPT-4’s rankings
+of MarketSenseAI signals, Figure 12 provides a visual repre-
+sentation of the quality of explanations accompanying Market-
+SenseAI’s ”buy” signals throughout the evaluation period. The
+figure depicts (bar plot) the frequency of ”buy” signals over
+the months for the stock with at least five ”buy” signals. It
+also illustrates (scatter plot) the evaluative scores assigned by
+GPT-4, based on the strength, depth and relevance of explana-
+tions behind each ”buy” recommendation. In this visualization,
+the scatter plot points are placed according to the average score
+given to each stock, allowing for an intuitive understanding of
+how the explanations for each stock were perceived in terms of
+15
+
+
+[Page 16]
+Table 12: MarketSenseAI Performance of Rank-Based Strategies
+Strategy Total Return(%) Sharpe Sortino V ol(%) Win Rate(%) Max Ddn(%)
+MS-Top10-SR 23.13 (22.12) 1.45 2.11 19.27 67.8 12.66
+MS-Top5-GPT 50.96 (49.67) 2.26 3.69 24.01 68.42 11.39
+MS-Top10-GPT 49.09 (48.07) 2.68 4.29 19.37 74.1 7.66
+MS-High-GPT 39.47 (38.35) 2.28 3.44 19.08 71.9 9.73
+MS-Low-GPT 25.66 (24.27) 1.76 2.64 17.04 55.1 12.22
+Naive-Top10 29.01 (28.18) 1.67 2.48 20.29 69.3 9.79
+MS-Top10-Cap-GPT 72.87 (71.64) 2.80 4.89 25.61 71.2 10.77
+Note: Values at bold indicate the best scores among strategies. Values in parenthesis represent the total returns after transaction costs
+(5bps/trade).
+quality and persuasiveness by the GPT-4 ranking layer.
+Figure 12: Signals Ranking by GPT-4
+A key observation from Figure 12 is the significantly higher
+scoring of technology and AI-related stocks, such as Nvidia,
+Microsoft, and Amazon. This trend is reflective of the mar-
+ket hype surrounding these sectors during the evaluation period.
+The tendency of these stocks to receive higher scores not only
+demonstrates the relevance of MarketSenseAI’s ”buy” signals
+but also underscores the model’s capability to encapsulate and
+convey the prevailing market sentiment and potential in its ex-
+planations.
+6. Conclusion
+MarketSenseAI’s innovative use of GPT-4’s advanced rea-
+soning capabilities represents a significant leap forward in fi-
+nancial analysis. This AI-powered framework provides both re-
+tail and professional investors with a comprehensive and unique
+tool for processing and analyzing extensive data sets, enabling
+the generation of scalable, actionable investment signals. Its
+utility is particularly evident in single stock analysis within en-
+vironments rich in untapped opportunities.
+The presented LLM-based system provides several key ad-
+vantages over traditional financial tools, enhancing qualitative
+and quantitative data processing, mitigating biases, explaining
+its reasoning, and boosting scalability and efficiency. However,
+it’s crucial to acknowledge the study’s limitations, including the
+assumptions made about investment decision factors and GPT-
+4’s effectiveness in different markets. The limited duration of
+the study also highlights the need for extended research to fully
+understand MarketSenseAI’s effectiveness across various mar-
+ket conditions.
+MarketSenseAI’s evaluation in the S&P 100, yielding up to
+73% returns and surpassing market performance by 30%, show-
+cases its potential in investment decision-making. In addition,
+beyond the specific signals generated by MarketSenseAI, its in-
+dividual components independently provide substantial value.
+They deliver a clear and concise picture of each factor a ffect-
+ing a stock, combining summarization capabilities with com-
+prehensive data aggregation.
+These results contribute to understanding the role of LLMs in
+finance, suggesting new possibilities for future advancements
+in this dynamic and evolving field. MarketSenseAI represents a
+step forward in the process of investment decision-making and
+shows potential in supporting the overall health and stability of
+the financial system.
+CRediT authorship contribution statement
+George Fatouros : Conceptualization, Methodology, Soft-
+ware, Validation, Formal analysis, Investigation, Data curation,
+Writing – original draft & Visualization. Kostas Metaxas :
+Conceptualization, Methodology, Software, Validation, Inves-
+tigation, Data curation, Writing - Review & Editing. John
+Soldatos: Funding acquisition, Writing – review & editing. Di-
+mosthenis Kyriazis: Resources & Supervision.
+Declaration of Competing Interest
+The authors George Fatouros and Kostas Metaxas declare
+their involvement in the development and commercialization of
+the presented framework (i.e., MarketSenseAI) as a product of
+Alpha Tensor Technologies Ltd.
+References
+Abramski, K., Citraro, S., Lombardi, L., Rossetti, G., Stella, M., 2023. Cogni-
+tive network science reveals bias in gpt-3, gpt-3.5 turbo, and gpt-4 mirroring
+math anxiety in high-school students. Big Data and Cognitive Computing 7,
+124.
+Alqahtani, A., Wither, M.J., Dong, Z., Goodwin, K.R., 2020. Impact of news-
+based equity market volatility on international stock markets. Journal of
+Applied Economics 23, 224–234.
+16
+
+
+[Page 17]
+Alshami, A., Elsayed, M., Ali, E., Eltoukhy, A.E., Zayed, T., 2023. Harnessing
+the power of chatgpt for automating systematic review process: Methodol-
+ogy, case study, limitations, and future directions. Systems 11, 351.
+Anand, A., Pathak, J., 2022. The role of reddit in the gamestop short squeeze.
+Economics Letters 211, 110249.
+Araci, D., 2019. Finbert: Financial sentiment analysis with pre-trained lan-
+guage models. Preprint at https://arxiv.org/abs/1908.10063.
+Atreides, K., Kelley, D., 2023. Cognitive biases in natural language: Automat-
+ically detecting, differentiating, and measuring bias in text. doi: 10.13140/
+RG.2.2.14044.56967.
+BIS, 2022. Market dysfunction and central bank tools. https://
+www.bis.org/publ/mc insights.pdf. Accessed September 28, 2023.
+Bloomberg, 2019. What’s an “algo wheel?” and why should you care?
+— bloomberg professional services. https://www.bloomberg.com/
+professional/blog/whats-algo-wheel-care/ . Accessed September
+24, 2023.
+Bouchaud, J.P., Gefen, Y ., Potters, M., Wyart, M., 2003. Fluctuations and
+response in financial markets: the subtle nature ofrandom’price changes.
+Quantitative finance 4, 176.
+Brogaard, J., Han, J., Won, P.Y ., 2023. How does zero-day-to-expiry
+options trading a ffect the volatility of underlying assets? Avail-
+able at SSRN: https://ssrn.com/abstract=4426358 or http://
+dx.doi.org/10.2139/ssrn.4426358.
+Callanan, E., Mbakwe, A., Papadimitriou, A., Pei, Y ., Sibue, M., Zhu, X., Ma,
+Z., Liu, X., Shah, S., 2023. Can gpt models be financial analysts? an
+evaluation of chatgpt and gpt-4 on mock cfa exams. Preprint at https:
+//arxiv.org/abs/2310.08678.
+Chase, H., 2022. Langchain. https://github.com/langchain-ai/
+langchain. Accessed December 29, 2023.
+Chen, Z., Zheng, L.N., Lu, C., Yuan, J., Zhu, D., 2023. Chatgpt informed
+graph neural network for stock movement prediction. Preprint at https:
+//arxiv.org/abs/2306.03763.
+Chui, M., Hazan, E., Roberts, R., Singla, A., Smaje, K., Sukharevsky, A.,
+Yee, L., Zemmel, R., 2023. The Economic Potential of Generative AI:
+The Next Productivity Frontier. Technical Report. McKinsey & Company.
+https://www.mckinsey.com/capabilities/mckinsey-digital/
+our-insights/the-economic-potential-of-generative-ai-
+the-next-productivity-frontier . Accessed September 24, 2023.
+CNBC, 2023. Jpmorgan ai investment advisor. https://www.cnbc.com/
+2023/05/25/jpmorgan-develops-ai-investment-advisor .html.
+Accessed September 24, 2023.
+Dong, Q., Li, L., Dai, D., Zheng, C., Wu, Z., Chang, B., Sun, X., Xu, J., Sui, Z.,
+2022. A survey for in-context learning. Preprint at https://arxiv.org/
+abs/2301.00234.
+Efron, B., Tibshirani, R., 1986. Bootstrap methods for standard errors, confi-
+dence intervals, and other measures of statistical accuracy. Statistical science
+1, 54–75.
+Fatouros, G., Makridis, G., Kotios, D., Soldatos, J., Filippakis, M., Kyriazis,
+D., 2023a. Deepvar: a framework for portfolio risk assessment leveraging
+probabilistic deep neural networks. Digital finance 5, 29–56.
+Fatouros, G., Soldatos, J., Kouroumali, K., Makridis, G., Kyriazis, D., 2023b.
+Transforming sentiment analysis in the financial domain with chatgpt. Ma-
+chine Learning with Applications 14, 100508.
+Fontinelle, A., 2022. Can anybody beat the market? https:
+//www.investopedia.com/ask/answers/12/beating-the-
+market.asp, Accessed January 01, 2024.
+Goyal, A., He, Z., 2015. Passive investing and market liquidity. The Review of
+Financial Studies 28, 2167–2203.
+Greenwald, B.C., Kahn, J., Bellissimo, E., Cooper, M.A., Santos, T., 2020.
+Value investing: from Graham to Buffett and beyond. John Wiley & Sons.
+Guo, B., Zhang, X., Wang, Z., Jiang, M., Nie, J., Ding, Y ., Yue, J., Wu, Y ., 2023.
+How close is chatgpt to human experts? comparison corpus, evaluation, and
+detection. Preprint at https://arxiv.org/abs/2301.07597.
+Kidwell, D.S., Blackwell, D.W., Whidbee, D.A., 2016. Financial institutions,
+markets, and money. John Wiley & Sons.
+Kim, A.G., Muhn, M., Nikolaev, V .V ., 2023. Bloated disclo-
+sures: Can chatgpt help investors process information? Avail-
+able at SSRN: https://ssrn.com/abstract=4425527 or http://
+dx.doi.org/10.2139/ssrn.4425527.
+Kirtac, K., Germano, G., 2024. Sentiment trading with large language models.
+Available at SSRN: https://ssrn.com/abstract=4706629.
+Korn, O., M¨oller, P.M., Schwehm, C., 2022. Drawdown measures: Are they all
+the same? The Journal of Portfolio Management 48, 104–120.
+Kotios, D., Makridis, G., Fatouros, G., Kyriazis, D., 2022. Deep learning en-
+hancing banking services: a hybrid transaction classification and cash flow
+prediction approach. Journal of big Data 9, 100.
+Lewellen, J., 2002. Momentum and autocorrelation in stock returns. The Re-
+view of Financial Studies 15, 533–564.
+Li, X., Zhu, X., Ma, Z., Liu, X., Shah, S., 2023. Are chatgpt and gpt-4 general-
+purpose solvers for financial text analytics? an examination on several typi-
+cal tasks. Preprint at https://arxiv.org/abs/2305.05862.
+Liu, Y ., Iter, D., Xu, Y ., Wang, S., Xu, R., Zhu, C., 2023. Gpteval: Nlg
+evaluation using gpt-4 with better human alignment. Preprint at https:
+//arxiv.org/abs/2303.16634.
+Lopez-Lira, A., Tang, Y ., 2023. Can chatgpt forecast stock price move-
+ments? return predictability and large language models. Preprint at https:
+//arxiv.org/abs/2304.07619.
+LTXtrading, 2023. Bondgpt: Introducing ltx’s generative ai application for cor-
+porate bond trading. https://www.ltxtrading.com/bondgpt Accessed
+January 19, 2024.
+Malik, F., 2011. Estimating the impact of good news on stock market volatility.
+Applied Financial Economics 21, 545–554.
+Malkiel, B.G., 2003. The e fficient market hypothesis and its critics. Journal of
+economic perspectives 17, 59–82.
+Metaxas, K., 2023. Marketdigest. https://www.km3am.com/2023/03/13/
+marketdigest-new-ai-powered-tool-for-wealth-management-
+insights/. Accessed September 24, 2023.
+Noy, S., Zhang, W., 2023. Experimental evidence on the productivity effects of
+generative artificial intelligence. Science 381, 187–192. URL: https://
+www.science.org/doi/abs/10.1126/science.adh2586, doi: 10.1126/
+science.adh2586.
+OECD, 2021. Artificial intelligence, machine learning and big data in finance:
+Opportunities, challenges, and implications for policy makers. https:
+//www.oecd.org/finance/financial-markets/Artificial-
+intelligence-machine-learning-big-data-in-finance .pdf.
+Accessed September 24, 2023.
+OpenAI, 2023a. Gpt-4 technical report. arXiv:2303.08774. preprint at
+https://arxiv.org/abs/2303.08774.
+OpenAI, 2023b. Morgan stanley wealth management deploys gpt-4 to organize
+its vast knowledge base. https://openai.com/customer-stories/
+morgan-stanley. Accessed January 19, 2024.
+Shu, L., Wichers, N., Luo, L., Zhu, Y ., Liu, Y ., Chen, J., Meng, L.,
+2023. Fusion-eval: Integrating evaluators with llms. Preprint at https:
+//arxiv.org/abs/2311.09204.
+Song, K., Tan, X., Qin, T., Lu, J., Liu, T.Y ., 2020. Mpnet: Masked and permuted
+pre-training for language understanding. Advances in Neural Information
+Processing Systems 33, 16857–16867.
+Tetlock, P.C., Saar-Tsechansky, M., Macskassy, S., 2008. More than words:
+Quantifying language to measure firms’ fundamentals. The journal of fi-
+nance 63, 1437–1467.
+Thompson, C., 2023. Magnificent 7 stocks: What you need to know.https://
+www.investopedia.com/magnificent-seven-stocks-8402262 , Ac-
+cessed January 01, 2024.
+Tjuatja, L., Chen, V ., Wu, S.T., Talwalkar, A., Neubig, G., 2023. Do llms
+exhibit human-like response biases? a case study in survey design. Preprint
+at https://arxiv.org/abs/2311.04076.
+Wei, J., Wang, X., Schuurmans, D., Bosma, M., Xia, F., Chi, E., Le, Q.V .,
+Zhou, D., et al., 2022. Chain-of-thought prompting elicits reasoning in large
+language models. Advances in Neural Information Processing Systems 35,
+24824–24837.
+Weiss-Cohen, L., Ayton, P., Clacher, I., Thoma, V ., 2019. Behavioral biases in
+pension fund trustees’ decision making. Review of Behavioral Finance 11,
+128–143.
+Wu, S., Irsoy, O., Lu, S., Dabravolski, V ., Dredze, M., Gehrmann, S., Kam-
+badur, P., Rosenberg, D., Mann, G., 2023. Bloomberggpt: A large language
+model for finance. Preprint at https://arxiv.org/abs/2303.17564.
+Yu, X., Chen, Z., Ling, Y ., Dong, S., Liu, Z., Lu, Y ., 2023. Temporal data
+meets llm–explainable financial time series forecasting. Preprint at https:
+//arxiv.org/abs/2306.11025.
+Zaremba, A., Demir, E., 2023. Chatgpt: Unlocking the future of nlp in finance.
+Available at SSRN: https://ssrn.com/abstract=4323643 or http://
+dx.doi.org/10.2139/ssrn.4323643.
+17

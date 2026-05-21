@@ -1,0 +1,1542 @@
+[Page 1]
+Fine-Tuning Large Language Models for Stock
+Return Prediction Using Newsflow
+Tian Guo ∗ Emmanuel Hauptmann
+Systematic Equities Team
+RAM Active Investments, Geneva, Switzerland
+Abstract
+Large language models (LLMs) and their fine-tuning techniques have demon-
+strated superior performance in various language understanding and generation
+tasks. This paper explores fine-tuning LLMs for stock return forecasting with fi-
+nancial newsflow. In quantitative investing, return forecasting is fundamental for
+subsequent tasks like stock picking, portfolio optimization, etc. We formulate
+the model to include text representation and forecasting modules. We propose
+to compare the encoder-only and decoder-only LLMs, considering they generate
+text representations in distinct ways. The impact of these different representa-
+tions on forecasting performance remains an open question. Meanwhile, we com-
+pare two simple methods of integrating LLMs’ token-level representations into
+the forecasting module. The experiments on real news and investment universes
+reveal that: (1) aggregated representations from LLMs’ token-level embeddings
+generally produce return predictions that enhance the performance of long-only
+and long-short portfolios; (2) in the relatively large investment universe, the de-
+coder LLMs-based prediction model leads to stronger portfolios, whereas in the
+small universes, there are no consistent winners. Among the three LLMs studied
+(DeBERTa, Mistral, Llama), Mistral performs more robustly across different uni-
+verses; (3) return predictions derived from LLMs’ text representations are a strong
+signal for portfolio construction, outperforming conventional sentiment scores.
+1 Introduction
+Quantitative investing relies on extracting quantitative features or signals from various data sources
+including market prices, economic indicators, financial text, etc., to build and optimize investment
+portfolios [11, 2]. In recent years, the use of text data for quantitative investing has grown signif-
+icantly, thanks to the advancement of natural language processing (NLP) techniques [45, 35, 30].
+In particular, large language models (LLMs) have demonstrated superior performance on various
+language understanding and generation tasks [14, 5, 19, 37], and the fine-tuning technique allows
+for adapting the pre-trained LLMs to fit investing-related applications [16, 10].
+This paper is focused on return forecasting with financial news for stock picking. Return forecasting
+is useful for picking stocks with profit potentials to include in portfolios. Financial news reports on
+events and announcements related to companies, industries, the economy, etc., and shows notable
+predictive power for stock future performance in previous studies [27, 17].
+The conventional way of applying financial news data to stock picking involves a multi-step
+extraction-and-validation process as illustrated in Fig. 1(a), i.e., formulating the numerical features
+(e.g., sentiments, topics, popularity, etc.) with the expectation that these features have a predictive
+relationship with stock future performance (e.g., forward return, volatility, etc.) [1, 36], developing
+the calculation processes or machine learning models to extract features from the news (e.g., train
+∗Correspondence to tig@ram-ai.com
+arXiv:2407.18103v2  [q-fin.CP]  5 Aug 2024
+
+
+[Page 2]
+News Sentiment
+News of Stocks
+ Forward Return
+ a
+b
+Features are expected to have a 
+predictive relationship with stock 
+performance e.g.,forward returns
+Forecasting Model by Fine-tuning LLMs
+Pre-trained Fine-tuned
+(a)
+(b)
+Inference 
+Feature Formulation
+a
+b
+Extraction and Validation
+To backtest
+To backtest
+e.g., train a financial sentiment model
+? ?
+?
+Training Data
+Training Data
+ Development of Feature Extraction Tools  
+Figure 1: Comparison of different workflows of utilizing financial news for stock picking. (a) Con-
+ventional feature extraction-and-validation process, e.g., financial sentiments. (b) News-to-return
+forecasting by fine-tuning LLMs.
+a financial sentiment classification model), and validating the predictive power of extracted features
+by statistical analysis or building forecasting models. This process might be time-consuming and
+require additional data (e.g., labeled financial sentiment data) and continuous refinements.
+LLMs generate numerical representations (or embeddings) of text that capture semantic relations,
+and these representations can naturally serve as features for forecasting tasks. Given this intuition,
+this paper explores direct news-to-return prediction through fine-tuning LLMs. Fig. 1 illustrates
+the difference between the conventional feature extraction-and-validation process and our LLM-
+based news-to-return process. Though some previous works attempted to use text embedding for
+forecasting [27, 41, 30, 13], few works have explored the potential of fine-tuning LLMs for stock
+return forecasting with newsflow. Moreover, this paper has the contribution as follows:
+• We design an LLM-based return prediction model comprising the text representation and
+the forecasting modules.
+• We hypothesize that the text representations from encoder-only and decoder-only LLMs
+will perform differently due to their distinct methods of encoding text sequences during
+pre-training and fine-tuning; thus we propose to compare the encoder-only (DeBERTa)
+and decoder-only LLMs (Mistral, Llama3) as the representation module of the prediction
+model.
+• Considering that LLM-generated text representations are at the token level, we present two
+simple methods to integrate token representations into the forecasting module: bottleneck
+representations and aggregated representations.
+• We perform experiments on real financial news and various investment universes. In addi-
+tion to evaluating prediction errors, we assess two types of portfolios built on return predic-
+tions through backtesting in out-of-sample periods. The experimental comparison between
+encoder-only and decoder-only LLMs, as well as between bottleneck and aggregated repre-
+sentations, offers insights for identifying suitable text representations for different investing
+strategies and markets.
+2 Related Work
+Numerous works have investigated using financial text data for forecasting tasks. Previous works
+mostly used word-level embedding techniques lacking the ability of contextual modeling. [44, 45]
+extracted the sentiment score from financial newsflow, social media, and tweets for stock price
+predicting. [27, 17] explored learning numeric representations of financial news by attention mech-
+anisms for modeling stock movements. [41] studied combining sentiment and text representations
+for return prediction. [7] studied the embedding aggregate strategy of news for forex prediction.
+2
+
+
+[Page 3]
+The advent of LLMs and related techniques provides a new powerful way of using text data for fore-
+casting tasks in quantitative investing [47, 26]. LLMs can be broadly categorized into three main
+types. Encoder-only models such as BERT (Bidirectional Encoder Representations from Transform-
+ers) [9] and DeBERTa (Decoding-enhanced BERT with disentangled attention) [15, 14], focus on
+learning contextual embeddings for input text. Decoder-only models like GPT-3 (Generative Pre-
+trained Transformer 3) [31] and Mistral [19] are trained to generate text by predicting the next token
+in a sequence. Encoder-decoder models including T5 (Text-To-Text Transfer Transformer) [25] and
+BART (Bidirectional and Auto-Regressive Transformers) [33] are a mix of both encoder and decoder
+architectures and suitable for sequence-to-sequence tasks such as machine translation, summariza-
+tion, and question-answering.
+LLMs are pre-trained on vast amounts of text data to learn general language patterns. Following
+pre-training, there are two main approaches to applying LLMs to downstream tasks. The prompt
+technique is to design specific inputs to guide the pre-trained LLM to produce the desired output
+without modifying the LLM’s parameters [32, 6, 21]. The second approach is to fine-tune LLMs by
+adjusting the pre-trained LLM’s parameters to adapt to specific tasks [12, 42, 10, 8]. In particular,
+parameter-efficient fine-tuning techniques have gained popularity [16, 10, 28]. For instance, LoRA
+(Low-Rank Adaptation) [16] introduces low-rank adaptations to the pre-trained model parameters,
+thereby reducing the computational and memory overhead of fine-tuning.
+Some recent works use LLMs as feature extractors to obtain predictive signals from text. Authors
+in [3, 29] explored the fine-tuning of pre-trained LLMs to provide more accurate financial sentiment
+analysis. Instead of fine-tuning LLMs, [40] extracted factors from the financial news and price
+history by prompts on generative LLMs. [20] used chain-of-thought prompts [43] on generative
+LLMs to analyze financial statements.
+Unlike existing works that extract features from text using LLMs, this paper focuses on fine-tuning
+LLMs to directly model the relation between financial text and stocks’ future performance, i.e.,
+newsflow and forward return. Meanwhile, we evaluate the text representations from different types
+of LLMs to study their different effectiveness for the return forecasting task.
+3 From Financial Newsflow to Stock Portfolios through LLMs
+3.1 Problem Statement
+Assume an investment universe consisting of a set of stocks denoted by U = {s}S
+s=1, where s
+represents the stock index. In quantitative investing, the stock-picking process selects a subset of the
+universe as the investing portfolio based on quantitative criteria. As market conditions and various
+information change, the stock-picking process is repeatedly performed to update or rebalance the
+portfolios at (regular) time intervals, e.g., weekly, monthly, etc.
+LLM-based Return 
+Forecasting Model
+Return 
+Forecasts
+Ranking
+high
+low
+Long-only 
+Portfolio
+Long-short 
+Portfolio
+a
+Stocks with 
+Financial Newsflow
+a
+b
+ b
+c
+ c
+text
+forecasting 
+module
+text to vector
+representation
+through LLM
+Figure 2: Illustration of the LLM-based return forecasting model for the stock-picking process.
+Assume an investment universe of 3 stocks denoted by a, b, c. Each stock has an associated list of
+news. Then, given the return forecasts and ranks, stocks can be selected into long-only or long-short
+portfolios.
+This paper is interested in predicting stock returns with news for stock picking. Specifically, let
+rs,t+n ∈ R be the n-step forward return of stock s w.r.t. timestep t. The textual content of financial
+news reported at time i and w.r.t. stock s is denoted by xs,i, a list of text tokens. At time t, the news
+3
+
+
+[Page 4]
+text available for predicting rs,t+ℓ in a look-back time window W is {xs,i}i∈Ts,<t where Ts,<t
+represents the set of timesteps of available news.
+Considering the large sequence length that LLMs can process nowadays [47, 26], we concatenate
+the set of news in the look-back window into one sequence denoted by Xs,<t = ⊕{xs,i}i∈Ts,<t,
+where ⊕ denotes the concatenation operation. Next, we formulate the return forecasting model as a
+composite structure of a text representation module and a forecasting module as defined in Eq. 1:
+ˆrs,t+ℓ = f ◦ g (Xs,<t) (1)
+We aim to explore realizing Eq. 1 by jointly fine-tuning a pre-trained LLM as g(·) and training a
+dense layer as f (·). In particular, Eq. 1 is a sequence-level task requiring the text representation
+module g : Xs,<t 7→ hs,<t to encode the sequence Xs,<t into a numerical vector hs,<t ∈ RD.
+Then, the forecasting module f : hs,<t 7→ ˆrs,t transforms hs,<t to the return forecast. We train
+the model using a set of data instances pooled from individual stocks and associated news, i.e.,
+{(rs,t+ℓ, Xs,<t)}s∈U ,t∈T where T represents the timestamps in the training period.
+At test time, besides evaluating prediction errors such as the root mean square error (RMSE), we
+implement the return prediction-based stock picking to construct long-only and long-short portfolios
+which are subsequently backtested. This process is illustrated in Fig. 2.
+Long-Only Portfolios is intended to include stocks with the expectation of a price rise above the
+universe average. In practice, it is built by ranking the stocks based on the return forecasts and
+selecting the top-K stocks. K is usually chosen according to the decile or quantile of the universe,
+e.g., 10% of the total number of stocks.
+Long-Short Portfolios includes both the stocks with the expectation of a price rise and drop. For the
+stocks with a price drop expectation, the portfolio can profit by selling them at the present price and
+repurchasing them at a lower price in the future. In this paper, the long-short portfolio is built by
+including the top-K and bottom-K stocks based on the forecast ranks.
+3.2 Methodology
+Transformer-based LLMs can be categorized into three main types: encoder-only, decoder-only,
+and the hybrid encoder-decoder. All these LLMs transform text into high-dimensional vector repre-
+sentations, however, their different pre-training objectives lead to text representations with varying
+implications.
+In the following, we describe the text representation difference in encoder-only and decoder-only
+LLMs. Then, we present two simple methods of integrating the token-level representations from
+LLMs into the forecasting module. These methods introduce no additional parameters to learn and
+provide a clear comparison of the native representations of different LLMs for return forecasting.
+Encoder-only LLMs vs. Decoder-only LLMs. Given a sequence of text tokens X =
+{x1, · · · , xL}, LLMs output a sequence of vector representations {h1, · · · , hL} corresponding to
+the input tokens. However, as presented below, the vector representations from encoder-only and
+decoder-only LLMs encode the different parts of the input sequence.
+Pre-training an encoder LLM is mostly based on masked-language modeling [9, 23, 15]. Con-
+cretely, it prepares a training text sequence X by randomly masking some tokens, leading to
+ˆX = {xmask if i ∈ M else xi ∀ i = 1 , · · · , L}. M ⊂ { 1, · · · , L} represents the indices of to-
+kens to mask. The mask token xmask is a special token without concrete meaning and plays as the
+placeholder. Then, the pre-training objective is to predict the masked tokens, i.e., maximizing the
+likelihood of masked tokens as:
+log p
+ 
+{xm}m∈M | ˆX
+
+=
+X
+m∈M
+log p(xm | X<m, xmask, X>m) ≈
+X
+m∈M
+log p(xm | hm) (2)
+In Eq. 2, X<m = {x1, · · · , xm−1} and X>m = {xm, · · · , xL} represent the tokens before and
+after xm. Maximizing Eq. 2 encourages the representation hm to incorporate both the left and
+right contexts, i.e., X>m and X<m, for predicting the masked token. Particularly, in the attention
+mechanism of Transformers, hm is derived based on the similarities between the mask token xmask
+and the context tokens X>m and X<m.
+4
+
+
+[Page 5]
+On the other hand, a decoder-only LLM models an input sequence autoregressively using the next-
+token prediction task [31, 37]. The pre-training objective function is defined in Eq. 3:
+log p(x1, · · · , xL|ˇX) =
+X
+i=1,··· ,L
+log p(xi | X<i) ≈
+X
+i
+log p(xi | hi−1) (3)
+For modeling the first token, the practical way is to add a Beginning-of-Sequence (BOS) token,
+i.e., ˇX = xbos ⊕ X. Similar to the mask token, the BOS token has no concrete meaning. The
+representation hi−1 encodes the information from already seen tokens and is derived based on the
+relation between xi−1 and X<i−1 = {x1, · · · , xi−2}.
+Bottleneck Representations vs. Aggregated Representations. As LLMs output the token-level
+vector representations, to obtain a representation encoding the sequence, the idea of bottleneck rep-
+resentation is to push LLMs to compress the sequence information into a single vector representation
+during fine-tuning [46, 38, 39].
+In practice, this is achieved by appending an End-of-Sequence (EOS) xEOS to the input sequence,
+e.g., Xs,<t ⊕ xEOS. As xEOS is constant across sequences, its vector representationhEOS depends on
+the real tokens of the sequence. During fine-tuning,hEOS is fed into the forecasting module as shown
+in Eq. 4. The backpropagation process propels hEOS to summarize real tokens’s representations
+through the forecasting module.
+ˆrs,t+ℓ = f (hEOS) (4)
+The bottleneck representation has different implications for encoder-only and decoder-only LLMs.
+In encoder-only LLMs, the vector used for predicting is obtained based on the mask token and the
+real context tokens during the pre-training, as explained in Eq. 2. As a result, appending an EOS
+token (identical to the mask token used in pre-training) aligns the fine-tuning with the pre-training.
+This consistency might facilitate the EOS token representation to summarize sequence-level features
+effectively. In decoder-only LLMs, the vector representation of each token is conditioned on the
+already-seen tokens; thus, the last token of a sequence naturally summarizes the whole sequence,
+making an additional EOS token redundant.
+In experiments, we observed that appending the EOS token is more helpful for encoder-only LLMs.
+For a comparison on the same ground, we append EOS tokens for both encoder-only and decoder-
+only LLMs and leave the study on the different impacts of appending tokens to future work.
+Meanwhile, considering the recent works on the representation collapse issue of the last token in
+certain conditions [4], we present a simple alternative to bottleneck representation, i.e., allowing the
+forecasting module to aggregate the representations of all tokens. This can be done using various
+methods like averaging, or sophisticated ones like attention mechanisms [24]. In this paper, we
+choose the simple averaging method, since it introduces no additional parameters to train and enables
+a clear comparison with the bottleneck representation.
+ˆrs,t+ℓ = f
+ 
+1
+L
+X
+l
+hl
+!
+(5)
+For encoder-only LLMs, the pre-training and fine-tuning discrepancy arises when using aggregated
+representations, because each token’s representation is based on context and itself, instead of the
+mask token in pre-training. For decoder-only LLMs, averaging all representations might lead to bias
+towards the early tokens of the input sequence. This is because, in the autoregressive setting, the
+early tokens are repeatedly incorporated into the representations of all subsequent ones.
+Implementations. The text representation module and the forecasting module are respectively ini-
+tialized by a pre-trained LLM and a dense layer. Then, the training process jointly fine-tunes the
+LLM and learns the forecasting module to minimize the mean squared error (MSE) between the
+forecasts and true values. We applied Low-Rank Adaptation (LoRA) to fine-tune LLMs [16]. Other
+techniques including gradient checkpointing, mixed precision training, and DeepSpeed are used to
+reduce GPU memory [34].
+We experiment with one encoder-only LLM, i.e., DeBERTa [14], and two different decoder-only
+LLMs, i.e., Mistral-7B and Llama3-8B base models [37, 19]. DeBERTa is a recent encoder-only
+LLM that improves upon the BERT model with disentangled content and position embeddings.
+5
+
+
+[Page 6]
+Mistral-7B is a 7-billion-parameter decoder-only LLM that uses grouped query and sliding win-
+dow attention to improve performance. Llama3-8B is an 8-billion-parameter decoder-only LLM
+pre-trained on data mixed from different sources, e.g., multilingual, codes, etc., to improve the gen-
+eralization ability.
+4 Experiments
+Data. We use company-level financial newsflow data from 2003 to 2019 provided by a financial data
+vendor. Each piece of news has an attribute including the company identifier(s) the news is primarily
+about. Meanwhile, we have two investment universe datasets of the North American (NA), European
+(EU), and Emerging (EM) markets, which consist of dates, stock identifiers, and the true monthly
+forward returns of corresponding stocks and dates. The training and validation data is from 2003 to
+2014 for each universe, while the rest is for the out-of-sample testing data. Each instance is built
+by linking an entry in the universe data to related news through the stock identifier and a look-back
+time window (e.g., one week). Table 2 shows the data stats.
+Setup. We train the model only once and then apply the model to obtain the return predictions in the
+testing period. We conduct the model training using a batch size of 32, a learning rate of 1e-5, and
+a warmup phase of 100 steps followed by a linear decay. To fine-tune LLMs, we applied Low-Rank
+Adaptation (LoRA) with rank 4 to all linear layers. We employ a maximum context length of 4k for
+all LLMs used in experiments. All models are trained for 10 epochs on 2 A100 GPUs.
+The long-only portfolio is built by taking the stocks with the return predictions falling in the top
+(9th) decile of prediction rankings. The long-short portfolios take the stocks in the top ( 9th) and
+bottom (0th) deciles. The stocks in all portfolios are equally weighted.
+We perform backtesting to evaluate the portfolios in monthly rebalancing. It stimulates the trading
+of monthly constructed portfolios and reports the cumulative return chart and performance statistics
+like annualized returns and Sharpe ratios in the testing period. When backtesting the long-only and
+long-short portfolios, besides comparing the portfolios built on return predictions by different LLMs,
+we also compare them with the sentiment-based portfolio construction. Specifically, FinBERT is a
+fine-tuned BERT (Bidirectional Encoder Representations from Transformers) for financial sentiment
+analysis [3]. FinVader is a dictionary-based method with a financial sentiment lexicon [18, 22]. The
+sentiment-based portfolios are built using the same method but with sentiment values as the ranking
+criteria.
+Metrics. As mentioned in the problem statement of Sec. 3.1, the downstream stock picking for
+building portfolios is based on the deciles of forecasts; thus we report three decile-wise metrics to
+align with downstream scenarios, i.e., decile RMSE, decile precision, and decile return. The decile
+return is the actual return of stocks allocated to the decile based on predictions and is directly related
+to the portfolio performance. Analyzing the decile return along with the decile RMSE and precision
+provides insights into the relation between portfolio performance and prediction accuracy.
+Specifically, at each date in the testing data, we group the predictions with the true returns into
+deciles based on the ranking of predictions (i.e., the highest predictions are in the top 9th decile and
+the lowest ones are in the bottom 0th decile). Then, with the true and predicted returns in each decile
+across dates, we calculate the decile RMSE, decile precision, and decile return. The decile precision
+is the percentage of the true returns whose decile based on the ranking of true values is equal to the
+current decile. It is related to the portfolio performance, because, for instance, a high precision of
+the top decile implies that a high proportion of stocks in this decile has a high true forward return,
+thereby benefiting the portfolio including stocks from the top decile.
+For portfolio backtesting, we report the cumulative return charts and performance statistics like
+annualized returns and Sharpe ratios in the testing period.
+Results. In the following, we present and discuss mainly the results of the NA universe. The results
+of the EU and EM universe are in the Appendix section.
+Bottleneck Representations vs. Aggregated Representations: In Fig. 3, we compare the bottleneck
+and aggregated representations for the three LLMs in the North American universes through the
+decile RMSE, precision, and returns. Each column of Fig. 3 corresponds to a LLM. Meanwhile,
+6
+
+
+[Page 7]
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+DeBERT a, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+Mistral, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+Llama, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+DeBERT a, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+Mistral, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+Llama, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Absolute Return
+DeBERT a, Decile Absolute Return
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Absolute Return
+Mistral, Decile Absolute Return
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Absolute Return
+Llama, Decile Absolute Return
+Bottleneck
+Aggregated
+Figure 3: Decile Performance of Bottleneck and Aggregated Representations in the North American
+Universe (best viewed in color). Top Row: Decile RMSE. Middle Row: Decile Precision. Bottom
+Row: Decile Return. The up (or down) arrow indicates the higher (or lower) values are desirable.
+Table 1: Statistics of Portfolios in the North American Universe. The Universe Equally-Weighted
+represents the universe performance reported under the Long-only Portfolio column.
+Long-only Portfolio Long-short Portfolio
+Ann. Return % (↑) Sharpe Ratio (↑) Ann. Return % (↑) Sharpe Ratio (↑)
+Universe Equally-Weighted 9.76 0.68 − −
+SentimentFinVader 12.26 0.72 2.92 0.39
+SentimentFinBert 20.64 1.22 8.81 0.92
+DeBERTaBottleneck 17.47 0.96 10.83 0.94
+DeBERTaAggregated 25.15 1.20 12.87 1.07
+MistralBottleneck 21.27 1.15 15.08 1.49
+MistralAggregated 25.38 1.12 18.30 1.26
+LlamaBottleneck 27.00 1.32 20.46 1.49
+LlamaAggregated 18.86 1.00 14.29 1.30
+Fig. 4 shows the cumulative return charts of portfolios and Table 1 reports the detailed performance
+stats of portfolios.
+In the bottom row of Fig. 3, the returns from the 0th decile to the 9th decile generally present an
+upward trend, implying that overall the return predictions are aligned with actual future performance.
+Moreover, we are particularly interested in the top 9th and bottom 0th deciles as they are the main
+constituents of portfolios. For the top 9th decile, the aggregated representation model generates a
+higher return and benefits the long portfolio, except for Llama. For the EU and EM universe, as
+presented in the Appendix section, the aggregated representation model consistently outperforms
+the bottleneck one.
+Interestingly, the higher returns do not necessarily imply low RMSE in the 9th decile. For instance,
+in Fig. 3, the aggregated representation model has a higher decile return, but a higher RMSE, in the
+9th decile corresponding to the long-only portfolio for DeBERTa and Mistral. An explanation is that
+the 9th decile is regarding predicting high-value returns and less accurate predictions of these returns
+might have high RMSE. But, if the return prediction still falls into the 9th decile as the true return,
+the corresponding decile return is retained. In this case, the decile precision is more indicative of the
+decile return, for instance, in Fig. 3 the outperforming representations mostly have a higher precision
+in the 9th decile.
+As for the bottom 0th decile, a lower return is preferred as the short side of a long-short portfolio
+benefits from stocks with underperforming forward returns. In Fig. 3, the aggregated representation
+model falls short of lowering the 0th decile’s return for DeBERta and Mistral, however, Table 1
+7
+
+
+[Page 8]
+shows that the return and Sharpe ratios of long-short portfolios are mostly improved with aggregated
+representations compared to the bottleneck representations.
+Meanwhile, in the 0th decile, there are complexities in how prediction errors translate to actual
+returns. For instance, for DeBERTa, the aggregated representation has higher RMSE and precision
+in the bottom 0th decile, implying that some stocks with higher true returns are misallocated to the
+0th decile by the prediction. As a result, the 0th decile return of the aggregated representation is
+higher. However, when the aggregated representation of Llama has the same pattern in the bottom
+decile, the return is as low as expected. This might be because the high precision offsets the impact
+of misallocated high returns.
+Fig. 4 visualizes the cumulative return of the portfolios using the bottleneck and aggregated repre-
+sentation models. The performance of long-only and long-short portfolios correspond to the top and
+bottom deciles in Fig. 3. The return curves of the aggregated representation model are notably higher
+except for Llama. As shown in the Appendix, the aggregated representation constantly outperforms
+the bottleneck representation for the EU and EM universes.
+2015 2016 2017 2018 2019 2020
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+DeBERT a, Long-Only Portfolio ( )
+DeBERT a_Bottleneck
+DeBERT a_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+Mistral, Long-Only Portfolio ( )
+Mistral_Bottleneck
+Mistral_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+Llama, Long-Only Portfolio ( )
+Llama_Bottleneck
+Llama_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+DeBERT a, Long-Short Portfolio ( )
+DeBERT a_Bottleneck
+DeBERT a_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+Mistral, Long-Short Portfolio ( )
+Mistral_Bottleneck
+Mistral_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+Llama, Long-Short Portfolio ( )
+Llama_Bottleneck
+Llama_Aggregated
+Universe Equally-Weighted
+Figure 4: Cumulative Return Charts of the Portfolios based on Bottleneck and Aggregated Rep-
+resentation Models in the North American Universe (best viewed in color). Top Row: Long-only
+Portfolios. Bottom Row: Long-short Portfolios.
+Encoder-only LLMs vs. Decoder-only LLMs: Fig. 5 shows the comparison of encoder-only and
+decoder-only LLMs with the suitable representations for the NA universe, i.e., the aggregated rep-
+resentation for DeBERTa and Mistral, and the bottleneck representation for Llama. For the EU and
+EM universes in the Appendix, the aggregated representation is favored for all three LLMs.
+The decile return in Fig. 5 exhibits that decoder-only Mistral and LLama generate high returns in
+the top 9th decile and lower returns in the bottom 0th decile, thereby leading to the outperforming
+long-only and long-short portfolios as shown in the cumulative return charts. In particular, the
+performances of long-only portfolios are comparable among encoder and decoder LLMs, however,
+in long-short portfolios, the short side drags down the performance of the long side, especially for
+the encoder-only DeBERTa. This highlights the importance of effective stock selection on both sides
+of the portfolio. Meanwhile, all the prediction-based portfolios yield higher returns than the universe
+average.
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Average Absolute Return
+North America, Decile Return
+DeBERT a
+Mistral
+Llama
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+North America, Long-Only Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+North America, Long-Short Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Figure 5: Comparison of Encoder-only and Decoder-only LLMs with the Suited Representations in
+the North American Universe (best viewed in color).
+Prediction-based vs. Sentiment-based Portfolios: In this part, we compare the prediction-based port-
+folios with conventional sentiment-based portfolios. Fig. 6 shows the decile returns and the return
+8
+
+
+[Page 9]
+charts of portfolios, and the performance statistics are in Table 1. The prediction-based portfo-
+lios are from the forecasting model with the suited representations, as in the above comparison of
+encoder-only and decoder-only LLMs.
+In Table 1, the prediction-based long-only and long-short portfolios outperform the sentiment-based
+portfolios both in returns and Sharp ratios. In Fig. 6, the return charts of prediction-based portfolios
+are above the sentiment-based portfolios. In particular, for the long-short portfolios, as shown in the
+return chart, the short side of the sentiment-based method negatively offsets the long side, leading
+to underperformance compared with the universe. In contrast, the prediction-based long-short port-
+folios have smoother return curves than the long-only portfolios, because the short side mitigates
+the overall portfolio’s volatility. The outperformance of prediction-based portfolios suggests that
+the return prediction models capture more relevant information from text representations for future
+stock performance, leading to effective stock picking.
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Average Absolute Return
+North America, Decile Return
+FinVader
+FinBert
+DeBERT a
+Mistral
+Llama
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+North America, Long-Only Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Sentiment_FinVader
+Sentiment_FinBert
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0
+3.5Cumulative Return
+North America, Long-Short Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Sentiment_FinVader
+Sentiment_FinBert
+Figure 6: Comparison with Sentiment-based Portfolios in the North American Universe (best viewed
+in color).
+5 Conclusion
+This paper focuses on return forecasting with financial newsflow for quantitative portfolio con-
+struction. Unlike the conventional feature extraction-and-validation workflow, this paper explores
+fine-tuning LLMs to directly model the relationship between text representations and stock forward
+return. Considering that different LLMs generate token-level representations in distinct ways, we
+compare the design choices on two aspects: the encoder-only versus decoder-only LLMs, and the
+bottleneck versus aggregated representations.
+Our experiments are conducted on real financial news, various investment universes, and differ-
+ent portfolios. The results reveal the key findings: (1) aggregated representations from LLMs’
+token-level embeddings generally produce the return predictions that enhance the performance of
+long-only and long-short portfolios; (2) in the relatively large investment universe, the decoder
+LLMs-based prediction model leads to stronger portfolios, whereas in the small universes, there
+are no consistent winners. Among the three LLMs studied (DeBERTa, Mistral, Llama), Mistral
+performs more robustly across different universes; (3) return predictions derived from LLMs’ text
+representations are a strong signal for portfolio construction, outperforming conventional sentiment
+scores.
+Several open questions remain for future research. For instance, it is unclear whether the under-
+performance of encoder-only DeBERTa in the large investment universe is due to the model size or
+other factors, and why DeBERTa has varying performance in different small universes. Evaluating
+recently proposed large encoder-only LLMs [39, 5] would be an interesting follow-up. Additionally,
+within the decoder-only LLM family, compared with Mistral’s robust performance across investment
+universes, the reasons behind Llama’s performance variation need further exploration.
+References
+[1] David E Allen, Michael McAleer, and Abhay K Singh. Daily market news sentiment and stock
+prices. Applied Economics, 51(30):3212–3235, 2019.
+[2] Andrew Ang. Asset management: A systematic approach to factor investing. Oxford University
+Press, 2014.
+[3] Dogu Araci. Finbert: Financial sentiment analysis with pre-trained language models. arXiv
+preprint arXiv:1908.10063, 2019.
+9
+
+
+[Page 10]
+[4] Federico Barbero, Andrea Banino, Steven Kapturowski, Dharshan Kumaran, Jo˜ao GM Ara´ujo,
+Alex Vitvitskyi, Razvan Pascanu, and Petar Veliˇckovi´c. Transformers need glasses! informa-
+tion over-squashing in language tasks. arXiv preprint arXiv:2406.04267, 2024.
+[5] Parishad BehnamGhader, Vaibhav Adlakha, Marius Mosbach, Dzmitry Bahdanau, Nicolas
+Chapados, and Siva Reddy. Llm2vec: Large language models are secretly powerful text en-
+coders. arXiv preprint arXiv:2404.05961, 2024.
+[6] Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla Dhari-
+wal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, et al. Language mod-
+els are few-shot learners. Advances in neural information processing systems, 33:1877–1901,
+2020.
+[7] Deli Chen, Keiko Harimoto, Ruihan Bao, Qi Su, Xu Sun, et al. Group, extract and aggregate:
+Summarizing a large amount of finance news for forex movement prediction. arXiv preprint
+arXiv:1910.05032, 2019.
+[8] Hyung Won Chung, Le Hou, Shayne Longpre, Barret Zoph, Yi Tay, William Fedus, Yunxuan
+Li, Xuezhi Wang, Mostafa Dehghani, Siddhartha Brahma, et al. Scaling instruction-finetuned
+language models. Journal of Machine Learning Research, 25(70):1–53, 2024.
+[9] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert: Pre-training of
+deep bidirectional transformers for language understanding. In Proceedings of the 2019 Con-
+ference of the North American Chapter of the Association for Computational Linguistics: Hu-
+man Language Technologies, Volume 1 (Long and Short Papers), pages 4171–4186, 2019.
+[10] Ning Ding, Yujia Qin, Guang Yang, Fuchao Wei, Zonghan Yang, Yusheng Su, Shengding Hu,
+Yulin Chen, Chi-Min Chan, Weize Chen, et al. Parameter-efficient fine-tuning of large-scale
+pre-trained language models. Nature Machine Intelligence, 5(3):220–235, 2023.
+[11] Eugene F Fama and Kenneth R French. Multifactor explanations of asset pricing anomalies.
+The journal of finance, 51(1):55–84, 1996.
+[12] Beliz Gunel, Jingfei Du, Alexis Conneau, and Ves Stoyanov. Supervised contrastive learning
+for pre-trained language model fine-tuning. arXiv preprint arXiv:2011.01403, 2020.
+[13] Tian Guo, Nicolas Jamet, Valentin Betrix, Louis-Alexandre Piquet, and Emmanuel Haupt-
+mann. Esg2risk: A deep learning framework from esg news to stock volatility prediction.
+arXiv preprint arXiv:2005.02527, 2020.
+[14] Pengcheng He, Jianfeng Gao, and Weizhu Chen. Debertav3: Improving deberta using
+electra-style pre-training with gradient-disentangled embedding sharing. arXiv preprint
+arXiv:2111.09543, 2021.
+[15] Pengcheng He, Xiaodong Liu, Jianfeng Gao, and Weizhu Chen. Deberta: Decoding-enhanced
+bert with disentangled attention. arXiv preprint arXiv:2006.03654, 2020.
+[16] Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang,
+Lu Wang, and Weizhu Chen. Lora: Low-rank adaptation of large language models. arXiv
+preprint arXiv:2106.09685, 2021.
+[17] Ziniu Hu, Weiqing Liu, Jiang Bian, Xuanzhe Liu, and Tie-Yan Liu. Listening to chaotic
+whispers: A deep learning framework for news-oriented stock trend prediction. InProceedings
+of the eleventh ACM international conference on web search and data mining, pages 261–269,
+2018.
+[18] Clayton Hutto and Eric Gilbert. Vader: A parsimonious rule-based model for sentiment anal-
+ysis of social media text. In Proceedings of the international AAAI conference on web and
+social media, volume 8, pages 216–225, 2014.
+[19] Albert Q Jiang, Alexandre Sablayrolles, Arthur Mensch, Chris Bamford, Devendra Singh
+Chaplot, Diego de las Casas, Florian Bressand, Gianna Lengyel, Guillaume Lample, Lucile
+Saulnier, et al. Mistral 7b. arXiv preprint arXiv:2310.06825, 2023.
+[20] Alex Kim, Maximilian Muhn, and Valeri V Nikolaev. Financial statement analysis with large
+language models. Chicago Booth Research Paper Forthcoming, Fama-Miller Working Paper,
+2024.
+[21] Takeshi Kojima, Shixiang Shane Gu, Machel Reid, Yutaka Matsuo, and Yusuke Iwasawa.
+Large language models are zero-shot reasoners. Advances in neural information processing
+systems, 35:22199–22213, 2022.
+10
+
+
+[Page 11]
+[22] Petr Korab. Finvader: Financial sentiment analysis. https://github.com/PetrKorab/
+FinVADER, 2023.
+[23] Zhenzhong Lan, Mingda Chen, Sebastian Goodman, Kevin Gimpel, Piyush Sharma, and Radu
+Soricut. Albert: A lite bert for self-supervised learning of language representations. In Inter-
+national Conference on Learning Representations, 2019.
+[24] Chankyu Lee, Rajarshi Roy, Mengyao Xu, Jonathan Raiman, Mohammad Shoeybi, Bryan
+Catanzaro, and Wei Ping. Nv-embed: Improved techniques for training llms as generalist
+embedding models. arXiv preprint arXiv:2405.17428, 2024.
+[25] Mike Lewis, Yinhan Liu, Naman Goyal, Marjan Ghazvininejad, Abdelrahman Mohamed,
+Omer Levy, Ves Stoyanov, and Luke Zettlemoyer. Bart: Denoising sequence-to-sequence
+pre-training for natural language generation, translation, and comprehension. arXiv preprint
+arXiv:1910.13461, 2019.
+[26] Yinheng Li, Shaofei Wang, Han Ding, and Hang Chen. Large language models in finance: A
+survey. In Proceedings of the fourth ACM international conference on AI in finance , pages
+374–382, 2023.
+[27] Qikai Liu, Xiang Cheng, Sen Su, and Shuguang Zhu. Hierarchical complementary attention
+network for predicting stock price movements with news. In Proceedings of the 27th ACM In-
+ternational Conference on Information and Knowledge Management, pages 1603–1606, 2018.
+[28] Shih-Yang Liu, Chien-Yi Wang, Hongxu Yin, Pavlo Molchanov, Yu-Chiang Frank Wang,
+Kwang-Ting Cheng, and Min-Hung Chen. Dora: Weight-decomposed low-rank adaptation.
+arXiv preprint arXiv:2402.09353, 2024.
+[29] Zhuang Liu, Degen Huang, Kaiyu Huang, Zhuang Li, and Jun Zhao. Finbert: A pre-trained
+financial language representation model for financial text mining. InProceedings of the twenty-
+ninth international conference on international joint conferences on artificial intelligence ,
+pages 4513–4519, 2021.
+[30] Yu Qin and Yi Yang. What you say and how you say it matters: Predicting financial risk
+using verbal and vocal cues. In 57th Annual Meeting of the Association for Computational
+Linguistics (ACL 2019), page 390, 2019.
+[31] Alec Radford, Karthik Narasimhan, Tim Salimans, and Ilya Sutskever. Improving language
+understanding by generative pre-training. 2018.
+[32] Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, Ilya Sutskever, et al.
+Language models are unsupervised multitask learners. OpenAI blog, 1(8):9, 2019.
+[33] Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena,
+Yanqi Zhou, Wei Li, and Peter J Liu. Exploring the limits of transfer learning with a unified
+text-to-text transformer. Journal of machine learning research, 21(140):1–67, 2020.
+[34] Jeff Rasley, Samyam Rajbhandari, Olatunji Ruwase, and Yuxiong He. Deepspeed: System
+optimizations enable training deep learning models with over 100 billion parameters. In Pro-
+ceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery & Data
+Mining, pages 3505–3506, 2020.
+[35] Ramit Sawhney, Shivam Agarwal, Arnav Wadhwa, and Rajiv Shah. Deep attentive learning for
+stock movement prediction from social media text and company correlations. In Proceedings
+of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP) ,
+pages 8415–8426, 2020.
+[36] Adam Hale Shapiro, Moritz Sudhof, and Daniel J Wilson. Measuring news sentiment. Journal
+of econometrics, 228(2):221–243, 2022.
+[37] Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei,
+Nikolay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, et al. Llama 2: Open
+foundation and fine-tuned chat models. arXiv preprint arXiv:2307.09288, 2023.
+[38] Liang Wang, Nan Yang, Xiaolong Huang, Binxing Jiao, Linjun Yang, Daxin Jiang, Rangan
+Majumder, and Furu Wei. Simlm: Pre-training with representation bottleneck for dense pas-
+sage retrieval. In The 61st Annual Meeting Of The Association For Computational Linguistics,
+2023.
+11
+
+
+[Page 12]
+[39] Liang Wang, Nan Yang, Xiaolong Huang, Linjun Yang, Rangan Majumder, and Furu Wei.
+Improving text embeddings with large language models. arXiv preprint arXiv:2401.00368 ,
+2023.
+[40] Meiyun Wang, Kiyoshi Izumi, and Hiroki Sakaji. Llmfactor: Extracting profitable factors
+through prompts for explainable stock movement prediction.arXiv preprint arXiv:2406.10811,
+2024.
+[41] Yaowei Wang, Qing Li, Zhexue Huang, and Junjie Li. Ean: Event attention network for
+stock price trend prediction based on sentimental embedding. In Proceedings of the 10th ACM
+Conference on Web Science, pages 311–320, 2019.
+[42] Jason Wei, Maarten Bosma, Vincent Y Zhao, Kelvin Guu, Adams Wei Yu, Brian Lester, Nan
+Du, Andrew M Dai, and Quoc V Le. Finetuned language models are zero-shot learners. arXiv
+preprint arXiv:2109.01652, 2021.
+[43] Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le,
+Denny Zhou, et al. Chain-of-thought prompting elicits reasoning in large language models.
+Advances in neural information processing systems, 35:24824–24837, 2022.
+[44] Bin Weng, Lin Lu, Xing Wang, Fadel M Megahed, and Waldyn Martinez. Predicting short-
+term stock prices using ensemble methods and online data sources. Expert Systems with Ap-
+plications, 112:258–273, 2018.
+[45] Yumo Xu and Shay B Cohen. Stock movement prediction from tweets and historical prices.
+In Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics
+(Volume 1: Long Papers), pages 1970–1979, 2018.
+[46] Linyi Yang, Ruihai Dong, Tin Lok James Ng, and Yang Xu. Leveraging bert to improve the
+fears index for stock forecasting. In Proceedings of the First Workshop on Financial Technol-
+ogy and Natural Language Processing, pages 54–60, 2019.
+[47] Wayne Xin Zhao, Kun Zhou, Junyi Li, Tianyi Tang, Xiaolei Wang, Yupeng Hou, Yingqian
+Min, Beichen Zhang, Junjie Zhang, Zican Dong, et al. A survey of large language models.
+arXiv preprint arXiv:2303.18223, 2023.
+12
+
+
+[Page 13]
+A Appendix
+Table 2: Statistics of Datasets.
+Universe # of StocksAverage # of News per Instance# of Training Instances# of Validating Instances# of Testing InstancesNorth America 630 2.5 366011 10167 241367Europe 350 1.9 100403 10041 121705Emerging Markets370 2.6 71610 10231 183608
+A.1 Results of the European Universe
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+DeBERT a, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+Mistral, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+Llama, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+DeBERT a, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+Mistral, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+Llama, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25Absolute Return
+DeBERT a, Decile Absolute Return
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25Absolute Return
+Mistral, Decile Absolute Return
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25Absolute Return
+Llama, Decile Absolute Return
+Bottleneck
+Aggregated
+Figure 7: Decile Performance of Bottleneck and Aggregated Representations in the European Uni-
+verse (best viewed in color). Top Row: Decile RMSE. Middle Row: Decile Precision. Bottom Row:
+Decile Return. The up (or down) arrow indicates the higher (or lower) values are desirable.
+Table 3: Statistics of Portfolios in the European Universe. The Universe Equally-Weighted repre-
+sents the universe performance reported under the Long-only Portfolio column.
+Long-only Portfolio Long-short Portfolio
+Ann. Return % (↑) Sharpe Ratio (↑) Ann. Return % (↑) Sharpe Ratio (↑)
+Universe Equally-Weighted 9.75 0.74 − −
+SentimentFinVader 10.25 0.70 3.40 0.45
+SentimentFinBert 8.17 0.57 -0.36 0.00
+DeBERTaBottleneck 11.04 0.81 2.11 0.31
+DeBERTaAggregated 11.11 0.81 3.84 0.52
+MistralBottleneck 6.40 0.48 1.94 0.26
+MistralAggregated 15.12 1.02 9.07 1.04
+LlamaBottleneck 8.20 0.62 1.25 0.17
+LlamaAggregated 12.76 0.90 11.47 1.27
+13
+
+
+[Page 14]
+2015 2016 2017 2018 2019 2020
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+DeBERT a, Long-Only Portfolio ( )
+DeBERT a_Bottleneck
+DeBERT a_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Mistral, Long-Only Portfolio ( )
+Mistral_Bottleneck
+Mistral_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Llama, Long-Only Portfolio ( )
+Llama_Bottleneck
+Llama_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+DeBERT a, Long-Short Portfolio ( )
+DeBERT a_Bottleneck
+DeBERT a_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Mistral, Long-Short Portfolio ( )
+Mistral_Bottleneck
+Mistral_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Llama, Long-Short Portfolio ( )
+Llama_Bottleneck
+Llama_Aggregated
+Universe Equally-Weighted
+Figure 8: Cumulative Return Charts of the Portfolios based on Bottleneck and Aggregated Repre-
+sentation Models in the European Universe (best viewed in color). Top Row: Long-only Portfolios.
+Bottom Row: Long-short Portfolios.
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Average Absolute Return
+Europe, Decile Return
+DeBERT a
+Mistral
+Llama
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Europe, Long-Only Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Europe, Long-Short Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Figure 9: Comparison of Encoder-only and Decoder-only LLMs with the Suited Representations in
+the European Universe (best viewed in color).
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Average Absolute Return
+Europe, Decile Return
+FinVader
+FinBert
+DeBERT a
+Mistral
+Llama
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Europe, Long-Only Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Sentiment_FinVader
+Sentiment_FinBert
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Europe, Long-Short Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Sentiment_FinVader
+Sentiment_FinBert
+Figure 10: Comparison with Sentiment-based Portfolios in the European Universe (best viewed in
+color).
+14
+
+
+[Page 15]
+A.2 Results of the Emerging Markets Universe
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+DeBERT a, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+Mistral, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+15.0
+17.5
+20.0RMSE
+Llama, Decile RMSE ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+DeBERT a, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+Mistral, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+0.000
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200Precision (%)
+Llama, Decile Precision ( )
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25Absolute Return
+DeBERT a, Decile Absolute Return
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25Absolute Return
+Mistral, Decile Absolute Return
+Bottleneck
+Aggregated
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25Absolute Return
+Llama, Decile Absolute Return
+Bottleneck
+Aggregated
+Figure 11: Decile Performance of Bottleneck and Aggregated Representations in the Emerging
+Markets Universe (best viewed in color). Top Row: Decile RMSE. Middle Row: Decile Precision.
+Bottom Row: Decile Return. The up (or down) arrow indicates the higher (or lower) values are
+desirable.
+Table 4: Statistics of Portfolios in the Emerging Markets Universe. The Universe Equally-Weighted
+represents the universe performance reported under the Long-only Portfolio column.
+Long-only Portfolio Long-short Portfolio
+Ann. Return % (↑) Sharpe Ratio (↑) Ann. Return % (↑) Sharpe Ratio (↑)
+Universe Equally-Weighted 3.91 0.32 − −
+SentimentFinVader 6.18 0.43 -0.08 0.04
+SentimentFinBert 9.76 0.70 1.69 0.21
+DeBERTaBottleneck 7.32 0.50 -5.00 -0.36
+DeBERTaAggregated 9.88 0.64 10.96 0.97
+MistralBottleneck 10.12 0.63 4.94 0.47
+MistralAggregated 10.11 0.64 9.16 0.68
+LlamaBottleneck 4.94 0.36 -3.99 -0.28
+LlamaAggregated 8.82 0.58 1.83 0.19
+2015 2016 2017 2018 2019 2020
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+DeBERT a, Long-Only Portfolio ( )
+DeBERT a_Bottleneck
+DeBERT a_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Mistral, Long-Only Portfolio ( )
+Mistral_Bottleneck
+Mistral_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Llama, Long-Only Portfolio ( )
+Llama_Bottleneck
+Llama_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+DeBERT a, Long-Short Portfolio ( )
+DeBERT a_Bottleneck
+DeBERT a_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Mistral, Long-Short Portfolio ( )
+Mistral_Bottleneck
+Mistral_Aggregated
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+0.8
+1.0
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4Cumulative Return
+Llama, Long-Short Portfolio ( )
+Llama_Bottleneck
+Llama_Aggregated
+Universe Equally-Weighted
+Figure 12: Cumulative Return Charts of the Portfolios based on Bottleneck and Aggregated Repre-
+sentation Models in the Emerging Markets Universe (best viewed in color). Top Row: Long-only
+Portfolios. Bottom Row: Long-short Portfolios.
+15
+
+
+[Page 16]
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Average Absolute Return
+Emerging Markets, Decile Return
+DeBERT a
+Mistral
+Llama
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0Cumulative Return
+Emerging Markets, Long-Only Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0Cumulative Return
+Emerging Markets, Long-Short Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Figure 13: Comparison of Encoder-only and Decoder-only LLMs with the Suited Representations
+in the Emerging Markets Universe (best viewed in color).
+0 1 2 3 4 5 6 7 8 9
+Decile
+0
+5
+10
+15
+20
+25
+30Average Absolute Return
+Emerging Markets, Decile Return
+FinVader
+FinBert
+DeBERT a
+Mistral
+Llama
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0Cumulative Return
+Emerging Markets, Long-Only Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Sentiment_FinVader
+Sentiment_FinBert
+2015 2016 2017 2018 2019 2020
+Time
+1.0
+1.5
+2.0
+2.5
+3.0Cumulative Return
+Emerging Markets, Long-Short Portfolio
+DeBERT a
+Mistral
+Llama
+Universe Equally-Weighted
+Sentiment_FinVader
+Sentiment_FinBert
+Figure 14: Comparison with Sentiment-based Portfolios in the Emerging Markets Universe (best
+viewed in color).
+16

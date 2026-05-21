@@ -1,0 +1,773 @@
+[Page 1]
+A Scalable Data-Driven Framework for Systematic Analysis of SEC 10-K
+Filings Using Large Language Models
+Syed Affan Daimi∗ Asma Iqbal†
+Abstract
+The number of companies listed on the NYSE has been grow-
+ing exponentially, creating a significant challenge for market
+analysts, traders, and stockholders who must monitor and
+assess the performance and strategic shifts of a large num-
+ber of companies regularly. There is an increasing need for
+a fast, cost-effective, and comprehensive method to evaluate
+the performance and detect and compare many companies’
+strategy changes efficiently. We propose a novel data-driven
+approach that leverages large language models (LLMs) to
+systematically analyze and rate the performance of compa-
+nies based on their SEC 10-K filings. These filings, which
+provide detailed annual reports on a company’s financial
+performance and strategic direction, serve as a rich source
+of data for evaluating various aspects of corporate health,
+including confidence, environmental sustainability, innova-
+tion, and workforce management. We also introduce an au-
+tomated system for extracting and preprocessing 10-K fil-
+ings. This system accurately identifies and segments the re-
+quired sections as outlined by the SEC, while also isolating
+key textual content that contains critical information about
+the company. This curated data is then fed into Cohere’s
+Command-R+ LLM to generate quantitative ratings across
+various performance metrics. These ratings are subsequently
+processed and visualized to provide actionable insights. The
+proposed scheme is then implemented on an interactive GUI
+as a no-code solution for running the data pipeline and creat-
+ing the visualizations. The application showcases the rating
+results and provides year-on-year comparisons of company
+performance.
+1 Introduction.
+In the fast-paced world of modern business, stakeholders
+such as market analysts, investors, and decision-makers
+face the challenge of effectively assessing and comparing
+the performance of numerous companies. Traditionally,
+this process involves sifting through extensive financial
+filings and qualitative reports, often requiring substan-
+tial time and expertise. While these traditional meth-
+ods provide valuable insights, they typically result in
+∗International Institute of Information Technology, Hyderabad
+†Deccan College of Engineering And Technology
+narrative analyses rather than easily digestible metrics,
+making it difficult to quickly gauge and compare the
+performance of multiple companies.
+Moreover, the sheer volume of companies listed on
+major stock exchanges, such as the NYSE, exacerbates
+the problem. Conducting detailed analyses on each
+company is not only time-consuming but also expensive,
+limiting the feasibility of such assessments on a large
+scale. This has created a need for a more efficient,
+scalable “litmus test” solution that can deliver quick,
+quantifiable insights into company performance.
+In recent years, the finance industry has increas-
+ingly turned to artificial intelligence (AI) and large
+language models (LLMs) to enhance decision-making
+processes and provide sophisticated investment ad-
+vice. Robo-advisors have emerged as one of the most
+prominent applications of AI in finance, revolutionizing
+wealth management and investment advisory services.
+These platforms leverage LLMs to analyze vast amounts
+of financial data, enabling them to offer personalized in-
+vestment strategies and continuously adjust portfolios
+based on market dynamics and individual risk prefer-
+ences [1]. The ability of LLMs to parse complex data
+sets and identify intricate market patterns has allowed
+robo-advisors to provide more informed and adaptive
+investment guidance compared to traditional methods.
+The integration of LLMs into robo-advisory plat-
+forms has not only improved the accuracy and relevance
+of investment advice but has also made such services
+more accessible to a broader audience. For instance,
+AI-driven models have been employed to optimize port-
+folio construction and ESG investment targets, as well
+as to recommend peer-to-peer (P2P) loan investments
+[2].
+However, these systems have yet to address the
+broader need for scalable, generalized methods that can
+systematically evaluate and compare the performance
+of a large number of companies across diverse sectors.
+Building on the success of AI in investment advisory
+services, there is growing interest in applying LLMs to
+other areas of financial decision support, including the
+analysis of corporate financial documents. Traditional
+financial analysis methods often result in narrative-
+Copyright © 2024
+Copyright for this paper is retained by authors
+arXiv:2409.17581v1  [cs.AI]  26 Sep 2024
+
+
+[Page 2]
+heavy insights, which can be time-consuming to inter-
+pret and difficult to compare across multiple companies.
+Research has shown that LLMs can perform effec-
+tively in data-limited scenarios, such as banking intent
+detection, using few-shot learning techniques [3]. By
+leveraging the analytical power of LLMs, our novel ap-
+proach aims to address these limitations by introduc-
+ing a system that automates the extraction and pro-
+cessing of 10-K filings, generating numeric ratings that
+provide clear, comparative measures of company per-
+formance. These ratings provide a clear, comparative
+measure of a company’s performance, allowing stake-
+holders to quickly assess and compare companies across
+a broad range of criteria. By leveraging large language
+models (LLMs) such as Cohere’s command-R+ to gen-
+erate these ratings, our method is both time-efficient
+and cost-effective, enabling the analysis of a large num-
+ber of companies with unprecedented speed and accu-
+racy.
+Furthermore, conducting a year-on-year compari-
+son of the same company mitigates the biases that arise
+when comparing entities operating in different contexts.
+This longitudinal analysis uncovers trends, strengths,
+and areas for improvement specific to each company,
+offering a more nuanced understanding of its strategic
+evolution and operational trajectory. By focusing on in-
+trinsic performance changes rather than external com-
+parisons, our approach ensures a more accurate and fair
+assessment, highlighting the company’s progress over
+time. To facilitate this process, we have developed a
+web application that serves as a no-code solution, en-
+abling the end-user to effortlessly implement our sys-
+tem, analyze data, and visualize results without requir-
+ing technical expertise.
+2 Related Works.
+2.1 Large Language Models (LLMs) for Sen-
+timent Analysis. Sentiment analysis, the process of
+identifying and extracting subjective information from
+text, has become increasingly important in fields such
+as social media monitoring, customer service, and polit-
+ical discourse analysis. Traditional approaches to senti-
+ment analysis often relied on rule-based systems or ma-
+chine learning models trained on limited datasets [4].
+However, the emergence of LLMs has brought about a
+paradigm shift, allowing for more accurate and scalable
+sentiment analysis [6] [5].
+LLMs excel at sentiment analysis due to their abil-
+ity to capture complex linguistic patterns, understand
+context, and reason about emotions [7]. By leveraging
+their broad knowledge and in-context learning capabili-
+ties, LLMs can effectively identify and classify sentiment
+in various types of text, such as social media posts, prod-
+uct reviews, and news articles [8].
+Recent research has focused on enhancing LLMs’
+performance in sentiment analysis through the use of
+prompting strategies [9]. These strategies involve care-
+fully crafting input prompts that guide the model to
+generate more accurate and relevant sentiment predic-
+tions. Prompting techniques such as role-playing and
+chain-of-thought have shown promising results in im-
+proving LLMs’ ability to handle complex sentiment
+analysis tasks, particularly in identifying implicit emo-
+tions and sentiment in ambiguous contexts.
+Moreover, LLMs have been explored for targeted
+sentiment analysis, which focuses on identifying senti-
+ment towards specific entities or aspects within a text
+[10]. This is particularly relevant in the analysis of news
+headlines, where entities are often portrayed in specific
+ways to evoke sentiment [8]. LLMs have demonstrated
+the ability to effectively handle targeted sentiment anal-
+ysis, outperforming fine-tuned encoder models in vari-
+ous languages.
+As LLMs continue to advance, their applications in
+sentiment analysis are expected to grow, enabling more
+accurate and efficient analysis of large-scale textual
+data.
+2.2 LLMs for Textual Analysis. Large Language
+Models (LLMs) have emerged as powerful tools for
+textual analysis, significantly enhancing various natu-
+ral language processing (NLP) tasks, including docu-
+ment question answering, retrieval-augmented genera-
+tion (RAG), and text summarization. Their capabilities
+are particularly beneficial in specialized domains such as
+finance.
+Document Question Answering: LLMs excel
+in document question answering by leveraging vast
+amounts of text data to provide accurate and contex-
+tually relevant answers [11]. For instance, the devel-
+opment of frameworks like UniGen integrates genera-
+tive document retrieval and grounded answer generation
+into a unified model. This approach allows for simulta-
+neous optimization of retrieval and question-answering
+tasks, demonstrating superior performance on datasets
+like MS MARCO and NQ [12]. In finance, systems like
+SEC-QA have been proposed to automate the analysis
+of long financial documents, generating question-answer
+pairs that reflect real-world scenarios and improving the
+accuracy of responses through continuous dataset up-
+dates [13].
+Retrieval-Augmented Generation (RAG):
+RAG enhances the performance of LLMs by retrieving
+relevant information from external databases during the
+generation process. This method addresses the limita-
+tions of LLMs, which may not have access to the most
+Copyright © 2024
+Copyright for this paper is retained by authors
+
+
+[Page 3]
+current data. [14] Recent developments focus on opti-
+mizing the retrieval process and improving performance
+across various tasks, including text summarization and
+dialogue generation [15]. RAG systems have been de-
+veloped to tackle complex multi-document questions,
+significantly improving the accuracy of financial data
+analysis and reasoning tasks [16].
+Text Summarization: LLMs are also adept at
+text summarization, condensing lengthy documents into
+concise summaries while preserving essential informa-
+tion. Recent advancements have shown that RAG can
+be particularly effective in this area. For instance, an
+LLM-based approach demonstrated an 11% improve-
+ment in summarization tasks compared to baseline
+methods [15]. Tools like FloodBrain generate compre-
+hensive reports on flood disaster impacts by synthesiz-
+ing information from various sources, illustrating how
+LLMs can streamline reporting processes in finance and
+beyond [17].
+3 Our Methodology.
+Figure 1 is a graphical representation of our end-to-
+end pipeline which can be classified into three verticals
+- 1) Data Collection, 2) Data Cleaning and 3) LLM
+Evaluation. The subsequent sections explain in detail
+each of the three verticals. Section 3.1 discusses Data
+Collection and Section 4 delves into Data Cleaning.
+Lastly, Section 5 discusses LLM Evaluation.
+3.1 Data Collection. To analyze the quality of 10-
+K filings in our study, we collected data directly from
+the U.S. Securities and Exchange Commission (SEC)
+Electronic Data Gathering, Analysis, and Retrieval
+(EDGAR) database. This process involved querying the
+SEC-EDGAR endpoints (refer to Table 1 for endpoint
+details) to obtain comprehensive annual reports filed by
+public companies, which provide detailed insights into
+their financial performance and business strategies.
+We employed a custom script to systematically
+retrieve the 10-K filings for a specified list of companies
+based on their ticker symbols. First, we converted the
+ticker symbol of each company into its corresponding
+Central Index Key (CIK), a unique identifier used by
+the SEC to track corporations and individuals who
+have filed disclosures. Using the CIK, we queried the
+SEC-EDGAR database to retrieve a list of all filings
+associated with that entity. Each filing in the EDGAR
+system is associated with a unique accession number,
+which is automatically assigned upon submission. This
+accession number was crucial in fetching the complete
+filing text and identifying and filtering for all the historic
+10-K filings.
+4 Data Cleaning.
+The raw HTML data obtained from the 10-K filings
+required a thorough cleaning process to ensure it was
+structured for meaningful analysis. Given the unstruc-
+tured nature of these filings, our data cleaning method-
+ology focused on extracting and organizing the narrative
+content into the same sections as required by the SEC in
+their filings, which are crucial for evaluating the qual-
+itative aspects of the filings, and ensuring the limited
+context window of the LLM is utilized fully.
+4.1 Date Identification and Demarcation. A
+critical aspect of the data cleaning process involved ex-
+tracting the year of each filing to facilitate chronologi-
+cal analysis. This was accomplished by parsing the text
+content of the filings and employing regular expressions
+to locate the reporting period. We exploited the uni-
+form formatting guidelines as prescribed by the SEC to
+create the 10-K filings.
+4.2 Narrative Text Identification. The main ob-
+jective of the data cleaning process is the identification
+and extraction of narrative text elements, and tagging
+each string of the narrative text to the section it be-
+longs to. Narrative text is defined as excerpts which
+contain important information about the company’s op-
+erations. Identification of narrative texts was achieved
+by using the unstructured-io library, and is a crucial
+step to ensure maximum utilization of the 128K con-
+text window of Cohere’s Command-R family of LLMs.
+Unstructured-io is a library for data cleaning specifi-
+cally for downstream LLM tasks. We use unstructured-
+io to clean the HTML elements and implement Parts
+of Speech (POS) tagging, to differentiate between nar-
+rative text, lists, titles, and other text elements. To
+qualify as narrative text, the excerpt must contain a
+significant number of verbs and non-proper nouns.
+4.3 Sections’ Partition Creation. Extraction of
+labelled text information using predefined structures
+common in financial documents is a common paradigm
+[18] [19] We also introduce a pipeline designed to iden-
+tify the various subheadings or sections in the filing,
+which utilizes predefined document structures and sec-
+tion headings. The pipeline identifies key sections such
+as ”Risk Factors,” ”Management’s Discussion and Anal-
+ysis,” and other relevant parts based on their standard
+titles and positions within the document, exploiting that
+the extracted content aligns with the expected format
+and structure of a typical 10-K filing. Section iden-
+tification is particularly important to perform relative
+analysis. (see section 5.2)
+Furthermore, we improved our cleaning pipeline by
+Copyright © 2024
+Copyright for this paper is retained by authors
+
+
+[Page 4]
+Figure 1: Framework Overview of Proposed System
+including custom regex-based methods on top of simple
+string matching to capture any sections or subsections
+that might not conform strictly to the predefined struc-
+tures. This flexibility was crucial for handling variations
+across different companies’ filings, as not all filings ad-
+here uniformly to the standard format.
+To partition the narrative text into their corre-
+sponding sections, we identify the sections from the “Ta-
+ble of Content” of the document, and extract their page
+number. Narrative texts belonging to the corresponding
+page numbers are tagged with their respective sections.
+Once the narrative text was identified and correctly
+tagged with its corresponding section, the cleaned data
+was then structured into an Initial Structured Docu-
+ment (ISD) format. This format allowed for the con-
+sistent representation of each section, ensuring that the
+text was organized and labeled according to the specific
+sections defined by the SEC filing structure.
+Finally, the structured data was exported into
+a CSV format, where each row represents a specific
+section or subsection, along with its corresponding line
+of narrative text. Table 2 contains a few example lines
+of the dataset output at the end of this step.
+5 LLM Evaluation.
+After extracting the narrative text, it is fed into an
+LLM instructed to rate its quality and LLM capabilities
+to act as text evaluators has been explored [20] [21].
+We utilize Cohere’s Command-R+ model as our LLM,
+which is the first open-weight LLM to beat GPT-4 in the
+Chatbot arena [22] [23]. Yi Chen et. al, [20] suggests
+two scoring techniques for evaluating the quality of a
+given text using an LLM, pairwise comparison to assess
+text quality by directly comparing a pair of generated
+texts, and individual scoring to directly generate a score
+to measure the absolute quality of each text individually.
+An important parameter to improve the performance
+of the scores is the prompt. A prompt is an input
+Copyright © 2024
+Copyright for this paper is retained by authors
+
+
+[Page 5]
+Endpoint Retrieval
+sec.gov/cgi-bin/browse-edgar/{ticker} Search CIK for given ticker
+data.sec.gov/submissions/CIK{CIK} Retrieve all recent filings of CIK to get all 10-K filings’ accession numbers
+sec.gov/Archives/edgar/data Get raw HTML of 10-K Filings
+Table 1: SEC-EDGAR API Endpoints and their functionalities
+Section Element Type Text
+BUSINESS NarrativeText Payable Metal: Ounces or pounds of metal in concentrate payable
+to the operator after deducting a percentage of metal in concen-
+trate paid to a third-party smelter pursuant to smelting contracts.
+BUSINESS NarrativeText Reserve: That part of a mineral deposit that could be economi-
+cally and legally extracted or produced at the time of the reserve
+determination.
+BUSINESS NarrativeText Royalty: The right to receive a percentage or other denomination
+of mineral production from a resource extraction operation.
+Table 2: First few lines of the output file for Royal Gold ( $RGLD)
+to a Generative AI model that is used to guide its
+output [24]. We utilize role based zero-shot prompting
+as inspired by Wu et al [25], and Chan et. al [26].
+5.1 Absolute Analysis We utilize individual scor-
+ing to generate and present yearly ratings of the com-
+pany in four key dimensions: confidence, environment,
+innovation, and people. The LLM assumes the role of an
+AI grader [25] [26] to assign a score between 0-2 based
+on the criterion given (see table 4 for the list of criteri-
+ons). Additionally, we introduce two “versions” of the
+AI Grader role, where one AI grader is prompted to be
+especially strict in its rating in an attempt to reduce
+bias as attempted by [26].
+For each dimension, we developed custom grading
+scripts that interacted with the LLM. For instance,
+to evaluate the confidence rating, the script passed
+the narrative text along with a criterion that asked
+the LLM to assess the company’s confidence in its
+future growth and financial stability. The LLM then
+returned a score, with 2 indicating strong confidence,
+1 representing moderate confidence, and 0 signifying a
+lack of confidence or financial uncertainty.
+Similarly, the environment rating script focused on
+the company’s commitment to sustainability. The nar-
+rative was graded based on the presence of actionable
+environmental plans, commitments to sustainability, or
+the absence of any mention of environmental responsi-
+bility. The LLM’s score helped quantify the company’s
+stance on environmental issues as portrayed in its fil-
+ings.
+The innovation rating script assessed the company’s
+focus on technological advancements and future inno-
+vations. The LLM evaluated whether the company
+demonstrated a commitment to innovation through spe-
+cific actions and plans or merely mentioned it with-
+out concrete evidence. The grading criterion distin-
+guished between robust innovation strategies and su-
+perficial mentions.
+Lastly, the people rating script gauged the impor-
+tance the company placed on its workforce and talent.
+The LLM rated the narrative on how well it acknowl-
+edged the role of employees and the presence of action-
+able plans to attract and retain talent, ensuring em-
+ployee welfare.
+Table 3, 4 and 5 contain details of the prompts we
+utilized for absolute analysis.
+Base Prompt for Absolute Analysis
+You are an AI grader that, given an output and a
+criterion, grades the completion based on the prompt
+and criterion. Below is a prompt, a completion,
+and a criterion with which to grade the completion.
+You need to respond according to the criterion
+instructions. For reference, these are documents
+from the year {year}. {strict phrase}
+Output: {narrative text of the company}
+Criterion: {criterion}
+Table 3: The base prompt template, We replace the
+colored slot with real text before querying the LLMs.
+(see table 4 and 5 for more details)
+Copyright © 2024
+Copyright for this paper is retained by authors
+
+
+[Page 6]
+Rating Criterion for the Absolute Rating
+Confidence Rating ## Criterion
+You should give the text a decimal numeric grade between 0 and 2.
+2. The text is confident about robust growth and of greater returns next
+financial year.
+1. Text in this category gives strong likelihood of company stability, but is
+either relatively unsure about future growth or not confident about it.
+0. Text in this category shows that the company is not very robust, uncertain
+about its future, and most importantly, shows inconsistent and bad finances.
+Answer only with a decimal number in the 0-2 range.
+Environmental Rating ## Criterion
+You should give the text a decimal numeric grade between 0 and 2.
+2. The text offers actionable plans relating to environment and sustainability
+and includes sustainability as a central goal.
+1. Text in this category mentions commitments to sustainability and environ-
+ment, but doesn’t offer many actionable plans for the same.
+0. Text in this category doesn’t mention the environment and sustainability at
+all.
+Answer only with a decimal number in the 0-2 range.
+Innovation Rating ## Criterion
+You should give the text a decimal numeric grade between 0 and 2.
+2. The text shows future plans as well as actions that the company has taken
+towards greater innovation in its operations. It also mentions a working R&D
+unit.
+1. Text mentions commitment to improve its practices and operations, and
+mentions innovation. However, there is little to no work done for the same in
+this current document.
+0. Text emphasizes continuing its operations next year in the same manner,
+without any new innovations.
+Answer only with a decimal number in the 0-2 range.
+People Rating ## Criterion
+You should give the text a decimal numeric grade between 0 and 2.
+2. The text acknowledges the importance of people and talent in driving the
+company forward. It also mentions actionable plans to attract new talent and
+ensure employee welfare.
+1. Text mentions importance of people and talent to its operations but doesn’t
+mention any employee welfare activities.
+0. Text makes no mention of employee welfare and importance of people talent.
+Answer only with a decimal number in the 0-2 range.
+Table 4: The “Criterion” of evaluation of each rating type.
+5.2 Relative Analysis. Similarly, we utilize pair-
+wise comparison to compare narrative text of a partic-
+ular section from multiple companies. The LLM is in-
+structed to select one of the input excerpts as the best.
+The “win” is recorded. See table 6 for the prompt. In
+our analysis, we use three companies, “Royal Gold”,
+“IBM” and “Apple”. The results of this framework are
+presented in the next section.
+6 Results.
+To ensure robustness of the system, we tested it against
+three major publicly listed companies. Royal Gold
+(Ticker: $RGLD), IBM (Ticker: $IBM) and Apple
+(Ticker: $AAPL).
+6.1 Absolute Analysis. The result of the absolute
+analysis is a yearly rating between 0-2 of all companies.
+Based on the availability of documents, some ratings
+extend much further back in history than other ratings.
+Copyright © 2024
+Copyright for this paper is retained by authors
+
+
+[Page 7]
+Name of Additional Text Additional Text Added to Base Prompt
+narrative text of the company The actual text which is input from the filing.
+strict phrase Miscellaneous changes to generate the “strict” prompt.
+year Year of the SEC Filing.
+Table 5: Details of Additional Text Added to the Base Prompt
+Base Prompt for Relative Analysis
+You are an AI grader that, given an output and a
+criterion, grades the completion based on the prompt
+and criterion. Below ”Excerpt A”, ”Excerpt B”, and
+”Excerpt C”, you must compare all excerpts and
+output which excerpt is better.
+## Excerpt A
+{excerpt 1}
+## Excerpt B
+{excerpt 2}
+## Excerpt C
+{excerpt 3}
+## Criterion
+Do not focus on the grammar; instead, focus on the
+overall future plan and robust explainability.
+[Answer with either ”A”, ”B”, or ”C”]
+A. If Excerpt A is the best, detailed, transparent
+with robust financials.
+B. If Excerpt B is the best, detailed, transparent with
+robust financials.
+C. If Excerpt C is the best, detailed, transparent with
+robust financials.
+Table 6: Prompt template for relative analysis where
+“Excerpt” refers to the company’s text of a section
+For visualization, the results of the “strict” grader and
+the normal grader are averaged. The difference between
+their distributions for all companies is depicted in figure
+2. Further, we ensure each criterion returns average
+results that are largely uncorrelated [27] [28] as shown
+in figure 3.
+We represent the evolving priorities within each
+company over the years by visualizing the proportion
+of ratings in the categories of confidence, environment,
+innovation, and people, and how they change over
+the years. By analyzing the shifts in these ratings,
+we can infer how these companies have adjusted their
+strategies over time in response to both internal and
+external factors.
+6.2 Relative Analysis. For six sections of the 10-K
+filing, we perform relative analysis with all three com-
+panies and record the LLM ratings. In this context, a
+Figure 2: Range of the various categories of ratings
+”win” is defined as a scenario where a company outper-
+forms its peers in a specific category for a given year.
+The categories are recognized as individual sections of
+the 10-K filing. We aggregate the number of wins across
+the sections, presenting a clear preference of which com-
+pany has been the most successful in dominating the
+different categories over time in Figure 7.
+6.3 Web Application. The demo web application
+is designed to facilitate the analysis and visualization
+of ratings derived from 10-K filings of publicly traded
+companies using large language models (LLMs). The
+application provides an interactive no-code interface
+where the end-user can input a company’s stock ticker
+symbol and obtain a comprehensive analysis of the
+company’s annual reports.
+Upon entering a ticker symbol, the application
+retrieves and processes the relevant 10-K filings, either
+from a pre-cached dataset or through real-time data
+processing. The core functionality of the application
+revolves around generating and displaying the absolute
+ratings for the four key areas of interest. These ratings
+are derived from the text of the 10-K filings, and
+similar to the methodology followed throughout, the
+application employs two role-based agents—one with
+a standard assessment criterion and another with a
+stricter evaluation approach—to produce a range of
+rating for the absolute analysis.
+Copyright © 2024
+Copyright for this paper is retained by authors
+
+
+[Page 8]
+Figure 3: Correlation between the average ratings of all
+categories
+Figure 4: Representation of Year-on-Year priorities of
+Apple ($AAPL)
+The user interface of the application allows for in-
+teractive filtering of 10-K sections to be included in the
+analysis. The end-user can select which sections of the
+filings they wish to exclude, thus tailoring the analysis
+to specific areas of interest. Once the analysis is per-
+formed, the application generates the visual representa-
+tions of the ratings. This streamlit based application is
+hosted on the lightning.ai cloud.
+7 Known Limitations.
+Despite the strengths of the 10-K Filings Rating System,
+several limitations were identified during the develop-
+ment process. One notable challenge is the difficulty in
+Figure 5: Representation of Year-on-Year priorities of
+IBM ($IBM)
+accurately identifying and categorizing all relevant sec-
+tions of the 10-K filings. While the system successfully
+extracts a significant amount of valuable narrative text,
+some sections are not as meaningfully captured, lead-
+ing to potential gaps in the analysis. Another critical
+limitation is the inherent bias that large language mod-
+els (LLMs) can introduce. LLMs are trained on vast
+amounts of data, and as a result, they can inadvertently
+reflect biases present in that data, which might skew the
+ratings in unintended ways. This could impact the fair-
+ness and objectivity of the analysis, particularly in areas
+like environmental impact or employee relations. These
+limitations suggest that while the current implementa-
+tion provides robust insights, there is room for further
+refinement to enhance the accuracy, fairness, and com-
+prehensiveness of the analysis.
+8 Conclusion.
+In an era where the volume and complexity of financial
+data are ever-increasing, our research introduces a novel
+approach to the systematic analysis of SEC 10-K fil-
+ings using large language models (LLMs). By automat-
+ing the extraction, segmentation, and evaluation of
+these filings, our method offers a scalable solution that
+transforms qualitative corporate disclosures into action-
+able, quantitative ratings. This innovative approach
+not only streamlines the assessment of company perfor-
+mance across multiple dimensions—such as confidence,
+environmental sustainability, innovation, and workforce
+management—but also provides a cost-effective alterna-
+tive to traditional, time-intensive financial analysis.
+The integration of Cohere’s Command-R+ LLM
+Copyright © 2024
+Copyright for this paper is retained by authors
+
+
+[Page 9]
+Figure 6: Representation of Year-on-Year priorities of
+Royal Gold ($RGLD)
+Figure 7: Relative analysis over multiple sections
+into our data pipeline enables the rapid processing
+and rating of large numbers of companies, offering
+stakeholders a powerful tool for making informed de-
+cisions with unprecedented efficiency. Moreover, our
+system’s focus on longitudinal analysis through year-on-
+year comparisons provides a more nuanced understand-
+ing of a company’s strategic evolution, allowing for a
+more accurate and fair assessment of its performance
+over time.
+The development of a user-friendly, no-code web
+application further enhances the accessibility of our
+method, democratizing the ability to conduct sophis-
+ticated financial analyses without requiring deep tech-
+nical expertise. As the financial landscape continues to
+evolve, our approach represents a significant advance-
+ment in the application of AI to corporate analysis,
+providing market analysts, investors, and other stake-
+holders with a robust, scalable tool for navigating the
+complexities of modern financial markets.
+References
+[1] Ahmed, S., Alshater, M. M., El Ammari, A., & Ham-
+mami, H. (2022). Artificial intelligence and machine
+learning in finance: A bibliometric review. Research in
+International Business and Finance , 61, 101646.
+[2] Ashta, A., & Herrmann, H. (2021). Artificial intel-
+ligence and fintech: An overview of opportunities
+and risks for banking, investments, and microfinance.
+Strategic Change, 30(3), 211-222.
+[3] Loukas, L., Stogiannidis, I., Diamantopou-
+los, O., Malakasiotis, P., & Vassos, S. (2023).
+Making LLMs Worth Every Penny: Resource-
+Limited Text Classification in Banking. ArXiv.
+https://doi.org/10.1145/3604237.3626891.
+[4] Rajapaksha, I., Mudalige, C. R., Karunarathna, D.,
+de Silva, N., Rathnayaka, G., & Perera, A. S. (2020,
+November). Rule-based approach for party-based senti-
+ment analysis in legal opinion texts. In2020 20th Inter-
+national Conference on Advances in ICT for Emerging
+Regions (ICTer) (pp. 284-285). IEEE.
+[5] Chun, J., & Elkins, K. (2023). eXplainable AI with
+GPT4 for story analysis and generation: A novel
+framework for diachronic sentiment analysis. Interna-
+tional Journal of Digital Humanities , 5, 507-532.
+[6] Cheng, W., Li, P., Liu, H., Cheng, H., Cai, Z., &
+Wen, J. (2024). Prompt Memoried LLMs with ’What,
+Why, and How’ to Reason Implicit Emotions. ICCBR
+Workshops.
+[7] T¨ ornberg, P. (2023). How to use LLMs for Text Anal-
+ysis. ArXiv. /abs/2307.13106.
+[8] Alderazi, F. M., Algosaibi, A. A., Alabdullatif, M.
+A., Ahmad, H. F., Qamar, A. M., & Albarrak, A.
+S. (2024). Generative artificial intelligence in topic-
+sentiment classification for Arabic text: a comparative
+study with possible future directions. PeerJ Comput.
+Sci., 10, e2081.
+[9] Wang, Y., & Luo, Z. (2023, December). Enhance multi-
+domain sentiment analysis of review texts through
+prompting strategies. In 2023 International Conference
+on High Performance Big Data and Intelligent Systems
+(HDIS) (pp. 1-7). IEEE.
+[10] Juroˇ s, J., Majer, L., & ˇSnajder, J. (2024, August).
+LLMs for Targeted Sentiment in News Headlines: Ex-
+ploring the Descriptive-Prescriptive Dilemma. In Pro-
+ceedings of the 14th Workshop on Computational Ap-
+proaches to Subjectivity, Sentiment, & Social Media
+Analysis (pp. 329-343).
+[11] Zhu, A., Hwang, A., Dugan, L., & Callison-Burch, C.
+(2024). Fanoutqa: Multi-hop, multi-document question
+Copyright © 2024
+Copyright for this paper is retained by authors
+
+
+[Page 10]
+answering for large language models. arXiv preprint
+arXiv:2402.14116.
+[12] Li, X., Zhou, Y., & Dou, Z. (2024, March). Unigen: A
+unified generative framework for retrieval and question
+answering with large language models. In Proceedings
+of the AAAI Conference on Artificial Intelligence (Vol.
+38, No. 8, pp. 8688-8696).
+[13] Lai, V. D., Krumdick, M., Lovering, C., Reddy, V.,
+Schmidt, C., & Tanner, C. (2024). SEC-QA: A Sys-
+tematic Evaluation Corpus for Financial QA. arXiv
+preprint arXiv:2406.14394.
+[14] Hui, Y., Lu, Y., & Zhang, H. (2024). UDA: A
+Benchmark Suite for Retrieval Augmented Genera-
+tion in Real-world Document Analysis. arXiv preprint
+arXiv:2406.15187.
+[15] Wang, Z., Teo, S. X., Ouyang, J., Xu, Y., &
+Shi, W. (2024). M-RAG: Reinforcing Large Language
+Model Performance through Retrieval-Augmented
+Generation with Multiple Partitions. arXiv preprint
+arXiv:2405.16420.
+[16] Zhang, Y., Droguett, S. E., Jain, S., & Goldie, A.
+(2024). Integrating Domain Knowledge for Financial
+QA: A Multi-Retriever RAG Approach with LLMs.
+[17] Colverd, G., Darm, P., Silverberg, L., & Kasmanoff, N.
+(2023). Floodbrain: Flood disaster reporting by web-
+based retrieval augmented generation with an LLM.
+arXiv preprint arXiv:2311.02597 .
+[18] Bentabet, N. I., Juge, R., El Maarouf, I., Mouilleron,
+V., Valsamou-Stanislawski, D., & El-Haj, M. (2020,
+December). The financial document structure extrac-
+tion shared task (fintoc 2020). In Proceedings of the 1st
+Joint Workshop on Financial Narrative Processing and
+MultiLing Financial Summarisation (pp. 13-22).
+[19] Yepes, A. J., You, Y., Milczek, J., Laverde, S., &
+Li, L. (2024). Financial Report Chunking for Effec-
+tive Retrieval Augmented Generation. arXiv preprint
+arXiv:2402.05131.
+[20] Chen, Y., Wang, R., Jiang, H., Shi, S., & Xu, R.
+(2023). Exploring the use of large language models
+for reference-free text quality evaluation: An empirical
+study. arXiv preprint arXiv:2304.00723 .
+[21] Wang, J., Liang, Y., Meng, F., Sun, Z., Shi, H., Li, Z.,
+... & Zhou, J. (2023). Is chatgpt a good nlg evaluator?
+A preliminary study. arXiv preprint arXiv:2303.04048.
+[22] Chiang, W. L., Zheng, L., Sheng, Y., Angelopoulos,
+A. N., Li, T., Li, D., ... & Stoica, I. (2024). Chatbot
+arena: An open platform for evaluating LLMs by
+human preference. arXiv preprint arXiv:2403.04132 .
+[23] https://cohere.com/blog/command-r-plus-microsoft-
+azure
+[24] Schulhoff, S., Ilie, M., Balepur, N., Kahadze, K., Liu,
+A., Si, C., ... & Resnik, P. (2024). The Prompt Report:
+A Systematic Survey of Prompting Techniques. arXiv
+preprint arXiv:2406.06608.
+[25] Wu, N., Gong, M., Shou, L., Liang, S., & Jiang, D.
+(2023, October). Large language models are diverse
+role-players for summarization evaluation. In CCF In-
+ternational Conference on Natural Language Process-
+ing and Chinese Computing (pp. 695-707). Cham:
+Springer Nature Switzerland.
+[26] Chan, C. M., Chen, W., Su, Y., Yu, J., Xue, W.,
+Zhang, S., ... & Liu, Z. (2023). Chateval: Towards bet-
+ter LLM-based evaluators through multi-agent debate.
+arXiv preprint arXiv:2308.07201 .
+[27] Willig, M., Zeˇ cevi´ c, M., Dhami, D. S., & Kersting,
+K. (2023). Probing for Safety in Prompt-Based Large
+Language Models. ArXiv. /abs/2311.06548.
+[28] Elal, T. B., & Ananthasayanam, R. (2023). Harnessing
+Large Language Models for Sentiment Analysis in
+Legal Documents. arXiv preprint arXiv:2312.04821 .
+Copyright © 2024
+Copyright for this paper is retained by authors

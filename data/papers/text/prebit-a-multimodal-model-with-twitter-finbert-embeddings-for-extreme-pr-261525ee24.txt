@@ -1,0 +1,1297 @@
+[Page 1]
+Graphical Abstract
+PreBit-AmultimodalmodelwithTwitterFinBERTembeddingsforextremepricemovement
+prediction of Bitcoin
+Yanzhao Zou,Dorien Herremans
+arXiv:2206.00648v2  [q-fin.ST]  21 Oct 2023
+
+
+[Page 2]
+Highlights
+PreBit-AmultimodalmodelwithTwitterFinBERTembeddingsforextremepricemovement
+prediction of Bitcoin
+Yanzhao Zou,Dorien Herremans
+• A multimodal model for BTC extreme price movement prediction using Twitter.
+• Ablation study of the impact of different modalities on accuracy.
+• New publicly available dataset of 9,435,437 tweets related to Bitcoin.
+• A profitable trading strategy with reduced risk exposure for Bitcoin trading.
+• Demonstrates the influence of predictive thresholds on risk of a trading strategy.
+
+
+[Page 3]
+PreBit - A multimodal model with Twitter FinBERT embeddings
+for extreme price movement prediction of Bitcoin
+Yanzhao Zoua,∗, Dorien Herremansa
+aSingapore University of Technology and Design, 8 Somapah Road, Singapore, 487372, Singapore, Singapore
+ARTICLE INFO
+Keywords:
+Bitcoin
+Twitter
+NLP
+BERT
+Price
+Prediction
+ABSTRACT
+Bitcoin, with its ever-growing popularity, has demonstrated extreme price volatility since its
+origin. Extreme price fluctuations have been know to occur due to Tweets from Elon Musk,
+MichaelSaylor,andothers.Inthispaper,weaimtoinvestigatewhetherwecanleverageTwitter
+data to predict these extreme price movements. Existing social media models often take a
+shortcutandincludesentimentextractedfromTweets.Inthiswork,however,wewanttoembed
+theactualTweetsinadomain-informedway,andinvestigatewhethertheyhaveanimpact.Hence,
+weproposeamultimodaldeeplearningmodelforpredictingextremepricefluctuationsthattakes
+as input candlestick data, prices of a variety of correlated assets, technical indicators, as well as
+Twittercontent.Totrainthemodel,anewdatasetof5,000tweetsperdaycontainingthekeyword
+‘Bitcoin’wascollectedfrom2015to2021.Thisdataset,calledPreBit,ismadeavailableonline 1,
+as is our model2. Our proposed hybrid multimodal model consists of an SVM model based on
+price data, which is fused with a text-based Convolutional Neural Network. In the text-based
+model, we use the sentence-level FinBERT embeddings, pretrained on financial lexicons, so as
+to capture the full contents of the tweets and feed it to the model in an understandable way.
+In an ablation study, we explore whether adding social media data from the general public on
+Bitcoin improves the model’s ability to predict extreme price movements. Finally, we propose
+and backtest a trading strategy based on the predictions of our models with varying prediction
+threshold and show that it can be used to build a profitable trading strategy with a reduced risk
+over a ‘hold’ or moving average strategy.
+1. Introduction
+Withcryptocurrenciesgainingtractionamongbothretailandinstitutionalusersoverthepastfewyears,themarket
+cap ofthe cryptocurrencies grew significantly. Bitcoin(BTC) is the mosttraded and largest cryptocurrency bymarket
+capitalisation.Whiletradingactivitiesoftraditionalassetsaredominatedbyinstitutionalinvestors,retailinvestorsplay
+amuchbiggerroleinBitcointrading(seeGoldmanSachsreportbyNathanetal.(2021)).Bitcoinisalsoadigitalasset
+that does not derive its value from physical demands such as coal and iron ore. This makes the Bitcoin price more
+susceptibletobeinfluencedbythemarketsentiment.Forexample,thepriceofBitcoinrosebyasmuchas5.2percent
+on 24 March 2021 when Elon Musk tweeted Tesla would accept Bitcoin for payments. It also crashed as much as 9.5
+percent on 13 May 2021 when Elon Musk tweeted to question the energy consumption from Bitcoin mining. In this
+paperweproposeamultimodalmodelthatcanpredictextremeBitcoinpricemovementsbasedonTwitterdataaswell
+asanextensivesetofpricedatawithtechnicalindicatorsandrelatedassetprices.Thereexistssomeresearchthatuses
+sentiment information from social media to try to predict cryptocurrency prices (Mohanty et al., 2018). By just using
+sentimentinformation,however,alotofpotentiallyusefulinformationisignored.Inthisresearch,wethereforeleverage
+astate-of-the-artmethodtoembedthe entiretweetcontents intoaBERTmodel(BidirectionalEncoderRepresentations
+fromTransformers)(Devlinetal.,2018)anduseitasinputtoourpredictivemodel.Wefurtherenhanceourmodelusing
+historical candlestick (OHLCV) data and technical indicators, together with correlated asset prices such as Ethereum
+and Gold. A schematic overview of our work is shown in Figure 1.
+1https://www.kaggle.com/datasets/zyz5557585/prebit-multimodal-dataset-for-bitcoin-price
+2https://github.com/AMAAI-Lab/PreBit
+∗Corresponding author
+<zouyanzhao@gmail.com> (Y. Zou);dorien_herremans@sutd.edu.sg (D. Herremans)
+dorienherremans.com (D. Herremans)
+ORCID(s): 0000-0001-8988-5981 (Y. Zou);0000-0001-8607-1640 (D. Herremans)
+https://twitter.com/dorienherremans (D. Herremans)
+https://www.linkedin.com/profile/view?id=dorienherremans (D. Herremans)
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 1 of 29
+
+
+[Page 4]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Figure 1: Schematic overview of the paper.
+When exploring existing studies that use social media data, we notice that most of the exiting research uses
+sentiments from texts, article titles, or social media posts, or meta-features such as number of posts, and number
+of comments as the model input, rather then actual word embeddings. Sentiments are often extracted using pretrained
+models such as Valence Aware Dictionary for Sentiment Reasoning (VADER) (Elbagir and Yang, 2019), word2vec
+(Acosta et al., 2017), or BERT (Sun et al., 2019a). Firstly, sentiment models pretrained for general purpose may not
+apply to financial language, for example, they may not accurately model or embed the words ‘chart’, ‘hold’, ‘bull’ or
+‘bear’. The distadvantage is that the context of the text is also lost when only the derived statistics are used. Utilising
+the full text of posts in the model retains more information and improve model performance. Hence, in this paper, we
+use the full text embeddings in our predictive model, in combination with a dedicated financial sentence embedding
+model, FinBERT (Araci, 2019). An additional challenge when doing this is that the number of words in the tweets
+gathered every day varies and a neural network typically requires a constant input length. We propose a solution to
+this problem by concatenating the tweets and splitting them into larger blocks as explained in detail in Section 4. To
+the best of our knowledge, only one study (Lamon et al., 2017) has tried to use text embeddings, not just sentiment,
+to predict Bitcoin prices, and this does not use an embedding model pretrained on financial texts, nor do they predict
+extrememovementsorofferabacktestedtradingstrategywithreducedmarketexposurerisk.Thisresearchaimstofill
+this gap.
+In this paper, we propose a multimodal embedded model for predicting extreme price movements of Bitcoin and
+evaluatetheimpactofdifferentmodalities,includingtweetsrepresentedthroughfinBERTcontextembeddings.Anew
+dataset is released consisting of tweets as well as candlestick data, related asset prices (Ethereum and Gold) and a
+selectionoftechnicalindicatorsfrom1January2015until31May2021.Inanablationstudy,weexploretheinfluence
+ofdifferentmultimodaldata.Themodelanddatasetismadeavailableonline 1.Inthisresearch,wetreatpriceprediction
+as a classification problem, whereby we predict next-day extreme price movements (up/down 2 or 5%), this way, our
+predictionscanbedirectlyembeddedinatradingstrategy.Theproposed(simple)tradingstrategywasbacktestedwith
+different predictive thresholds to optimally control risk exposure.
+Thenextsectionprovidesareviewofrelatedliterature.InSection3,wedescribethePreBitdatasetinmoredetail.
+The proposed models are explained in the next section, followed by our experimental setup in Section 5. Finally, in
+Section 6, the results from the experiments are discussed followed by a conclusion.
+1https://github.com/AMAAI-Lab/PreBit
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 2 of 29
+
+
+[Page 5]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+2. Literature Review
+Inthissection,wewillreviewsomeoftherelevantresearchonpricepredictionmodelsandidentifyhowthecurrent
+research addresses a unique gap. First, we will walk through existing research that uses traditional price information
+and technical indicators for predicting Bitcoin’s price. Then we provide a brief overview of models that use Natural
+Language Processing (NLP) in traditional stock price prediction models. Lastly, we explore how NLP has been used
+for cryptocurrency price prediction.
+2.1. BTC price prediction with technical indicators
+Topredictpricemovementsofanyasset,acommonapproachistolookathistoricalOpen-High-Low-Close-Volume
+(OHLCV) data together with technical analysis (TA) indicators. The same applies to Bitcoin trading.
+BasicmachinelearningmodelshavebeenusedtoconstructmodelsthatuseTAdata.Forinstance,Ślepaczuketal.
+(2018) used six technical features such as Momentum and Relative Strength Index with a Support Vector Machine
+(SVM) (Cortes and Vapnik, 1995) model to predict whether several cryptocurrency belonged to the top or bottom
+quintileintermsofvolatility-adjustedreturns.However,theirmodelwasnotabletooutperformsimpleBuy-and-Hold
+or Equal-Weight strategies. Sun et al. (2019b) used OHLCV data to predict price change direction for Bitcoin and
+Ethereum with a 5-minute frequency, using 16 technical indicators and a Random Forest. The backtesting results for
+theirstrategydemonstratethecapabilitytocapturetrendchangetoacertainextent,butstruggleswithreversalperiods.
+With the success of neural networks over the past few years, recent research has also explored the use of deep
+learningtechniquesforpriceprediction.Recurrentneuralnetworksarchitectures,includingLong-Short-Term-Memory
+(LSTM)(HochreiterandSchmidhuber,1997),areawidelyadoptedmodelintime-seriespredictionfortheircapability
+to capture temporal information (Mikolov et al., 2010). For predicting digital asset prices, Kwon et al. (2019) used
+the OHLC and volume data of a basket of cryptocurrencies at a 10-min interval to construct a training dataset and
+predict price movement direction as a classification problem. The model outperforms a baseline gradient boosting
+model. Long-Short-Term Memory-Models (LSTMs) are a popular architecture for cryptocurrency price prediction
+withTAs.(AdityaPaietal.,2022),(Wuetal.,2018)(Shinetal.,2021),(Felizardoetal.,2019).Alonso-Monsalveetal.
+(2020) combined LSTMs with Convolutional Neutral Networks (CNNs) using OHLC data and 18 derived technical
+indicators. This architecture outperformed the LSTM and Multi-layer Perceptron (MLP) models for Bitcoin, Litecoin
+and Ethereum price prediction on a 1-min interval from July 2018 to June 2019.
+NewdeeplearningtechniquesthatcapturethetemporalrelationsbetweendataincludeWaveNet(TemporalCNNs
+withresidualconnections)(Oordetal.,2016)andTransformernetworks(Vaswanietal.,2017)haverecentlyalsobeen
+used for digital asset prediction. Felizardo et al. (2019) did a comparison study between WaveNet, Autoregressive
+Integrated Moving Average (ARIMA), Random Forest, SVM, and LSTM to predict the future price of Bitcoin using
+OHLCV data. They found that the ARIMA model and the SVM equally outperformed the other models including
+WaveNet.OnepotentialreasonforthisisthatdeepermodelslikeWavenettraditionallyneedabiggerdatasetcompared
+to models such as SVMs and ARIMA. Transformers, however, have demonstrated superior performance in the study
+conduced by Afteniy et al. (2021). Using only Bitcoin OHLC data on a 1-min interval for 2007 to 2021 as input,
+the authors reported 83% accuracy for a Transformer model versus the 67% accuracy for an LSTM architecture
+when performing directional price change prediction. Sridhar and Sanagavarapu (2021) also used the Transformer
+architecture with Time2vec on Dogecoin price data and reported a better result in terms of Mean Absolute Error
+(MAE) compared to an LSTM model (Shin et al., 2021), Recurrent Neural Network (RNN) model (Kavitha et al.,
+2020), and a Linear neural network (Ali and Shatabda, 2020).
+Despitetheadvancesintime-seriesprediction,investorstypicallymakeuseofmoreinformationotherthanjustthe
+candlestick data when deciding to buy an asset. Hence, in the next subsection, we will discuss how NLP techniques
+have been used for predicting asset prices.
+2.2. Stock price prediction with NLP
+Looking at the stock market, there is a longstanding believe that sentiment and social influence has an impact on
+prices.Forinstance,theefficientmarkethypothesisstatesthatassetsarealwaystradingattheirfairvalue,thusleaving
+outperformingthemarketimpossible(Malkiel,1989).ProvidedanNLPmodelcouldcapturealltheknowledgeofthe
+world, we could in theory be able to predict the correct price. There are, however, limitations to this hypothesis: 1)
+markets may not really be efficient (Wang, 1985); 2) we cannot include all the information of the world in our model.
+TherecentsuccessoftheTransformer-basedBERTmodel(Devlinetal.,2018)formultipleNLPtaskshasattracted
+the attention of financial researchers as well. Combining the sentiment information extracted from BERT on carefully
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 3 of 29
+
+
+[Page 6]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+annotatedTwitterdatawithstockOHLCpricedata,Dongetal.(2020)reportedbetterresultsintermsofAreaUnderthe
+Curve(AUC)fornext-daypricepredictioncomparedtothestate-of-the-artstockpredictionmodelStockNetdeveloped
+by (Xu and Cohen, 2018). Other similar work using BERT equally reported that their models outperformed others to
+various degrees (Sonkiya et al., 2021; Chen, 2021). Based on these results, we have opted to use the state-of-the-art
+BERT model for this research, pretrained on a financial lexicon.
+Ingeneral,weseemanysourcesoftextdatausedinstockpredictionresearch,forinstance,StockTwits(Jaggietal.,
+2021), Yahoo! Finance news (Schumaker and Chen, 2009), Reuters and Bloomberg news (Ding et al., 2015), Twitter
+data(Bollenetal.,2011;Sietal.,2013;Dasetal.,2018;Oliveiraetal.,2017;Groß-Klußmannetal.,2019;Tetietal.,
+2019; Valle-Cruz et al., 2021; Pagolu et al., 2016), Dow Jones Newswire (Moniz and de Jong, 2014), and Bloomberg
+reports (Chan and Franklin, 2011). Given its popularity in financial circuits, we have opted to use Twitter data in this
+study. For a more complete overview of text-based methods for stock prediction, the reader is referred to the survey
+papers by De Fortuny et al. (2014); Kumar and Ravi (2016); Thakkar and Chaudhari (2021). The next subsection
+focuses on how some of these techniques have been used for digital assets.
+2.3. BTC price prediction with multimodal models
+Justlikestockpricesareinfluencedbyanyavailablemultimodaldatastreams,soaredigitalassetprices.Inaddition
+tothetraditionalprice-baseddata,weseetheemergenceofmultimodalmodelsfordigitalassetspriceprediction,that
+combine this data with different types of data. Examples of such data include on-chain data as well as exchange data
+(HerremansandLow,2022),sentimentandsocialmediadatasuchasTwitterdata(Mohapatraetal.,2019;Wołk,2020;
+RajuandTarif,2020;Kimetal.,2021),Telegram(Smuts,2019;Pateletal.,2020),Reddit(Ortuetal.,2022;Rajuand
+Tarif,2020),andmore.Lookingatexistingliterature,thereareanumberofmodelsthatagainusethesentimentscore
+derived from a text source as input to a predictive price model. We briefly go over related literature, but for a more
+comprehensive literature review on cryptocurrency trading research, the reader is referred to Fang et al. (2020).
+Kimetal.(2016)usedVADER(ValenceAwareDictionaryforSentimentReasoning(HuttoandGilbert,2014))to
+generateasentimentscorefromcommentsandrepliesontheBitcoin,EthereumandRipplecommunityposts.Akbiyik
+et al. (2021) also used VADER to to extract twitter sentiment as part of the model inputs in an early fusion set-up
+for next-fifteen-minute Bitcoin realised volatility prediction. In a more recent study, Aharon et al. (2022) examined
+the relationship between Twitter-based uncertainty and cryptocurrency returns. They used Twitter-Based Economic
+Uncertainty (TEU) and Twitter-Based Market Uncertainty (TMU), two indices generated by the Economic Policy
+Uncertainty website from 2011 to 2020 (Baker et al., 2021), together with OHLCV data from CoinDesk. The authors
+documentedasignificantdirectionalpredictabilityfromtheTMUandTEUforBitcoinbasedonacross-quantilogram
+analysis. Nghiem et al. (2021) used historical posts from Telegram channels collected using PumpOlymp2 which
+included keywords such as “pump”, “dump”and “signals” as part of their social media data. The authors built a
+combined CNN and LSTM model to predict ‘pumps’ with a prediction error typically less than 5% away from the
+trueprice.TheyusedstatisticsofsocialmediadatasuchasnumberofpostsonTwitter,Facebook,Githubrepositories,
+number of comments, views and open issues.
+Mohanty et al. (2018) used sentiments from tweets with technical indicators in an LSTM that marginally
+outperforms a random model in predicting the next-ten-minute Bitcoin price change direction. Passalis et al. (2021)
+used FinBERT (Araci, 2019) to extract sentiments from a dataset with 223,000 news headlines collected by BDC
+consulting3. They report a high return for their CNN model price change detection model based on sentiments,
+which only slightly outperformed the one using OHLCV data. Similarly, Cruz and Silva (2021)’s autoencoder model
+with sentiment information (from BERT trained on 10,111 news articles) outperforms the model without sentiment
+information by 3.7 ppt in terms of𝑅2. A similar conclusion was made by Ortu et al. (2022) for there model that uses
+sentiment from 4,423 Github and 33,000 Reddit user comments.
+Usingonlythesentimentoftheavailabletextispopular(Yeetal.,2022;Akbiyiketal.,2023;HarithaandSahana,
+2023;Leungetal.,2023;Critienetal.,2022;Sabrietal.,2022),butisverylimiting.Byusingtheactualtext(content)
+instead of only the sentiment, much more data could be used to make more accurate predictions. However, we were
+only able to find one study that directly uses the actual text and feeds it to a predictive model without first extracting
+the sentiment. Lamon et al. (2017) used a bag-of-words (BoW) to extract embeddings from news headlines from
+cryptocoin.com as well as 60 tweets daily on the topic of cryptocurrency. Experimenting with logistic regression,
+2https://pumpolymp.com/
+3https://bdc.consulting/insights/cryptocurrency/analyzing-crypto-headlines
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 4 of 29
+
+
+[Page 7]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+SVM, and Naive Bayes, the authors reported that logistic regression performed the best and was able to consistently
+achieve higher than 50% accuracy in predicting next-day Bitcoin price change direction.
+In the last few years, cutting edge NLP research includes much more effective techniques for embedding text into
+NLP models, other than bag-of-words. Hence, we turn to some of the latest state-of-the-art in this paper and explore
+FinBERT embeddings for Twitter. In addition, many of the previous studies do not make their dataset available, so
+therecanbenodirectcomparisonorbenchmarking.Inthisstudy,oursourcecodeanddatasetismadeavailableonline
+to allow other researchers to further improve upon our work.
+In the current study, we aim to fully use social media content, beyond just using sentiment scores. We therefore
+leverage upon the results by Lamon et al. (2017) and improve their approach by using a pretrained BERT on finance
+data:finBERT,whichshouldbebetterabletocapturefinancialcontent(Araci,2019).Contrarytomanyotherresearch
+studies,wealsoproposeatradingstrategybasedonthemodelsandthoroughlybacktestittoillustratehowsuchmodels
+may be used to decrease the downward risk of trading strategies.
+3. Multimodal Dataset
+We present a new dataset, PreBit, which consists of two modalities: daily price, correlated assets with technical
+analysis data for BTC (which we will refer to as TA data for simplicity), as well as a the contents of a 5,000 of daily
+tweets.Thedatasetisavailableonline 4.Inthenexttwosubsectionswewilldiscussthesetwomodalitiesinmoredetail.
+3.1. Twitter Data
+Collecting tweets The PreBit dataset consists of publicly available tweets containing the keyword ‘Bitcoin’ from 1
+January 2015 until 31 May 2021. A total of 5,000 tweets (or the maximum available that day) were collected per day
+usingtheGetOldTweets-pythonlibrary 5,startingat23:59:59GMT+0andtrackingbackwards.Thisresultedinatotal
+of 9,435,437 tweets over the entire period. In 2015 there are a few days with less than 5,000 tweets, which is due to
+the fact that Bitcoin was not yet as popular in these earlier years.
+Eachtweetcontainsthefollowingattributes:username,timestampindatetimeformat(minutes),numberofretweets
+and favourites, tweet content, mentions (user names), hashtags, unique ID, and permalink. To protect user privacy, all
+informationrelatedtouseridentitywasdiscarded.Althoughmanyoftheseattributesmaybeusefulforfuturemodels,
+the current study focuses only on the tweet content.
+Preprocessing To efficiently input tweet content into machine learning models in a way that is understandable, we
+first need to do preprocessing to clean the data and make it less noisy. This preprocessing step is a common practice
+in NLP models to ensure that the remaining word tokens are meaningful. Each tweet has gone through the following
+process in sequence:
+1. Converted all English alphabet characters to lower case.
+2. Removed all the URLs.
+3. Removed the symbols ‘@’ and ‘#’.
+4. Removed all the characters that are not in the English alphabet, to filter out numbers and non-English tweets
+using the library spaCy.
+5. Removed sentences with only 1 word token left.
+Figure 2 illustrates the 20 words with the highest occurrence frequency from the entire Twitter dataset. There are
+a total 36,639 unique words. Stopwords, ‘bitcoin’, ‘btc’ and ‘cryptocurrency’ have been excluded from the counting
+process, as unsurprisingly, they are the most frequent words given our search criteria when constructing the dataset.
+We notice two other cryptocurrencies were often mentioned together, ‘eth’ (Ethereum) and ‘xrp’( Ripple). Hence, we
+proceededtoincludeEthereumpriceaspartofthetechnicalindicatorsforTAdataset.Actionwordssuchas‘buy’and
+‘get’ also occurred with a high frequency.
+3.2. TA Data
+For simplicity, we refer to the price related input data as TA data. It consists of three elements: candlestick data
+(Open-High-Low-Close-Volume, or OHLCV), related asset prices, and a few selected technical indicators. We will
+discuss each of these in more details below.
+4https://www.kaggle.com/datasets/zyz5557585/prebit-multimodal-dataset-for-bitcoin-price
+5https://github.com/Jefferson-Henrique/GetOldTweets-python
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 5 of 29
+
+
+[Page 8]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Figure 2: Top 20 most frequent words in the tweets in our dataset.
+Candlestick data We included the daily Bitcoin OHLCV data from CryptoCompare6. As Bitcoin is traded on
+multiple exchanges, data from one exchange may not capture the full picture. Cryptocompare aggregates the trading
+volumeandpricesfromdifferentexchangestoprovideamorecomprehensiveoverviewofmarketactivities(alsoused
+by Alonso-Monsalve et al. (2020)). The data covers the period from 1 January 2015 until 31 May 2021, which is the
+same range as the collected Twitter data.
+Technical Indicators and correlated assets In addition to the basic OHLCV data collected directly from
+Cryptocompare, we have also calculated 13 standard technical indicators, including correlated asset prices. Figure 3
+visualizes these indicators together with the Bitcoin close price. For better visibility, only the last year of our data is
+displayed.
+• Moving Averages (5) - Moving average is a commonly used feature in technical analysis (Ellis and Parbery,
+2005). We have included five different moving averages: the 7-day simple moving average, the 21-day simple
+movingaverage,andthreeexponentialmovingaverages.Thefirstexponentialmovingaverageusesadecayrate
+of0.67.TosupportthecalculationofMovingAverageConvergenceDivergence(MACD),wecalculated12-day
+and 26-day exponential moving average and kept them as indicators.
+• Moving Average Convergence Divergence (MACD) (1) - this indicator is built upon moving averages. It
+comparestheshort-termmovingaveragetothelong-termmovingaverageinordertoidentifythepricemovement
+momentum. If the short-term moving average is greater than the long-term moving average, it suggests that
+the recent price demonstrates an upward momentum. In our set-up, we have selected the 12-day and 26-day
+exponential moving averages to calculate the MACD.
+• 20-day Standard Deviation of BTC Closing price (1)- this is a basic measure of the BTC price volatility, and
+used to calculate the Bollinger Bands.
+• BollingerBands(2)-BollingerBandsarevolatilitybandsplacedaboveandbelowthemovingaverageofprice.
+We have set up the band to be± two 20-day standard deviation of the price from the 21-day simple moving
+average. The band captures information on price volatility.
+• High-LowSpread(1)-Thisisthedistancebetweenthehighestandlowestpriceoftheday.Theindicatorattempts
+to capture the price volatility of the day.
+• ETH price (1) - the close price of Ethereum on the same day. Bitcoin and Ethereum currently the two
+cryptocurrencies with the two largest market caps (excluding USDT). Their price has historically shown
+correlation (Katsiampa, 2019; Beneki et al., 2019).
+• Goldspotprice(1)-Bitcoinisoftenreferredtoasapopularinflationhedge,or‘digitalgold’(Kangetal.,2019),
+hence we have included the Gold price.
+6cryptocompare.com
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 6 of 29
+
+
+[Page 9]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+(a) BTC Close price with 7-D and 21-D MA.
+(b) BTC Close price with Ethereum and Gold price on a log
+scale.
+(c) BTC Close price with Bollinger bands.
+ (d) MACD with 12-D and 26-D EMA.
+Figure 3: Visualisation of selected TA features.
+• MovingAverageIndicator(1)-Thisfeatureisabinaryrepresentationwhichindicateswhetherthe7-daysimple
+moving average price of the day is 5% higher than the current price.
+Normalising Procedure The features that are directly related to the Bitcoin price were normalised as percentage
+changeoftheclosingpriceofthepreviousdayasperEquation1.TheseincludeOHLC,movingaverages,andBollinger
+Bands. Other features including volume, ETH price and gold spot price were normalised as percentage change over
+their own value of the previous day as per Equation 2; Lastly, for MACD, 20-day standard deviation and high-low
+spread, we normalised as percentages of the closing price of the previous day, as per Equation 3.
+feat_norm_btc𝑡 =
+feat(𝑡) −price_BTC_close(𝑡−1)
+price_BTC_close(𝑡−1)
+(1)
+feat_norm_self𝑡 =
+feat(𝑡) −feat(𝑡−1)
+feat(𝑡−1)
+(2)
+feat_norm_prev𝑡 =
+feat(𝑡)
+price_BTC_close(𝑡−1)
+(3)
+The Pearson correlation between the above mentioned (normalized) technical indicators and the next day Bitcoin
+price is shown in the Figure 4 and Table 1. We notice that there is generally a low direct correlation between the
+features and the next day Bitcoin close price (normalized). The price of Ethereum has the highest correlation in terms
+of absolute value to the next day Bitcoin price. Volatility related indicators such as the 20-day standard deviation and
+lowerBollingerbandshowastrongercorrelationaswell.Noonefeaturehasanoutspokenhighercorrelationwithour
+predictive feature, hence we include all of them in our model. The full correlation values are shown in Table 10 in
+Appendix, and the corresponding p-values in Table 11 in Appendix. It is worth noting that, although the correlation
+values are low, the p-values for most of the features are also rather low. This shows that despite the low correlation in
+absolute terms, many features do still have statistically significant linear correlation to the next-day Bitcoin price. It is
+also worth mentioning that the features are later used in SVM models which are not linear models.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 7 of 29
+
+
+[Page 10]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+3.3. Data Labels
+Our research aims to answer whether we can predict extreme price movements using a hybrid multimodal model.
+Therefore, the prediction class labels should serve to flag out extreme price movements. We created binary class
+labels based on whether the percentage change of the daily BTC close price is above a selected threshold𝜃 for each
+experimentalcases.Thedigitalassetmarketgenerallyhasmuchhighervolatilityoverthetraditionalmarket,therefore,
+wechosetheworkwiththedaily‘high’and‘low’valuesrespectivelyfortheupanddowntask.Weexploredfourvalues
+for the threshold𝜃: ±2%and ± 5%. Being able to flag such large price movements may offer investors a warning sigh
+protect their assets from downside price movements or profit from upcoming large price movements.
+The ±5% thresholds will serve to alert investors of upcoming extreme price movements. Since these are extreme
+events, the positive and negative class ratio distribution ratio is around 1:5. With the±2% thresholds, the class
+distributionratioisaround2:3,whichisalotmorebalanced.Althougha2%moveforBitcoinmightnotbeconsidered
+large given the market volatility, the more balanced dataset distribution case could serve to provide additional
+perspective to our experiments, which will be discussed later in Section 6. The distribution of the labels can be found
+in Table 2.
+Figure 4: Correlation matrix for the TA indicators.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 8 of 29
+
+
+[Page 11]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Table 1
+Pearson Correlation coefficient of each feature (and p-value) with Bitcoin’s next day close price.
+High Low Close Volume
+-0.017(0.405) -0.058(0.005) -0.057(0.006) 0.013(0.497)
+Adj Close ma7 ma21 ema
+-0.056(0.06) -0.039(0.054) -0.032(0.098) -0.060(0.004)
+26ema 12ema MACD 20sd
+-0.034(0.084) -0.037(0.060) 0.023(0.217) 0.051(0.017)
+upper band lower band spread ma indicator
+0.008(0.784) -0.065(0.002) 0.033(0.120) -0.040(0.041)
+eth gold
+-0.092(0.000) -0.020(0.322)
+Table 2
+Class distribution for different predictive tasks𝜃.
+𝜃 +5 % +2% -5 % -2%
+T F True Ratio T F True Ratio T F True Ratio T F True Ratio
+Training Set 292 1680 14.84% 810 1162 41.08% 298 1674 15.11% 789 1183 40.01%
+Test Set 60 305 16.44% 168 197 46.03% 60 305 16.44 % 175 190 47.95%
+4. Multimodal Model for Price Extreme Movement Prediction
+We propose a multimodal hybrid model that consists of two input modalities: Twitter content and TA data. A
+predictive model was built for each of these modalities and a fusion model was then added to the architecture to come
+toajointprediction.Thetaskofthismodelistopredictextremepricemovement(up/down2or5%)withinthenextone
+day (i.e. looking at high/low prices, not just closing price). Figure 5 shows an overview of the proposed architecture.
+We will discuss the three parts of our model in the next subsections.
+4.1. CNN Model with Tweet Data
+For the CNN models with tweet data, we first represented the daily tweets as a dense embedding, and then we
+implemented two possible convolutional neural network (CNN) configurations which were evaluated in the results
+section. In the following text we will refer to the CNN models with tweet data as ‘Twitter CNN’.
+Figure 5: Proposed multimodal hybrid model.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 9 of 29
+
+
+[Page 12]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+4.1.1. FinBERT context embeddings
+After the tweets are preprocessed (see Subsection 3.1), we represent them with efficient dense embeddings.
+There are various ways to obtain word embeddings, including Bag of Words (BoW), Term Frequency - Inverse
+DocumentFrequency(TF-IDF),Word2vec,GlobalVectorsforWordRepresentation(GloVe)(Penningtonetal.,2014).
+Earlier embedding models such as BoW and TF-IDF in essence create a sparse matrix based on the (co-occurrence)
+frequency of words. GloVe (Pennington et al., 2014), a later model, uses a non-parametric and unsupervised learning
+algorithmthattriestocapturethesemanticsimilaritiesbetweenwords,andoutputsthemintoafixed-dimensionfeature
+representation.Word2vecembeddingsarealsomuchmoredenseandtrainedunsupervisedbyasimpleneuralnetwork
+with one hidden layer (Mikolov et al., 2013).
+Weoptedtousethecontext(sentence)embeddingsfromthestate-of-the-artFinBERTmodel(Araci,2019)which
+is built upon Bidirectional Encoder Representations from Transformers (BERT) (Devlin et al., 2018) to obtain our
+embeddings.WhenBERTwasdevelopedin2018itoutperformedtraditionalembeddingmodelsonvarietyoflanguage
+tasks (Devlin et al., 2018). FinBERT is in essence a BERT model, finetuned on financial text datasets such as TRC2-
+financial7,adatasetprovidedbyThomsonReuters,whichconsistsof1.8millionnewsarticlespublishedbetween2008
+and 2009. Because FinBERT is trained on financial texts, it is better suited for any financial related task such as the
+one tackled in this research. The FinBERT model obtained a 10 to 20% increase in accuracy in Financial PhraseBank
+dataset classification tasks over the baseline models, and outperformed other state-of-the-art models in terms of both
+mean squared error (MSE) and𝑅2 on the FiQA sentiment dataset. These recent development incentivized us to use
+FinBERT in our model for embeddings.
+The context embeddings for a given sentence generated by the FinBERT model are a 768-dimensional vector. As
+ourdatasetconsistsof5,000dailytweetsacross6yearsand5months,therewouldbeover9.5millionentriestoprocess
+fortheembeddings,resultinginalargeamount(5,000)ofembeddingsperday.Consideringthefactthattweetsarevery
+short (maximum 280 characters), and and with computational efficiency in mind, we decided to concatenate multiple
+tweetsintoonelongertext.Specifically,onedayworthoftweetsisconcatenatetoformtextslicesof200wordtokens,
+with50overlappingtokensatthestartofnexttextslice.Finallytheembeddingsareobtainedforeachofthetextslices
+and fed into the Twitter CNN model. Each embedding has a dimension of1 × 768. Embeddings for tweets from the
+same day are stacked into a 2-dimensional vector of size𝑛 × 768. Since the maximum number of text slices per day
+foundinourdatasetis362,weusedzero-paddingonallthe2-dimensionalinputvectorstoensureasizeof 362 × 768.
+4.1.2. CNN Architectures
+WeoptedtoprocessthetextwithCNNarchitectures(LeCunetal.,1989),asthesehaveshowntobeveryefficient
+fortwo-dimensionaldata,astheyhaveagreatlyreducednumberofparameterscomparedtotraditionalneuralnetwork
+structures. We experimented with two different convolutional neural network (CNN) architectures for the language-
+based model: a sequential CNN and a parallel CNN.
+ParallelCNN ApplyingCNNsforsentenceclassificationhasseenquitesomeresearchinterest(ZhangandWallace,
+2015; Zhang et al., 2016; Hsu et al., 2017; Shin et al., 2018). The popular work by Kim (2014) offered the basis for
+our model. In his work, Kim used the 300-dimensional Word2Vec embedding for each token in a sentence, and fed
+them into a 1-D CNN model. This work highlighted the importance of well-trained unsupervised pretraining of word
+vectors, and also demonstrated that using a simple 1-layer convolution can produce high performance on a variety of
+tasks.
+In our work, we are focused on capturing the collective discussions and views on Bitcoin from the tweets on a
+given day. The information behind a singular tweet can often be trivial and noisy. Therefore, our model input consists
+ofmultipleembeddingswhichtogethercaptureafulldayoftweetsentencesasopposedtojustasentenceoftokensin
+Kim’s model. The intuition for this parallel CNN architecture is that the model should first capture the most relevant
+information between sentences from the embedding, and then extract the most relevant pieces of information from
+each of the 362 text slices (maximum number of daily text slices).
+Our proposed parallel CNN model first applies 1-D convolution on the input (embedding) layer. This convolution
+operation uses three sets of filters of size: 3×768, 4×768, and 5×768, but the filters move only in one direction.
+Afterwards, we apply 1-D max pooling on the 3 sets of feature maps resulting from the convolution operations, with
+the feature map length as the kernel size (resulting in one value per feature map), and concatenate the output. Then
+7https://trec.nist.gov/data/reuters/reuters.html
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 10 of 29
+
+
+[Page 13]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+we pass the result through two fully connected layers followed by the classification layer. An overview is provided in
+Figure 6.
+Figure 6: Parallel Twitter CNN model. We use FC for fully connected dense layer. A ReLu activation is applied after each
+convolutional layer. A dropout of 0.5 is applied on the first fully connected layer. The final prediction is made with softmax.
+Sequential CNN A sequential CNN model (see Figure 7) was also implemented. This model essentially treats the
+embeddings as images of size362 × 768 and applies a 2-D convolution operation on this input. This architecture is
+inspiredbytheLeNet-5model(LeCunetal.,1998).Themaindifferenceisthatweaddedoneextraconvolutionallayer
+and used a filter size of 5×5, 4×4, 3×3 respectively in each of the three convolution layers.
+4.1.3. Implementation and hyperparameters
+Loss function Two different loss functions were implemented for the Twitter CNN model: a conventional Cross
+Entropy (CE) loss and a Focal Loss (Lin et al., 2017) developed by Facebook AI Research. The CE loss is a staple in
+classificationmodeltraining.Sinceourdatasetisunbalanced(seeSection3,thereisanincentivetousealossfunction
+that takes this into account, i.e. Focal Loss (FL).
+Focal Loss was proposed by Lin et al. (2017) to train dense object detectors. Below we show the formulas for the
+twolossfunctionsforeachoutputsample,inthecaseofabinaryclassificationtask(class 𝑡 = 1 or 𝑡 = 0),with 𝑝𝑡 being
+the probability of a sample belonging to class𝑡.
+𝐶𝐸 (𝑝𝑡) =
+{
+−𝑙𝑜𝑔(𝑝𝑡) if 𝑦 = 1
+−𝑙𝑜𝑔(1 − 𝑝𝑡) otherwise (4)
+𝐹 𝐿(𝑝𝑡) = − 𝛼𝑡(1 − 𝑝𝑡)𝛾 𝑙𝑜𝑔(𝑝𝑡) with 𝑝𝑡 =
+{
+𝑝 if𝑡 = 1
+1 − 𝑝 otherwise (5)
+As we can see, Focal Loss differs from cross entropy loss (CE) through the additional factor−𝛼𝑡(1 − 𝑝𝑡)𝛾. The
+parameter 𝛼 ranges from 0 to 1 and attempts to tackle the class imbalance directly by amplifying the loss from the
+minority class. It is usually set as the inverse class frequency or tuned on the validation set. The parameter𝛾 attempts
+to reduce the loss contributed by high confidence classifications, namely the easy examples, and generally is in the
+range from 0 to 5 to be effective. These parameters prevent the model from being overwhelmed by the easy negatives
+andenablethemodeltofocusontheminoritypositives.Linetal.(2017)reportedthatdetectorstrainedwithFLshowed
+superior accuracy results compared to state-of-the-art detectors trained with BCE loss.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 11 of 29
+
+
+[Page 14]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Figure 7: Sequential Twitter CNN model. We use Ci for convolutional layer i, Si for subsampling layer i, and FC for fully
+connected dense layer. A ReLu activation is applied after each convolutional layer, as well as after the last fully connected
+layer. A dropout of 0.5 is applied on the first fully connected layer. The final prediction is made with softmax.
+Hyperparameters ThemodelwasimplementedinPyTorch,andweusedthestandardAdamoptimiserwithPyTorch
+default parameters. For the Sequential CNN model, we added L2 regularisation through the Adam optimizer’s
+𝑤𝑒𝑖𝑔ℎ𝑡_𝑑𝑒𝑐𝑎𝑦 parameter set at 0.0005 to 0.001 to prevent overfitting. A ReLU activation is applied after each
+convolutional layer. A dropout of 0.5 is applied on the first fully connected layer. Additionally, ReLU activations
+are also applied after fully connected layers in the Sequential CNN model.
+TheperformanceofthesequentialandparallelCNNmodelswillbecomparedintheexperimentsection.Weshould
+note that the sequential CNN is computationally more expensive as the model has 7.6 million trainable parameters
+versus the 2.6 million in the parallel model, this may provide difficulties when training on small datasets. Yet, these
+layer, loss function, and kernel related hyperparameters were chosen based on best performance with trial-and-error
+on the validation set. The original training set was split is a (language) training set (90%) and a (language) validation
+set (10%). The workflow used to develop (finetune, train, and test) the CNN models is illustrated in Algorithm 2.
+4.2. SVM Model with TA data
+We implemented a Support Vector Machines (SVM) model (Cortes and Vapnik, 1995) for making extreme price
+movement predictions using only the TA data. In the following text we will refer to the SVM model with TA data
+as TA SVM or TA model. The TA model takes as input all available TA data as described in Section 3.2, including
+candlestick data, and technical indicators including correlated assets, to predict extreme price movement (up/down 2-
+5%). We experimented with several simple models and compared their F1-scores (best F1-score in bracket for task up
+5%).Thesemodelsincludelogisticregression(0.79),supportvectormachines(SVM)(0.97),a2-layeredfeed-forward
+neural network with dimensions 512 (0.90), as well as a 1-layered long-short term memory model (LSTM) with a
+hiddendimensionof256(0.86).Fromthesetest,wehaveselectedthebestperformingmodel–SVM–touseaspartof
+our model. While this model may seem simple, its performance makes sense given the limited size of our dataset.
+Model Input This model will take as input all of the features described in Section 3.2: OHLCV data as well as 13
+technical indicators, resulting in a total of 19 features per day. To provide additional historical price information, we
+concatenated this data in windows of 5 days. This resulted in a final input size of1 × 95. We experimented with
+Principle Component Analysis (PCA) values to reduce the dimension of the input, however, it did not produce better
+results. Thus, in the final version of the model, no PCA was applied.
+The TA SVM model was implemented with Scikit-learn. Based on trial-and-error, we opted to use the Radial
+Basis Function (RBF) kernel. The RBF kernel has 2 input parameters: C and gamma. We performed a Grid Search to
+determinetheoptimalCandgamma.Thissearchused4-foldcrossvalidationwiththeF1-scoreastheevaluationmetric
+toguidethesearch.ThereasonforusingF1-scoreastheevaluationcriteriawillbediscussedfurtherinSection5.The
+workflow used to develop (finetune, train, and test) the SVM model is shown in Algorithm 1.
+4.3. PreBit Fusion Model
+The proposed Fusion model takes the prediction probabilities output by the Twitter and TA model as input and
+makesafinalpredictionabouttheextremepricemovement.AnoverviewoftheFusionmodelcanbefoundinFigure5.
+ModelInput TheinputtotheFusionmodelconsistsoftheprobabilitiesforthepositiveclassfromtheTwittermodel
+and TA model. More specifically, for the TA SVM model, we applied a sigmoid function to the decision function
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 12 of 29
+
+
+[Page 15]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+output. For Twitter model, we took the model output after the softmax function. The resulting probabilities from both
+models were concatenated so they were of size1 × 2. This small vector forms the input to the fusion model.
+Model Architecture We experimented with several models such as feed-forward neural networks (FNN), logistic
+regression,SVMwithRBFkernelandSVMwithpolynomialkernel.Exceptfortheneuralnetworkmodels,whowere
+implementedinPyTorch,weusedScikit-learntoimplementallthemodels.Giventhelimitedsizeofourinputdataset,
+andtheresultsfromthistrial-and-errorexperiment,weproceededtouseSVMinourfinalexperiments.Theparameter
+selection process was conducted similar to that of the TA SVM model. The workflow used to develop (finetune, train,
+and test) the PreBit Fusion model is illustrated in Algorithm 3.
+Algorithm 1Workflow for finding the best Model (SVM) with TA data.
+1: forTask 𝑛 ∈ {+5, −5, +2, −2}do ⊳Ready data
+2: 𝑋, 𝑌 ← loadTADataset()
+3: 𝑋train, 𝑋test ← percentageSplit(𝑋, 85% ∶ 15%)
+4: 𝑌train, 𝑌test ← percentageSplit(𝑌 , 85% ∶ 15%)
+⊳Tune parameters of model
+5: 𝑝SVM = [𝑐 = [0.1, 0.5, 1, 10, 30, 40, 50, 75, 100, 500, 1000], 𝛾 = [0.01, 0.05, 0.07, 0.1, 0.5, 1, 5, 10, 50]]
+6: modelList = {SVM RBF kernel, SVM polynomial kernel}
+7: formodel 𝑚 ∈modelListdo
+8: Grid Search with parameters𝑝SVM using crossValidationSplit(𝑋train, 4)
+9: end for
+⊳Report best model
+10: Select model𝑚best_ta with highest F1-score
+11: Report metrics for prediction on𝑋test made by𝑚best_ta trained on𝑋train
+return 𝑚best_ta
+12: end for
+Algorithm 2Workflow for finding the best CNN Model with Twitter data.
+1: forTask 𝑛 ∈ {+5, −5, +2, −2}do ⊳Ready data
+2: 𝑋, 𝑌 ← loadTwitterDataset()
+3: 𝑋 ← textPreprocess(𝑋)
+4: 𝑋 ← extractFinBERTembeddings(𝑋)
+5: 𝑋train, 𝑋val, 𝑋test ← percentageSplit(𝑋, 76.5% ∶ 8 .5% ∶ 15%)
+6: 𝑌train, 𝑌val, 𝑌test ← percentageSplit(𝑌 , 76.5% ∶ 8 .5% ∶ 15%)
+⊳Tune parameters of model
+7: modelList = {Parallel CNN, Sequential CNN}
+8: 𝑝loss = [𝛼 = [0.1 to 1.0], 𝛾 = [0, 1, 2, 3, 4, 5]]
+9: formodel 𝑚 ∈modelListdo
+10: forloss function∈{Cross Entropy Loss, Focal Loss[𝑝loss]}do
+11: Train 𝑚using 𝑋train and 𝑌train
+12: end for
+13: end for
+⊳Report best model
+14: Select model𝑚best_twitter with highest F1-score on validation set (𝑋val and 𝑌val)
+15: Report metrics for prediction on𝑋test made by𝑚best_twitter trained on [𝑋train + 𝑋val, 𝑌train + 𝑌val]
+return 𝑚best_twitter
+16: end for
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 13 of 29
+
+
+[Page 16]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Algorithm 3Workflow for finding the best PreBit Fusion Model.
+1: forTask 𝑛in {+5, −5, +2, −2} do ⊳Ready data
+2: 𝑥, 𝑌 ← loadTADataset()
+3: 𝑃TA ← getProbability(𝑚best_ta)
+4: 𝑃Twitter ← getProbability(𝑚best_twitter)
+5: 𝑋 ← (𝑃TA, 𝑃Twitter)
+6: 𝑋train, 𝑋test ← percentageSplit(𝑋, 85% ∶ 15%)
+7: 𝑌train, 𝑌test ← percentageSplit(𝑌 , 85% ∶ 15%)
+⊳Tune parameters of model
+8: modelList = {Logistic regression, SVM RBF kernel, SVM polynomial kernel}
+9: formodel 𝑚 ∈modelListdo
+10: if 𝑚 =SVMthen
+11: Grid Search with parameters𝑝SVM using crossValidationSplit(𝑋train, 4)
+12: else if𝑚 =Logistic regressionthen
+13: Train 𝑚using 𝑋train and 𝑌train
+14: end if
+15: end for
+⊳Report best model
+16: Select model𝑚best_fusion with highest F1-score
+17: Report metrics for prediction on𝑋test made by𝑚best_fusion trained on𝑋train return 𝑚best_fusion
+18: end for
+⊳Threshold experiment for Task +5%
+19: if 𝑛 = +5 then
+20: thresholdList = {0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99}
+21: 𝑇fusion ← getDecisionFunction(𝑚best_fusion)
+22: forthreshold 𝜏 ∈thresholdListdo
+23: forinstance ∈ 𝑋test do
+24: if f 𝑇fusion ≥ 𝜏 then
+25: Label as positive prediction
+26: else
+27: Label as negative prediction
+28: end if
+29: returnPredictions and confusion matrix of𝑚best_fusion for 𝑋test
+30: end for
+31: end for
+32: end if
+5. Experimental setup
+We want to uncover which elements of our hybrid multimodal model contribute most to accurately predicting
+extreme BTC price movements. In particular, we are interested to explore if the model accuracy improves by
+incorporating a predictive model based on Twitter data in our hybrid architecture. To properly explore this question
+we have performed an ablation study for each of our four tasks: will the BTC price go up by 5%, down by 5%, up by
+2%, and down by 2% on the next day. Separate models were trained for each task.
+Foreachtask,fivemodelswereevaluatedinanablationstudytodeterminewhichinputmodalityhasthepotential
+to improve predictions, and which CNN architecture is most efficient. These five models that were compared are the:
+• TA SVM model;
+• Twitter CNN model (parallel);
+• Twitter CNN model (sequential);
+• Fusion model (parallel) - using output from parallel CNN model as part of the input; and the
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 14 of 29
+
+
+[Page 17]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Algorithm 4Workflow for backtesting the different models.
+1: forperiod in {full period, bull period, bear period}do ⊳Setup
+2: strategyList={BuyandHold,7-Dand21-DMACross,TASVM,Fusionmodel,Fusionmodel0.95threshold,
+Fusion model 0.99 threshold}
+3: cash ←USD 100, BTC←0
+⊳Process buy signals
+4: forstrategy in strategyListdo
+5: signalList ←getBuySignals(strategy)
+6: fortime 𝑡 in perioddo
+7: signal ←signalList(𝑡)
+8: if signal is buy and BTC position is nilthen
+9: Buy BTC with 100% of cash ⊳Close positions after a day
+10: else ifBTC position opened at𝑡 − 1 then
+11: Sell 100% of BTC
+12: else
+13: No action
+14: end if
+15: end for
+16: end for
+17: returnAction history and strategy performance metrics
+18: end for
+• Fusion model (sequential) - using output from sequential CNN model as part of the input.
+Weshouldnotethatwecannotcompareourmodeldirectlytootherexistingmodelsastheytypicallyuseproprietary
+data sources, and do not always have their source code available. In addition, the published results of existing models
+are based on different time frames, hence they are not directly comparable. To address this issue, we have created
+two random baseline models. We ran simulations for 1,000 times and reported their average and the 95% confidence
+interval of the performances with the above mentioned five models in Table 3, 4, 5, and 6:
+• A uniformly random model that predicts class 1 half of the time, and otherwise class 0;
+• A stratified model that predicts class 1 and 0 according to their class distribution in the test set.
+5.1. Training-Test Split
+The dataset includes data from 1 January 2015 until 31 May 2021, and consists of a total of 2,337 entries after
+clean-up.Forourexperiments,wesplitthedataintoatrainingsetandatestset.Thelatterconsistsofthelast1yearof
+our data, i.e. from 1 June 2020 until 31 May 2021, totalling 365 entries. This makes the split ratio around 5.4:1. The
+Bitcoinpriceduringthetestperiodincludesalongbullrunaswellasabearperiod(seeFigure10).Thus,webelieved
+this to be as a good period to evaluate our model on. The non-stationary nature of the data makes it hard to generalize
+results,hence,weselectedatestperiodwithbothtypesofmarketstocompensateasbestaspossible(DePrado,2018).
+All of the hyperparameter tuning was done only on a validation set which was part of the original training set (see
+Table2).FortheTwitterCNNmodel,thetrainingsetwasfurthersplitintoatrainingandvalidationsetwith9:1ratio.
+Weusedthevalidationsettoselecttheoptimalhyperparametersincluding:FocalLossparameters- 𝛼and 𝛾,numberof
+filters,numberoflayersanddropoutratio.FortheTAandFusionSVMmodels,4-foldcrossvalidation(onthetraining
+set) was used during the Grid Search for parameter tuning.
+5.2. Evaluation metrics for predictive model
+Averycommonlyusedmetricforanyclassificationtaskispredictionaccuracy.Althoughthisprovidesanoverview
+of the model performance, for datasets with noticeable class imbalance such as ours, accuracy alone is not enough.
+Therefore, we also include precision, recall, as well as F1-score. The latter is a comprehensive measure that accounts
+for both precision and recall rate for the prediction output as it is their harmonic mean. This means that both false
+positives as well as false negatives are considered. In addition, we report the confusion matrices to provide more
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 15 of 29
+
+
+[Page 18]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+complete insight into misclassifications. In our case this is particularly important as traders may be more interested to
+be absolutely certain of their model’s predictions, and care less about missed opportunities, depending on their risk
+appetite, and hence want to focus on maximizing precision. We will illustrate this further in the backtesting section,
+whose setup is explained in the next subsection. In addition, we also compare our model performance to that of the
+baseline models. To reduce the variance in the baseline model performance, we ran 1,000 simulations and show the
+average performance as well as the 95% confidence interval for each of the aforementioned metrics in Tables 3, 4, 5,
+and 6.
+5.3. Trading strategy backtesting
+To further evaluate how our model signals may be helpful in reducing risk during trading, we propose simple
+long-only trading strategies and analyse them with backtesting. The backtesting period is the same as the test set
+coverage, from 1 June 2020 until 31 May 2021. We assume no leverage, no transaction fees, complete liquidity and
+instant transactions without slippage.
+Since our models performed best for Task 1 (predict up 5% BTC price), we have focused our trading strategy on
+this model. Both the TA and Fusion model (sequential) showed higher performance than the other models, they were
+used to construct the trading signals.
+Trading strategyWe implemented the following trading rules: if the model predicts a 5% upward price movement
+for the next day, it flags a buy signal. We then buy 100% of all the cash holdings at the closing price of the day. The
+holding period is always set to one day, i.e., we always sell at the closing price the next day after buying. We limit
+the strategy to perform only one action per day, either buy, hold or sell. When there are consecutive days of buying
+signals, we only buy and hold during the first day. The occurrence of the aforementioned situation is rare during our
+test period, thus it has limited impact on the performance.
+Baselines and metrics In addition to the TA SVM and Fusion model (sequential), we have included four other
+strategies for comparison in our backtesting:
+• Buy and Hold - Buy on the first day and sell on the last. A commonly use baseline comparison.
+• 7-D and 21-D Moving Average (MA) Cross - Buy when the 7-D MA goes above the 21-D, sell when 7-D MA
+dives below the 21-D MA. Sometimes it is referred to as the ‘Golden Cross’. It is a classic trading strategy
+capitalising on momentum (Liu et al., 2021).
+• Fusionmodel (sequential)with0.95 predictionthreshold- Thisisa variationonour Fusionmodel(sequential).
+TheoriginalFusionmodelpredictsbetweentwoclassesbycomparingtheprobabilityforeachclasstothedefault
+threshold 0.5. If the model’s output probability is greater than 0.5, the predicted class will be positive. In this
+variation, we have increased this threshold to 0.95, meaning that the model only predicts the positive class only
+if it has extremely high confidence. We explore the influence of this on reducing the risk of the trading strategy.
+• Fusion model (sequential) with 0.99 prediction threshold - Similar to the above model, but with threshold set
+extremely high at 0.99.
+To evaluate the backtesting results, we examine the following metrics:
+• Profit%-Thepercentageofprofitmade.Thisreflectstheoverallperformanceofthestrategyduringtheperiod.
+• SharpeRatio-Arisk-adjustedmeasureofthereturn(Sharpe,1998).Therisk-freeinterestrateisassumedtobe
+0 in our calculation.
+• Sortino Ratio - A variation of the Sharpe ratio that only factors in the downside risk (Chaudhry and Johnson,
+2008).
+• Max Drawdown % - An indicator for downside risk over the full trading period. It measures the maximum
+observed loss of the portfolio.
+• Win % - The ratio of profitable trades.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 16 of 29
+
+
+[Page 19]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Table 3
+Performance results for the Task Up 5%. We use P for parallel, S for sequential.
+Models Precision Recall F1-score Accuracy
+T F T F T F Weighted
+TA SVM 0.32 0.85 0.22 0.91 0.26 0.88 0.78 71.23
+Twitter CNN (P) 0.20 0.86 0.47 0.62 0.28 0.72 0.65 59.22
+Twitter CNN (S) 0.18 0.93 0.95 0.13 0.22 0.30 0.24 26.10
+Fusion model (P) 0.31 0.89 0.48 0.78 0.37 0.83 0.76 73.42
+Fusion model (S) 0.31 0.89 0.50 0.78 0.38 0.83 0.76 73.70
+Random baseline model 0.16 0.83 0.49 0.50 0.24 0.63 0.56 49.91
+95% confidence interval 0.13-0.20 0.80-0.87 0.38-0.62 0.48-0.52 0.19-0.31 0.60-0.66 0.53-0.60 46.30-53.97
+Stratified baseline model 0.16 0.84 0.16 0.84 0.16 0.84 0.72 72.49
+95% confidence interval 0.08-0.25 0.82-0.85 0.08-0.25 0.82-0.85 0.08-0.25 0.82-0.85 0.69-0.75 69.86-75.34
+Table 4
+Performance results for the Task Up 2%. We use P for parallel, S for sequential.
+Models Precision Recall F1-score Accuracy
+T F T F T F Weighted
+TA SVM 0.61 0.63 0.49 0.73 0.54 0.67 0.61 61.91
+Twitter CNN (parallel) 0.48 0.62 0.80 0.27 0.60 0.37 0.48 52.48
+Twitter CNN (sequential) 0.48 0.61 0.81 0.25 0.60 0.36 0.47 51.08
+Fusion model (parallel) 0.62 0.67 0.60 0.68 0.61 0.67 0.64 64.38
+Fusion model (sequential) 0.54 0.66 0.70 0.50 0.61 0.57 0.59 58.90
+Random baseline model 0.46 0.54 0.50 0.50 0.48 0.52 0.50 50.01
+95% confidence interval 0.41-0.51 0.49-0.59 0.44-0.55 0.45-0.55 0.42-0.53 0.47-0.57 0.45-0.55 44.66-55.07
+Stratified baseline model 0.46 0.54 0.46 0.54 0.46 0.54 0.50 50.30
+95% confidence interval 0.40-0.51 0.49-0.58 0.40-0.51 0.49-0.58 0.40-0.51 0.49-0.58 0.45-0.55 45.20-55.07
+• Number of Trades - The number of trades made, which may be dependent upon the transaction costs. Note that
+in this low-frequency trading scenario, we omit the trading costs. For a more comprehensive analysis of more
+complex trading strategies this should be included in future work.
+In the next section, the various results of our experiments are discussed.
+6. Results
+We ran a number of different experiments. First, an ablation study was conducted to examine the influence of the
+different parts of our proposed hybrid multimodal model on the prediction accuracy for each of the four tasks. Next,
+the best models were used to construct basic trading strategies for which we report the backtesting results and explore
+iftheycanbeusedtomitigateriskandexposuretovolatility.Whenconstructingthestrategies,wealsoinvestigatethe
+influence of probability thresholds on risk reduction.
+6.1. Influence of different modalities
+To explore the influence of each of the separate components of our multimodal model on the prediction accuracy,
+we performed an ablation study for each of the four predictive tasks. For each task, we report the best performing
+model in terms of the aforementioned evaluation criteria as well as the hyperparameters used in Tables 3, 4, 5, 6.
+The tables also include the results for the random baseline models. The reported evaluation metrics include precision,
+recall,F1-scoreandoverallaccuracyonthetestset.Giventheclassimbalanceinourdataset,wepayspecialattention
+totheF1-scoreforpositiveclass,weightedF1-score,thepositiveclassprecisionaswellastherecallrate.Positiveclass
+precision has practical significance because if a trading strategy is built upon the model predictions, higher precision
+indicates higher confidence which may be useful information when executing a buy or sell signal. While a positive
+classrecallratemeansthattheproposedtradingstrategywouldcaptureasmanybuysignalsaspossible,thusresulting
+in a lower opportunity cost for missing out.
+Overall,theperformanceoftheproposedmodelsishigherthantherandombaselines.Wealsoweobserveabetter
+performance by the Fusion models, compared to the individual modality models, on the tasks related to upward price
+predictioncomparedtotheTASVMmodels,thusconfirmingtheimportanceofincorporatingTwittercontent.Forthe
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 17 of 29
+
+
+[Page 20]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Table 5
+Performance results for the Task Down 5%. We use P for parallel, S for sequential.
+Models Precision Recall F1-score Accuracy
+T F T F T F Weighted
+TA SVM 0.40 0.87 0.28 0.92 0.33 0.89 0.80 81.36
+Twitter CNN (parallel) 0.20 0.94 0.90 0.31 0.33 0.46 0.44 40.63
+Twitter CNN (sequential) 0.14 0.81 0.38 0.53 0.20 0.64 0.57 50.27
+Fusion model (parallel) 0.37 0.87 0.28 0.90 0.32 0.88 0.79 80.27
+Fusion model (sequential) 0.40 0.87 0.28 0.92 0.33 0.89 0.80 81.37
+Random baseline model 0.16 0.83 0.50 0.50 0.25 0.63 0.56 49.99
+95% confidence interval 0.13-0.20 0.80-0.87 0.38-0.62 0.48-0.52 0.19-0.31 0.60-0.66 0.53-0.60 46.30-53.97
+Stratified baseline model 0.16 0.84 0.16 0.84 0.16 0.84 0.72 72.49
+95% confidence interval 0.08-0.25 0.82-0.85 0.08-0.25 0.82-0.85 0.08-0.25 0.82-0.85 0.69-0.75 69.86-75.34
+Table 6
+Performance results for the Task Down 2%. We use P for parallel, S for sequential.
+Models Precision Recall F1-score Accuracy
+T F T F T F Weighted
+TA SVM 0.55 0.56 0.43 0.67 0.49 0.63 0.56 56.71
+Twitter CNN (parallel) 0.50 0.67 0.91 0.17 0.65 0.28 0.45 53.85
+Twitter CNN (sequential) 0.44 0.42 0.66 0.23 0.53 0.29 0.41 43.34
+Fusion model (parallel) 0.56 0.57 0.46 0.66 0.50 0.62 0.56 56.44
+Fusion model (sequential) 0.54 0.56 0.48 0.62 0.51 0.59 0.55 55.34
+Random baseline model 0.48 0.52 0.50 0.50 0.49 0.51 0.50 50.11
+95% confidence interval 0.43-0.53 0.48-0.57 0.45-0.55 0.46-0.55 0.44-0.54 0.47-0.56 0.46-0.55 45.48-54.79
+Stratified baseline model 0.48 0.52 0.48 0.52 0.48 0.52 0.50 50.24
+95% confidence interval 0.43-0.53 0.47-0.57 0.43-0.53 0.47-0.57 0.43-0.53 0.47-0.57 0.45-0.55 45.21-55.07
+TaskUp5%,(Table3),theFusionmodel(sequential)showsahigherpositiveclassF1-scoreaswellasahigheroverall
+accuracy compared to the models based on individual modalities.
+Looking at the precision/recall as well as the confusion matrices (Figure 8), we see that the SVM TA model is
+good at predicting true negatives, but misses a lot more true positives. In a trading scenario, we can interpret this as:
+the model may miss some opportunities as its predictions would be safer, more risk averse. This is the opposite of the
+models based on Twitter data, who perform the worst. It makes sense that their performance is less. In real-life, no
+trader would make trading decisions based purely on twitter information, without even glancing at the price data. The
+fusion models provide a balance between these two extremes, which is reflected in the higher F1 score as well as the
+confusion matrices in Figure 8. For instance, the Fusion models were able to accurately predict around twice as many
+true positives for the Up 5% Task, all the while maintaining the performance in terms of precision. From a practical
+point of view, this means that a trading strategy based on these signals may have twice as many winning trades and
+thusincurlessopportunitycostduetostayingmarketneutral.ForTaskUp2%(Table4),thegoodperformanceofthe
+Fusion model (parallel) is even more apparent. The improvements may be due to the fact that Fusion models are able
+toincorporateandcapturemoreinformationthantheindividualmodels.Exceptfornegativeclassrecallrate,allother
+metrics show improvements compared to the other models. Looking at Task Down 5 and 2 % respectively (Tables 5
+and 6), the models have a comparable performance and the improvements due to the Twitter model are less obvious.
+This may be due to the fact that the TA SVM model is already quite good, arguably because of the strong correlation
+between Bitcoin price and some of the model inputs like Ethereum price and 20-day standard deviation of price (see
+Figure 4). In future research, this effect may be increased by focusing on tweets by influencers in the ‘Crypto-Twitter
+sphere’insteadofrandomtweetsthatmentionBitcoin,orbyfinetuningourwordembeddingrepresentationtocapture
+crypto- and Twitter-specific vocabulary.
+While comparing the Fusion model performance to the average performance of the random baseline models, we
+observed better results across all tasks and in almost every evaluation metric. Since the stratified prediction model
+clearly outperforms the uniformly random prediction model, we focus on comparing our models to the stratified
+prediction model in the following discussion. The superior performance of Fusion models is clear for Task Up 2%
+and Down 5%. In these two tasks, the Fusion model outperforms the 95% confidence interval (CI) upper bound of the
+stratified prediction model simulations in every metric. The performance is closer for Task Up 5% and Down 2%. In
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 18 of 29
+
+
+[Page 21]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Figure 8: Confusion Matrices.
+TaskUp5%,eventhoughtheupperboundofthe95%CIexceedstheFusionmodelintermsofoverallaccuracy,itloses
+outbyalargemargininprecision,recall,andF1-scorefortheTrueclass.Andasmentionedinprevioussections,these
+metrics are especially important to us due to the imbalanced class distribution of the dataset. Similarly in Task Down
+2%, the Fusion model’s performance comes very close to the 95% confidence interval upper bound of the stratified
+model, if not slightly better. Admittedly, it is not an easy task to prove that the results arestatistically significant.
+We have explored statistical tests such as the Diebold-and-Mariano test Diebold and Mariano (2002). Unfortunately,
+the resulting p-values do not meet the criteria to reject the null hypothesis. We should, however, note that this test
+was designed to interpret regression forecasts, thus a lot less applicable to 0-1 classification classes. And as stated by
+Diebold (2015), it is not intended for model selection. Hence, we offer these results as is with the 95% confidence
+interval, and in future research, we recognise that a more robust test should be performed on a larger test set.
+Whenevaluatingthesemodelsweshouldkeepinmindthehighclassimbalancepresentinourdataset.Inaddition,
+sincethesepredictionsarequitedirectlytranslatableforuseinatradingstrategy,aresultingtradingstrategycouldeasily
+reachawinrateintherangeof50-60%.Suchratesareconsideredquitepromisingandmayobtaingoodreturns.Afull
+analysisofanaivetradingstrategyisprovidedinSection6.3.Overall,ourproposedmodelshaveagoodperformance,
+with the upward extreme movement prediction models being successfully improved by adding Twitter models.
+6.2. Predictive threshold tweaking
+Beforedivingintoanactualtradingstrategythatmaybebuiltuponourproposedmodels,itisimportanttoconsider
+the predictive threshold, especially since it has a direct influence on risk reduction. Our models were optimized based
+on F1-score, the harmonic mean of precision and recall rates, two metrics that can be traded off for one another by
+changing the predictive threshold.
+The Fusion model’s classification decisions are derived by comparing the SVM’s output decision function to a
+threshold (0.5 as default). The parameters and decision functions for the SVM models have been optimized on the
+training dataset and fixed before getting the results on the testing set. Therefore, moving the threshold does not alter
+anymodelstate,butonlychangesthereportedclassificationresults.Ifahigherprecisionrate(high-confidencepositive
+class predictions) is desired, a higher threshold could be explored (Yu et al., 2015), as it only allows predictions with
+higher certainty to be classified as positive.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 19 of 29
+
+
+[Page 22]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Table 7
+Backtesting results the full test period.
+Strategies Profit % Sortino Sharpe Max Drawdown % Win% Num of Trades
+Buy and Hold 249.3 3.28 2.08 45.5 N.A N.A
+7-D and 21-D MA Cross 199.7 3.60 2.17 37.7 40.0 10
+TA SVM 60.4 3.62 1.56 16.0 58.0 31
+Fusion model 1.4 0.26 0.18 12.4 56.0 50
+Fusion model 0.95 threshold 49.9 3.02 1.39 14.9 55.6 36
+Fusion model 0.99 threshold 56.6 3.45 1.49 16.0 56.6 30
+Table 8
+Backtesting results the bull period.
+Strategies Profit % Sortino Sharpe Max Drawdown % Win% Num of Trades
+Buy and Hold 345.5 8.10 4.50 25.1 N.A N.A
+7-D and 21-D MA Cross 96.0 4.16 2.43 29.9 75.0 5
+TA SVM 36.6 4.65 1.90 9.8 63.2 19
+Fusion model 12.9 1.72 1.09 12.4 57.1 28
+Fusion model 0.95 threshold 50.4 5.97 2.40 8.3 68.2 22
+Fusion model 0.99 threshold 33.4 4.32 1.77 9.9 61.1 18
+We report different confusion matrices based on a much higher decision threshold (0.95 and 0.99) in the best
+performing Fusion models for both Task Up 5% and 2% in Figure 9. For Task Up 5%, the Fusion model (sequential)’s
+precision rate for the positive class improved slightly. The confusion matrices report a quite different amount of true
+positives. The improvement is more evident for the Fusion model (parallel) for Task Up 2%, with a peak at the 0.95
+threshold.
+In the next section, we will uncover the full impact of this threshold tweaking on the trading strategy.
+Figure 9: Confusion Matrices for Threshold Tuning.
+6.3. Backtesting results
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 20 of 29
+
+
+[Page 23]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Table 9
+Backtesting results the bear period.
+Strategies Profit % Sortino Sharpe Max Drawdown % Win% Num of Trades
+Buy and Hold -40.5 -4.27 -3.33 45.5 N.A N.A
+7-D and 21-D MA Cross -6.3 -1.03 -0.86 16.0 0.0 1
+TA SVM 32.0 12.72 4.30 6.3 85.7 7
+Fusion model -5.5 -1.54 -1.12 10.6 50.0 8
+Fusion model 0.95 threshold 17.0 6.96 2.89 6.3 71.4 7
+Fusion model 0.99 threshold 32.0 12.73 4.30 6.3 85.7 7
+Backtesting Weimplementedasimple,naivetradingstrategybasedonthepredictedclassesforbyourFusionmodel
+as explained in Subsection 5.3. Since the best overall predictive results (in terms for F1-score) were obtained for
+predicting a 5% increase in BTC price over the next day (see Table 3), we have opted to further evaluate our models’
+performance for this task with backtesting.
+Thebacktestingstatisticswerecalculatedusingthelibraryvectorbt 8.Wereporttheresultsforourentiretestperiod
+inTable7.Wheneverweareevaluatingfinancialdata,thenon-stationarityofthedataposeslimitationsandskewsthe
+metrics(DePrado,2018).Arollingwindowtestsetmayprovetobeaslightlybetterrepresentation,however,itwould
+limit the amount of data we have to train our models. Hence, we ensured that our test period is long enough (1 entire
+year),andcontainsasteedupward(bull)aswellasdownward(bear)period.Wereporttheresultsforthebullandbear
+periods separately in Tables 8, and 9.
+Looking at the entire test period (Table 7), a Buy and Hold strategy achieves the highest Profit %. This is
+unsurprising given the rising trend in Bitcoin in the long run. This performance has a huge risk exposure, however,
+withamaximumdrawdown(MDD)of45.5%.Notmanyinvestorswouldbewillingtoriskalmosthalfoftheircapital
+before seeing gains. Hence, we explore how our models can be used to provide a more market neutral strategy with
+lower risk exposure.
+TheSortinoratiogivesusanimpressionofriskfreereturns(excludingtheupwardsvolatility,whichisstillincluded
+in the Sharpe ratio). Our proposed TA model achieves the highest Sortino ratio, followed closely by 7-D and 21-D
+MA Cross as well as the Fusion model with 0.99 threshold. The TA SVM model has a significanlty lower maximum
+drawdownof16%comparedtotheBuyandHolddrawdownof45.5%,whilestillobtaininganice60%inreturnswith
+only 31 days of market exposure over the entire year. A similar result is obtained by the Fusion model with 0.5 and
+0.99 threshold.
+WhencomparingtheresultofthethreeFusionmodels,weobserveconsistentlybetterresultswiththe0.95threshold
+over the default threshold (0.5). Raising the threshold from 0.95 to 0.99, however, does not always yield enhanced
+performance. Threshold tweaking based on the strategy in use is essential. In future research, the impact of threshold
+selectionbasedoncustom,moreadvancedtradingstrategiescouldbeinvestigated.Wemayalsoexploreusingdifferent
+fusiontechniques,suchasearlyfusion.Overall,itwouldbegoodtotestthegeneralisabilityandrobustnessofthismodel
+using more data, different market conditions, and assets.
+Lookingcloseratthebullperiod(days150-350)inFigure10,wenoticethat,asexpected,theBuyandHoldstrategy
+performs very well, although still with a 25% MDD. The proposed TA SVM and Fusion model with 0.95 threshold
+still achieve impressive performance in terms of Sortino ratio (4.65 and 5.97 respectively) and MDD (9.8% and 8.3%
+respectively), while sacrificing some profits for this reduced risk.
+It is during bear periods that the usefulness of our proposed models really becomes apparent. Table 9 shows the
+trading results for the bear period (day 315 to day 365). During the bear period, both the TA SVM as well as the
+Fusion model with 0.95 and 0.99 threshold perform significantly better than the buy and Hold and the MA Cross
+benchmark models. While the latter is down as much as -40.5% profit, the TA SVM and Fusion model with 0.99
+thresholdreaches32%profit.Thisnicelyillustratestheusefulnessofourproposedstrategy,becausewhileBitcoinhas
+seen tremendous growth, it also goes through extensive bear periods where risk management is essential. It is worth
+noting that this backtest is performed on a limited period in time, with a small number of trades, hence we could not
+8https://github.com/polakowo/vectorbt
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 21 of 29
+
+
+[Page 24]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Figure 10: Bitcoin price during the entire test period.
+performastatisticalsignificancetestoftheseresults.Infutureresearch,themodelandtradingstrategycouldbetested
+on different market conditions to further examine its robustness.
+7. Conclusion
+Bitcoin, and cryptocurrencies, are known for their volatile nature. We propose a cutting-edge multimodal model,
+PreBit, to predict extreme Bitcoin price movements (up/down 2 or 5 percent). In order to train our model, we created
+a new publicly available dataset, which includes 9,435,437 tweets that include the keyword ‘Bitcoin’ from 1 Jan 2015
+until 31 May 2021. We also included based candlestick price/volume data, as well as selected technical indicators and
+correlated asset prices (Ethereum and gold). The resulting multimodal ensemble model uses normalized data, as well
+asthefinBERTcontextembeddingstoprovideameaningfulrepresentationofourTwitterdata.Thetrainedmodeland
+source code used in this manuscript is available online9.
+In a thorough experiment, we perform an ablation study to compare the influence of adding the Twitter model
+or TA model to our hybrid model. This shows that adding prediction based on Twitter content improves the overall
+performance of the model for upward Bitcoin price prediction. Our proposed Fusion models demonstrate superior
+performance in positive class F1-score as well as overall accuracy in upward price prediction tasks compared to the
+TA SVM which uses only price and technical analysis data.
+To further evaluate our model’s performance and demonstrate its practical use, we propose a simple (long only)
+trading strategy and reported the backtesting results for our models that predict Up 5% price movement. During this
+backtesting, we explored the influence of tweaking the predictive threshold on risk management. The results confirm
+thesuperiorperformanceofourproposedTASVMmodelaswellasourmultimodalFusionmodelwith0.95threshold
+inrisk-adjustedmeasuressuchasSortinoratioandmaximumdrawdown.WhileBuyandHoldstrategiestypicallywork
+well for Bitcoin and obtain huge profits, the risks can be substantial, with max. drawdown reaching 45.5% in our test
+period. Our models substantially reduce this risk while maintaining an impressive profit ratio.
+The usefulness of our proposed approach becomes especially apparent during the bear market, when our Fusion
+strategy manages achieved 32% Profit (with long positions only), despite the fact that the Bitcoin price was down
+by -40.5%. We further observe that a carefully selected probability threshold can significantly improve the trading
+performance and lower the market exposure risk.
+However,asaforementioned,theevaluationandbacktestisperformedonalimitedperiodintime.Potentialthreats
+tothemodelvaliditycouldbeiftheamountoftweetsselectedisnotrepresentableoftheday.Withmoreandmoreposts
+being made about Bitcoin, 5000 may not be a large enough sample to capture the entire market sentiment. Selecting
+these tweets from famous Bitcoin influencers may provide a remedy for this as they are seen and liked by a large
+number of followers. Recent work by Otabek and Choi (2022) confirms that tweets by users with the a high leverl of
+9https://github.com/AMAAI-Lab/PreBit
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 22 of 29
+
+
+[Page 25]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Figure 11: Trading strategy based on the TA model during the bear period.
+followersconsequentlyhaveainfluenceonafutureBTCprice.Inaddition,theBitcoinmarketisveryrecent.Asmore
+price history builds up, predictions will get more and more accurate. Given the non-stationarity of such price series,
+we should also consider that we could have coincidentally taken a good or bad period concerning model accuracy. To
+generalise,itwouldbegoodinthefuturetotrainonarollingwindowanddocross-validationovermultipleout-of-time
+test sets. It would also be extremely interesting to test this on other digital assets such as Ethereum, Solana, and more
+unknown (and volatile) assets such as FLOW.
+This work opens up many avenues for future research. For instance, the Twitter dataset could be more effective
+for predictions if it only includes tweets by influencers in the ‘crypto-Twitter sphere’, such as Elon Musk, CEOs
+of cryptocurrency exchanges, and many more. In addition, we may finetune the finBERT model to better capture
+cryptocurrency-specificaswellasTwitter-specificlingo.Finally,theresultingmultimodalmodel’spredictionthreshold
+maybefurtherfinetunedwithamorecomplextradingstrategy,possiblyincludingthemodel’sclassprobabilitytosize
+positions, to outperform the benchmark provided for our new dataset in this research.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 23 of 29
+
+
+[Page 26]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+CRediT authorship contribution statement
+Yanzhao Zou:Development, lead author.Dorien Herremans:Advisor, ideation, editing.
+References
+Acosta, J., Lamaute, N., Luo, M., Finkelstein, E., and Andreea, C. (2017). Sentiment analysis of twitter messages using word2vec.Proceedings of
+Student-Faculty Research Day, CSIS, Pace University, 7:1–7.
+Aditya Pai, B., Devareddy, L., Hegde, S., and Ramya, B. (2022). A time series cryptocurrency price prediction using lstm. InEmerging Research
+in Computing, Information, Communication and Applications, pages 653–662. Springer.
+Afteniy, M. et al. (2021). Predicting time series with transformer.
+Aharon,D.Y.,Demir,E.,Lau,C.K.M.,andZaremba,A.(2022). Twitter-baseduncertaintyandcryptocurrencyreturns. ResearchinInternational
+Business and Finance, 59:101546.
+Akbiyik, M. E., Erkul, M., Kaempf, K., Vasiliauskaite, V., and Antulov-Fantulin, N. (2021). Ask" who", not" what": Bitcoin volatility forecasting
+with twitter data.arXiv preprint arXiv:2110.14317.
+Akbiyik, M. E., Erkul, M., Kämpf, K., Vasiliauskaite, V., and Antulov-Fantulin, N. (2023). Ask" who", not" what": Bitcoin volatility forecasting
+with twitter data. InProceedings of the Sixteenth ACM International Conference on Web Search and Data Mining, pages 688–696.
+Ali, M. and Shatabda, S. (2020). A data selection methodology to train linear regression model to predict bitcoin price. In2020 2nd International
+Conference on Advanced Information and Communication Technology (ICAICT), pages 330–335. IEEE.
+Alonso-Monsalve, S., Suárez-Cetrulo, A. L., Cervantes, A., and Quintana, D. (2020). Convolution on neural networks for high-frequency trend
+prediction of cryptocurrency exchange rates using technical indicators.Expert Systems with Applications, 149:113250.
+Araci, D. (2019). Finbert: Financial sentiment analysis with pre-trained language models.arXiv preprint arXiv:1908.10063.
+Baker, S. R., Bloom, N., Davis, S., and Renault, T. (2021). Twitter-derived measures of economic uncertainty.
+Beneki,C.,Koulis,A.,Kyriazis,N.A.,andPapadamou,S.(2019). Investigatingvolatilitytransmissionandhedgingpropertiesbetweenbitcoinand
+ethereum. Research in International Business and Finance, 48:219–227.
+Bollen, J., Mao, H., and Zeng, X. (2011). Twitter mood predicts the stock market.Journal of computational science, 2(1):1–8.
+Chan,S.W.andFranklin,J.(2011). Atext-baseddecisionsupportsystemforfinancialsequenceprediction. DecisionSupportSystems ,52(1):189–
+198.
+Chaudhry, A. and Johnson, H. L. (2008). The efficacy of the sortino ratio and other benchmarked performance measures under skewed return
+distributions. Australian Journal of Management, 32(3):485–502.
+Chen, Q. (2021). Stock movement prediction with financial news using contextualized embedding from bert.arXiv:2107.08721.
+Cortes, C. and Vapnik, V. (1995). Support-vector networks.Machine learning, 20:273–297.
+Critien, J. V., Gatt, A., and Ellul, J. (2022). Bitcoin price change and trend prediction through twitter sentiment and data volume.Financial
+Innovation, 8(1):1–20.
+Cruz, L. F. S. A. and Silva, D. F. (2021). Financial time series forecasting enriched with textual information. In2021 20th IEEE International
+Conference on Machine Learning and Applications (ICMLA), pages 385–390. IEEE.
+Das, S., Behera, R. K., Rath, S. K., et al. (2018). Real-time sentiment analysis of twitter streaming data for stock prediction.Procedia computer
+science, 132:956–964.
+De Fortuny, E. J., De Smedt, T., Martens, D., and Daelemans, W. (2014). Evaluating and understanding text-based stock price prediction models.
+Information Processing & Management, 50(2):426–441.
+De Prado, M. L. (2018).Advances in financial machine learning. John Wiley & Sons.
+Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. (2018). Bert: Pre-training of deep bidirectional transformers for language understanding.
+arXiv preprint arXiv:1810.04805.
+Diebold, F. X. (2015). Comparing predictive accuracy, twenty years later: A personal perspective on the use and abuse of diebold–mariano tests.
+Journal of Business & Economic Statistics, 33(1):1–1.
+Diebold, F. X. and Mariano, R. S. (2002). Comparing predictive accuracy.Journal of Business & economic statistics, 20(1):134–144.
+Ding, X., Zhang, Y., Liu, T., and Duan, J. (2015). Deep learning for event-driven stock prediction. InTwenty-fourth international joint conference
+on artificial intelligence.
+Dong, Y., Yan, D., Almudaifer, A. I., Yan, S., Jiang, Z., and Zhou, Y. (2020). Belt: A pipeline for stock price prediction using news. In2020 IEEE
+International Conference on Big Data (Big Data), pages 1137–1146. IEEE.
+Elbagir, S. and Yang, J. (2019). Twitter sentiment analysis using natural language toolkit and vader sentiment. InProceedings of the international
+multiconference of engineers and computer scientists, volume 122, page 16.
+Ellis, C. A. and Parbery, S. A. (2005). Is smarter better? a comparison of adaptive, and simple moving average trading strategies.Research in
+International Business and Finance, 19(3):399–411.
+Fang,F.,Ventre,C.,Basios,M.,Kong,H.,Kanthan,L.,Li,L.,Martinez-Regoband,D.,andWu,F.(2020). Cryptocurrencytrading:acomprehensive
+survey. arXiv preprint arXiv:2003.11352.
+Felizardo, L., Oliveira, R., Del-Moral-Hernandez, E., and Cozman, F. (2019). Comparative study of bitcoin price prediction using wavenets,
+recurrent neural networks and other machine learning methods. In2019 6th International Conference on Behavioral, Economic and Socio-
+Cultural Computing (BESC), pages 1–6. IEEE.
+Groß-Klußmann, A., König, S., and Ebner, M. (2019). Buzzwords build momentum: Global financial twitter sentiment and the aggregate stock
+market. Expert Systems with Applications, 136:171–186.
+Haritha,G.andSahana,N.(2023).Cryptocurrencypricepredictionusingtwittersentimentanalysis.In CS&ITConferenceProceedings ,volume13.
+CS & IT Conference Proceedings.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 24 of 29
+
+
+[Page 27]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Herremans, D. and Low, K. W. (2022). Forecasting bitcoin volatility spikes from whale transactions and cryptoquant data using synthesizer
+transformer models.arXiv preprint arXiv:2211.08281.
+Hochreiter, S. and Schmidhuber, J. (1997). Long short-term memory.Neural computation, 9(8):1735–1780.
+Hsu,S.T.,Moon,C.,Jones,P.,andSamatova,N.(2017). Ahybridcnn-rnnalignmentmodelforphrase-awaresentenceclassification. In Proceedings
+of the 15th Conference of the European Chapter of the Association for Computational Linguistics: Volume 2, Short Papers, pages 443–449.
+Hutto, C. and Gilbert, E. (2014). Vader: A parsimonious rule-based model for sentiment analysis of social media text. InProceedings of the
+international AAAI conference on web and social media, volume 8, pages 216–225.
+Jaggi, M., Mandal, P., Narang, S., Naseem, U., and Khushi, M. (2021). Text mining of stocktwits data for predicting stock prices.Applied System
+Innovation, 4(1):13.
+Kang, S. H., McIver, R. P., and Hernandez, J. A. (2019). Co-movements between bitcoin and gold: A wavelet coherence analysis.Physica A:
+Statistical Mechanics and its Applications, 536:120888.
+Katsiampa, P. (2019). Volatility co-movement between bitcoin and ether.Finance Research Letters, 30:221–227.
+Kavitha, H., Sinha, U. K., and Jain, S. S. (2020). Performance evaluation of machine learning algorithms for bitcoin price prediction. In2020
+Fourth International Conference on Inventive Systems and Control (ICISC), pages 110–114. IEEE.
+Kim,H.-M.,Bock,G.-W.,andLee,G.(2021). Predictingethereumpriceswithmachinelearningbasedonblockchaininformation. ExpertSystems
+with Applications, 184:115480.
+Kim,Y.(2014). Convolutionalneuralnetworksforsentenceclassification. In Proceedingsofthe2014ConferenceonEmpiricalMethodsinNatural
+Language Processing (EMNLP), pages 1746–1751, Doha, Qatar. Association for Computational Linguistics.
+Kim, Y. B., Kim, J. G., Kim, W., Im, J. H., Kim, T. H., Kang, S. J., and Kim, C. H. (2016). Predicting fluctuations in cryptocurrency transactions
+based on user comments and replies.PloS one, 11(8):e0161197.
+Kumar, B. S. and Ravi, V. (2016). A survey of the applications of text mining in financial domain.Knowledge-Based Systems, 114:128–147.
+Kwon,D.-H.,Kim,J.-B.,Heo,J.-S.,Kim,C.-M.,andHan,Y.-H.(2019). Timeseriesclassificationofcryptocurrencypricetrendbasedonarecurrent
+lstm neural network.Journal of Information Processing Systems, 15(3):694–706.
+Lamon, C., Nielsen, E., and Redondo, E. (2017). Cryptocurrency price prediction using news and social media sentiment.SMU Data Sci. Rev,
+1(3):1–22.
+LeCun, Y., Boser, B., Denker, J., Henderson, D., Howard, R., Hubbard, W., and Jackel, L. (1989). Handwritten digit recognition with a back-
+propagation network.Advances in neural information processing systems, 2.
+LeCun, Y., Bottou, L., Bengio, Y., and Haffner, P. (1998). Gradient-based learning applied to document recognition.Proceedings of the IEEE,
+86(11):2278–2324.
+Leung, M.-F., Chan, L., Hung, W.-C., Tsoi, S.-F., Lam, C.-H., and Cheng, Y.-H. (2023). An intelligent system for trading signal of cryptocurrency
+based on market tweets sentiments.FinTech, 2(1):153–169.
+Lin, T.-Y., Goyal, P., Girshick, R., He, K., and Dollár, P. (2017). Focal loss for dense object detection. InProceedings of the IEEE international
+conference on computer vision, pages 2980–2988.
+Liu, F., Li, Y., Li, B., Li, J., and Xie, H. (2021). Bitcoin transaction strategy construction based on deep reinforcement learning.Applied Soft
+Computing, 113:107952.
+Malkiel, B. G. (1989). Efficient market hypothesis. InFinance, pages 127–134. Springer.
+Mikolov, T., Karafiát, M., Burget, L., Cernock`y, J., and Khudanpur, S. (2010). Recurrent neural network based language model. InInterspeech,
+volume 2, pages 1045–1048. Makuhari.
+Mikolov,T.,Sutskever,I.,Chen,K.,Corrado,G.S.,andDean,J.(2013). Distributedrepresentationsofwordsandphrasesandtheircompositionality.
+Advances in neural information processing systems, 26.
+Mohanty, P., Patel, D., Patel, P., and Roy, S. (2018). Predicting fluctuations in cryptocurrencies’ price using users’ comments and real-time prices.
+In 2018 7th International Conference on Reliability, Infocom Technologies and Optimization (Trends and Future Directions)(ICRITO), pages
+477–482. IEEE.
+Mohapatra,S.,Ahmed,N.,andAlencar,P.(2019). Kryptooracle:Areal-timecryptocurrencypricepredictionplatformusingtwittersentiments. In
+2019 IEEE International Conference on Big Data (Big Data), pages 5544–5551. IEEE.
+Moniz,A.anddeJong,F.(2014). Classifyingtheinfluenceofnegativeaffectexpressedbythefinancialmediaoninvestorbehavior. In Proceedings
+of the 5th Information Interaction in Context Symposium, pages 275–278.
+Nathan, A., Galbraith, G. L., and Grimberg, J. (2021). Crypto: a new asset class?Report - The Goldman Sachs Group Inc, Issue 98. https:
+//www.goldmansachs.com/insights/pages/crypto-a-new-asset-class-f/report.pdf .
+Nghiem, H., Muric, G., Morstatter, F., and Ferrara, E. (2021). Detecting cryptocurrency pump-and-dump frauds using market and social signals.
+Expert Systems with Applications, page 115284.
+Oliveira, N., Cortez, P., and Areal, N. (2017). The impact of microblogging data for stock market prediction: Using twitter to predict returns,
+volatility, trading volume and survey sentiment indices.Expert Systems with applications, 73:125–144.
+Oord, A. v. d., Dieleman, S., Zen, H., Simonyan, K., Vinyals, O., Graves, A., Kalchbrenner, N., Senior, A., and Kavukcuoglu, K. (2016). Wavenet:
+A generative model for raw audio.arXiv preprint arXiv:1609.03499.
+Ortu, M., Uras, N., Conversano, C., Bartolucci, S., and Destefanis, G. (2022). On technical trading and social media indicators for cryptocurrency
+price classification through deep learning.Expert Systems with Applications, page 116804.
+Otabek, S. and Choi, J. (2022). Twitter attribute classification with q-learning on bitcoin price prediction.IEEE Access, 10:96136–96148.
+Pagolu, V. S., Reddy, K. N., Panda, G., and Majhi, B. (2016). Sentiment analysis of twitter data for predicting stock market movements. In2016
+international conference on signal processing, communication, power and embedded system (SCOPES), pages 1345–1350. IEEE.
+Passalis,N.,Seficha,S.,Tsantekidis,A.,andTefas,A.(2021).Learningsentiment-awaretradingstrategiesforbitcoinleveragingdeeplearning-based
+financial news analysis. InIFIP International Conference on Artificial Intelligence Applications and Innovations, pages 757–766. Springer.
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 25 of 29
+
+
+[Page 28]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Patel,M.M.,Tanwar,S.,Gupta,R.,andKumar,N.(2020). Adeeplearning-basedcryptocurrencypricepredictionschemeforfinancialinstitutions.
+Journal of information security and applications, 55:102583.
+Pennington, J., Socher, R., and Manning, C. D. (2014). Glove: Global vectors for word representation. InProceedings of the 2014 conference on
+empirical methods in natural language processing (EMNLP), pages 1532–1543.
+Raju, S. and Tarif, A. M. (2020). Real-time prediction of bitcoin price using machine learning techniques and public sentiment analysis.arXiv
+preprint arXiv:2006.14473.
+Sabri, M. H. B. M., Muneer, A., and Taib, S. M. (2022). Cryptocurrency price prediction using long short-term memory and twitter sentiment
+analysis. In2022 6th International Conference On Computing, Communication, Control And Automation (ICCUBEA, pages 1–6. IEEE.
+Schumaker, R. P. and Chen, H. (2009). A quantitative stock prediction system based on financial news.Information Processing & Management,
+45(5):571–583.
+Sharpe, W. F. (1998). The sharpe ratio.Streetwise–the Best of the Journal of Portfolio Management, pages 169–185.
+Shin, J., Kim, Y., Yoon, S., and Jung, K. (2018). Contextual-cnn: A novel architecture capturing unified meaning for sentence classification. In
+2018 IEEE International Conference on Big Data and Smart Computing (BigComp), pages 491–494. IEEE.
+Shin, M., Mohaisen, D., and Kim, J. (2021). Bitcoin price forecasting via ensemble-based lstm deep learning networks. In2021 International
+Conference on Information Networking (ICOIN), pages 603–608. IEEE.
+Si, J., Mukherjee, A., Liu, B., Li, Q., Li, H., and Deng, X. (2013). Exploiting topic based twitter sentiment for stock prediction. InProceedings of
+the 51st Annual Meeting of the Association for Computational Linguistics (Volume 2: Short Papers), pages 24–29.
+Ślepaczuk,R.,Zenkova,M.,etal.(2018).Robustnessofsupportvectormachinesinalgorithmictradingoncryptocurrencymarket. CentralEuropean
+Economic Journal, 5(52):186–205.
+Smuts, N. (2019). What drives cryptocurrency prices? an investigation of google trends and telegram sentiment.ACM SIGMETRICS Performance
+Evaluation Review, 46(3):131–134.
+Sonkiya, P., Bajpai, V., and Bansal, A. (2021). Stock price prediction using bert and gan.arXiv preprint arXiv:2107.09055.
+Sridhar,S.andSanagavarapu,S.(2021). Multi-headself-attentiontransformerfordogecoinpriceprediction. In 202114thInternationalConference
+on Human System Interaction (HSI), pages 1–6. IEEE.
+Sun, C., Huang, L., and Qiu, X. (2019a). Utilizing bert for aspect-based sentiment analysis via constructing auxiliary sentence.arXiv preprint
+arXiv:1903.09588.
+Sun, J., Zhou, Y., and Lin, J. (2019b). Using machine learning for cryptocurrency trading. In2019 IEEE International Conference on Industrial
+Cyber Physical Systems (ICPS), pages 647–652. IEEE.
+Teti, E., Dallocchio, M., and Aniasi, A. (2019). The relationship between twitter and stock prices. evidence from the us technology industry.
+Technological Forecasting and Social Change, 149:119747.
+Thakkar, A. and Chaudhari, K. (2021). Fusion in stock market prediction: a decade survey on the necessity, recent developments, and potential
+future directions.Information Fusion, 65:95–107.
+Valle-Cruz, D., Fernandez-Cortez, V., López-Chau, A., and Sandoval-Almazán, R. (2021). Does twitter affect stock market decisions? financial
+sentiment analysis during pandemics: A comparative study of the h1n1 and the covid-19 periods.Cognitive computation, pages 1–16.
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., and Polosukhin, I. (2017). Attention is all you need.
+Advances in neural information processing systems, 30.
+Wang, W. K. (1985). Some arguments that the stock market is not efficient.UC Davis L. Rev., 19:341.
+Wołk, K. (2020). Advanced social media sentiment analysis for short-term cryptocurrency price prediction.Expert Systems, 37(2):e12493.
+Wu, C.-H., Lu, C.-C., Ma, Y.-F., and Lu, R.-S. (2018). A new forecasting framework for bitcoin price with lstm. In2018 IEEE International
+Conference on Data Mining Workshops (ICDMW), pages 168–175. IEEE.
+Xu, Y. and Cohen, S. B. (2018). Stock movement prediction from tweets and historical prices. InProceedings of the 56th Annual Meeting of the
+Association for Computational Linguistics (Volume 1: Long Papers), pages 1970–1979.
+Ye,Z.,Wu,Y.,Chen,H.,Pan,Y.,andJiang,Q.(2022). Astackingensembledeeplearningmodelforbitcoinpricepredictionusingtwittercomments
+on bitcoin.Mathematics, 10(8):1307.
+Yu, H., Mu, C., Sun, C., Yang, W., Yang, X., and Zuo, X. (2015). Support vector machine-based optimized decision threshold adjustment strategy
+for classifying imbalanced data.Knowledge-Based Systems, 76:67–78.
+Zhang,Y.,Roller,S.,andWallace,B.C.(2016). Mgnc-cnn:Asimpleapproachtoexploitingmultiplewordembeddingsforsentenceclassification.
+In Proceedings of NAACL-HLT, pages 1522–1527.
+Zhang, Y. and Wallace, B. (2015). A sensitivity analysis of (and practitioners’ guide to) convolutional neural networks for sentence classification.
+arXiv preprint arXiv:1510.03820.
+A. Correlation analysis between features
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 26 of 29
+
+
+[Page 29]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Table 10
+The Pearson correlation values between the features in our dataset.
+High Close Adj upper lower ma
+t+1 t+1 High Low Close Volume Close ma7 ma21 26ema 12ema MACD 20sd band band ema spread eth gold indicator
+High t+1 1.000 0.693 0.197 -0.288 -0.063 0.102 -0.063 0.036 0.038 0.030 0.039 -0.015 0.356 0.237 -0.229 -0.056 0.368 -0.092 -0.007 0.118
+Close t+1 0.693 1.000 -0.017 -0.058 -0.056 0.013 -0.056 -0.039 -0.032 -0.034 -0.037 0.023 0.051 0.008 -0.065 -0.060 0.033 -0.092 -0.012 -0.041
+High 0.197 -0.017 1.000 0.126 0.693 0.265 0.693 0.204 0.104 0.103 0.182 0.010 0.406 0.312 -0.210 0.695 0.639 0.365 0.033 0.185
+Low -0.288 -0.058 0.126 1.000 0.667 -0.241 0.667 -0.044 -0.084 -0.055 -0.045 0.057 -0.367 -0.276 0.199 0.626 -0.683 0.447 0.000 -0.146
+Close -0.063 -0.056 0.693 0.667 1.000 0.001 1.000 0.166 0.027 0.036 0.129 0.080 0.067 0.058 -0.026 0.984 -0.007 0.597 0.017 0.069
+Volume 0.102 0.013 0.265 -0.241 0.001 1.000 0.001 -0.038 -0.033 -0.033 -0.037 0.021 -0.032 -0.042 -0.005 -0.006 0.382 -0.087 0.028 -0.123
+Adj Close -0.063 -0.056 0.693 0.667 1.000 0.001 1.000 0.166 0.027 0.036 0.129 0.080 0.067 0.058 -0.026 0.984 -0.007 0.597 0.017 0.069
+ma7 0.036 -0.039 0.204 -0.044 0.166 -0.038 0.166 1.000 0.728 0.704 0.888 -0.356 0.132 0.579 0.524 0.314 0.185 0.072 0.040 0.683
+ma21 0.038 -0.032 0.104 -0.084 0.027 -0.033 0.027 0.728 1.000 0.968 0.955 -0.807 0.216 0.816 0.695 0.123 0.142 -0.021 0.033 0.510
+26ema 0.030 -0.034 0.103 -0.055 0.036 -0.033 0.036 0.704 0.968 1.000 0.931 -0.901 0.208 0.789 0.673 0.130 0.118 -0.016 0.030 0.489
+12ema 0.039 -0.037 0.182 -0.045 0.129 -0.037 0.129 0.888 0.955 0.931 1.000 -0.681 0.199 0.775 0.670 0.251 0.169 0.041 0.037 0.611
+MACD -0.015 0.023 0.010 0.057 0.080 0.021 0.080 -0.356 -0.807 -0.901 -0.681 1.000 -0.182 -0.662 -0.556 0.038 -0.037 0.081 -0.015 -0.254
+20sd 0.356 0.051 0.406 -0.367 0.067 -0.032 0.067 0.132 0.216 0.208 0.199 -0.182 1.000 0.741 -0.552 0.082 0.584 0.041 0.030 0.271
+upper band 0.237 0.008 0.312 -0.276 0.058 -0.042 0.058 0.579 0.816 0.789 0.775 -0.662 0.741 1.000 0.151 0.133 0.444 0.009 0.041 0.511
+lower band -0.229 -0.065 -0.210 0.199 -0.026 -0.005 -0.026 0.524 0.695 0.673 0.670 -0.556 -0.552 0.151 1.000 0.045 -0.309 -0.048 0.006 0.236
+ema -0.056 -0.060 0.695 0.626 0.984 -0.006 0.984 0.314 0.123 0.130 0.251 0.038 0.082 0.133 0.045 1.000 0.026 0.588 0.019 0.165
+spread 0.368 0.033 0.639 -0.683 -0.007 0.382 -0.007 0.185 0.142 0.118 0.169 -0.037 0.584 0.444 -0.309 0.026 1.000 -0.078 0.024 0.250
+eth -0.092 -0.092 0.365 0.447 0.597 -0.087 0.597 0.072 -0.021 -0.016 0.041 0.081 0.041 0.009 -0.048 0.588 -0.078 1.000 0.000 0.038
+gold -0.007 -0.012 0.033 0.000 0.017 0.028 0.017 0.040 0.033 0.030 0.037 -0.015 0.030 0.041 0.006 0.019 0.024 0.000 1.000 0.013
+ma indicator 0.118 -0.041 0.185 -0.146 0.069 -0.123 0.069 0.683 0.510 0.489 0.611 -0.254 0.271 0.511 0.236 0.165 0.250 0.038 0.013 1.000
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 27 of 29
+
+
+[Page 30]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Table 11
+The p-values for the Pearson correlation between features in our dataset.
+High Close Adj upper lower ma
+t+1 t+1 High Low Close Volume Close ma7 ma21 26ema 12ema MACD 20sd band band ema spread eth gold indicator
+High t+1 0.0000 0.0000 0.0000 0.0000 0.0024 0.0000 0.0024 0.0785 0.0638 0.1405 0.0616 0.4624 0.0000 0.0000 0.0000 0.0065 0.0000 0.0000 0.7284 0.0000
+Close t+1 0.0000 0.0000 0.4189 0.0049 0.0063 0.5161 0.0063 0.0615 0.1168 0.1033 0.0710 0.2613 0.0132 0.6968 0.0015 0.0039 0.1126 0.0000 0.5628 0.0491
+High 0.0000 0.4189 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.6228 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.1098 0.0000
+Low 0.0000 0.0049 0.0000 0.0000 0.0000 0.0000 0.0000 0.0317 0.0000 0.0077 0.0286 0.0060 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.9926 0.0000
+Close 0.0024 0.0063 0.0000 0.0000 0.0000 0.9630 0.0000 0.0000 0.1886 0.0787 0.0000 0.0001 0.0012 0.0047 0.2052 0.0000 0.7342 0.0000 0.4118 0.0009
+Volume 0.0000 0.5161 0.0000 0.0000 0.9630 0.0000 0.9630 0.0680 0.1055 0.1152 0.0717 0.3076 0.1229 0.0426 0.8050 0.7791 0.0000 0.0000 0.1791 0.0000
+Adj Close 0.0024 0.0063 0.0000 0.0000 0.0000 0.9630 0.0000 0.0000 0.1886 0.0787 0.0000 0.0001 0.0012 0.0047 0.2052 0.0000 0.7342 0.0000 0.4118 0.0009
+ma7 0.0785 0.0615 0.0000 0.0317 0.0000 0.0680 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0005 0.0506 0.0000
+ma21 0.0638 0.1168 0.0000 0.0000 0.1886 0.1055 0.1886 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.3062 0.1088 0.0000
+26ema 0.1405 0.1033 0.0000 0.0077 0.0787 0.1152 0.0787 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.4309 0.1497 0.0000
+12ema 0.0616 0.0710 0.0000 0.0286 0.0000 0.0717 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0488 0.0715 0.0000
+MACD 0.4624 0.2613 0.6228 0.0060 0.0001 0.3076 0.0001 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0645 0.0770 0.0001 0.4542 0.0000
+20sd 0.0000 0.0132 0.0000 0.0000 0.0012 0.1229 0.0012 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0001 0.0000 0.0499 0.1402 0.0000
+upper band 0.0000 0.6968 0.0000 0.0000 0.0047 0.0426 0.0047 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.6470 0.0480 0.0000
+lower band 0.0000 0.0015 0.0000 0.0000 0.2052 0.8050 0.2052 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0307 0.0000 0.0205 0.7765 0.0000
+ema 0.0065 0.0039 0.0000 0.0000 0.0000 0.7791 0.0000 0.0000 0.0000 0.0000 0.0000 0.0645 0.0001 0.0000 0.0307 0.0000 0.2082 0.0000 0.3575 0.0000
+spread 0.0000 0.1126 0.0000 0.0000 0.7342 0.0000 0.7342 0.0000 0.0000 0.0000 0.0000 0.0770 0.0000 0.0000 0.0000 0.2082 0.0000 0.0002 0.2419 0.0000
+eth 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0005 0.3062 0.4309 0.0488 0.0001 0.0499 0.6470 0.0205 0.0000 0.0002 0.0000 0.9863 0.0641
+gold 0.7284 0.5628 0.1098 0.9926 0.4118 0.1791 0.4118 0.0506 0.1088 0.1497 0.0715 0.4542 0.1402 0.0480 0.7765 0.3575 0.2419 0.9863 0.0000 0.5179
+ma indicator 0.0000 0.0491 0.0000 0.0000 0.0009 0.0000 0.0009 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0000 0.0641 0.5179 0.0000
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 28 of 29
+
+
+[Page 31]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+B. Optimized hyperparameters
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 29 of 29
+
+
+[Page 32]
+PreBit - A multimodal model with Twitter FinBERT embeddings for extreme price movement prediction of Bitcoin
+Table 12
+Optimal hyperparameters based on the validation set, and that are used for the results obtained in Section 6.
+Models Task Up 5% Task Up 2% Task Down 5% Task Down 2%
+TA SVM 𝑅𝐵𝐹 , 𝐶 = 50, 𝑔𝑎𝑚𝑚𝑎 = 0.5 𝑅𝐵𝐹 , 𝐶 = 500, 𝑔𝑎𝑚𝑚𝑎 = 0.1 𝑅𝐵𝐹 , 𝐶 = 1000, 𝑔𝑎𝑚𝑚𝑎 = 0.1 𝑅𝐵𝐹 , 𝐶 = 1000, 𝑔𝑎𝑚𝑚𝑎 = 0.1
+Twitter CNN (P) 𝛼 = 0.12, 𝛾 = 1 CE loss 𝛼 = 0.12, 𝛾 = 1 CE loss
+Twitter CNN (S) 𝛼 = 0.12, 𝛾 = 1, 𝐿2𝑤𝑒𝑖𝑔ℎ𝑡 = 0.0005 CE loss 𝐿2𝑤𝑒𝑖𝑔ℎ𝑡 = 0.001 𝛼 = 0.12, 𝛾 = 1, 𝐿2𝑤𝑒𝑖𝑔ℎ𝑡 = 0.0005 CE loss 𝐿2𝑤𝑒𝑖𝑔ℎ𝑡 = 0.001
+Fusion model (P) 𝑝𝑜𝑙𝑦𝑛𝑜𝑚𝑖𝑎𝑙, 𝐶 = 500, 𝑔𝑎𝑚𝑚𝑎 = 50 Logistic regression Logistic regression 𝑝𝑜𝑙𝑦𝑛𝑜𝑚𝑖𝑎𝑙, 𝐶 = 10, 𝑔𝑎𝑚𝑚𝑎 = 10
+Fusion model (S) 𝑝𝑜𝑙𝑦𝑛𝑜𝑚𝑖𝑎𝑙, 𝐶 = 30, 𝑔𝑎𝑚𝑚𝑎 = 50 Logistic regression Logistic regression 𝑝𝑜𝑙𝑦𝑛𝑜𝑚𝑖𝑎𝑙, 𝐶 = 10, 𝑔𝑎𝑚𝑚𝑎 = 50
+Zou and Herremans:Preprint accepted in Expert Systems with Applications Volume 233 Page 30 of 29

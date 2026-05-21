@@ -1,0 +1,1022 @@
+[Page 1]
+Academic Editors: Alberto Fernandez
+Hilario and Domenico Ursino
+Received: 2 September 2025
+Revised: 13 November 2025
+Accepted: 25 November 2025
+Published: 27 November 2025
+Citation: Cristescu, M.P .; Brândas,,
+C.; Mara, D.A.; Ioana, P . Fine-Tuning
+and Explaining FinBERT for
+Sector-Specific Financial News: A
+Reproducible Workflow. Electronics
+2025, 14, 4680. https://doi.org/
+10.3390/electronics14234680
+Copyright: © 2025 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license
+(https://creativecommons.org/
+licenses/by/4.0/).
+Article
+Fine-T uning and Explaining FinBERT for Sector-Specific
+Financial News: A Reproducible Workflow
+Marian Pompiliu Cristescu 1
+ , Claudiu Brândas,
+2
+ , Dumitru Alexandru Mara 1,*
+ and Petrea Ioana 1
+1 Faculty of Economic Sciences, Lucian Blaga University of Sibiu, 550024 Sibiu, Romania;
+marian.cristescu@ulbsibiu.ro (M.P .C.); ioana.petrea@ulbsibiu.ro (P .I.)
+2 Faculty of Economics and Business Administration, West University of Timisoara, 300115 Timisoara, Romania;
+claudiu.brandas@e-uvt.ro
+* Correspondence: dumitrualexandru.mara@ulbsibiu.ro
+Abstract
+The increasing use of complex “black-box” models for financial news sentiment analysis
+presents a challenge in high-stakes settings where transparency and trust are paramount.
+This study introduces and validates a finance-focused, fully reproducible, open-source
+workflow for building, explaining, and evaluating sector-specific sentiment models mapped
+to standard market taxonomies and investable proxies. We benchmark interpretable and
+transformer-based models on public datasets and a newly constructed, manually annotated
+gold-standard corpus of 1500 U.S. sector-tagged financial headlines. While a zero-shot
+FinBERT establishes a reasonable baseline (macro F1 = 0.555), fine-tuning on our gold
+data yields a robust macro F1 = 0.707, a substantial uplift. We extend explainability to the
+fine-tuned FinBERT with Integrated Gradients (IG) and LIME and perform a quantitative
+faithfulness audit via deletion curves and AOPC; LIME is most faithful (AOPC = 0.365).
+We also quantify the risks of weak supervision: accuracy drops (−21.0%) and explanations
+diverge (SHAP rank ρ = 0.11) relative to gold-label training. Crucially, econometric tests
+show the sentiment signal is reactive, not predictive, of next-day returns; yet it still supports
+profitable sector strategies (e.g., Technology long-short Sharpe 1.88). Novelty lies in a
+finance-aligned, sector-aware, trustworthiness blueprint that pairs fine-tuned FinBERT
+with audited explanations and uncertainty checks, all end-to-end reproducible and tied to
+investable sector ETFs.
+Keywords: sentiment analysis; market prediction; explainable AI; FinBERT; SHAP
+1. Introduction
+Financial markets process an ever-growing volume of textual information at high
+velocity. Beyond formal news, social streams contain economically meaningful sig-
+nals [1]. Headlines—brief but information-dense—shape investor attention and often
+encode macroeconomic narratives [2], a conclusion supported by systematic reviews on
+text mining for market prediction [ 3]. In this financial context, sentiment analysis sys-
+tems must be not only accurate but also auditable for risk, compliance, and governance.
+Transformers—notably FinBERT—have set accuracy benchmarks for financial sentiment
+classification [4]. Yet, opacity in model reasoning impedes adoption in high-stakes fi-
+nance [5]. Financial institutions increasingly require transparent, testable justifications
+for model outputs. This paper addresses that requirement by delivering a finance-centric
+workflow designed to: (i) achieve competitive accuracy on sector-specific financial head-
+lines, (ii) audit explanations for faithfulness rather than plausibility alone, and (iii) quantify
+Electronics 2025, 14, 4680 https://doi.org/10.3390/electronics14234680
+
+
+[Page 2]
+Electronics 2025, 14, 4680 2 of 32
+uncertainty to align predictions with risk management practices. Unlike general multi-
+domain XAI studies, we restrict our focus to sector-specific financial news and evaluate
+economic relevance via standard, investable sector ETFs (e.g., SPDR Select Sector funds)
+to ensure direct alignment with market practice [6–9]. This keeps the conceptual framing,
+datasets, and validation coherent within finance. We make four contributions beyond
+straightforward benchmarking: (1) Finance-aligned, sector-aware reproducibility with a
+fully open, script-driven pipeline that constructs a sector-tagged gold set (1500 headlines),
+trains/evaluates baselines and FinBERT variants, and outputs figures/tables aligned to
+GICS sectors and SPDR ETFs (SPDR site: https://www.sectorspdrs.com/; MSCI GICS
+page: https://www.msci.com/indexes/index-resources/gics, accessed on 20 July 2025).
+(2) Audited explainability for FinBERT via deletion curves and AOPC, contrasting IG,
+LIME, and attention-rollout and showing LIME > IG >> attention for faithfulness [10–16]
+(3) Uncertainty and calibration audit—reliability diagrams, ECE, and temperature scaling—
+following Guo et al. [ 16] (4) Financial validation under a reactive-signal hypothesis via
+event studies and transaction-cost-adjusted sector backtests, focusing on downstream eco-
+nomic significance rather than forecasting [17,18]. The XAI toolkit used is standard and that
+the contribution is the reproducible, finance-aligned evaluation and deployment guidance.
+2. Literature Review
+The field of automated sentiment analysis in finance has undergone a significant evo-
+lution, progressing from static, rule-based systems to dynamic, data-driven deep learning
+models. Pioneering contributions centered on the development of domain-specific lexicons,
+with the Loughran–McDonald (LM) financial sentiment lexicon representing an important
+advancement [19]. Through rigorous analysis of financial disclosures, it was demonstrated
+that general-purpose dictionaries were suboptimal for capturing the semantic nuances of
+financial discourse. The LM lexicon established that terms such as “liability” or “risk” ex-
+hibit significant semantic domain shift, carrying context-specific connotations distinct from
+their general usage. Subsequent lexicon-based tools, notably VADER, have incorporated
+syntactic heuristics to better interpret short texts by accounting for negation, intensifiers,
+and punctuation, though all such methods are inherently constrained by their inability to
+dynamically interpret context beyond predefined rules.
+The advent of transformer architecture has marked a paradigm shift in the field,
+leading to new state-of-the-art performance benchmarks. Models such as FinBERT, a
+derivative of the BERT architecture pre-trained on a large-scale financial corpus, leverage
+self-attention mechanisms to capture complex and long-range semantic dependencies
+within text [4]. Its architecture is adaptable, having been successfully fine-tuned for highly
+specialized documents such as Federal Open Market Committee (FOMC) minutes [ 20].
+These models consistently outperform traditional machine learning methods by learning
+contextual representations directly from data. However, this superior predictive power is
+accompanied by considerable drawbacks, including significant computational exigencies
+and a fundamental lack of transparency. Functioning as opaque “black box” systems, their
+internal decision-making processes are not readily intelligible to human users.
+2.1. Advances in Explainable AI (XAI)
+This makes it exceedingly difficult to trace a given prediction back to specific textual
+evidence, presenting a fundamental challenge to model governance and accountability—a
+critical limitation in high-stakes applications like finance, where model justification is often
+a regulatory and operational necessity [21].
+In response to this challenge, Explainable AI (XAI) has emerged as a critical subfield
+focused on ameliorating the opacity of complex models. Among the most robust and
+
+
+[Page 3]
+Electronics 2025, 14, 4680 3 of 32
+theoretically grounded XAI frameworks is SHAP (SHapley Additive Explanations), in-
+troduced by Lundberg and Lee [22]. Rooted in cooperative game theory and the concept
+of Shapley values, SHAP offers a unified method for attributing the output of any ma-
+chine learning model to its input features. It computes the marginal contribution of each
+feature—in this context, a word or token—to a prediction, thereby providing both local
+(per-instance) and global (model-wide) interpretability. In contrast to earlier techniques like
+LIME [23], which rely on local linear approximations that can lack stability, SHAP provides
+explanations that are guaranteed to be consistent and locally accurate, adhering to strong
+theoretical properties.
+This research is situated at the confluence of these domains. While acknowledging the
+state-of-the-art performance of models like FinBERT, our work prioritizes the principles
+of XAI. We adopt a “glass box” methodology where possible, employing inherently inter-
+pretable model architectures and augmenting them with SHAP to produce granular and
+defensible explanations. Crucially, we also extend explainability techniques to “black box”
+models and introduce quantitative metrics to evaluate the faithfulness of these explanations.
+By systematically comparing this transparent pipeline against both lexicon-based meth-
+ods and a state-of-the-art transformer, this study aims to provide a practical framework
+that reconciles the tension between raw predictive capability and the exigent need for
+interpretability in financial text analysis.
+Explainable AI (XAI) methods are commonly organized along two axes: (i) intrin-
+sically interpretable models whose structure is transparent by design and (ii) post hoc
+explanation methods that attempt to explain complex “black-box” predictors after train-
+ing [24]. Intrinsic approaches include sparse linear models, decision trees, scoring systems,
+and generalized additive models (GAMs), in which the prediction decomposes into a
+sum of low-dimensional functions of the inputs [25]. Modern GAM variants such as the
+Explainable Boosting Machine (EBM) preserve additivity while learning flexible shape
+functions, enabling competitive accuracy with decomposable, human-auditable contribu-
+tions [26]. These models map naturally to our methodological choices, where EBM provides
+a non-linear but transparent baseline against which we compare transformer architectures.
+Post hoc techniques constitute several families. Perturbation-based methods(e.g., LIME)
+approximate the local decision boundary with a simple surrogate to derive feature impor-
+tances [23]. Game-theoretic approaches such as SHAP attribute predictions to features
+using Shapley values, offering local and global explanations with desirable consistency
+properties [22]. Gradient-based methods—including Integrated Gradients (IG)—propagate
+gradients from output to input along a path to yield token- or feature-level attributions that
+satisfy axioms like sensitivity and implementation invariance [27]. For deep sequence mod-
+els, attention-based explanations use attention weights or roll-ups (e.g., attention rollout)
+as importance scores, though their faithfulness remains debated in NLP . Beyond feature
+attribution, rule- or example-based explainers such as Anchors provide high-precision,
+human-readable rules for specific predictions, while concept-based methods (e.g., TCAV)
+quantify the influence of human-aligned concepts on predictions—useful when features are
+not directly human-meaningful. Together, these families span complementary desiderata
+(local/global scope, theoretical guarantees, stability, and human interpretability) that we
+exploit in our evaluations.
+A growing body of recent work critically examines faithfulness—whether explanations
+truly reflect a model’s internal reasoning. Surveys in 2023–2025 synthesize metrics (e.g.,
+deletion/insertion curves, comprehensiveness/sufficiency, AOPC variants) and highlight
+failure modes across attribution and attention methods, motivating quantitative audits
+rather than purely qualitative inspection [10,11]. Our study aligns with this direction by
+
+
+[Page 4]
+Electronics 2025, 14, 4680 4 of 32
+operationalizing a deletion-based perturbation test to compare IG, LIME, and attention
+explanations for FinBERT (Section 4.2).
+Recent surveys argue that explanation work in NLP should prioritize faithfulness—
+quantitatively testing whether attributions reflect true model reasoning—using dele-
+tion/insertion curves, comprehensiveness/sufficiency, and ROAR/AOPC, rather than
+relying on plausibility alone [10,11]. We operationalize this recommendation via deletion-
+based AOPC for FinBERT [12,28,29].
+2.2. XAI for Natural Language Processing
+In NLP , explanation targets are typically tokens, spans (rationales), instances, or
+concepts. Token- and span-level attribution via gradients (e.g., IG) and perturbation
+(e.g., LIME) are prevalent because they interface naturally with discrete text. However,
+attribution stability and sensitivity to baselines, sampling noise, and masking strategies can
+hinder faithfulness if left unmeasured [23,27]. Recent surveys emphasize the importance of
+faithfulness-oriented evaluation (e.g., deletion/insertion, ROAR/AOPC, comprehensive-
+ness/sufficiency) over plausibility-only measures, noting that attention weights and some
+perturbation strategies can produce persuasive but misleading highlights [10,11].
+Beyond word-level importance, rule-based rationales (Anchors) and concept-based
+explanations (TCAV) address the semantic gap by mapping neural reasoning to human-
+interpretable conditions or higher-level concepts (e.g., “lawsuit,” “AI chips”), which is
+particularly relevant to domain narratives. While such methods are more common in
+vision, their recent adaptations to text underscore advantages for global interpretability
+and auditing spurious correlations (e.g., via concept sensitivity analyses). This motivates
+our sector-specific analysis, where we compare linguistic drivers across industries using
+SHAP and evaluate whether attributions align with domain concepts (Section 4.3).
+Finally, contemporary NLP work stresses explanation robustness under distribution
+shift and noisy supervision, both salient in news streams. Adversarial sensitivity tests show
+that small perturbations can drastically change explanation maps even when predictions do
+not, reinforcing the need for reliability checks [30]. We address these concerns by coupling
+faithfulness tests with a weak-supervision audit, quantifying how noisy labels distort both
+performance and explanations (Section 5.3).
+2.3. Explainability in Financial News Sentiment Analysis
+Financial text tasks pose unique constraints—regulatory auditability, risk manage-
+ment, and market impact—that amplify the value of transparent models and verifiable
+explanations. Recent surveys of financial sentiment analysis and XAI in finance report a
+surge in transformer-based models (e.g., FinBERT) alongside increasing use of SHAP/IG
+for post hoc attribution and growing interest in faithfulness metrics to guard against “expla-
+nations that look right for the wrong reasons” [17,18]. Empirical syntheses also highlight
+challenges from class imbalance, domain drift, and heterogeneous sources (headlines, fil-
+ings, social media), recommending sector-aware analyses and multi-stage validation of
+economic significance—precisely the design adopted here (Section 3.3; Section 4.2).
+Within this literature, FinBERT and its domain-specific fine-tunes offer strong base-
+lines, yet explaining their predictions remains non-trivial. Gradient-based attributions
+(IG, SmoothGrad-IG variants) can yield informative token-level evidence, but 2023–2025
+reviews underline persistent concerns about baseline selection, saturation, and faithfulness
+under masking, motivating quantitative perturbation tests (as we implement) rather than
+relying on saliency maps alone [10,11]. Meanwhile, intrinsically interpretable alternatives
+(e.g., EBM/GAM) have been advocated in high-stakes finance to ensure decomposable
+risk factors and audit trails [ 24,26]. Our study positions EBM and LR as glass-box com-
+
+
+[Page 5]
+Electronics 2025, 14, 4680 5 of 32
+parators, extends FinBERT with IG/LIME/attention analyses, and connects explanations
+to economic validation (event studies, Granger causality, backtests), echoing best-practice
+guidance from recent finance-focused surveys.
+3. Materials and Methods
+Our methodology is designed as a multi-stage pipeline to construct, explain, and
+validate sentiment analysis models. The primary output is a daily sentiment score for
+each industrial sector derived from news headlines. To ground this technical pipeline in a
+practical context, the final stage is a rigorous econometric validation designed to assess the
+financial relevance and potential utility of these sentiment signals for decision-making.
+The methodology of this study is predicated upon the principles of transparency, repro-
+ducibility, and comparative analysis. Our entire research workflow, from data acquisition
+and processing to model training and evaluation, exclusively employs publicly available
+datasets and open-source Python 3.13 libraries. This ensures that our findings can be inde-
+pendently verified and that the framework can be readily extended by other researchers.
+This commitment to an open and shareable workflow aligns with recent calls to improve
+reproducibility in machine learning research [24,31]. The primary objective is to rigorously
+evaluate the trade-off between predictive performance and model interpretability within
+the domain of financial sentiment analysis.
+3.1. Datasets
+The empirical basis of this study rests on three distinct datasets, each selected to
+probe different facets of model performance. A summary of their composition and class
+distributions is provided in Table 1.
+Table 1. Overview of Datasets Used in This Study.
+Dataset Total Samples Negative Neutral Positive
+Financial PhraseBank 2264 303 1391 570
+FiQA (Headlines) 498 158 33 307
+US Multi-Sector (Gold) 1500 216 830 454
+We utilize the “sentences_allagree” subset of the Financial PhraseBank (FPB), a widely
+accepted public benchmark. This corpus consists of 2264 phrases where human annotators
+reached a unanimous consensus on the sentiment label. Its clean, formal linguistic style
+serves as an ideal baseline for evaluating a model’s foundational performance.
+The FiQA-Sentiment dataset offers a contrasting methodological challenge, comprising
+498 financial news headlines. The language in this corpus is more concise and stylistically
+varied than that of the FPB. Its pronounced class imbalance provides a stringent test for a
+model’s robustness.
+To assess model generalization to contemporary and diverse domains, we con-
+structed a bespoke, manually annotated “gold-standard” corpus. This corpus consists
+of 1500 headlines, sampled from a larger collection of articles from H1 2025. The headlines
+are stratified across 10 distinct industry sectors to ensure broad topic coverage and test for
+sector-specific performance. This corpus functions as our primary testbed for evaluating
+out-of-domain generalization for our baseline models and serves as the foundation for train-
+ing, validating, and testing our fine-tuned FinBERT model. The creation of new, domain-
+specific datasets is a critical contribution, as modern NLP models require high-quality,
+specialized data for tasks such as numerical reasoning and long-form question answering
+in finance [32,33] and transparent modelling frameworks for interpretability [25,26].
+
+
+[Page 6]
+Electronics 2025, 14, 4680 6 of 32
+Although headlines can be broad, they are sector-tagged under GICS and validated
+against investable sector ETFs, which is why they’re appropriate for a financial objective.
+We also introduce two additional model classes presented in Section 3.2.
+3.2. Sentiment Analysis Models
+To investigate the performance-interpretability spectrum, we evaluate a methodologi-
+cally diverse suite of models.
+• Lexicon-Based Models: These models operate on the principle of dictionary lookup,
+assigning sentiment based on the aggregation of polarity scores from predefined
+word lists. We evaluate two prominent examples: VADER, a general-purpose lexicon
+optimized for the syntax of short texts, and the Loughran–McDonald (LM) lexicon,
+curated specifically for financial terminology [19]. For each, a continuous polarity score
+is calculated per headline, and classification thresholds are subsequently optimized
+on the training data to maximize the macro F1-score.
+• Interpretable ML Baseline (TF-IDF + LR): Our designated “glass box” model is a
+classic natural language processing pipeline chosen for its inherent transparency. Text
+is transformed into a numerical matrix using a Term Frequency-Inverse Document
+Frequency (TF-IDF) vectorizer, capturing the relative importance of unigrams and
+bigrams. A multinomial Logistic Regression (LR) classifier is then trained on these
+features. This linear model is inherently interpretable, a characteristic further enhanced
+through the application of SHAP .
+• Glass-Box Non-Linear Baseline (EBM): We include an Explainable Boosting Machine
+(EBM) as a strong, non-linear but fully interpretable baseline. EBMs are a form of
+Generalized Additive Model (GAM) that learn a flexible function for each feature
+independently, making their predictions decomposable and easy to visualize without
+requiring post hoc explanation methods like SHAP .
+• Hybrid Model (FinBERT + LR): To bridge the gap between transformers and inter-
+pretable models, we test a hybrid approach. We first use FinBERT to generate a
+768-dimension sentence embedding from the [CLS] token for each headline. These
+rich, contextual embeddings are then used as input features for a simple, interpretable
+multinomial Logistic Regression classifier.
+• State-of-the-Art Benchmark (FinBERT): To establish an empirical upper bound on
+performance, we employ ProsusAI/finbert. As a powerful transformer model pre-
+trained on a vast financial corpus, its deep contextual understanding of domain-
+specific language makes it a formidable benchmark. Its capabilities are assessed in
+two distinct modes: zero-shot inference and fine-tuning.
+• FinBERT (Fine-Tuned): To create our top-performing model, the pre-trained Prosu-
+sAI/finbert model was fine-tuned on a training partition of our 1500-sample gold-
+standard dataset. This approach tests the model’s ability to adapt its general financial
+knowledge to the specific nuances of our multi-sector news headline task.
+3.3. Evaluation Protocol
+Model performance is quantified using Accuracy and Macro F1-Score. The Macro
+F1-Score is afforded particular importance due to its ability to provide a fair assessment of
+performance on imbalanced datasets by averaging the per-class F1-score without weighting
+by class frequency. On the public FPB and FiQA datasets, all models are evaluated on a
+stratified 80/20 train–test split with a fixed random seed. The 1500-headline US Multi-
+Sector corpus is used exclusively as a hold-out test set to rigorously test generalization.
+The 1500-headline US Multi-Sector corpus is used exclusively as a hold-out test set
+for the baseline models. For the fine-tuned FinBERT model, this corpus was partitioned
+
+
+[Page 7]
+Electronics 2025, 14, 4680 7 of 32
+into training, validation, and a final 15% held-out test set to ensure a fair and rigorous
+evaluation of its performance on unseen data.
+3.4. Interpretability, Faithfulness, and Temporal Analysis
+The transparency of our baseline model is systematically interrogated using the SHAP
+framework. By employing SHAP’s LinearExplainer, we compute the exact, additive contri-
+bution of each token to the Logistic Regression model’s output for every prediction. This
+method enables the generation of global feature importance plots that reveal the model’s
+underlying decision-making logic by identifying the most influential terms across the
+entire dataset.
+Furthermore, we investigate the temporal dynamics of financial discourse through a
+regime shift analysis. The full Marketaux dataset is partitioned into two distinct periods:
+Quarter 1 (January–March 2025) and Quarter 2 (April–June 2025). Using VADER to generate
+weak supervision labels, we train a separate TF-IDF + LR model on the data from each
+quarter. This technique of using an automated, heuristic-based labeler (VADER) to provide
+training data for a supervised model is a form of weak supervision, a practical approach
+for creating labeled datasets without manual annotation costs [34]. Also, by systematically
+comparing the SHAP-derived importance rankings of tokens between the two models,
+we can quantitatively identify which linguistic features gained or lost influence over time.
+This methodology facilitates a shift from static sentiment measurement to a dynamic
+understanding of evolving market narratives.
+We implement deletion-based AOPC (removing tokens in the order indicated by the
+explainer) to quantify how well IG, LIME, and attention-rollout identify truly influen-
+tial tokens [12]. We also apply Wilcoxon signed-rank tests between methods, following
+faithfulness-focused guidance [10,11]. For context, comprehensiveness/sufficiency and
+ROAR are alternative checks [29].
+Uncertainty and calibration audit. We compute reliability diagrams and Expected
+Calibration Error (ECE) and apply temperature scaling to improve probability calibra-
+tion [16,35]. In deployment, calibrated thresholds and optional conformal-style set predic-
+tions can control error rates for risk-sensitive use [36].
+3.5. Open-Source Implementation and Reproducibility
+To ensure clarity and reproducibility, we developed the xai-finnews-sentiment frame-
+work. All source code, configuration files, and intermediate artifacts produced during this
+research are publicly released in the associated GitHub repository under the permissive MIT
+License (Version 1.0.0). The pipeline integrates multiple stages, from data collection and
+preprocessing to model training, evaluation, and explainability analysis. The methodology
+is summarized schematically in Figure 1.
+3.6. Code Availability and Repository Layout
+All materials for this study—source code, configuration files, and intermediate
+artifacts—are openly available in the xai-finnews-sentiment repository (MIT License) at:
+https://github.com/MaraAlexandru/xai-finnews-sentiment/ (accessed on 27 August
+2025). The repository is built around a single idea: end-to-end reproducibility. Every figure,
+table, and numerical result in the manuscript can be regenerated from the workflow, with
+no hidden steps or manual curation.
+The layout mirrors the narrative of the paper. It guides readers from data acquisi-
+tion and preparation, through modeling and explainability, and into temporal analysis
+and econometric validation, before culminating in the final outputs used in the article.
+Public benchmark datasets are retrieved automatically; domain-specific news data are
+incorporated via documented procedures that respect licensing constraints. Expert lexicons
+
+
+[Page 8]
+Electronics 2025, 14, 4680 8 of 32
+are provided with clear provenance and simple regeneration paths to ensure legal clarity
+across jurisdictions.
+Figure 1. Workflow of the xai-finnews-sentiment pipeline.
+Analysis routines map one-to-one onto the methodological elements reported here:
+comparative benchmarks across interpretable and transformer-based models, a hybrid
+approach that bridges performance and transparency, systematic explainability audits that
+test the faithfulness of explanations, and econometric evaluations that assess real-world
+relevance. The intent is not merely to share code, but to make the research process legible,
+so that readers can follow the same path from raw inputs to published claims.
+All outputs—metrics, reports, plots, and figure assets—are generated directly by the
+pipeline and collected in a single place for inspection. Dependencies are resolved on
+demand, and proprietary content is never redistributed; instead, the workflow operates on
+user-provided exports with clear instructions.
+Licensing and provenance are explicit: original code under MIT, the manually an-
+notated headline set under CC BY 4.0, the manuscript and figures under CC BY 4.0, and
+third-party resources under their original terms. Taken together, the repository is designed
+to support transparent verification and easy extension: each result in the paper can be
+traced to a specific dataset, analysis step, and output artifact, enabling the community to
+audit, adapt, and build upon this work.
+3.7. Assessing the Economic Significance of Sentiment
+We define sector events via 63-day rolling z-score thresholds (±1.5) on daily sector
+sentiment derived from headlines. For each event, we compute sector ETF CAR over
+[−5, +5] using a market model with SPY as the proxy; predictive structure is tested via
+VAR-based Granger on sentiment and ETF returns. Practical utility is evaluated with
+simple, rules-based long-only and long-short strategies on sector ETFs with 5 bps costs,
+emphasizing the economic properties of the signal rather than building a forecasting oracle.
+To formally test for predictive power, we employ Granger causality analysis on a bivariate
+time series of daily mean sentiment and the corresponding ETF’s daily return. We fit a
+Vector Autoregression (VAR) model and conduct F-tests to evaluate whether past sentiment
+values Granger-cause future returns, and vice versa.
+To evaluate practical utility, we backtest a simple, rules-based trading strategy for
+each sector based on the daily sentiment z-score, accounting for a transaction cost of5 basis
+points (0.05%) per trade. We evaluate the strategies by calculating their Sharpe Ratio,
+annualized return (CAGR), and maximum drawdown.
+
+
+[Page 9]
+Electronics 2025, 14, 4680 9 of 32
+This validation stage is not intended to create a standalone prediction model but to
+test the financial properties of the sentiment signal. Specifically, we use an event study to
+measure market reaction to sentiment spikes, Granger causality tests to evaluate predictive
+vs. reactive properties, and a strategy backtest to assess practical utility net of costs.
+4. Results
+Our empirical analysis unfolds in several stages. We first establish performance base-
+lines on public datasets before conducting a deep dive into model performance on our
+new, 1500-headline gold-standard corpus. This is followed by a rigorous, quantitative
+audit of the explainability methods for our best model. Finally, we investigate the eco-
+nomic properties and practical utility of the generated sentiment signal through a series of
+econometric tests.
+4.1. Model Performance on Public Benchmarks
+To ground our study, we first evaluated our models on two widely used public
+benchmarks: the Financial PhraseBank (FPB) and the FiQA headlines dataset. These tests
+serve to validate the relative capabilities of each model architecture on standardized tasks.
+The results are summarized in Table 2.
+Table 2. Model Performance on Public Benchmark Datasets (Hold-out Set).
+Model Dataset Accuracy Macro F1-Score
+VADER (Lexicon) FPB 0.651 0.532
+Loughran–McDonald (LM) FPB 0.648 0.483
+LR + TF-IDF FPB 0.896 0.850
+EBM FPB 0.872 0.810
+FinBERT + LR (Hybrid) FPB 0.988 0.981
+VADER (Lexicon) FiQA 0.740 0.567
+Loughran–McDonald (LM) FiQA 0.317 0.345
+LR + TF-IDF FiQA 0.680 0.430
+EBM FiQA 0.710 0.424
+FinBERT + LR (Hybrid) FiQA 0.800 0.603
+On the clean, formal language of the FPB, the FinBERT + LR (Hybrid) model achieved
+near-perfect accuracy, with a macro F1-score of 0.981. This demonstrates the immense
+power of contextual embeddings from a domain-trained transformer when applied to
+a straightforward classification task. On the more challenging FiQA dataset, which is
+characterized by greater stylistic variance and significant class imbalance, the hybrid model
+also proved superior, achieving a macro F1-score of 0.603. The lexicon-based methods,
+particularly the domain-specific Loughran–McDonald (LM) lexicon, struggled significantly
+on the imbalanced FiQA data (F1 of 0.345), highlighting the limitations of non-contextual,
+rule-based approaches on noisy, real-world text.
+Performance is measured on a held-out test set. The hybrid model demonstrates
+state-of-the-art performance, while lexicon methods provide a solid baseline on simpler
+data but struggle with imbalance.
+4.2. Generalization on the Gold-Standard Corpus: The Critical Value of Fine-Tuning
+The definitive test of a model’s utility is its ability to generalize to new, unseen data
+that reflects a real-world distribution of topics and styles. We evaluated all models on a
+held-out test partition of our 1500-headline multi-sector gold-standard corpus. The results,
+presented in Table 3, reveal a clear performance hierarchy and provide the central finding
+of our performance analysis.
+
+
+[Page 10]
+Electronics 2025, 14, 4680 10 of 32
+Table 3. Model Performance on the Gold-Standard News Corpus.
+Model Accuracy Macro F1-Score
+FinBERT (Fine-Tuned) 0.716 0.707
+FinBERT (Zero-Shot) 0.567 0.555
+Loughran–McDonald (LM) 0.507 0.482
+VADER 0.438 0.433
+Weakly Supervised LR 0.431 0.425
+LR + TF-IDF (trained on FPB) 0.566 0.321
+LR + TF-IDF (trained on FiQA) 0.317 0.228
+Our fine-tuned FinBERT model emerges as the unambiguous top performer, achieving
+a robust accuracy of 71.6% and a macro F1-score of 0.707. This result is not only strong
+but represents a significant performance uplift of +14.9% in accuracy and +0.152 in macro
+F1-score over the standard zero-shot FinBERT baseline. This starkly illustrates that fine-
+tuning, even on a modestly sized but high-quality, domain-specific dataset, is important
+for unlocking the true potential of large language models for specialized tasks.
+The baselines exhibit varied but generally weaker performance. The zero-shot Fin-
+BERT, while the best of the non-fine-tuned models, still only achieves a macro F1-score of
+0.555, underscoring the challenge of out-of-domain generalization. Lexicon-based methods
+like VADER (F1 of 0.433) and even the domain-specific LM lexicon (F1 of 0.482) perform
+poorly, confirming their inability to adapt to the diverse and noisy language of multi-sector
+headlines. The model trained on weak supervision (Weakly Supervised LR) performs
+similarly to the simple lexicon methods, reinforcing the limitations of this approach, which
+we explore further in Appendix A.1.
+Models were evaluated on an unseen test set derived from the 1500 annotated head-
+lines. Fine-tuning provides a decisive performance advantage over all other baseline and
+zero-shot methods.
+A granular, class-level view of this performance gap is provided in Figure 2. The
+confusion matrix for the zero-shot FinBERT (A) shows significant errors, particularly in
+misclassifying both negative and positive headlines as neutral (230 and 158 instances,
+respectively). In stark contrast, the fine-tuned FinBERT (B) demonstrates a much more
+accurate and balanced profile. It drastically reduces these critical misclassifications, indi-
+cating a superior ability to discern subtle sentiment cues across all three classes. Detailed
+confusion matrices for every baseline model are available for review in Appendix A.1.
+Figure 2. Confusion Matrices. A comparison of the zero-shot FinBERT baseline (A) and the fine-tuned
+FinBERT model (B) on the gold-standard test set. The fine-tuned model shows a clear and significant
+improvement in correctly identifying all three sentiment classes.
+Further analysis reveals that performance varies considerably across industrial sectors,
+as detailed in Appendix A.1. This sectoral variance highlights the domain-specific nature
+
+
+[Page 11]
+Electronics 2025, 14, 4680 11 of 32
+of financial language and reinforces the need for sector-aware modeling and evaluation, a
+core principle of our workflow.
+4.3. Auditing Explanations and Uncertainty: From Plausibility to Trust
+Achieving high accuracy is only the first step; for a model to be trustworthy in a
+financial context, its reasoning must be scrutable. This section moves beyond generating
+plausible explanations to quantitatively auditing their faithfulness.
+4.3.1. Explaining the Interpretable Baselines with SHAP
+We first analyzed the feature importance of our most transparent machine learning
+model, the weakly supervised Logistic Regression, using SHAP . As shown in the global
+summary plot in Figure 3, the model learns financially salient and intuitive relationships
+directly from the data. Terms like “gains,” “growth,” and “earnings” are strong positive
+drivers, while words such as “losses,” “tariffs,” and “tariff” (a reflection of the geopolitical
+climate during H1 2025) are correctly identified as primary negative indicators. This
+confirms that even a simple model trained on noisy labels can extract a meaningful, context-
+appropriate sentiment lexicon. A detailed breakdown of the key linguistic drivers for each
+individual sector, which reveals unique terminology (e.g., ‘nvidia’ in Technology, ‘lawsuit’
+in Services), is provided in the SHAP summary plots in Appendix A.2.
+Figure 3. Global SHAP Summary Plot. Feature importance for the overall weakly supervised Logistic
+Regression model. The plot shows the top 20 tokens and their impact on the model’s output, with
+red indicating a positive push and blue a negative one.
+4.3.2. A Quantitative Audit of FinBERT’s Explanations
+For our high-performing but opaque fine-tuned FinBERT model, a simple visual in-
+spection of explanations is insufficient. We conducted a quantitative audit of three popular
+XAI methods—Integrated Gradients (IG), LIME, and Attention Rollout—to measure their
+faithfulness. Using a deletion perturbation test, we measured the drop in the model’s
+prediction probability as we successively removed the tokens each method identified as
+most important. A steeper drop signifies a more faithful explanation.
+
+
+[Page 12]
+Electronics 2025, 14, 4680 12 of 32
+The results, visualized in Figure 4, clearly show that not all explanation methods
+are equally reliable. To quantify this, we use the Area Over the Perturbation Curve
+(AOPC), where a higher score indicates greater faithfulness. As detailed in Table 4, LIME
+(AOPC = 0.365) and Integrated Gradients (AOPC = 0.222) significantly outperform the
+commonly used but often misleading Attention Rollout (AOPC = 0.116). All pairwise
+differences are statistically significant (Wilcoxon signed-rank test, p < 0.01), confirming this
+performance hierarchy. This result provides strong evidence that while attention mecha-
+nisms are integral to the model’s architecture, their raw scores are not a reliable proxy for
+feature importance in explaining a prediction.
+Figure 4. Faithfulness of XAI Methods for Fine-Tuned FinBERT. A steeper decline in prediction
+probability indicates a more faithful explanation method. LIME and Integrated Gradients (IG) most
+accurately identify influential tokens, while Attention Rollout (ATTN) is least effective.
+Table 4. Faithfulness of XAI Methods (AOPC). A higher Area Over the Perturbation Curve (AOPC)
+indicates a more faithful explanation.
+Explanation Method Mean AOPC Std. Dev.
+LIME 0.365 0.131
+IG 0.222 0.16
+ATTN 0.116 0.099
+We execute deletion curves and compute AOPC for IG, LIME, and attention-rollout.
+LIME yields the highest AOPC (0.365), followed by IG (0.222); attention is lowest (0.116).
+Differences are statistically significant (Wilcoxon,p < 0.01). This aligns with evidence that
+attention is not, by itself, an explanation [13–15] and with surveys advocating faithfulness-
+first evaluation [10,11].
+4.3.3. Uncertainty Calibration and Deployment Guidance
+Calibration complements explanation auditing by aligning confidence with accuracy.
+We plot reliability diagrams, compute ECE, and apply temperature scaling [ 16,35]. For
+risk-sensitive workflows, confidence thresholds and, where needed, conformal-style set
+predictions [29] can reduce overconfident errors and support human-in-the-loop review.
+4.3.4. Weak Supervision Audit
+Comparing weakly labeled (VADER) Vs. Gold-Labeled training, we observe a −21%
+accuracy delta and near-zero SHAP rank correlation (ρ = 0.11). Noisy labels distort both
+
+
+[Page 13]
+Electronics 2025, 14, 4680 13 of 32
+performance and the learned rationale map, underscoring the need for label provenance
+checks and faithfulness tests prior to deployment.
+4.4. Investigating the Economic Properties of the Sentiment Signal
+Finally, we conducted a series of econometric tests using the daily sentiment signal gen-
+erated by our fine-tuned FinBERT model. The objective was to move beyond classification
+accuracy and assess the signal’s real-world financial properties and practical utility.
+4.4.1. Granger Causality: A Reflexive, Not Predictive, Signal
+We first employed Granger causality analysis to test whether sentiment could predict
+next-day market returns. The results in Table 5 are definitive: for nearly all sectors, the
+optimal statistical model selected zero lags, indicating no evidence of a lagged relationship.
+For Technology, thep-values for both directions were not statistically significant (p > 0.10).
+We therefore find no significant evidence that news sentiment Granger causes future returns.
+This important finding suggests the sentiment signal is primarily reflexive, reacting to and
+reflecting prior or contemporaneous market movements rather than leading them.
+Table 5. Granger Causality Test Summary. Results show no significant evidence of sentiment
+predicting next-day returns, pointing to a reflexive relationship with market activity.
+Industry p-Value (Sentiment → Returns) p-Value (Returns → Sentiment)
+Communication Services 1.0 1.0
+Consumer Cyclical 1.0 1.0
+Energy 1.0 1.0
+Financial Services 1.0 1.0
+Healthcare 1.0 1.0
+Industrials 1.0 1.0
+Real Estate 1.0 1.0
+Utilities 1.0 1.0
+Technology 0.143 0.136
+4.4.2. Market Reaction and Backtesting: Finding Utility in a Reactive Signal
+While not predictive in a Granger-causal sense, a reflexive signal can still hold practical
+value if it captures exploitable market dynamics like sentiment-driven overreactions. Our
+event study (Table 6) and cumulative abnormal returns around high-sentiment events
+(Figure 5) show that spikes in positive news sentiment for Communication Services are
+followed by statistically significant positive abnormal returns of +0.54% over the subsequent
+four days (t-statistic = 2.51). This suggests that high sentiment can precede short-term
+positive market drift in certain sectors.
+Table 6. Performance of Sentiment-Based Trading Strategies (Net of Costs). The results show
+economically significant performance in several key sectors, most notably Technology.
+Industry Strategy Sharpe Ratio Ann. Return (CAGR) Max Drawdown
+Communication Services long_only 2.962 13.7% −0.81%
+Communication Services long_short 1.107 6.3% −1.73%
+Consumer Cyclical long_only 1.839 6.5% −0.63%
+Consumer Cyclical long_short 1.839 6.5% −0.63%
+Energy long_only 0.0 0.0% 0.00%
+Energy long_short 0.0 0.0% 0.00%
+Financial Services long_only 0.0 0.0% 0.00%
+Financial Services long_short 0.0 0.0% 0.00%
+Healthcare long_only 2.982 13.5% −0.27%
+Healthcare long_short 2.976 13.2% −0.27%
+Industrials long_only 0.0 0.0% 0.00%
+Industrials long_short 0.0 0.0% 0.00%
+Real Estate long_only 0.0 0.0% 0.00%
+
+
+[Page 14]
+Electronics 2025, 14, 4680 14 of 32
+Table 6. Cont.
+Industry Strategy Sharpe Ratio Ann. Return (CAGR) Max Drawdown
+Real Estate long_short 0.0 0.0% 0.00%
+Utilities long_only 0.0 0.0% 0.00%
+Utilities long_short 0.0 0.0% 0.00%
+Technology long_only 1.442 14.4% −2.38%
+Technology long_short 1.879 33.7% −3.73%
+Figure 5. Cumulative Abnormal Returns (CAR) Around High-Sentiment Events. The figure shows
+the market’s reaction in the days following a significant spike in positive news sentiment. Results are
+filtered for instances with 3 or more events. We added a ⋆ on bars where t ≥ 1.96.
+To test this utility directly, we backtested simple, rules-based trading strategies based
+on sentiment extremes, accounting for transaction costs. The results, shown in Table 6, are
+compelling. A long-short strategy in the Technology sector that buys on positive sentiment
+extremes and sells on negative ones yielded a Sharpe ratio of 1.88 and an impressive +33.7%
+annualized return. Strong positive returns were also generated for long-only strategies in
+the Healthcare and Communication Services sectors.
+This demonstrates that even a primarily reflexive sentiment signal, when system-
+atically applied, can be a valuable component in constructing profitable, sector-specific
+strategies. The full equity curves for all backtested strategies are provided in Appendix A.3
+along with the Cumulative Abnormal Returns (CAR) Around High-Sentiment Events in
+Appendix A.4.
+5. Discussion
+Our central performance result—fine-tuned FinBERT (F1 = 0.707) vs. zero-shot (0.555)—
+demonstrates the necessity of domain-specific fine-tuning on sector-tagged financial head-
+lines. Lexicon methods and weak supervision lag on this heterogeneous, real-world corpus.
+This reinforces the finance literature’s emphasis on high-quality, task-specific data for
+strong generalization [25,26]. Importantly, our design does not stop at accuracy: it audits
+explanations and calibration to align with financial governance needs.
+5.1. The Performance-Interpretability Frontier in a Multi-Sector Context
+A central finding of this study is the demonstrable value of domain-specific fine-tuning.
+While the zero-shot FinBERT model provided a respectable baseline, its performance
+(0.555 macro F1) was significantly surpassed by the fine-tuned version (0.707 macro F1).
+
+
+[Page 15]
+Electronics 2025, 14, 4680 15 of 32
+This +0.152 improvement in F1-score, achieved by training on our 1500-sample gold-
+standard dataset, elevates the model from a mediocre performer into a robust and reliable
+classifier. This result directly refutes the notion that large pre-trained models can be
+universally applied out-of-the-box with state-of-the-art results; instead, it highlights that
+targeted, high-quality data is the key to unlocking their performance for specialized tasks
+like sector-specific financial news analysis. The poor performance of general-purpose
+(VADER) and even domain-specific (Loughran–McDonald) lexicon-based methods further
+reinforces this point, demonstrating their inability to capture the contextual nuances present
+in diverse financial headlines.
+5.2. The Reflexive Nature of Market Sentiment: Reactive Yet Useful
+A primary finding from our econometric analysis is that news sentiment is largely
+reactive to, rather than predictive of, market returns. The Granger causality tests definitively
+show a lack of evidence for sentiment predicting next-day returns. Instead, the signal
+appears to be reflexive, capturing and possibly amplifying market movements that have
+already occurred. This is a critical finding for any practical application, as it cautions
+against using the signal for simple directional forecasting.
+However, this reactivity does not render the signal useless—an important distinction
+that addresses a key concern about its practical value. Our backtesting results prove that this
+“limitation” can be an exploitable feature. A simple strategy trading on sentiment extremes
+in the Technology sector yielded a Sharpe ratio of 1.88 and a +33.7% annualized return,
+net of costs. This suggests that even a reactive signal can effectively capture behavioral
+dynamics like overreactions and mean-reversion. The practical role of sentiment, therefore,
+is better understood not as a predictive tool, but as a diagnostic and strategic one—useful
+for identifying periods of market exuberance or panic, filtering events for risk models, or
+providing context for other quantitative factors.
+The reactive, not predictive finding clarifies where sentiment adds value. Rather than a
+stylized alpha signal for next-day returns, sector sentiment is effective as a diagnostic layer:
+surfacing exuberance/panic windows, prioritizing news for analysts, gating risk model
+updates, and conditioning rules-based strategies that exploit overreaction/mean-reversion
+at sector level. Our ETF-based tests show that even a reactive signal can be profitably
+integrated—so long as it is framed strategically and costs are considered.
+5.3. Auditing the Explanations: Faithfulness and the Perils of Weak Supervision
+This work argues that generating an explanation is necessary but insufficient; its
+reliability must be verified. The superficial appeal of a saliency map can be misleading.
+Our quantitative audit of XAI methods (Figure 3, Table 5) provides a clear hierarchy of
+faithfulness, demonstrating that LIME and Integrated Gradients are significantly more
+reliable than raw attention scores for our fine-tuned FinBERT. This moves beyond a shallow
+application of XAI methods by providing a quantitative basis for trusting one explanation
+over another, directly addressing the need for deeper explainability analysis.
+Furthermore, our audit of the weak supervision pipeline delivers a stark warn-
+ing. Noisy labels, such as those from VADER, degrade not only classification ac-
+curacy (−21% drop) but also explanation quality. The near-zero rank correlation
+(Spearman’sρ = 0.11) between the feature importances of the weakly trained and gold-
+trained models proves that a model trained on poor data can produce plausible but entirely
+misleading rationales. This highlights a critical risk in high-stakes domains and advocates
+for a two-layer audit process: first, validating label quality, and second, testing explanation
+faithfulness before deployment.
+
+
+[Page 16]
+Electronics 2025, 14, 4680 16 of 32
+A core novelty is pairing faithfulness-audited explanations with calibration. The
+AOPC results identify LIME as the most faithful explainer for our fine-tuned FinBERT, with
+IG runner-up and attention lagging—consistent with NLP evidence that attention is insuffi-
+cient [13–15]. Calibration diagnostics provide confidence control, enabling thresholds and
+abstention policies that reduce overconfident errors—a crucial safeguard in finance [16,35].
+Our weak-label audit is a cautionary tale: noisy supervision degrades not just F1 but
+also the interpretive map the model learns (ρ = 0.11 vs. gold). For compliance-sensitive de-
+ployments, label provenance and explanation audits are indispensable. In practice, if weak
+labels are unavoidable, we recommend (i) human-in-the-loop relabeling for contentious
+spans, (ii) sector-stratified QA, and (iii) faithfulness tests before production.
+5.4. Limitations and Future Work
+While this study establishes a robust workflow, we acknowledge several limitations.
+First, our sentiment signal is aggregated daily; a higher-frequency analysis could reveal
+intraday dynamics not captured here, in line with recent high-frequency stock prediction ap-
+proaches that combine mode decomposition and deep learning [37]. Second, our backtested
+strategies are intentionally simple to isolate the sentiment factor; more complex strategies
+integrating sentiment with other factors like volatility or momentum could yield further
+insights. Finally, while our fine-tuned model is powerful, future work could explore even
+larger, instruction-tuned language models (LLMs) and Retrieval-Augmented Generation
+(RAG) systems to produce not just a sentiment score, but a fully articulated, evidence-
+backed summary of the financial narrative, further closing the gap between prediction and
+true, human-readable explanation [38].
+6. Conclusions
+We presented a finance-focused, sector-aware workflow for financial news sentiment
+that couples fine-tuned FinBERT with audited explanations and uncertainty calibration,
+validated against investable sector ETFs. Our results show that fine-tuning on a high-
+quality, sector-tagged corpus lifts FinBERT from a baseline (F1 = 0.555) to a robust classifier
+(F1 = 0.707). We quantitatively evaluate explanation faithfulness (AOPC), finding LIME
+most faithful for our setting, and we calibrate confidence for safer use in decision pipelines.
+Econometric tests reveal a reactive signal—but one that adds value in event studies and
+cost-aware sector strategies.
+What is new is not a novel architecture but a finance-aligned trustworthiness blueprint:
+(i) sector-aware fine-tuning on curated financial headlines; (ii) faithfulness audits beyond
+plausibility; (iii) uncertainty calibration for confidence management; and (iv) ETF-grounded
+economic validation—all fully reproducible. We advocate evaluating financial NLP not
+only by how accurate it is, but by how it reasons, how confident it is, and whether its
+signals survive contact with markets.
+This study introduced and validated a transparent, reproducible, and comprehensive
+workflow for building, evaluating, and explaining sentiment models for sector-specific
+financial news. Our work makes a clear, evidence-backed argument for the necessity
+of domain-specific fine-tuning, demonstrating a significant performance leap from a
+0.555 to a 0.707 macro F1-score on a challenging, real-world dataset of 1500 headlines. This
+result moves beyond “modest” performance to establish a strong, competitive benchmark
+achieved through a well-defined process.
+The primary contribution of this paper is not a novel model architecture but rather a
+methodological blueprint for the critical diligence required when deploying NLP models
+in finance. We provide a practical, open-source guide for:
+
+
+[Page 17]
+Electronics 2025, 14, 4680 17 of 32
+• Quantifying the substantial performance gains from fine-tuning on bespoke, high-
+quality datasets.
+• Moving beyond superficial explainability by quantitatively auditing the faithfulness
+of post hoc explanations to ensure they are trustworthy.
+• Realistically assessing the economic value of a sentiment signal, reframing it as a
+powerful diagnostic and strategic tool rather than a simple predictive oracle.
+Our finding that sentiment is primarily reactive yet can inform profitable trading
+strategies is a nuanced but important insight for practitioners. As artificial intelligence
+becomes more deeply integrated into financial decision-making, the demand for systems
+that are not only powerful but also auditable and accountable will intensify. This work
+provides a concrete path toward building such systems, arguing that the future of AI in
+finance lies not in creating opaque oracles, but in engineering transparent analytical tools
+whose reasoning can be examined, whose biases can be measured, and whose insights can
+be trusted.
+Author Contributions: Conceptualization, M.P .C., P .I., D.A.M. and C.B.; methodology, M.P .C., P .I.,
+D.A.M. and C.B.; software, M.P .C., P .I., D.A.M. and C.B.; validation, M.P .C., P .I., D.A.M. and C.B.;
+formal analysis, M.P .C., P .I., D.A.M. and C.B.; investigation, M.P .C., P .I., D.A.M. and C.B.; resources,
+M.P .C., P .I., D.A.M. and C.B.; data curation, M.P .C., P .I., D.A.M. and C.B.; writing—original draft
+preparation, M.P .C., P .I., D.A.M. and C.B.; writing—review and editing, M.P .C., P .I., D.A.M. and
+C.B.; visualization, M.P .C., P .I., D.A.M. and C.B.; supervision, M.P .C., P .I., D.A.M. and C.B.; project
+administration, M.P .C., P .I., D.A.M. and C.B.; funding acquisition, M.P .C., P .I., D.A.M. and C.B. All
+authors have read and agreed to the published version of the manuscript.
+Funding: This research received no external funding.
+Data Availability Statement: The source code, analysis pipeline, and the manually annotated
+1500-headline gold-standard dataset generated for this study are openly available in the xai-finnews-
+sentiment repository on GitHub at https://github.com/MaraAlexandru/xai-finnews-sentiment
+(Release v1.0.0, accessed on 27 August 2025). The study also analyzed publicly available data from
+the Financial PhraseBank and FiQA datasets. Restrictions apply to the availability of the raw news
+data, which was obtained from Marketaux.
+Conflicts of Interest: The authors declare no conflicts of interest.
+Appendix A
+Appendix A.1. All Confusion Matrices
+Figure A1. Confusion Matrix for Finbert (Zero-Shot).
+
+
+[Page 18]
+Electronics 2025, 14, 4680 18 of 32
+Figure A2. Confusion Matrix for Loughran–McDonald.
+Figure A3. Confusion Matrix for Logistic Regression (Trained on FiQA Dataset).
+Figure A4. Confusion Matrix for Logistic Regression (Trained on Financial PhraseBank).
+
+
+[Page 19]
+Electronics 2025, 14, 4680 19 of 32
+Figure A5. Confusion Matrix for the VADER Lexicon Model.
+Figure A6. Confusion Matrix for the Weakly Supervised Logistic Regression Model (Overall).
+Appendix A.2. Sector-Specific SHAP Plots
+Figure A7. SHAP Feature Importance Summary Plot for the Basic Materials Sector.
+
+
+[Page 20]
+Electronics 2025, 14, 4680 20 of 32
+Figure A8. SHAP Feature Importance Summary Plot for the Communication Services Sector.
+Figure A9. SHAP Feature Importance Summary Plot for the Consumer Cyclical Sector.
+
+
+[Page 21]
+Electronics 2025, 14, 4680 21 of 32
+Figure A10. SHAP Feature Importance Summary Plot for the Consumer Defensive Sector.
+Figure A11. SHAP Feature Importance Summary Plot for the Energy Sector.
+
+
+[Page 22]
+Electronics 2025, 14, 4680 22 of 32
+Figure A12. SHAP Feature Importance Summary Plot for the Financial Services Sector.
+Figure A13. SHAP Feature Importance Summary Plot for the Healthcare Sector.
+
+
+[Page 23]
+Electronics 2025, 14, 4680 23 of 32
+Figure A14. SHAP Feature Importance Summary Plot for the Industrials Sector.
+Figure A15. SHAP Feature Importance Summary Plot for the Real Estate Sector.
+
+
+[Page 24]
+Electronics 2025, 14, 4680 24 of 32
+Figure A16. SHAP Feature Importance Summary Plot for the Services Sector.
+Figure A17. SHAP Feature Importance Summary Plot for the Technology Sector.
+
+
+[Page 25]
+Electronics 2025, 14, 4680 25 of 32
+Figure A18. SHAP Feature Importance Summary Plot for Unknown/Unclassified Sectors.
+Figure A19. SHAP Feature Importance Summary Plot for the Utilities Sector.
+
+
+[Page 26]
+Electronics 2025, 14, 4680 26 of 32
+Appendix A.3. Backtest Equity Curves
+Figure A20. Equity Curve for the Communication Services Sector (Long-Only Strategy).
+Figure A21. Equity Curve for the Communication Services Sector (Long-Short Strategy).
+Figure A22. Equity Curve for the Consumer Cyclical Sector (Long-Only Strategy).
+Figure A23. Equity Curve for the Consumer Cyclical Sector (Long-Short Strategy).
+
+
+[Page 27]
+Electronics 2025, 14, 4680 27 of 32
+Figure A24. Equity Curve for the Energy Sector (Long-Only Strategy).
+Figure A25. Equity Curve for the Energy Sector (Long-Short Strategy).
+Figure A26. Equity Curve for the Financial Services Sector (Long-Only Strategy).
+Figure A27. Equity Curve for the Financial Services Sector (Long-Short Strategy).
+
+
+[Page 28]
+Electronics 2025, 14, 4680 28 of 32
+Figure A28. Equity Curve for the Healthcare Sector (Long-Only Strategy).
+Figure A29. Equity Curve for the Healthcare Sector (Long-Short Strategy).
+Figure A30. Equity Curve for the Industrials Sector (Long-Only Strategy).
+Figure A31. Equity Curve for the Industrials Sector (Long-Short Strategy).
+
+
+[Page 29]
+Electronics 2025, 14, 4680 29 of 32
+Figure A32. Equity Curve for the Real Estate Sector (Long-Only Strategy).
+Figure A33. Equity Curve for the Real Estate Sector (Long-Short Strategy).
+Figure A34. Equity Curve for the Technology Sector (Long-Only Strategy).
+Figure A35. Equity Curve for the Technology Sector (Long-Short Strategy).
+
+
+[Page 30]
+Electronics 2025, 14, 4680 30 of 32
+Figure A36. Equity Curve for the Utilities Sector (Long-Only Strategy).
+Figure A37. Equity Curve for the Utilities Sector (Long-Short Strategy).
+Appendix A.4.
+Table A1. Cumulative Abnormal Returns (CAR) Around High-Sentiment Events.
+Industry Ticker Model Side Window N_Events Car_Mean Tstat
+Communication Services XLC Market POS [ −1, +3] 7 0.0054 2.5105
+Communication Services XLC Market POS [ −5, +5] 7 0.0033 0.8773
+Communication Services XLC Market NEG [ −1, +3] 1 −0.007
+Communication Services XLC Market NEG [ −5, +5] 1 −0.0042
+Consumer Cyclical XLY Market POS [ −1, +3] 0
+Consumer Cyclical XLY Market POS [ −5, +5] 0
+Consumer Cyclical XLY Market NEG [ −1, +3] 0
+Consumer Cyclical XLY Market NEG [ −5, +5] 0
+Energy XLE Market POS [ −1, +3] 0
+Energy XLE Market POS [ −5, +5] 0
+Energy XLE Market NEG [ −1, +3] 0
+Energy XLE Market NEG [ −5, +5] 0
+Financial Services XLF Market POS [ −1, +3] 0
+Financial Services XLF Market POS [ −5, +5] 0
+Financial Services XLF Market NEG [ −1, +3] 0
+Financial Services XLF Market NEG [ −5, +5] 0
+Healthcare XLV Market POS [ −1, +3] 5 0.0013 0.295
+Healthcare XLV Market POS [ −5, +5] 5 −0.0069 −1.9493
+Healthcare XLV Market NEG [ −1, +3] 1 0.0009
+Healthcare XLV Market NEG [ −5, +5] 1 0.0107
+Industrials XLI Market POS [ −1, +3] 0
+Industrials XLI Market POS [ −5, +5] 0
+Industrials XLI Market NEG [ −1, +3] 0
+Industrials XLI Market NEG [ −5, +5] 0
+Real Estate XLRE Market POS [ −1, +3] 0
+Real Estate XLRE Market POS [ −5, +5] 0
+
+
+[Page 31]
+Electronics 2025, 14, 4680 31 of 32
+Table A1. Cont.
+Industry Ticker Model Side Window N_Events Car_Mean Tstat
+Real Estate XLRE Market NEG [ −1, +3] 0
+Real Estate XLRE Market NEG [ −5, +5] 0
+Utilities XLU Market POS [ −1, +3] 0
+Utilities XLU Market POS [ −5, +5] 0
+Utilities XLU Market NEG [ −1, +3] 0
+Utilities XLU Market NEG [ −5, +5] 0
+Technology XLK Market POS [ −1, +3] 3 0.0004 0.0332
+Technology XLK Market POS [ −5, +5] 3 0.0014 0.1286
+Technology XLK Market NEG [ −1, +3] 2 0.0058 0.3701
+Technology XLK Market NEG [ −5, +5] 2 0.0056 0.2767
+References
+1. Adams, T.; Ajello, A.; Silva, D.; Vazquez-Grande, F. More than Words: Twitter Chatter and Financial Market Sentiment.arXiv
+2023, arXiv:2305.16164. [CrossRef]
+2. Tetlock, P .C. Giving Content to Investor Sentiment: The Role of Media in the Stock Market. J. Financ. 2007, 62, 1139–1168.
+[CrossRef]
+3. Khadjeh Nassirtoussi, A.; Aghabozorgi, S.; Wah, T.Y.; Ngo, D.C.L. Text mining for market prediction: A systematic review.Expert
+Syst. Appl. 2014, 41, 7653–7670. [CrossRef]
+4. Araci, D. FinBERT: Financial Sentiment Analysis with Pre-trained Language Models. arXiv 2019, arXiv:1908.10063.
+5. Mitchell, M.; Wu, S.; Zaldivar, A.; Barnes, P .; Vasserman, L.; Hutchinson, B.; Spitzer, E.; Raji, I.D.; Gebru, T. Model Cards for
+Model Reporting. In Proceedings of the Conference on Fairness, Accountability, and Transparency, New York, NY, USA, 29–31
+January 2019; pp. 220–229.
+6. Select Sector SPDRs. Select Sector SPDRs—Overview. Available online: https://www.sectorspdrs.com/ (accessed on 27 August 2025).
+7. MSCI; S&P Dow Jones Indices. GICS Sector Definitions. 2018. Available online: https://www.msci.com/documents/1296102/11
+185224/GICS%2BSector%2Bdefinitions%2BSept%2B2018.pdf (accessed on 16 August 2025).
+8. S&P Dow Jones Indices. Global Industry Classification Standard (GICS) Methodology. Available online:
+https://www.spglobal.com/spdji/en/documents/methodologies/methodology-gics.pdf (accessed on 27 August 2025).
+9. MSCI. Indexes—GICS. Available online: https://www.msci.com/indexes/index-resources/gics (accessed on 16 August 2025).
+10. Lyu, Q.; Apidianaki, M.; Callison-Burch, C. Towards faithful model explanation in NLP: A survey.Comput. Linguist. 2024, 50,
+657–723. [CrossRef]
+11. Zhao, H.; Chen, H.; Yang, F.; Liu, N.; Deng, H.; Cai, H.; Wang, S.; Yin, D.; Du, M. Explainability for Large Language Models: A
+Survey. ACM Comput. Surv. 2023, 15, 1–38. [CrossRef]
+12. Samek, W.; Binder, A.; Montavon, G.; Lapuschkin, S.; Müller, K.-R. Evaluating the Visualization of What a Deep Neural Network
+Has Learned. IEEE Trans. Neural Netw. Learn. Syst. 2017, 28, 2660–2673. [CrossRef] [PubMed]
+13. Jain, S.; Wallace, B.C. Attention Is Not Explanation. In Proceedings of the Conference of the North American Chapter of the
+Association for Computational Linguistics (NAACL-HLT), Minneapolis, MN, USA, 2–7 June 2019.
+14. Serrano, S.; Smith, N.A. Is Attention Interpretable? In Proceedings of the Annual Meeting of the Association for Computational
+Linguistics (ACL), Florence, Italy, 28 July–2 August 2019.
+15. Wiegreffe, S.; Pinter, Y. Attention Is Not Not Explanation. In Proceedings of the Conference on Empirical Methods in Natural
+Language Processing (EMNLP), Hong Kong, China, 3–7 November 2019.
+16. Guo, C.; Pleiss, G.; Sun, Y.; Weinberger, K.Q. On Calibration of Modern Neural Networks. In Proceedings of the International
+Conference on Machine Learning (ICML), Sydney, Australia, 6–11 August 2017.
+17. Du, K.; Xing, F.; Mao, R.; Cambria, E. Financial Sentiment Analysis: Techniques and Applications. ACM Comput. Surv. 2024, 56,
+1–42. [CrossRef]
+18. Cerneviˇ cien ˙e, J.; Navickien˙e, G. Explainable Artificial Intelligence in Finance; Springer: Cham, Switzerland, 2024.
+19. Anbaee Farimani, S.; Vafaei Jahan, M.; Milani Fard, A.; Tabbakh, S.R.K. Investigating the informativeness of technical indicators
+and news sentiment in financial market price prediction. Knowl.-Based Syst. 2022, 247, 108742. [CrossRef]
+20. FinBERT-FOMC. Fine-Tuned FinBERT Model with Sentiment Focus Method for Enhancing Sentiment Analysis of FOMC Minutes.
+Available online: https://www.researchgate.net/publication/375920082 (accessed on 27 August 2025).
+21. Yazdani, S.F.; Murad, M.A.A.; Sharef, N.; Singh, Y.P .; Latiff, A. Sentiment Classification of Financial News Using Statistical
+Features. Int. J. Pattern Recognit. Artif. Intell. 2017, 31, 1750006. [CrossRef]
+22. Lundberg, S.; Lee, S.-I. A Unified Approach to Interpreting Model Predictions. arXiv 2017, arXiv:1705.07874. [CrossRef]
+
+
+[Page 32]
+Electronics 2025, 14, 4680 32 of 32
+23. Ribeiro, M.T.; Singh, S.; Guestrin, C. ‘Why Should I Trust You?’: Explaining the Predictions of Any Classifier. In Proceedings of
+the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, New York, NY, USA, 13–17 August
+2016; pp. 1135–1144.
+24. Rudin, C. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nat.
+Mach. Intell. 2019, 1, 206–215. [CrossRef] [PubMed]
+25. Wood, S.N. Generalized Additive Models: An Introduction with R, 2nd ed.; CRC Press: Boca Raton, FL, USA, 2017.
+26. Nori, H.; Jenkins, S.; Koch, P .; Caruana, R. Interpretml: A unified framework for machine learning interpretability. In Proceedings
+of the KDD ’19, Anchorage, AK, USA, 4–8 August 2019.
+27. Sundararajan, M.; Taly, A.; Yan, Q. Axiomatic attribution for deep networks. In Proceedings of the International Conference on
+Machine Learning (ICML), Sydney, Australia, 6–11 August 2017.
+28. Hooker, S.; Erhan, D.; Kindermans, P .-J.; Kim, B. A Benchmark for Interpretability Methods in Deep Neural Networks.arXiv 2019,
+arXiv:1806.07538. [CrossRef]
+29. DeYoung, J.; Jain, S.; Rajani, N.F.; Lehman, E.; Xiong, C.; Socher, R.; Wallace, B.C. ERASER: A Benchmark to Evaluate Rationalized
+NLP Models. In Proceedings of the Annual Meeting of the Association for Computational Linguistics (ACL), Online, 5–10 July 2020.
+30. Manna, S.; Sett, N. Faithfulness and the Notion of Adversarial Sensitivity in NLP Explanations. In Proceedings of the 7th
+BlackboxNLP Workshop: Analyzing and Interpreting Neural Networks for NLP , Miami, FL, USA, 15 November 2024;pp. 193–206.
+31. Pineau, J.; Vincent-Lamarre, P .; Sinha, K.; Larivière, V .; Beygelzimer, A.; d’Alché-Buc, F.; Fox, E.; Larochelle, H. Improving Repro-
+ducibility in Machine Learning Research (A Report from the NeurIPS 2019 Reproducibility Program).arXiv 2020, arXiv:2003.12206.
+[CrossRef]
+32. Chen, J.; Zhou, P .; Hua, Y.; Xin, L.; Chen, K.; Li, Z.; Zhu, B.; Liang, J. FinTextQA: A Dataset for Long-form Financial Question
+Answering. In Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational
+Linguistics, Mexico City, Mexico, 16–21 June 2024; pp. 6025–6047.
+33. Chen, Z.; Chen, W.; Smiley, C.; Shah, S.; Borova, I.; Langdon, D.; Moussa, R.; Beane, M.; Huang, T.-H.; Routledge, B.R.; et al.
+FinQA: A Dataset of Numerical Reasoning over Financial Data. arXiv 2022, arXiv:2109.00122. [CrossRef]
+34. Lison, P .; Barnes, J.; Hubin, A. skweak: Weak Supervision Made Easy for NLP . In Proceedings of the 59th Annual Meeting of the
+Association for Computational Linguistics: System Demonstrations, Online, 1–6 August 2021; pp. 337–346.
+35. Naeini, M.P .; Cooper, G.F.; Hauskrecht, M. Obtaining Well-Calibrated Probabilities Using Bayesian Binning. arXiv 2015,
+arXiv:1509.06213.
+36. Angelopoulos, A.N.; Bates, S. A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification.
+arXiv 2021, arXiv:2107.07511.
+37. Chen, W.; Jiang, Q.; Jia, X.; Rasool, A.; Jiang, W. A High-Frequency Stock Price Prediction Method Based on Mode Decomposition
+and Deep Learning. In Communications in Computer and Information Science, Proceedings of the Big Data and Security ICBDS 2022,
+Xiamen, China, 8–12 December 2022; Tian, Y., Ma, T., Jiang, Q., Liu, Q., Khan, M.K., Eds.; Springer: Singapore, 2023; Volume 1796.
+38. Rasool, A.; Shahzad, M.I.; Aslam, H.; Chan, V .; Arshad, M.A. Emotion-Aware Embedding Fusion in Large Language Models
+(Flan-T5, Llama 2, DeepSeek-R1, and ChatGPT 4) for Intelligent Response Generation. AI 2025, 6, 56. [CrossRef]
+Disclaimer/Publisher’s Note: The statements, opinions and data contained in all publications are solely those of the individual
+author(s) and contributor(s) and not of MDPI and/or the editor(s). MDPI and/or the editor(s) disclaim responsibility for any injury to
+people or property resulting from any ideas, methods, instructions or products referred to in the content.

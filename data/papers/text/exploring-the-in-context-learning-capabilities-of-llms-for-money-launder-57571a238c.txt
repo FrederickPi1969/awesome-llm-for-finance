@@ -1,0 +1,430 @@
+[Page 1]
+Exploring the In-Context Learning Capabilities of
+LLMs for Money Laundering Detection in Financial
+Graphs
+Erfan Pirmorad
+The Vanguard Group, Inc.
+erfan pirmorad@vanguard.com
+Abstract—The complexity and inter-connectivity of entities
+involved in money laundering demand investigative reasoning
+over graph-structured data. This paper explores the use of large
+language models (LLMs) as reasoning engines over localized
+subgraphs extracted from a financial knowledge graph. We
+propose a lightweight pipeline that retrieves k-hop neighborhoods
+around entities of interest, serializes them into structured text,
+and prompts an LLM via few-shot in-context learning to assess
+suspiciousness and generate justifications. Using synthetic anti-
+money laundering (AML) scenarios that reflect common launder-
+ing behaviors, we show that LLMs can emulate analyst-style logic,
+highlight red flags, and provide coherent explanations. While this
+study is exploratory, it illustrates the potential of LLM-based
+graph reasoning in AML and lays groundwork for explainable,
+language-driven financial crime analytics.
+Index Terms—Anti Money Laundering (AML), In-context
+Learning, Large Language Model (LLM), Financial Graph
+I. INTRODUCTION
+As financial data becomes increasingly interconnected, in-
+stitutions are turning to knowledge graphs to capture the com-
+plex relationships between customers, accounts, transactions,
+devices, and geographic entities. These graphs provide a rich
+structure for reasoning about risk, behavior, and anomalies.
+However, leveraging their full potential requires tools capable
+of understanding and explaining multi-hop, heterogeneous
+patterns.
+Recent advances in large language models (LLMs) have
+demonstrated their ability to reason over structured data, in-
+cluding relational chains and graph-like abstractions. A grow-
+ing body of research has shown that LLMs can be adapted to
+perform graph reasoning tasks via graph-structured prompting
+[4], or language-guided message passing [9]. Surveys on this
+topic highlight a promising direction for unifying natural
+language and graph reasoning under a shared framework [8].
+Building on this momentum, we explore whether LLMs can
+support investigative-style reasoning overfinancial knowledge
+graphs. These graphs represent real-world financial systems,
+where relational complexity is not only common but essential
+to risk analysis, trend analysis, etc., [5]. Our goal is to eval-
+uate the feasibility of using LLMs as interpretable reasoning
+engines over such data. As a motivating case study, we focus
+on anti-money laundering (AML) in this study. AML is a
+domain where identifying suspicious behavior involves tracing
+©2025 The Vanguard Group, Inc. All rights reserved.
+intricate financial flows across individuals, shell entities, and
+intermediary accounts [2], [3]. AML and financial crime
+investigations increasingly rely on graph-based representations
+to detect patterns such as layering, rapid movement of funds,
+and shared infrastructure [6], [7].
+For this study, we utilize the publicly available IBM AML
+Synthetic Dataset [1], which simulates financial activities
+through a realistic knowledge graph of accounts, banks, and
+transactions, designed to model common laundering typologies
+based on real-world intelligence. This allows us to explore
+LLM-based reasoning in a controlled yet representative envi-
+ronment.
+This work positions LLMs not merely as text generators,
+but asin-context reasoning enginescapable of interpreting
+graph-structured financial activity. In-context learning offers
+a flexible, parameter-free mechanism to inject domain knowl-
+edge and reasoning capabilities into black-box LLMs, aligning
+naturally with investigative workflows. By leveraging this
+mechanism, we evaluate whether LLMs can emulate analyst-
+style reasoning in AML detection without retraining or labeled
+supervision.
+Our pipeline (Fig. 1) extracts a k-hop subgraph, serializes
+it into structured text, and prompts an LLM in a few-shot
+setup to classify suspiciousness and provide human-readable
+justification.
+Fig. 1. Pipeline Overview for LLM-based AML Analysis.
+We evaluate this pipeline using synthetic AML scenarios
+that reflect realistic laundering behaviors, constructed from
+arXiv:2507.14785v2  [cs.LG]  29 Oct 2025
+
+
+[Page 2]
+publicly available datasets. Our early results indicate that
+LLMs can highlight meaningful red flags, trace multi-step
+patterns, and generate rationales that align with human in-
+tuition. This case study illustrates the potential of LLMs
+for reasoning over financial knowledge graphs, offering a
+path toward explainable, language-driven fraud analytics. To
+our knowledge, this is the first work to apply in-context
+learning with LLMs for money laundering detection over fi-
+nancial graphs. The proposed pipeline bridges localized graph
+structure with natural language reasoning in a scalable and
+interpretable way.
+II. METHODOLOGY
+We propose a three-stage framework: (1) extract subgraphs
+around suspicious transactions, (2) serialize them into text,
+and (3) prompt an LLM with laundering typologies in a
+few-shot setup. The model outputs suspiciousness, rationale,
+and typology, letting us evaluate classification accuracy and
+reasoning transparency.
+A. Financial Graph Representation and Subgraph Extraction
+Money laundering schemes often involve complex trans-
+actional relationships that can be naturally represented as
+graphs. In this work, we use the publicly available IBM AML
+Synthetic Dataset [1], which models financial activities as
+a knowledge graph. In this graph, nodes representaccounts
+(individual or corporate) andbanks, while edges represent
+financial transactionsbetween accounts. Each node is anno-
+tated with metadata such as entity type and account creation
+date; each transaction edge is labeled with attributes including
+transaction amount and timestamp.
+Our goal is to reason about the suspiciousness of specific
+transactions by analyzing the surrounding graph structure.
+For each candidate transaction (i.e., a transfer between two
+accounts), we extract a localizedk-hop subgraph centered
+on the transaction edge. The subgraph includes the source
+and destination accounts, their neighboring transactions within
+khops, and any associated bank nodes. An example of an
+extracted subgraph is shown below. Each extracted structure
+provides the LLM with a focused local context to assess
+whether the transaction may reflect suspicious activity.
+Fig. 2. Snapshot of a sample 2-hop subgraph centered around a transaction
+betweenacct 80FF89190andacct 810147BB0.
+This extraction strategy frames the detection task as an
+edge-centric classification problemover the transaction graph,
+where the objective is to predict whether the given transaction
+edge represents money laundering activity.
+B. Textual Serialization
+Each subgraph is serialized into structured text: nodes as
+tagged entities and edges as relations with direction, amounts,
+and timestamps. Example:
+Serialized Subgraph Example
+**Nodes:**
+- acct_810147BB0 (type: Account)
+- acct_8101A5D70 (type: Account)
+- acct_811416D0 (type: Account)
+- acct_8117F9960 (type: Account)
+- acct_80FF8910 (type: Account)
+- bank_217 (type: Bank)
+- bank_4049 (type: Bank)
+**Edges:**
+- acct_810147BB0 belongs_to bank_217
+- acct_810147BB0 transfers_to acct_8101A5D70
+amount: 225756.22 Shekel
+via: Reinvestment
+timestamp: 2022/09/01 00:02
+...additional edges omitted for brevity...
+C. Few-Shot Prompting with AML Typologies
+A defining characteristic of anti-money laundering (AML)
+investigations is the presence of recurring structural patterns
+in transactional behavior. Some of these patterns have been
+studied and documented in financial intelligence reports and
+academic studies, including the IBM AML dataset, which
+models them as prototypical graph topologies. Figure 3 vi-
+sualizes eight canonical laundering structures used in our
+prompting framework: (a)fan-out, (b)fan-in, (c)gather-
+scatter, (d)scatter-gather, (e)simple cycle, (f)random, (g)
+bipartite, and (h)stack.
+Fig. 3. Canonical money laundering patterns used as reasoning demonstra-
+tions. Image adapted from the IBM AML dataset paper.
+To help the LLM learn to reason over financial subgraphs,
+our approach uses a few-shot prompting setup where each
+demonstration example showcases one of these laundering pat-
+terns. Each example consists of (i) a brief serialized subgraph
+in the textual format described in Section II-B, and (ii) a
+natural language rationale that explains why the activity is
+suspicious, grounded in the structure of the graph. Both the
+graph serialization and the rationale are derived from samples
+in the IBM AML dataset, which provides well-annotated
+synthetic cases.
+The prompt includes eight such examples, each corre-
+sponding to one of the patterns shown in Figure 3, before
+appending the test case. By explicitly conditioning the LLM
+on real-world-style typologies and human-readable rationales,
+we align the reasoning process with investigative workflows.
+Importantly, these demonstrations emphasize graph topology
+and multi-hop interactions rather than superficial statistical
+cues, which makes the model more likely to generalize beyond
+seen entities.
+This methodology leverages the core advantage of few-shot
+learning via in-context learning: enabling the model to acquire
+
+
+[Page 3]
+structural priors without any fine-tuning. It effectively boot-
+straps the LLM into a role akin to a fraud analyst by showing
+what suspicious behavior “looks like” in multiple formats.
+The choice to use real pattern types, realistic transactions,
+and natural language justifications makes the prompting setup
+robust, interpretable, and well-aligned with human investigator
+expectations. To further refine the model’s discrimination
+ability, we also include several examples of non-suspicious
+financial activity—subgraphs that contain no red flags—within
+the same prompt. This ensures that the model learns not only
+to detect suspicious patterns, but also to distinguish them from
+legitimate transactional behavior.
+The final structure of the LLM prompt follows the template
+below, showing how demonstration subgraphs and rationales
+are interleaved. The subgraphs are serialized using the format
+shown previously in theSerialized Subgraph Examplebox in
+Section II-B.
+Final Prompt Template
+Prompt Header:
+You are an expert financial crime investigator reviewing
+patterns of financial activities and behaviors of
+involved accounts to identify potential cases of money
+laundering. The data is represented as a graph, where:
+- Nodesare of type Account or Bank.
+- Edgesrepresent relationships of type transfers_to
+or belongs_to, and include metadata such as amount,
+currency, payment method, and timestamp.
+For training purposes, you will be shown examples
+of subgraph typologies that are known to be either
+suspicious (indicative of laundering tactics) or
+non-suspicious (routine financial activity). These
+typologies illustrate common structural patterns in
+financial networks.
+Few-shot Examples:
+<<Serialized Subgraph 1>>
+Explanation:This pattern resembles fan-out behavior,
+where a single account disperses funds to many accounts
+within a short window, often to obscure the origin.
+<<Serialized Subgraph 2>>
+Explanation:This reflects a gather-scatter pattern,
+where funds from multiple sources converge briefly before
+dispersing again, which is a common layering tactic.
+... (examples 3 through 7 omitted for brevity) ...
+<<Serialized Subgraph 8>>
+Explanation:A highly connected bipartite structure,
+consistent with mule networks or coordinated burst
+activity.
+non-suspicious Examples:
+<<Serialized Subgraph 1>>
+Explanation:These transfers occur across a regular
+schedule, between known parties with consistent values.
+No indicators of laundering behavior.
+... (examples 2 through 4 omitted for brevity) ...
+Task:Given a transaction (edge) with Transaction ID
+<ID>, along with its surrounding subgraph, determine
+whether the transaction is suspicious, or not suspicious.
+Your reasoning should be based on whether the surrounding
+subgraph resembles any of the suspicious typologies
+provided in the examples.
+Test Example:
+<<Serialized Test Subgrap>>
+Answer Format:
+- Conclusion: Suspicious or Not Suspicious
+- Explanation: (2-3 sentences reasoning)
+- Observed Pattern: (e.g., gather-scatter)
+III. EXPERIMENTS ANDRESULTS
+We evaluate the proposed reasoning pipeline on theAML
+HI Smalldataset, which simulates real-world money laun-
+dering typologies through graph-structured financial transac-
+tions. Our primary goal at this stage is to assess both the
+classification ability and the reasoning quality of a large
+language model (LLM) over structured financial subgraphs.
+A. Experimental Setup
+We construct a balanced evaluation set consisting of 2,000
+examples: 1,000 laundering transactions and 1,000 non-
+laundering transactions. While this does not reflect the class
+imbalance typically observed in real-world AML investiga-
+tions, it enables a controlled evaluation of the model’s ability
+to distinguish suspicious patterns without being dominated by
+prior class frequencies. This design isolates the core reasoning
+capabilities of the LLM pipeline and ensures that performance
+metrics reflect meaningful classification behavior rather than
+dataset skew. Extending the evaluation to realistic, highly
+imbalanced distributions remains an important direction for
+future work. Each subgraph is serialized following the format
+described in Section II-B and embedded into the final prompt
+template described in Section II-C. The prompt includes eight
+suspicious pattern examples and four non-suspicious exam-
+ples, with task instructions asking the model to: (1) classify
+the subgraph as suspicious or not suspicious, and (2) list
+any observed money laundering patterns. We use the GPT-
+4o model accessed via the OpenAI API (temperature = 0).
+Each test sample is independently prompted with no carryover
+memory.
+B. Sample Model Output
+Below we present a representative output generated by the
+LLM for a test subgraph classified as suspicious:
+Sample LLM Output
+Conclusion:Suspicious
+Explanation:Transaction ID ‘3064852‘ is part of a
+networks that exhibits characteristics of fan-out. The
+originating account ‘acct_8089DC420‘ rapidly transfers
+large amounts to multiple accounts across different
+banks, including the target account ‘acct_807051670‘.
+The high volume of transactions, diverse endpoints, and
+rapid movement suggest layering and potential laundering
+activity.
+Observed Pattern:fan-out
+C. Classification Performance
+Given the computational cost of LLM inference at scale,
+rerunning the model over multiple randomized test sets was
+infeasible. Instead, to assess the robustness of our results
+without incurring additional inference cost, we apply bootstrap
+resampling over the fixed set of 2,000 model outputs. Specif-
+ically, we generate 1,000 bootstrap samples (sampling with
+replacement) and recompute key evaluation metrics for each
+resample. This procedure allows us to estimate the mean and
+95% confidence intervals for classification accuracy, precision,
+and recall. Reporting confidence intervals provides insight into
+the stability of both classification and reasoning performance.
+Table I summarizes the model’s binary classification perfor-
+mance.
+To evaluate the model’s reasoning quality and tendency to
+hallucinate patterns, we measure the precision and recall of
+the patterns listed by the LLM relative to ground-truth pattern
+labels provided by the IBM dataset.
+
+
+[Page 4]
+TABLE I
+CLASSIFICATIONPERFORMANCE WITH95% CONFIDENCEINTERVALS
+Metric Value (95% CI)
+Overall Accuracy 63.7%±3.3%
+Precision 62.7%±4.4%
+Recall 67.7%±4.4%
+TABLE II
+PATTERNRECOGNITIONPERFORMANCE(PERPATTERN)WITH95%
+CONFIDENCEINTERVALS
+Pattern Precision (95% CI) Recall (95% CI)
+Fan-out 75.1%±4.0% 80.3%±3.8%
+Fan-in 73.8%±4.1% 81.5%±4.0%
+Gather-scatter 66.2%±4.5% 70.7%±4.3%
+Scatter-gather 64.9%±4.5% 68.8%±4.3%
+Simple cycle 62.5%±4.6% 65.9%±4.5%
+Random 51.5%±5.0% 53.5%±4.9%
+Bipartite 55.0%±5.0% 56.1%±5.0%
+Stack 52.0%±5.1% 58.0%±5.0%
+Detection performance generally reflects the underlying
+structural complexity of the laundering patterns. Highly orga-
+nized patterns such asfan-outandfan-inachieve the strongest
+results, while moderately complex patterns likegather-scatter,
+scatter-gather, andsimple cycleshow intermediate perfor-
+mance. Among the harder patterns, such asrandom,bipartite,
+andstack, we observe some variability, reflecting the increased
+difficulty in consistently capturing less structured behaviors.
+Overall, these preliminary findings suggest that prompting
+LLMs over serialized financial graphs provides a viable path-
+way for both suspicious activity classification and explainable
+pattern-driven reasoning.
+IV. CONCLUSION ANDFUTUREWORK
+In this paper, we explored the feasibility of using large
+language models (LLMs) to perform structured reasoning
+over financial knowledge graphs for anti-money laundering
+(AML) investigations. By constructing localized subgraphs
+around transactions, serializing them into textual prompts,
+and conditioning the LLM with a few-shot setup based on
+canonical laundering patterns, we demonstrated that LLMs
+can not only classify suspicious behavior but also provide
+interpretable rationales for their decisions through in-context
+learning.
+While this work presents an initial exploration rather than
+a production-ready system, it is not intended as a fully bench-
+marked replacement for existing graph-based fraud detection
+methods. Instead, our goal was to assess the feasibility and
+interpretability of in-context LLM reasoning over financial
+knowledge graphs. This study provides a conceptual founda-
+tion for hybrid approaches that integrate explainability and
+investigative logic, while also recognizing that computational
+and scalability challenges must be addressed for future practi-
+cal deployments. One of the most important advantages of this
+approach is its strong interpretability. Unlike traditional graph
+neural networks (GNNs) or other embedding-based methods,
+which often act as black boxes, the LLM produces human-
+readable explanations that align with investigative reasoning.
+This opens the door for models that are not only accurate but
+also transparent and auditable, addressing a key pain point
+in the deployment of machine learning systems for financial
+crime detection.
+While promising, the approach also presents practical limi-
+tations. In particular, the computational cost of prompting large
+language models at inference time makes it impractical as a
+stand-alone solution for large-scale production. Instead, we
+envision a hybrid system where a lightweight classifier, such
+as a GNN or a graph feature engineering model with a gradient
+boosting classifier, performs initial triage. Only cases with low
+classification confidence (borderline decisions) are escalated
+to the LLM for additional reasoning. This selective invocation
+strategy maintains scalability while leveraging LLM-generated
+rationales to improve decision quality and explainability. In
+future work, we plan to benchmark such systems and assess
+their impact on detection performance and transparency. We
+will also explore whether smaller LLMs, fine-tuned for finan-
+cial graph reasoning, can deliver similar interpretability with
+significantly reduced computational overhead. These steps will
+help unlock scalable, interpretable, and effective fraud and
+financial crime detection systems for real-world environments.
+DISCLAIMER
+This material is provided for informational purposes only
+and is not intended to be investment advice or a recommen-
+dation to take any particular investment action.
+REFERENCES
+[1] Erik Altman, Jovan Blanu ˇsa, Luc von Niederh ¨ausern, B ´eni Egressy,
+Andreea Anghel, and Kubilay Atasu. Realistic synthetic financial trans-
+actions for anti-money laundering models. InAdvances in Neural Infor-
+mation Processing Systems 36 (NeurIPS 2023) Datasets and Benchmarks
+Track, 2023.
+[2] Zhiyuan Chen, Le Dinh Khoa, Ee Na Teoh, Amril Nazir, Ettikan Kan-
+dasamy Karuppiah, and Kim Sim Lam. Machine learning techniques for
+anti-money laundering (aml) solutions in suspicious transaction detection:
+a review.Knowl. Inf. Syst., 57(2):245–285, November 2018.
+[3] Jenny Domashova and Natalia Mikhailina. Usage of machine learning
+methods for early detection of money laundering schemes.Procedia Com-
+puter Science, 190:184–192, 2021. 2020 Annual International Conference
+on Brain-Inspired Cognitive Architectures for Artificial Intelligence:
+Eleventh Annual Meeting of the BICA Society.
+[4] Bahare Fatemi, Jonathan J. Halcrow, and Bryan Perozzi. Talk like a graph:
+Encoding graphs for large language models.ArXiv, abs/2310.04560,
+2023.
+[5] Xiaohui Victor Li and Francesco Sanna Passino. Findkg: Dynamic
+knowledge graphs with large language models for detecting global trends
+in financial markets. InInternational Conference on AI in Finance, 2024.
+[6] Soroor Motie and Bijan Raahemi. Financial fraud detection using graph
+neural networks: A systematic review.Expert Systems with Applications,
+240:122156, 2024.
+[7] Berkan Oztas, Deniz Cetinkaya, Festus Adedoyin, Marcin Budka, Gokhan
+Aksu, and Huseyin Dogan. Transaction monitoring in anti-money laun-
+dering: A qualitative analysis and points of view from industry.Future
+Generation Computer Systems, 159:161–171, 2024.
+[8] Shirui Pan, Linhao Luo, Yufei Wang, Chen Chen, Jiapu Wang, and
+Xindong Wu. Unifying large language models and knowledge graphs:
+A roadmap.IEEE Transactions on Knowledge and Data Engineering,
+36:3580–3599, 2023.
+[9] Bryan Perozzi, Bahare Fatemi, Dustin Zelle, Anton Tsitsulin, Mehran
+Kazemi, Rami Al-Rfou, and Jonathan J. Halcrow. Let your graph do the
+talking: Encoding structured data for llms.ArXiv, abs/2402.05862, 2024.

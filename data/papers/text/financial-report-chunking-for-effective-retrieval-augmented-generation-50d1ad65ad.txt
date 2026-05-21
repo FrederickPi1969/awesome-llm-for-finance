@@ -1,0 +1,667 @@
+[Page 1]
+arXiv:2402.05131v3  [cs.CL]  16 Mar 2024
+Financial Report Chunking for Eﬀective
+Retrieval Augmented Generation
+Antonio Jimeno Yepes, Yao You, Jan Milczek, Sebastian Laverde, an d Leah Li
+Unstructured Technologies
+Sacramento, CA, USA
+leah@unstructured.io
+https://unstructured.io
+Abstract. Chunking information is a key step in Retrieval Augmented
+Generation (RAG). Current research primarily centers on pa ragraph-
+level chunking. This approach treats all texts as equal and n eglects
+the information contained in the structure of documents. We propose
+an expanded approach to chunk documents by moving beyond mer e
+paragraph-level chunking to chunk primary by structural el ement com-
+ponents of documents. Dissecting documents into these cons tituent ele-
+ments creates a new way to chunk documents that yields the bes t chunk
+size without tuning. We introduce a novel framework that eva luates how
+chunking based on element types annotated by document under standing
+models contributes to the overall context and accuracy of th e informa-
+tion retrieved. We also demonstrate how this approach impac ts RAG
+assisted Question & Answer task performance. Our research i ncludes a
+comprehensive analysis of various element types, their rol e in eﬀective
+information retrieval, and the impact they have on the quali ty of RAG
+outputs. Findings support that element type based chunking largely im-
+prove RAG results on ﬁnancial reporting. Through this resea rch, we are
+also able to answer how to uncover highly accurate RAG.
+Keywords: Retrieval Augmented Generation · Document Chunking ·
+Document Pre-Processing · Financial Domain · Large Language Models
+1 Introduction
+Existing approaches for document understanding use a combinatio n of methods
+from the computer vision and natural language processing domains to identify
+the diﬀerent components in a document. In the rapidly evolving lands cape of
+artiﬁcial intelligence, the capability to eﬀectively process unstruct ured data is
+becoming increasingly critical. Large Language Models (LLMs) like GPT -4 have
+revolutionized natural language understanding and generation, a s evidenced by
+their prompt-based functionalities [31], enabling a wide range of applic ations [5].
+However, the eﬃcacy of these models is often constrained by their reliance on the
+size and quality of the data they process. A notable limitation is the re stricted
+contextual window of LLMs, which hampers their ability to fully compr ehend the
+
+
+[Page 2]
+2 Jimeno Yepes et al.
+contents of extensive documents [25,22,18]. By dissecting large vo lumes of text
+into smaller, more focused segments, LLMs can process each part with greater
+precision, ensuring a thorough understanding of each section. Th is segmented
+approach allows for meticulous analysis of unstructured data, ena bling LLMs to
+construct a more comprehensive and coherent understanding of the entire docu-
+ment [41]. There remains a challenge in ensuring factual accuracy an d relevance
+in the generated responses, especially when dealing with complex or e xtensive
+information.
+Recently, Retrieval Augmented Generation (RAG) [21,12] has been devel-
+oped to address the hallucination problem with LLMs [15,43] when recovering
+factual information directly from an LLM. In RAG, instead of answe ring a user
+query directly using an LLM, the user query is used to retrieve docu ments or
+segments from a corpus and the top retrieved documents or segm ents are used
+to generate the answer in conjunction with an LLM. In this way, RAG con-
+straints the answer to the set of retrieved documents. RAGs hav e been used as
+well to answer questions from single documents [14]. The document s are split
+into smaller parts or chunks, indexed by a retrieval system and rec overed and
+processed depending on the user information need. In a sense, th is process allows
+answering questions about information in a single document, thus co ntributing
+to the set of techniques available for document understanding.
+Since documents need to be chunked for RAG processing, this raises the
+question about what is the best practice to chunk documents for e ﬀective RAG
+document understanding. There are several dimensions to consid er when decid-
+ing how to chunk a document, which includes the size of the chunks.
+The retrieval system in RAG can use traditional retrieval systems using bag-
+of-words methods or a vector database. If a vector database is used, then an
+embedding needs to be obtained from each chunk, thus the number of tokens
+in the chunk is relevant since the neural networks processing the c hunks might
+have constraints on the number of tokens. As well, diﬀerent chunk sizes might
+have undesirable retrieval results. Since the most relevant retrie ved chunks need
+to be processed by an LLM, the number of tokens in retrieved chun ks might
+have an eﬀect in the generation of the answer [25]. As we see, chunk ing is re-
+quired for RAG systems and there are several advantages and dis advantages
+when considering how to chunk a document.
+In this work, we study speciﬁcally the chunking of U.S. Securities and Ex-
+change Commission (SEC) 1 Financial Reports 2, including 10-Ks, 10-Qs, and
+8-Ks. This study plays a critical role in oﬀering insights into the ﬁnanc ial health
+and operational dynamics of public companies. These documents pr esent unique
+challenges in terms of document processing and information extrac tion as they
+consist of varying sizes and layouts, and contain a variety of tabula r informa-
+tion. Previous work has evaluated the processing of these report s with simple
+chunking strategies (e.g., tokens), but we believe that a more eﬀec tive use of
+these reports might be achieved by a better pre-processing of th e documents
+1 https://www.sec.gov
+2 https://www.sec.gov/files/cf-frm.pdf
+
+
+[Page 3]
+Financial Report Chunking for Eﬀective Retrieval Augmente d Generation 3
+and chunking conﬁguration 3 [14]. To the best of our knowledge, this is the ﬁrst
+systematic study on chunking for document understanding and mo re speciﬁcally
+for processing ﬁnancial reports.
+2 Related work
+RAG is an innovative method that has emerged to enhance the perfo rmance of
+LLMs by incorporating external knowledge, thereby boosting the ir capabilities.
+This technique has undergone substantial research, examining va rious conﬁgu-
+rations and applications. Key research includes Gao et al.’s [12] detaile d analysis
+of RAG conﬁgurations and their role in enhancing Natural Language Processing
+(NLP) tasks, reducing errors, and improving factual accuracy. Several context
+retrieval methods are proposed to dynamically retrieve document s to improve
+the coherence of generated outputs [1]. Other research introdu ced advancements
+in RAG, including reasoning chain storage and optimization strategies for re-
+trieval, respectively, broadening the scope and eﬃciency of RAG ap plications in
+LLMs [21]. More recent work has compared RAG vs LLM ﬁne-tuning, a nd identi-
+ﬁed that applying both improves the performance of each individual method [2].
+Chunking has been identiﬁed as the key factor in the success of RAG , improv-
+ing the relevance of retrieved content by ensuring accurate embe dding of text
+with minimal noise. Various strategies have been developed for text subdivision,
+each with its unique approach. They can be summarized as follows: th e ﬁxed
+size strategy divides text into uniform segments, but it often overlooks the
+underlying textual structure. In contrast, the recursive strategy iteratively
+subdivides text using separators like punctuation marks, allowing it t o adapt
+more ﬂuidly to the content. The contextual strategy takes this a step further
+by employing NLP techniques such as sentence segmentation to rep resent the
+meaning in context. Lastly, the hybrid strategy combines diﬀerent approaches,
+oﬀering greater ﬂexibility in handling diverse text types [34]. Howeve r, an area
+yet to be explored in RAG chunking based on element types (documen t struc-
+ture), which involves analyzing the inherent structure of documen ts, such as
+headings, paragraphs, tables, to guide the chunking process. Alt hough chunk-
+ing by Markdown and LaTeX comes closer to addressing element type s, it’s not
+the same in nature as a dedicated approach that directly considers document
+structure and element types for chunking, which could potentially y ield more
+contextually relevant chunks.
+Exploring the structure of ﬁnancial reports is an exceptional are a for es-
+tablishing optimal principles for chunking. The intricate nature of do cument
+structures and contents has resulted in most of the work proces sing ﬁnancial
+reports focusing on the identiﬁcation of structural elements. Am ong previous
+work, we ﬁnd El-Haj et al. [10] and the FinTOC challenges [17,4,11] th at have
+worked at the document structure level for UK and French ﬁnanc ial reports. Ad-
+3 https://www.cnbc.com/2023/12/19/gpt-and-other-ai-mo dels-cant-analyze-
+an-sec-filing-researchers-find.html
+
+
+[Page 4]
+4 Jimeno Yepes et al.
+ditionally, there is recent work that considers U.S. SEC reports, wh ich includes
+DocLayNet [33] and more speciﬁcally with the report tables in FinTabN et [45].
+On the side of ﬁnancial models, there is work in sentiment analysis in ﬁ-
+nance [37], which includes the pre-training of specialised models such a s Fin-
+BERT by Liu et al. [26], which is a BERT based model pre-trained on large
+corpora including large collections of ﬁnancial news collected from diﬀ erent sites
+and FinBERT by DeSola et al, [9] trained on Wikipedia, BookCorpus and U .S.
+SEC data. Additional models include BloombergGPT [40], FinGPT [42] and
+Instruct-FinGPT[44].
+More advance datasets in the ﬁnancial domain include FinQA [6], LLMWa re [27],
+ConFIRM [8] and TAT-QA [46] among others [7,38,19] that have been p repared
+for retrieval and or Questions and Answering (Q&A) tasks over sn ippets of ﬁ-
+nancial data that includes tabular data, which has allowed methods o n large
+language models to be tested on them [39].
+Most of the previous work has focused on understanding the layou t of ﬁ-
+nancial documents or understanding speciﬁc snippets of existing r eports with
+diﬀerent levels of complexity, but there has not been much researc h in under-
+standing ﬁnancial report documents, except some more recent w ork that includes
+FinanceBench [14], in which a set of questions about the content of ﬁ nancial re-
+ports are proposed that includes the evidence snippet.
+More speciﬁcally on document chunking methods for RAG, there are stan-
+dard approaches being considered such as chunking text into span s of a given
+token length (e.g. 128 and 256) or chunking based on sentences. O pen source
+projects already allow simple processing of documents (e.g. Unstru ctured4, Lla-
+maindex5 or Langchain 6), without explicitly considering the table structure on
+which these chunking strategies are applied.
+Even though diﬀerent approaches are available, an exhaustive eva luation of
+chunking applied to RAG and speciﬁcally to ﬁnancial reporting, excep t for some
+limited chunking analysis [14,36], is non-existent. In our work, we comp are a
+broad range of chunking approaches in addition to more simple ones a nd provide
+an analysis of the outcomes of diﬀerent methods when asking quest ions about
+diﬀerent aspects of the reports.
+3 Methods
+In this section, we present the chunking strategies that we have e valuated. Before
+describing the chunking strategies, we present the RAG environme nt in which
+these strategies have been evaluated and the dataset used for e valuation.
+3.1 RAG setting for the experiments
+The RAG pipeline used to process a user question is presented in ﬁgur e 1 and is
+a common instance of a RAG [12]. Prior to answering any question abo ut a given
+4 https://unstructured.io
+5 https://www.llamaindex.ai
+6 https://www.langchain.com
+
+
+[Page 5]
+Financial Report Chunking for Eﬀective Retrieval Augmente d Generation 5
+document, the document is split into chunks and the chunks are inde xed into
+a vector database (vectordb). When a question is sent to the RAG system, the
+top-k chunks most similar to the question are retrieved from the ve ctor database
+and used to generate the answer using a large language model as ge nerator. In
+order to retrieve chunks from the vector database, the questio n is encoded into a
+vector that is compared to the vector previously generated from the chunks. To
+prompt the generator, the question is converted into a set of inst ructions that
+instruct the LLM to ﬁnd the answer within the top-k retrieved chun ks.
+Fig. 1. RAG steps to answer a question about a document
+In our experiments, we modify the way documents are chunked prior to
+being indexed in the vector database. All other settings remain con stant. In the
+following sections, we describe in more detail each one of the compon ents and
+processes used.
+3.2 Indexing and retrieval
+We have used the open source system Weaviate 7 as our vector database. As
+encoder model, we have used a sentence transformer [35] trained on over 256M
+questions and answers, which is available from the HuggingFace syst em8.
+As shown in ﬁgure 2, to index a document, ﬁrst the document is split in to
+chunks, then each chunk is processed by an encoder model and th en indexed into
+the vector database. Based on the chunking strategy a documen t will be split
+into a larger or smaller set of chunks.
+Fig. 2. Indexing of document chunks into the vector database
+7 https://weaviate.io/developers/weaviate
+8 https://huggingface.co/sentence-transformers/multi- qa-mpnet-base-dot-
+v1
+
+
+[Page 6]
+6 Jimeno Yepes et al.
+As shown in ﬁgure 1, to retrieve chunks relevant to a question, the question is
+converted into a vector representation and the vector databas e returns a ranked
+list of chunks based on the similarity between question vector and th e chunks
+in the database. Weaviate implements an approximate nearest neigh bours algo-
+rithm [28] as their retrieval approach, which supports fast retrie val with high
+accuracy. In our experiments, we retrieve the top-10 chunks fo r each question.
+3.3 Generation
+Once the vector database has retrieved the top-10 chunks base d on a question,
+the generation module generates the answer. To do so, a prompt b ased on the
+question and the retrieved chunks are provided to a large language model that
+generates the answer of the system.
+We have used GPT-4 [31] as the generator, which has shown best pe rformance
+compared to earlier versions. As well, its performance was better c ompared to
+existing open source alternatives [22] such as Mixtral [16]. We used t he prompt
+presented in ﬁgure 3 that we designed on another similar RAG implemen tation
+with diﬀerent document types. The prompt conditions the answer t o the query
+and the chunks, referred to as source, and if the generator cannot answer it
+should return No answer .
+please answer the question below by referencing the list of s ources
+provided after the question; if the question can not be answe red just
+respond ’No answer’. The sources are listed after "Sources: ".
+Question: {query}
+Sources: {key} - {source}
+...
+Fig. 3. Example prompt template used by the generator
+3.4 Chunking
+As a baseline chunking method, we have split the documents into chun ks of size
+n tokens ( n ∈ { 128, 256, 512}). As well, an aggregation of the output by the
+indexing of diﬀerent chunking conﬁgurations has been considered.
+In addition to chunking based on the number of tokens, we have pro cessed
+the documents using computer vision and natural language proces sing to extract
+elements identiﬁed in the reports. The list of elements considered ar e provided
+by the Unstructured 9 open source library. From the set of processing strategies,
+9 https://unstructured-io.github.io/unstructured/introduction.html#
+elements
+
+
+[Page 7]
+Financial Report Chunking for Eﬀective Retrieval Augmente d Generation 7
+we use Chipper, a vision encoder decoder 10 model inspired by Donut [20] to
+showcase the performance diﬀerence. The Chipper model output s results as a
+JSON representation of the document, listing elements per page ch aracterized
+by their element type. Additionally, Chipper provides a bounding box e nclosing
+each element on the page and the corresponding element text.
+These elements are sometimes short to be considered as chunks, s o to gen-
+erate chunks from elements the following steps have been followed. Given the
+structure of ﬁnance reporting documents, our structural chu nking eﬀorts are con-
+centrated on processing titles, texts, and tables. The steps to g enerate element-
+based chunks are:
+– if the element text length is smaller than 2,048 characters, a merge w ith the
+following element is attempted
+– iteratively, element texts are merged following the step above till eit her the
+desired length is achieved, without breaking the element
+– if a title element is found, a new chunk is started
+– if a table element is found, a new chunk is started, preserving the en tire table
+After element-based chunks have been derived, three types of m etadata are
+generated to enrich the content and support eﬃcient indexing. Th e ﬁrst two
+types, generated via predeﬁned prompt templates with GPT-4, inc lude: 1) up to
+6 representative keywords of the composite chunk 2) a summarise d paragraph
+of the composite chunk. The third type is 3) Naive representation u sing the ﬁrst
+two sentences from a composite chunk (a kind of preﬁx) and in the c ase of tables,
+the description of the table, which is typically identiﬁed in the table cap tion.
+3.5 Dataset
+To evaluate the performance of the diﬀerent chunking approache s, we have used
+the FinanceBench dataset [14]. FinanceBench is a new benchmarking dataset de-
+signed to assess the capabilities of LLMs in answering open-book ﬁna ncial ques-
+tions. The questions collected are realistic and applicable to real-wor ld ﬁnancial
+scenarios and include complex questions that require computationa l reasoning
+to arrive at conclusive answers.
+This dataset is made of 150 instances with questions and answers fr om 84
+unique reports. The dataset does not include the source documen ts, which we
+have downloaded. We were able to recover only 80 documents, which reduces
+the number of questions to 141 from the original 150. The distribut ion of Un-
+structured elements predictions are shown in table 1.
+Documents have a varying number of pages, spanning from 4 pages (FOOT-
+LOCKER
+2022 8K dated-2022-05-20) to 549 pages (e.g. PEPSICO 2021 10K),
+with an average of 147.34 with std 97.78 with a total of 11,787 pages c ombined.
+Each instance contains a link to the report, the question, a questio n type , the
+answer and supporting evidence, with page number where the evide nce is located
+10 https://huggingface.co/docs/transformers/model_doc/vision-encoder-
+decoder
+
+
+[Page 8]
+8 Jimeno Yepes et al.
+Table 1. Unstructured element types distribution for Chipper predictions against doc-
+uments in FinanceBench.
+Element Type Chipper Entities
+NarrativeText 61,780
+Title 29,664
+ListItem 33,054
+UncategorizedText 9,400
+Footer 1,026
+Table 7,700
+Header 3,959
+Image 26
+FigureCaption 54
+Formula 29
+Address 229
+Total 146,921
+in the document, that allows for a closer evaluation of the results. B ased on the
+page number, evidence contexts are located in diﬀerent areas in th e documents,
+ranging from the ﬁrst page in some cases up to page 304 in one instan ce. The
+mean page number to ﬁnd the evidence is 54.58 with a standard deviat ion of
+43.66, which shows that evidence contexts to answer the question s are spread
+within a document. These characteristics make FinanceBench a per fect dataset
+for evaluating RAG. An example instance is available in table 2.
+4 Results
+In this section, we evaluate the diﬀerent chunking strategies using the FinanceBench
+dataset. Our evaluation is grounded in factual accuracy, which allo ws us to mea-
+sure the eﬀectiveness of each conﬁguration by its precision in retr ieving answers
+that match the ground truth, as well as its generation abilities.
+We are considering 80 documents and 141 questions from FinanceBe nch.
+Using the OpenAI tokenizer from the model text-embedding-ada-002 that uses
+the tokenizer cl100k
+base11, there are on average 102,444.35 tokens with std of
+61,979.45, which shows the large variability of document lengths as se en by the
+diﬀerent number of pages per document presented above.
+Chunking Eﬃciency The ﬁrst thing we analyzed is the total number of
+chunks, as it impacts indexing time. We would like to observe the relatio nship
+between accuracy and total chunk size. Table 3 shows the number of chunks
+derived from each one of the processing methods. Unstructured element-based
+chunks are closer in size to Base 512, and as the chunk size decreas es for the
+basic chunking strategies, the total number of chunks increases linearly.
+11 https://platform.openai.com/docs/guides/embeddings/limitations-risks
+
+
+[Page 9]
+Financial Report Chunking for Eﬀective Retrieval Augmente d Generation 9
+Table 2. Example question from the FinanceBench dataset
+Field Value
+ﬁnancebench id ﬁnancebench id 00859
+doc name VERIZON 2021 10K
+doc link https://www.verizon.com/about/sites/default/ﬁles/2021-Annual-
+Report-on-Form-10-K.pdf
+question type ’novel-generated’
+question Among all of the derivative instruments that Verizon used to manage
+the exposure to ﬂuctuations of foreign currencies exchange rates or
+interest rates, which one had the highest notional value in F Y 2021?
+answer Cross currency swaps. Its notional value was $32,502 million.,
+evidence text Derivative Instruments We enter into derivative transacti ons primarily
+to manage our exposure to ﬂuctuations in foreign currency ex change
+rates and interest rates. We employ risk management strateg ies, which
+may include the use of a variety of derivatives including int erest rate
+swaps, cross currency swaps, forward starting interest rat e swaps, trea-
+sury rate locks, interest rate caps, swaptions and foreign e xchange for-
+wards. We do not hold derivatives for trading purposes. The f ollowing
+table sets forth the notional amounts of our outstanding der ivative in-
+struments: (dollars in millions) At December 31, 2021 2020 I nterest rate
+swaps $ 19,779 $ 17,768 Cross currency swaps 32,502 26,288 Forward
+starting interest rate swaps 1,000 2,000 Foreign exchange f orwards 932
+1,405
+page number 85
+Table 3. Chunks statistics for basic chunking elements and Unstruct ured elements
+Processing total chunks mean chunks per document (std) tables mean (std)
+Base 128 64,058 800.73 (484.11) N/A
+Base 256 32,051 400.64 (242.04) N/A
+Base 512 16,046 200.58 (121.01) N/A
+Chipper 20,843 260.57 (145.80) 96.20 (57.53)
+Retrieval Accuracy Secondly, we evaluate the capabilities of each chunking
+strategy in terms of retrieval accuracy. We use the page number s in the ground
+truth to calculate the page-level retrieval accuracy, and we use ROUGE [24] and
+BLEU [32] scores to evaluate the accuracy of paragraph-level re trieval compared
+to the ground truth evidence paragraphs.
+As shown in Table 4, when compared to Unstructured element-base d chunk-
+ing strategies, basic chunking strategies seem to have higher page -level retrieval
+accuracy but lower paragraph-level accuracy on average. Addit ionally, basic
+chunking strategies also lack consistency between page-level and paragraph-level
+accuracy; higher page-level accuracy doesn’t ensure higher par agraph-level ac-
+curacy. For example, Base 128 has the second highest page-level accuracy but
+
+
+[Page 10]
+10 Jimeno Yepes et al.
+the lowest paragraph-level scores among all. On the other hand, e lement-based
+chunking strategies showed more consistent results.
+A fascinating discovery is that when various chunking strategies ar e com-
+bined, it results in enhanced retrieval scores, achieving superior p erformance
+at both the page level (84.4%) and paragraph level (with ROUGE at 0 .568%
+and BLEU at 0.452%). This ﬁnding addresses an unresolved question : how to
+improve the accuracy of RAG.
+The element based method provides the highest scores and it also pr ovides a
+mechanism to chunk documents without the need to ﬁne tune hyper -parameters
+like the number of tokens in a chunk. This suggests the element base d method
+is more generalizable and can be applied to new types of documents.
+Q&A Accuracy Third, we evaluate the Q&A accuracy for the chunking strate-
+gies. In addition to manual evaluation, we have investigated an auto matic evalua-
+tion using GPT-4. GPT-4 compares how the answers provided by our method are
+similar to or diﬀerent from the FinanceBench gold standard, similar ap proaches
+have been previously evaluated [13,23,29,30]. The automatic evaluatio n allows
+scaling the evaluation eﬀorts for the diﬀerent chunking strategies that we have
+considered. We used the prompt template in ﬁgure 4.
+Begin with True or False. Are the two following answers (Answ er 1 and
+Answer 2) the same with respect to the question between singl e quotes
+’{question}’?
+Answer 1: ’{ground_truth_answer}’
+Answer 2: ’{generated_answer}’
+Fig. 4. Evaluation prompt template. The {question}, {ground truth answer} and
+{generated answer} ﬁelds are substituted for each question accordingly.
+Results in table 5 show that element-based chunking strategies oﬀe r the best
+question-answering accuracy, which is consistent with page retrie val and para-
+graph retrieval accuracy.
+Lastly, our approach stands out for its eﬃciency. Not only is elemen t-based
+chunking generalizable without the need to select the chunk size, bu t when com-
+pared to the aggregation results that yield the highest retrieval s cores. Element-
+based chunking achieves the highest retrieval scores with only half the number
+of chunks required compared to methods that do not consider the structure of
+the documents (62,529 v.s. 112,155). This can reduce the indexing c ost and im-
+prove query latency because there are only half as many vectors t o index for the
+vectordb that stores the chunks. This underscores the eﬀectiv eness of our solu-
+tion in optimizing the balance between performance and computation al resource
+requirements.
+
+
+[Page 11]
+Financial Report Chunking for Eﬀective Retrieval Augmente d Generation 11
+Table 4. Retrieval results. For each chunking strategy, we show the n umber of chunks
+for all the documents (Total Chunks), Page Accuracy, and ROU GE and BLEU scores.
+ROUGE and BLEU are calculated as the maximum score from the li st of recovered
+contexts for a question when compared to the known evidence f or that question.
+Chunking strategy Total Chunks Page Accuracy ROUGE BLEU
+Base 128 64,058 72.34 0.383 0.181
+Base 256 32,051 73.05 0.433 0.231
+Base 512 16,046 68.09 0.455 0.250
+Base Aggregation 112,155 83.69 0.536 0.277
+Keywords Chipper 20,843 46.10 0.444 0.315
+Summary Chipper 20,843 62.41 0.473 0.350
+Preﬁx & Table Description Chipper 20,843 67.38 0.514 0.400
+Chipper Aggregation 62,529 84.40 0.568 0.452
+Table 5. Q&A results. We show the percentage of questions with no answ er and as
+well the accuracy either estimated automatically using GPT -4 or manually.
+Chunking strategy No answer GPT-4 Manual
+Base 128 35.46 29.08 35.46
+Base 256 25.53 32.62 36.88
+Base 512 24.82 41.84 48.23
+Keywords Chipper 22.70 43.97 53.19
+Summary Chipper 17.73 43.97 51.77
+Preﬁx & Table Description Chipper 20.57 41.13 53.19
+5 Discussion
+Results demonstrate the eﬃcacy of our approach in utilizing struct ural elements
+for chunking, which has enabled us to attain state-of-the-art pe rformance on
+Q&A tasks within the FinanceBench dataset (accuracy of 50% vs 53 .19%) when
+an index is created from document chunks and used for generation . This method,
+which we refer to as element base chunking , has shown to yield consistent results
+between retrieval and Q&A accuracy.
+We have observed that using basic 512 chunking strategies produc es results
+most similar to the Unstructured element-based approach, which m ay be due
+to the fact that 512 tokens share a similar length with the token size within
+our element-based chunks and capture a long context, but fail ke ep a coherent
+context in some cases, leaving out relevant information required fo r Q&A. This
+is further observed when considering the ROUGE and BLEU scores in table 4,
+where the chunk contexts for the baseline have lower scores.
+These ﬁndings support existing research stating that the best ba sic chunk
+size varies from data to data [3]. These results show, as well, that ou r method
+adapts to diﬀerent documents without tuning. Our method relies on the struc-
+
+
+[Page 12]
+12 Jimeno Yepes et al.
+tural information that is present in the document’s layout to adjus t the chunk
+size automatically.
+We have evaluated aggregating the output of diﬀerent chunking me thods in
+the retrieval experiments as sown in table 4. Even though the aggr egation seems
+to be eﬀective for retrieval, the Q&A exceeded the GPT-4 token limit , which
+resulted in a non-eﬀective Q&A solution using the selected model.
+As well, we evaluated variations of the prompt used to generate the answers
+(see ﬁgure 3). Re-ordering the retrieval context and the quest ion, but results
+were not statistically diﬀerent. We experimented as well with variatio ns of the
+verbs using in the prompt, e.g. changing referencing with using, which seemed to
+lower the quality of the answers generated. This shows that promp t engineering
+is a relevant factor in RAG.
+We evaluated using GPT-4 for evaluation instead of relying on manual evalu-
+ation. In most cases, GPT-4 evaluated correctly but failed when a m ore elaborate
+answer is provided. As shown in ﬁgure 5, the answer is 39.7% while the e stimated
+answer is 39.73% but with a detailed explanation of the calculation.
+Question: ’What is Coca Cola’s FY2021 COGS % margin? Calcula te what
+was asked by utilizing the line items clearly shown in the inc ome
+statement.’?
+Answer 1: ’39.7%’
+Answer 2: ’From the income statement referenced on page 60 of
+COCACOLA_2021_10K_embedded.json, we can see that Coca Col a’s total
+revenue in FY2021 was $38,655 million and their cost of goods sold
+(COGS) was $15,357 million. To calculate the COGS % margin, w e divide
+the COGS by the total revenue and multiply by 100:
+(15,357 / 38,655) * 100 = 39.73%
+So, Coca Cola’s FY2021 COGS % margin was approximately 39.73 %.’
+Fig. 5. Evaluation prompt template
+6 Conclusions and Future Work
+Results show that our element based chunking strategy improves the state-of-the-
+art Q&A for the task, which is achieved by providing a better chunkin g strategy
+for the processed documents. We provide comparison with baseline chunking
+strategies that allow us to draw conclusions about diﬀerent chunkin g methods.
+As future work, we would like to perform a similar evaluation in other do -
+mains, e.g. biomedical, to understand how our ﬁndings apply outside ﬁ nancial
+reporting. As well, we would like studying which additional element type s and/or
+relation between elements would support better chunking strateg ies for RAG.
+
+
+[Page 13]
+Financial Report Chunking for Eﬀective Retrieval Augmente d Generation 13
+Furthermore, we would like to study the impact of RAG conﬁguration and ele-
+ment type based chunking.
+References
+1. Anantha, R., Bethi, T., Vodianik, D., Chappidi, S.: Conte xt Tuning for Retrieval
+Augmented Generation (2023)
+2. Balaguer, A., Benara, V., de Freitas Cunha, R.L., de M. Est ev˜ ao Filho, R., Hendry,
+T., Holstein, D., Marsman, J., Mecklenburg, N., Malvar, S., Nunes, L.O., Padilha,
+R., Sharp, M., Silva, B., Sharma, S., Aski, V., Chandra, R.: R ag vs ﬁne-tuning:
+Pipelines, tradeoﬀs, and a case study on agriculture (2024)
+3. Barnett, S., Kurniawan, S., Thudumu, S., Brannelly, Z., A bdelrazek, M.: Seven
+Failure Points When Engineering a Retrieval Augmented Gene ration System
+(2024)
+4. Bentabet, N.I., Juge, R., El Maarouf, I., Mouilleron, V., Valsamou-Stanislawski, D.,
+El-Haj, M.: The ﬁnancial document structure extraction sha red task (ﬁntoc 2020).
+In: Proceedings of the 1st Joint Workshop on Financial Narra tive Processing and
+MultiLing Financial Summarisation. pp. 13–22 (2020)
+5. Chen, H., Jiao, F., Li, X., Qin, C., Ravaut, M., Zhao, R., Xi ong, C., Joty, S.: Chat-
+GPT’s One-year Anniversary: Are Open-Source Large Languag e Models Catching
+up? arXiv preprint arXiv:2311.16989 (2023)
+6. Chen, Z., Chen, W., Smiley, C., Shah, S., Borova, I., Langd on, D., Moussa, R.,
+Beane, M., Huang, T.H., Routledge, B., et al.: Finqa: A datas et of numerical
+reasoning over ﬁnancial data. arXiv preprint arXiv:2109.0 0122 (2021)
+7. Chen, Z., Li, S., Smiley, C., Ma, Z., Shah, S., Wang, W.Y.: C onvFinQA: Exploring
+the Chain of Numerical Reasoning in Conversational Finance Question Answering
+(2022)
+8. Choi, S., Gazeley, W., Wong, S.H., Li, T.: Conversational Financial Information
+Retrieval Model (ConFIRM). arXiv preprint arXiv:2310.130 01 (2023)
+9. DeSola, V., Hanna, K., Nonis, P.: Finbert: pre-trained mo del on sec ﬁlings for
+ﬁnancial natural language tasks. University of California (2019)
+10. El-Haj, M., Rayson, P., Young, S., Walker, M.: Detecting document structure in a
+very large corpus of UK ﬁnancial reports. European Language Resources Associa-
+tion (ELRA) (2014)
+11. El Maarouf, I., Kang, J., Azzi, A.A., Bellato, S., Gan, M. , El-Haj, M.: The ﬁnancial
+document structure extraction shared task (FinTOC2021). I n: Proceedings of the
+3rd Financial Narrative Processing Workshop. pp. 111–119 ( 2021)
+12. Gao, Y., Xiong, Y., Gao, X., Jia, K., Pan, J., Bi, Y., Dai, Y ., Sun, J., Wang,
+H.: Retrieval-augmented generation for large language mod els: A survey. arXiv
+preprint arXiv:2312.10997 (2023)
+13. Hada, R., Gumma, V., de Wynter, A., Diddee, H., Ahmed, M., Choudhury, M.,
+Bali, K., Sitaram, S.: Are large language model-based evalu ators the solution to
+scaling up multilingual evaluation? arXiv preprint arXiv: 2309.07462 (2023)
+14. Islam, P., Kannappan, A., Kiela, D., Qian, R., Scherrer, N., Vidgen, B.: Fi-
+nanceBench: A New Benchmark for Financial Question Answeri ng. arXiv preprint
+arXiv:2311.11944 (2023)
+15. Ji, Z., Lee, N., Frieske, R., Yu, T., Su, D., Xu, Y., Ishii, E., Bang, Y.J., Madotto, A.,
+Fung, P.: Survey of Hallucination in Natural Language Gener ation. ACM Comput-
+ing Surveys 55(12), 1–38 (Mar 2023). https://doi.org/10.1145/3571730, http://
+dx.doi.org/10.1145/3571730
+
+
+[Page 14]
+14 Jimeno Yepes et al.
+16. Jiang, A.Q., Sablayrolles, A., Roux, A., Mensch, A., Sav ary, B., Bamford, C.,
+Chaplot, D.S., de las Casas, D., Hanna, E.B., Bressand, F., L engyel, G., Bour, G.,
+Lample, G., Lavaud, L.R., Saulnier, L., Lachaux, M.A., Stoc k, P., Subramanian,
+S., Yang, S., Antoniak, S., Scao, T.L., Gervet, T., Lavril, T ., Wang, T., Lacroix,
+T., Sayed, W.E.: Mixtral of Experts (2024)
+17. Juge, R., Bentabet, I., Ferradans, S.: The ﬁntoc-2019 sh ared task: Financial doc-
+ument structure extraction. In: Proceedings of the Second F inancial Narrative
+Processing Workshop (FNP 2019). pp. 51–57 (2019)
+18. Kaddour, J., Harris, J., Mozes, M., Bradley, H., Railean u, R., McHardy, R.: Chal-
+lenges and applications of large language models. arXiv pre print arXiv:2307.10169
+(2023)
+19. Kaur, S., Smiley, C., Gupta, A., Sain, J., Wang, D., Sidda gangappa, S.,
+Aguda, T., Shah, S.: REFinD: Relation Extraction Financial Dataset. In:
+Proceedings of the 46th International ACM SIGIR Conference on Re-
+search and Development in Information Retrieval. SIGIR ’23 , ACM (Jul
+2023). https://doi.org/10.1145/3539618.3591911, http://dx.doi.org/10.1145/
+3539618.3591911
+20. Kim, G., Hong, T., Yim, M., Park, J., Yim, J., Hwang, W., Yu n, S., Han, D.,
+Park, S.: Donut: Document understanding transformer witho ut ocr. arXiv preprint
+arXiv:2111.15664 7, 15 (2021)
+21. Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin , V., Goyal, N., K¨ uttler,
+H., Lewis, M., Yih, W.t., Rockt¨ aschel, T., et al.: Retrieva l-augmented generation
+for knowledge-intensive NLP tasks. Advances in Neural Info rmation Processing
+Systems 33, 9459–9474 (2020)
+22. Li, D., Shao, R., Xie, A., Sheng, Y., Zheng, L., Gonzalez, J.E., Stoica, I., Ma, X.,
+Zhang, H.: How Long Can Open-Source LLMs Truly Promise on Con text Length?
+(June 2023), https://lmsys.org/blog/2023-06-29-longchat
+23. Li, Y., Duan, Y.: The evaluation of experiments of artiﬁc ial general intelligence
+with gpt-4 based on dikwp. arXiv preprint (2023)
+24. Lin, C.Y.: Rouge: A package for automatic evaluation of s ummaries. In: Text sum-
+marization branches out. pp. 74–81 (2004)
+25. Liu, N.F., Lin, K., Hewitt, J., Paranjape, A., Bevilacqu a, M., Petroni, F., Liang,
+P.: Lost in the middle: How language models use long contexts . arXiv preprint
+arXiv:2307.03172 (2023)
+26. Liu, Z., Huang, D., Huang, K., Li, Z., Zhao, J.: Finbert: A pre-trained ﬁnancial
+language representation model for ﬁnancial text mining. In : Proceedings of the
+twenty-ninth international conference on international joint conferences on artiﬁcial
+intelligence. pp. 4513–4519 (2021)
+27. llmware: Rag Instruct Benchmark Tester. https://huggingface.co/datasets/
+llmware/rag_instruct_benchmark_tester, Accessed: January 15, 2024
+28. Malkov, Y.A., Yashunin, D.A.: Eﬃcient and robust approx imate nearest neigh-
+bor search using hierarchical navigable small world graphs . IEEE transactions on
+pattern analysis and machine intelligence 42(4), 824–836 (2018)
+29. Moore, S., Nguyen, H.A., Chen, T., Stamper, J.: Assessin g the quality of multiple-
+choice questions using gpt-4 and rule-based methods. In: Eu ropean Conference on
+Technology Enhanced Learning. pp. 229–245. Springer (2023 )
+30. Naismith, B., Mulcaire, P., Burstein, J.: Automated eva luation of written discourse
+coherence using gpt-4. In: Proceedings of the 18th Workshop on Innovative Use of
+NLP for Building Educational Applications (BEA 2023). pp. 3 94–403 (2023)
+31. OpenAI, :, Achiam, J., Adler, S., Agarwal, S., et al.: GPT -4 Technical Report
+(2023)
+
+
+[Page 15]
+Financial Report Chunking for Eﬀective Retrieval Augmente d Generation 15
+32. Papineni, K., Roukos, S., Ward, T., Zhu, W.J.: Bleu: a met hod for automatic
+evaluation of machine translation. In: Proceedings of the 4 0th annual meeting of
+the Association for Computational Linguistics. pp. 311–31 8 (2002)
+33. Pﬁtzmann, B., Auer, C., Dolﬁ, M., Nassar, A.S., Staar, P. : Doclaynet: A large
+human-annotated dataset for document-layout segmentatio n. In: Proceedings of
+the 28th ACM SIGKDD Conference on Knowledge Discovery and Da ta Mining.
+pp. 3743–3751 (2022)
+34. Pinecone: Chunking strategies for llm applications, https://www.pinecone.io/
+learn/chunking-strategies/
+35. Reimers, N., Gurevych, I.: Sentence-bert: Sentence emb eddings using siamese bert-
+networks. In: Proceedings of the 2019 Conference on Empiric al Methods in Nat-
+ural Language Processing. Association for Computational L inguistics (11 2019),
+https://arxiv.org/abs/1908.10084
+36. Retteter, J.: Mastering Table Extraction: Revolutioni ze Your Earnings Re-
+ports Analysis with AI. https://medium.com/unstructured-io/mastering-
+table-extraction-revolutionize-your-earnings-report s-analysis-with-
+ai-1bc32c22720e, Accessed: January 15, 2024
+37. Rizinski, M., Peshov, H., Mishev, K., Jovanovik, M., Tra janov, D.: Sentiment anal-
+ysis in ﬁnance: From transformers back to explainable lexic ons (xlex). IEEE Access
+12, 7170–7198 (2024)
+38. Shah, R.S., Chawla, K., Eidnani, D., Shah, A., Du, W., Cha va, S., Raman, N.,
+Smiley, C., Chen, J., Yang, D.: WHEN FLUE MEETS FLANG: Benchm arks and
+Large Pre-trained Language Model for Financial Domain (202 2)
+39. Singh Phogat, K., Harsha, C., Dasaratha, S., Ramakrishn a, S., Akhil Puranam, S.:
+Zero-Shot Question Answering over Financial Documents usi ng Large Language
+Models. arXiv e-prints pp. arXiv–2311 (2023)
+40. Wu, S., Irsoy, O., Lu, S., Dabravolski, V., Dredze, M., Ge hrmann, S., Kambadur, P.,
+Rosenberg, D., Mann, G.: BloombergGPT: A Large Language Mod el for Finance
+(2023)
+41. Xu, P., Ping, W., Wu, X., McAfee, L., Zhu, C., Liu, Z., Subr amanian, S., Bakhtu-
+rina, E., Shoeybi, M., Catanzaro, B.: Retrieval meets Long C ontext Large Language
+Models (2023)
+42. Yang, H., Liu, X.Y., Wang, C.D.: FinGPT: Open-Source Fin ancial Large Language
+Models (2023)
+43. Ye, H., Liu, T., Zhang, A., Hua, W., Jia, W.: Cognitive Mir age: A Review of
+Hallucinations in Large Language Models (2023)
+44. Zhang, B., Yang, H., Liu, X.Y.: Instruct-FinGPT: Financ ial Sentiment Analysis
+by Instruction Tuning of General-Purpose Large Language Mo dels (2023)
+45. Zheng, X., Burdick, D., Popa, L., Zhong, X., Wang, N.X.R. : Global table extractor
+(gte): A framework for joint table identiﬁcation and cell st ructure recognition using
+visual context. In: Proceedings of the IEEE/CVF winter conf erence on applications
+of computer vision. pp. 697–706 (2021)
+46. Zhu, F., Lei, W., Huang, Y., Wang, C., Zhang, S., Lv, J., Fe ng, F., Chua, T.S.:
+TAT-QA: A question answering benchmark on a hybrid of tabula r and textual
+content in ﬁnance. arXiv preprint arXiv:2105.07624 (2021)

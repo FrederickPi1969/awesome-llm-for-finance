@@ -1,0 +1,1391 @@
+[Page 1]
+FinKario: Event-Enhanced Automated Construction of Financial
+Knowledge Graph
+Xiang Li∗
+xli906@connect.hkust-gz.edu.cn
+The Hong Kong University of Science
+and Technology (Guangzhou)
+Guangzhou, China
+Penglei Sun∗
+psun012@connect@hkust-gz.edu.cn
+The Hong Kong University of Science
+and Technology (Guangzhou)
+Guangzhou, China
+Wanyun Zhou
+wzhou266@connect.hkust-gz.edu.cn
+The Hong Kong University of Science
+and Technology (Guangzhou)
+Guangzhou, China
+Zikai Wei
+weizikai@idea.edu.cn
+International Digital Economy
+Academy
+Shenzhen, China
+Yongqi Zhang†
+yongqizhang@hkust-gz.edu.cn
+The Hong Kong University of Science
+and Technology (Guangzhou)
+Guangzhou, China
+Xiaowen Chu†
+xwchu@hkust-gz.edu.cn
+The Hong Kong University of Science
+and Technology (Guangzhou)
+Guangzhou, China
+Abstract
+Individual investors are significantly outnumbered and disadvan-
+taged in financial markets, overwhelmed by abundant informa-
+tion and lacking professional analysis. Equity research reports
+stand out as crucial resources, offering valuable insights. By lever-
+aging these reports, large language models (LLMs) can enhance
+investors’ decision-making capabilities and strengthen financial
+analysis. However, two key challenges limit their effectiveness:
+(1) the rapid evolution of market events often outpaces the slow
+update cycles of existing knowledge bases, (2) the long-form and
+unstructured nature of financial reports further hinders timely and
+context-aware integration by LLMs. To address these challenges,
+we tackle both data and methodological aspects. First, we introduce
+the Event-Enhanced Automated Construction of Financial Knowl-
+edge Graph (FinKario), a dataset comprising over 305, 360 entities,
+9, 625 relational triples, and 19 distinct relation types. FinKario au-
+tomatically integrates real-time company fundamentals and market
+events through prompt-driven extraction guided by professional in-
+stitutional templates, providing structured and accessible financial
+insights for LLMs. Additionally, we propose a Two-Stage, Graph-
+Based retrieval strategy (FinKario-RAG), optimizing the retrieval
+of evolving, large-scale financial knowledge to ensure efficient and
+precise data access. Extensive experiments show that FinKario with
+FinKario-RAG achieves superior stock trend prediction accuracy,
+outperforming financial LLMs by 18.81% and institutional strate-
+gies by 17.85% on average in backtesting.
+∗Equal Contribution.
+†Corresponding author.
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for components of this work owned by others than the
+author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or
+republish, to post on servers or to redistribute to lists, requires prior specific permission
+and/or a fee. Request permissions from permissions@acm.org.
+Conference’17, Washington, DC, USA
+© 2025 Copyright held by the owner/author(s). Publication rights licensed to ACM.
+ACM ISBN 978-x-xxxx-xxxx-x/YYYY/MM
+https://doi.org/10.1145/nnnnnnn.nnnnnnn
+Keywords
+Financial research report, Knowledge graph, RAG
+ACM Reference Format:
+Xiang Li, Penglei Sun, Wanyun Zhou, Zikai Wei, Yongqi Zhang, and Xiaowen
+Chu. 2025. FinKario: Event-Enhanced Automated Construction of Financial
+Knowledge Graph. In . ACM, New York, NY, USA, 14 pages. https://doi.org/
+10.1145/nnnnnnn.nnnnnnn
+1 Introduction
+The financial market is dominated by institutional investors, leaving
+individual investors at a significant disadvantage [8, 21]. Individ-
+ual investors yet often struggle to make informed decisions due
+to a lack of access to professional-grade analysis [ 11]. Equity re-
+search reports, which provide expert insights into market trends
+and company performance, serve as a critical resource to bridge this
+gap [13, 38]. LLMs can reason through complex financial data and
+interpret context [2, 29, 34]. These capabilities make them suited for
+the analysis of financial research reports, thereby enabling timely
+and scalable insights. Recent advances at the intersection of data
+mining and financial trading [27, 37] further highlight the potential
+of LLMs in this domain.
+However, LLM-based research report analysis faces two primary
+challenges: Ch1, the rapid evolution of financial events [ 6, 32],
+which outpaces the slow update cycles of existing knowledge bases
+shown in Table 1; and Ch2, the inherent complexity of processing
+long-form, unstructured data [20, 30]. Events such as earnings re-
+leases, product launches, and regulatory changes are key drivers
+of market behavior and are essential for understanding temporal
+shifts in asset performance [ 19, 25]. Financial markets are char-
+acterized by a continuous stream of such events, which are often
+reflected in research reports. Yet, both traditional knowledge bases
+and modern LLMs struggle to keep pace with these dynamic up-
+dates. As illustrated in Figure 1 and Table 1, two key limitations
+persist. Lim1: Current knowledge base approaches rely heavily on
+static, target-only retrieval and report chunking strategies, which
+lack semantic coherence, fail to provide contextual explanations
+(i.e., "why"), and cannot incorporate evolving market signals in real
+time. Lim2: Existing event-centric Financial Knowledge Graphs
+(FKGs), for instance, still depend on manual or semi-automated
+arXiv:2508.00961v1  [cs.LG]  1 Aug 2025
+
+
+[Page 2]
+Conference’17, July 2017, Washington, DC, USA Xiang Li et al.
+Please predict the rise 
+and fall of BYD  Inc in 
+next week based on …
+RetrievalInvestor
+BYD
+SERES
+CITI
+Ping An Retrieve target & 
+relatives
+Event graph Attribute graph  + 
+Sales structure changes  
+overseas..(strategic driven)
+Revenue growth…
+ Semantic coherence
+Dynamic update
+Knowledge Graph
+2024
+2025
+Merge..Inc.
+..profit
+…
+Report chunking
+Discrete
+BYD
+BYD sales 
+structure change 
+BYD expands 
+overseas presence…
+BYD’s Revenue 
+increase…
+ Why?
+Knowledge Base
+Semantic coherence
+Dynamic update
+Retrieve target only 
+Figure 1: Comparison of Traditional Single-research Report
+Retrieval vs. FinKario Retrieval.
+construction pipelines [7, 14, 16, 39], resulting in outdated repre-
+sentations that limit their effectiveness in dynamic environments.
+Although LLMs excel at processing natural language, their inter-
+nal knowledge remains static and infrequently updated, leading to
+persistent knowledge lag [1, 22].
+To address the mentioned challenge, we propose FinKario, a
+dual-structured financial knowledge graph built from equity re-
+search reports that can capture financial attributes, indicators and
+events automatically and dynamically (Ch1). It comprises two sub-
+graphs: an attribute subgraph for stable fundamentals and an
+event subgraph, which captures time-sensitive events like quar-
+terly financial performance and key profitability drivers ( Ch2).
+The process begins with the automated generation of schema for
+both subgraphs, using prompt-driven extraction guided by profes-
+sional institutional frameworks such as the CFA handbook (Lim2).
+Specifically, the schema for the event subgraph adopts a top-down
+structure, guided by high-level categories extracted from academic
+reports provided by the University of Wisconsin, and is further re-
+fined into a detailed event ontology based on the Financial Industry
+Business Ontology (FIBO). Based on these schemas, the pipeline fur-
+ther extracts structured knowledge from financial research reports
+using LLMs aligned with domain-specific templates. Moreover, a
+quality control module ensures the reliability of the extracted knowl-
+edge by correcting erroneous or outdated information, normalizing
+entities, and completing missing attributes with the support of the
+Tushare financial data platform. We collect a corpus of research
+reports from August 2024 to March 2025. The FinKario instance
+comprises over 305, 360 entities, 9, 625 relational triples, and 19 dis-
+tinct relation types. In addition to the FinKario dataset, to address
+the retrieval challenge posed by dynamically evolving, large-scale
+financial knowledge, we propose the FinKario-RAG, which first
+retrieves information directly related to the queried entity, then
+expands retrieval to related entities and relationships, ensuring a
+holistic financial context essential for accurate predictions (Lim1).
+To evaluate the effectiveness of FinKario, we conduct backtests
+comparing the predictive accuracy of our method with traditional
+financial LLMs and institutional strategies. Our results show that,
+on average, FinKario, combined with FinKario-RAG, outperforms
+existing financial LLMs by 18.81% and institutional strategies by
+17.85% in predictive accuracy. Our ablation studies further verify
+that FinKario-RAG surpasses existing mainstream retrieval meth-
+ods by an average of 12.70% in predictive accuracy. The principal
+contributions of this paper are as follows:
+• We introduce FinKario, a dynamic, event-driven financial
+knowledge graph with over 305,360 entities, 9,625 relational
+triples, and 19 relation types, supporting automated updates
+without manual intervention or predefined domain knowl-
+edge, and enabling professional template–driven schema
+construction.
+• We propose FinKario-RAG, a retrieval strategy that inte-
+grates both industry-level and index-level perspectives to
+transcend the limitations of single-target retrieval, facilitat-
+ing holistic and realistic analysis in line with practical in-
+vestment scenarios and supporting retrieval over large-scale,
+dynamically evolving financial knowledge.
+• We empirically validate FinKario-RAG through extensive
+experiments, demonstrating that our method surpasses the
+runner-up by 58.14% in Sharpe ratio, 30.86% in Accumula-
+tive rate of return, and 1.04% in predictive accuracy, proving
+its effectiveness for financial analysis and stock trend fore-
+casting.
+2 Related Work
+2.1 Financial Knowledge Graph
+In recent years, Financial Knowledge Graphs (FKGs) have gained
+growing attention for their ability to improve financial data anal-
+ysis and decision-making. Traditional approaches largely relied
+on standard natural language processing techniques, including se-
+mantic recognition, classification, and Named Entity Recognition
+(NER). For instance, Wang et al. [28] proposed datasets and eval-
+uations specifically for the construction of financial knowledge
+graphs, facilitating comprehensive assessments. Similarly, Liu et
+al. [18] introduced an approach focusing on financial event evo-
+lution through knowledge association, providing systematic risk
+identification and management. In contrast, recent methodologies
+have begun leveraging large language models (LLMs) to summa-
+rize domain-specific corpora or participate directly in constructing
+relational entities within financial knowledge graphs. Chen et al.
+[5] introduced a retrieval-augmented framework that incorporates
+structured financial knowledge graphs into language models to en-
+hance reliability and accuracy in financial market analyses and re-
+port generation. Furthermore, Sun et al. [24] proposed a knowledge-
+enhanced prompt learning framework specifically aimed at improv-
+ing financial news recommendation, leveraging FKGs to provide
+context-aware and accurate recommendations. However, most exist-
+ing methods still depend on predefined schemas and manual input,
+underscoring the need for fully automated, schema-independent
+FKG construction in future research.
+2.2 Automatic Knowledge Graph Construction
+Recent advances have explored Automatic Knowledge Graph Con-
+struction (AKGC) using LLMs, with an increasing emphasis on
+reducing manual schema engineering. Zhang et al.[36] proposed
+the EDC framework, which decouples extraction, schema definition,
+and canonicalization, allowing the schema to be either pre-defined
+or self-generated. Similarly, Ding et al.[ 9] introduced TKGCon,
+leveraging Wikipedia-derived ontologies, existing theme-specific
+KGs, and LLM-generated relation sets to build fine-grained and
+
+
+[Page 3]
+FinKario: Event-Enhanced Automated Construction of Financial Knowledge Graph Conference’17, July 2017, Washington, DC, USA
+Table 1: Comparison of key characteristics of financial knowledge graph construction methods, including events, dynamics,
+automation, major sources, and the number of entities, relations, and triples.
+Knowledge Event Dynamic Updated Automation Entities Relations Triples Major Source
+FR2KG [28] ✗ ✗ ✗ 17,799 13 1,328 Research Report
+KGEEF [6] ✓ ✗ ✗ 5,262,423 / 325,786 News
+T-FinKB [39] ✗ ✓ ✗ 3,974 16 / News
+FinKG [14] ✗ ✗ ✗ 37,382,905 12 30M+ Market data
+FEEKG [18] ✓ ✗ ✗ 112,000 12 / News
+FinDKG [16] ✗ ✓ ✗ 13,645 15 / News
+FMAG [5] ✗ ✓ ✗ 8,052 5 5,664 Research Report
+FNRKPL [24] ✗ ✗ ✗ 11,432 6 52,384 News
+EKG [7] ✗ ✗ ✗ / 9 / Market data
+FinRipple [32] ✓ ✗ ✗ / 4 / News
+FinKario (Ours) ✓ ✓ ✓ 305,360 19 9,625 Research Report
+timely theme-specific KGs. SAC-KG [ 3] further integrated gen-
+eration, verification, and pruning to iteratively construct high-
+precision domain KGs. In contrast, Su et al. [ 23] designed a rule-
+based framework over relational databases for power systems, rely-
+ing on static schemas and device metadata. Despite these develop-
+ments, most existing methods either expand pre-existing graphs
+or apply prompt-based extraction without grounding in author-
+itative domain templates. This gap is particularly evident in the
+financial domain, where consistency and interpretability are cru-
+cial, yet current AKGC approaches seldom incorporate professional,
+domain-specific schemas.
+2.3 LLMs in Finance
+The integration of Large Language Models (LLMs) into financial ap-
+plications has progressed through distinct phases of methodological
+innovation. Initial efforts focused on domain-specific pretraining,
+exemplified by Wu et al. [29], who developed BloombergGPT, a 50-
+billion-parameter model trained on proprietary financial datasets
+that demonstrated superior performance in financial NLP tasks.
+Concurrent work by Yang et al. [34] introduced FinGPT, an open-
+source alternative emphasizing real-time market adaptability through
+self-supervised learning architectures. Building on these pioneer-
+ing efforts, research expanded the scope and capabilities of LLMs
+in finance. Li et al. [15] proposed Alphafin, a retrieval-augmented
+stock-chain framework that benchmarks financial analysis by dy-
+namically integrating financial data from multiple sources. Addi-
+tionally, Yu et al. [35] developed FinCon, a synthesized multi-agent
+system incorporating conceptual verbal reinforcement to enhance
+financial decision-making through collaborative agent interactions.
+Recent innovations have targeted multimodal understanding and
+specialized training regimens. Gan et al. [ 10] established MME-
+Finance, a comprehensive benchmark evaluating cross-modal com-
+prehension of financial texts, tables, and charts. Building on prior
+work, recent efforts such as Fin-R1 [17] have advanced financial rea-
+soning through high-quality CoT datasets, supervised fine-tuning,
+and reinforcement learning. The field has progressed toward more
+sophisticated frameworks incorporating retrieval, multi-agent col-
+laboration, and multimodal reasoning, while ongoing challenges
+remain in temporal reasoning and explainability for dynamic finan-
+cial contexts.
+3 Methodology
+3.1 FinKario construction
+To support structured interpretation of financial narratives, we
+introduce a dual-schema design comprising an Attribute Graph
+and an Event Graph. These are constructed via a schema-guided
+extraction function:
+F : (D × S) → G ,
+where F is a schema-guided extraction function that takes as input
+a document corpus D and a schema S, and outputs a structured
+graph G.
+The Attribute Graph focuses on relatively stable entity-level
+properties, such as a firm’s industry, exchange, code, product lines,
+and risk factors. These attributes provide foundational background
+knowledge and support context-aware retrieval tasks. In contrast,
+the Event Graph extends factual information by capturing the un-
+derlying drivers of observed financial metrics, such as factors that
+may trigger a rise in profitability, through a diverse set of driven
+categories (e.g., strategic actions or technological innovation).
+Although the Attribute Graph offers a relatively static and straight-
+forward snapshot of the current position and capabilities of a com-
+pany, the Event Graph provides richer context with greater interpre-
+tative flexibility. It allows for deeper insight into a firm’s strategic
+direction, potential growth trajectories, and underlying decision
+logic, enabling more informed financial analysis and forecasting.
+Table 1 presents our knowledge graph alongside existing finan-
+cial knowledge graphs. Compared to the existing ones, which rely
+on manually defined schemas and lack comprehensive knowledge
+updates throughout the process. To construct these graphs in a
+fully automated manner, we introduce FinKario, a dataset built
+upon four primary modules, as depicted in Figure 2: Domain Cor-
+pus Acquisition, Schema Construction, Knowledge Population, and
+Quality Control Refinement. Each module fulfills a distinct role in
+automatically transforming raw financial reports into a robust KG
+without any manually predefined schemas or ontologies.
+3.1.1 Domain Corpus Acquisition. We begin by collecting raw fi-
+nancial research reports from the East Money website1. To facilitate
+1https://www.eastmoney.com
+
+
+[Page 4]
+Conference’17, July 2017, Washington, DC, USA Xiang Li et al.
+(a)
+(b) 
+East- 
+Money
+Financial 
+research reports Markdown files 
+Template
+Refine
+Simplify
+Schema
+Prompt
+Attribute graph
+(c)
+Event graph Single FinKario
+(d)
+Company
+Code
+Product
+Risk 
+factors
+Market 
+cap
+Price &
+Target price
+Exchange
+Industry
+Rating AgencyShareholder
+… …
+FinKario
+Daily triples disambiguation
+CSI300, CSI 500, 1000… 
+Industry csv guide
+Same industry
+Quality Control Refinement
+Schema Construction
+Prompt
+Knowledge Population  
+Domain Corpus Acquisition
+Dynamic
+Updated
+Schema
+t0
+t1 tn…
+FinKario
+User Query
+Vector DB
+Entity Relation
+Graph vector
+LLM
+Today is Sep 1st 2024. Please 
+predict the rise and fall of BYD
+Inc in next week based on …
+Fine-grained
+BYD
+Sep 1st 2024
+Industry
+Market cap
+Rate Price
+…
+Stock Code: 002594.SZ  
+Prediction:Rise
+Confidence Score: 8
+Reasons:
+1. Financial Indicators: The current share 
+price of BYD… 293.19-290.31 yuan, … 
+target price set at 438 yuan. This 
+indicates…
+2. Main Products and Industry: BYD’s … 
+electric vehicles, … automobile 
+manufacturing industry. Its main 
+competitors include Seres and Changan
+Automobile. Compared to these rivals, 
+BYD demonstrates stronger profitability 
+and cash flow…
+3. Event: BYD’s increased investment in 
+overseas markets is expected to boost its 
+profits…(Strategic action)
+…
+Overall, …BYD’s stock price in next week 
+will rise…
+Decision:
+Coarse-grained
+Sub-graph
+Stock:
+Date:
+LLM
+(e) Knowledge Graph 
+Vectorization & Injection
+(f) Two-stage Retrieval  (g) Investment Guidance
+Figure 2: The overall framework of FinKario and FinKario -RAG: (a)–(d) The construction process of FinKario; (e)–(g) Details of
+the FinKario-RAG pipeline.
+text parsing, we employ MinerU2 [26], which converts each report
+into a standardized Markdown format. We then perform a refine-
+ment step to remove non-informative content such as disclaimers,
+images, and repeated legal statements, ensuring that the resulting
+corpus D′ contains only the most relevant textual information for
+downstream processing.
+3.1.2 Schema Construction. In this module, we construct two dis-
+tinct but complementary schemas: the Attribute Graph Schema and
+the Event Graph Schema.
+• Schema for Attribute Graph. We leverage standardized eq-
+uity research templates from authoritative sources (e.g., the CFA
+2https://github.com/opendatalab/MinerU
+Event Graph
+Revenue Efficiency Cost Strategic Action Tech Innovation…
+Earning 
+Income-oriented 
+classifier 
+Is issued by
+Has increased 
+/decreased
+Driven 
+Categories
+…
+Top-Down
+Lower the cost
+Automation
+…
+Spin-off
+Overseas 
+expansion
+Merge / 
+Acquisition
+Is applicable in New product
+Has innovated Iteration
+… …
+Income-oriented 
+classifier
+Figure 3: Tree-Structured Schema for Event Graph.
+
+
+[Page 5]
+FinKario: Event-Enhanced Automated Construction of Financial Knowledge Graph Conference’17, July 2017, Washington, DC, USA
+Institute3 and J.P. Morgan4) as reference guides. These templates,
+designated as 𝜃CFA and 𝜃JPM, capture the core structure and content
+of high-quality financial reports. Based on their organization, we de-
+sign prompts to guide the LLM in identifying core attribute relation
+types. Formally, we define: S𝐴 = LLM(Promptattr; 𝜃CFA, 𝜃JPM), and
+S𝐴 is the set of attribute-level relation types such as Industry, Risk
+Factors, and Exchange. The schema S𝐴 serves as the foundation for
+attribute-level knowledge population. Figure 2 details the schema
+in part (b).
+• Schema for Event Graph. We construct a hierarchical event
+schema S𝐸 using a top-down approach. At the first level, we gener-
+ate high-level driven categories by prompting the LLM based on
+the institutional template 𝜃WIS from the University of Wisconsin 5:
+C = LLM(Promptcat; 𝜃WIS), where C = {𝑐1, 𝑐2, . . . , 𝑐𝑚 } represents
+the set of high-level event categories. For each category 𝑐𝑖 ∈ C ,
+we construct prompts grounded in the Financial Industry Business
+Ontology (FIBO) 6, denoted as OFIBO, to generate corresponding
+low-level event ontology: O𝑐𝑖 = LLM(Promptevent; 𝑐𝑖, OFIBO). The
+resulting schema is defined as: S𝐸 = Ð𝑚
+𝑖=1{(𝑐𝑖, 𝑜) | 𝑜 ∈ O 𝑐𝑖 }. Fig-
+ure 3 visualizes the tree-structured event schema.
+3.1.3 Knowledge Population. For each refined Markdown docu-
+ment D′, entities are extracted at each timestamp 𝜏 ∈ 𝑇 via a
+dedicated prompt guided by the previously formed schema S𝐴 and
+S𝐸:
+EA𝜏 ; E E𝜏 , R E𝜏 = LLM(Prompt, 𝐷′, S𝐴, S𝐸, 𝜏),
+where EA𝜏 and E E𝜏 denote the set of extracted entities at times-
+tamp 𝜏. These timestamped entity sets EA𝜏 and relation types R𝐴
+are combined to form the attribute knowledge graph for each stock
+𝑠:
+G (𝑠 )
+𝐴 =
+Ø
+𝜏 ∈𝑇
+{(𝑒ℎ, 𝑟, 𝑒𝑡 , 𝜏) | 𝑒ℎ, 𝑒𝑡 ∈ E A𝜏 , 𝑟 ∈ R 𝐴},
+where 𝑒ℎ and 𝑒𝑡 denote head and tail entities, respectively. Subse-
+quently, a dynamic Event Knowledge Graph is constructed sepa-
+rately, guided by a distinct set of schema S𝐸:
+G (𝑠 )
+𝐸 =
+Ø
+𝜏 ∈𝑇
+{(𝑒𝑠, 𝑟′, 𝑒𝑜, 𝜏) | 𝑒𝑠, 𝑒𝑜 ∈ E E𝜏 , 𝑟′ ∈ R E𝜏 },
+where 𝑒𝑠 is the subject entity, 𝑒𝑜 is the object entity, and 𝑟 ′ rep-
+resents the trigger relationship R E𝜏 . Finally, the comprehensive
+financial knowledge graph for stock 𝑠 integrates both attribute and
+event knowledge graphs:
+G (𝑠 )
+FinKario = G (𝑠 )
+𝐴 ∪ G (𝑠 )
+𝐸 .
+This integrated graph G (𝑠 )
+FinKario effectively captures structured fi-
+nancial information along with inferred event interactions. Figure 4
+illustrates the daily temporal structure of FinKario.
+3https://www.cfainstitute.org/sites/default/files/-/media/documents/support/
+research-challenge/challenge/rc-equity-research-report-essentials.pdf
+4https://www.wallstreetprep.com/knowledge/sample-equity-research-report/
+5https://eiexchange.com/content/the-causal-analysis-a-great-way-to-tell-the-
+financial-story
+6https://spec.edmcouncil.org/fibo/ontology
+3.1.4 Quality Control Refinement. To ensure the reliability of the
+constructed knowledge graph, we implement a refinement module
+that addresses common issues in financial text extraction, including
+entity ambiguity, missing numeric values, and extraction errors.
+Specifically, the module performs entity normalization, attribute
+completion via the Tushare platform 7, and error or placeholder
+correction via the LLM. The complete refinement pipeline is detailed
+in Algorithm 1.
+Algorithm 1 Quality Control Refinement
+Require: Raw knowledge graph G (𝑠 )
+FinKario, reference dictionary
+Tref, and LLM(·) instantiated as GPT-4o-mini
+Ensure: Refined knowledge graph G′( 𝑠 )
+FinKario
+// Step 1: Entity Normalization
+1: for all entity 𝑒 ∈ G (𝑠 )
+FinKario do
+2: if 𝑒 is a name variant (e.g., "BYD Inc. ", "BYD Auto")then
+3: Replace 𝑒 with canonical form (e.g., "BYD")
+4: end if
+5: end for
+// Step 2: Attribute Completion
+6: for all triple (𝑒ℎ, 𝑟, 𝑒𝑡 ) ∈ G (𝑠 )
+FinKario do
+7: if 𝑟 is a numeric attribute (e.g., "Price", "Cap") and ( 𝑒𝑡 is
+missing or lacks unit) then
+8: Query Tref for value and unit (e.g., CNY, USD, billions)
+9: Replace 𝑒𝑡 with correct value and unit
+10: end if
+11: end for
+// Step 3: Error Correction via LLM
+12: for all triple (𝑒ℎ, 𝑟, 𝑒𝑡 ) ∈ G (𝑠 )
+FinKario do
+13: if 𝑒𝑡 contains a placeholder (e.g., "No relevant information
+was found", "Extraction error") then
+14: Re-feed the source Markdown passage to LLM(·)
+15: Replace 𝑒𝑡 with the corrected output from the LLM
+16: end if
+17: end for
+18: return G′( 𝑠 )
+FinKario
+3.2 FinKario-RAG
+The two-stage graph-based retrieval augmented generation pipeline
+(FinKario-RAG) converts G′( 𝑠 )
+FinKario = (E, R) into actionable invest-
+ment advice through three interlocking modules, as illustrated in
+Fig. 2.
+3.2.1 Knowledge Graph Vectorization & Ingestion. To support se-
+mantic retrieval, the event-augmented financial knowledge graph
+G′( 𝑠 )
+FinKario is vectorized into three components: entity-level, relation-
+level, and graph-level representations.
+• Entity and Relation Embedding. We encode all entities and re-
+lations using a graph encoder Φ to obtain the structural embedding
+set:
+Zlocal = Φ(G ′( 𝑠 )
+FinKario) = {e𝑖 } | E |
+𝑖=1 ∪ {r𝑗 } | R |
+𝑗=1,
+7https://tushare.pro
+
+
+[Page 6]
+Conference’17, July 2017, Washington, DC, USA Xiang Li et al.
+SERES
+BYD
+CITIC 
+securities
+HS300_index 
+Downward risk in...
+Complete vehicle
+234.85 RMB
+SZSE
+Has products
+Bao 8, U8, Z9GT, 
+N9...
+Recommend
+MINSHENG 
+securities
+002594.SZ
+Event 1
+Date: 29-Aug-2024
+Driven category:
+Strategic action
+Event: Sales 
+structure 
+changes…overseas..
+Revenue growth…
+Entities: TTM…
+Timeframe: 2024Q2
+Reasoning: 
+Outbound layout…
+Source paragraph: 
+BYD's revenue 
+increased year-on...
+1186.08 B 
+Event 2
+/ 3,4….)
+SSEBuy
+Huawei 
+Event 1 …
+600030.SH
+01-Sep-2024
+30-Aug-2024
+29-Aug-2024
+28-Aug-2024
+…. ………
+Figure 4: Temporal Visualization of FinKario.
+where e𝑖 and r𝑗 denote the latent vectors of the 𝑖-th entity and 𝑗-th
+relation, respectively.
+• Graph-level Embedding. To capture global context and topo-
+logical semantics, we also compute a graph-level vector using a
+readout function 𝜌, where gglobal = 𝜌 (G ′( 𝑠 )
+FinKario).
+• Vector Store Indexing. The unified representation ZFinKario =
+Zlocal ∪ {gglobal} is normalized and stored in the vector database
+V, which supports efficient maximum inner product search during
+downstream retrieval.
+3.2.2 Two-stage Retrieval. Given a user query 𝑞, the system first
+encodes it into a dense vector h𝑞 = Ψ(𝑞) via a language model
+encoder Ψ. Retrieval is performed in two stages:
+• Coarse-grained Retrieval. The first stage aims to identify rough
+semantic anchors such as relevant stocks and dates. This is achieved
+by matching h𝑞 against indexed stock and date representations in
+the vector store:
+Vcoarse = Rcoarse (h𝑞, V, 𝑘𝑐 ),
+returning the top-𝑘𝑐 coarse candidates (e.g., BYD, Sep 1st 2024).
+• Fine-grained Retrieval. Building on the coarse results, a finer-
+grained retrieval is conducted to collect surrounding financial enti-
+ties—such as industry, market cap , and price by searching over
+relevant portions of the vector set:
+Vfine = Rfine(h𝑞, Vcoarse, 𝑘𝑓 ),
+where 𝑘𝑓 represents the number of related entities from fine-grained
+process. To facilitate structured reasoning, the retrieved fine-level
+vectors are mapped back to their original graph context to recon-
+struct a semantically aligned subgraph:
+Gsub = Mapping(Vfine), Gsub ⊆ G ′( 𝑠 )
+FinKario.
+where Mapping(·) refers to a lookup procedure that aligns vector-
+retrieved entities with their corresponding nodes and edges in the
+original graph G′( 𝑠 )
+FinKario. This two-stage process allows FinKario-
+RAG to retrieve a compact, semantically coherent subgraph for
+downstream reasoning, preserving both high-level user intent and
+local financial context.
+3.2.3 Investment Guidance. The subgraph Gsub and the user query
+𝑞 are jointly fed into the final reasoning model:
+𝑦 = LLMAnalyst (𝑞, Gsub),
+where 𝑦 includes a predicted movement label (e.g., Rise or Fall),
+an associated confidence level, and a textual rationale grounded in
+the retrieved knowledge. This completes the FinKario-RAG pipeline
+by converting graph-derived evidence into interpretable and ac-
+tionable investment guidance.
+4 Experiment Results
+4.1 Experiment Setup
+Given a universe of stocks S, for any stock 𝑠 ∈ S on a given
+trading day 𝑡, we evaluate a long-only trading strategy driven by
+FinKario-RAG signals. The strategy operates as follows: (1) Signal
+Generation. On trading day 𝑡, FinKario-RAG generates a signal
+𝛾𝑠,𝑡 for stock 𝑠; (2) Entry Rule. If 𝛾𝑠,𝑡 indicates a buy signal, we
+initiate a position by purchasing the stock at the closing price𝑐𝑠,𝑡 +1
+on day 𝑡 + 1; (3) Exit Rule. The position is held until the last trading
+day of the following week, denoted as 𝜏 (𝑡), , at which point the
+stock is sold at the closing price 𝑐𝑠,𝜏 (𝑡 ).
+4.2 Dataset & Metrics
+We evaluate our model using a multi-source dataset that combines
+textual and financial data. The raw research reports are collected
+from the East Money website, covering the period from 2024-08-
+28 to 2025-02-28. Corresponding stock price data for backtesting
+is obtained from Tushare, spanning from 2024-08-28 to 2025-03-
+07. In addition, we incorporate index components and industry
+classification information provided by Wind platform to support
+graph construction and semantic enrichment.
+To evaluate the performance of our model, we adopt six widely
+used metrics: Annualized Rate of Return (ARR) measures the
+compound annual growth rate of the portfolio value over the eval-
+uation period. Volatility (VOL) quantifies the annualized standard
+deviation of weekly returns, indicating the portfolio’s risk level.
+Sharpe Ratio (SR) quantifies risk-adjusted performance by divid-
+ing the annualized return by the annualized volatility. Maximum
+Drawdown (MDD) measures the largest peak-to-trough decline
+in portfolio value, representing the worst-case loss scenario. Cal-
+mar Ratio (CR) assesses risk-adjusted returns by dividing the
+annualized return by the absolute maximum drawdown. Accuracy
+(ACC) measures the percentage of correct directional predictions
+generated by FinKario-RAG trading signals. Together, these met-
+rics provide a comprehensive view of both predictive quality and
+practical investment performance of our model.
+4.3 Baseline
+Our proposed approach is evaluated against four categories of
+baselines:
+• Market Indices. Market indices are standard passive benchmarks.
+We report results on several representative indices, including the
+CSI 300 , CSI 500 , SSE Composite Index , and SSE Dividend
+Index, which cover major segments of the Chinese market.
+• Vanilla LLMs.We include general-purpose language models such
+as Qwen3-8B [33] and GPT-4o-mini [12], which are not specifically
+tuned for financial tasks.
+
+
+[Page 7]
+FinKario: Event-Enhanced Automated Construction of Financial Knowledge Graph Conference’17, July 2017, Washington, DC, USA
+• Financial Domain LLMs. We evaluate several open-source fi-
+nancial language models, including FinMA [31], FinGPT [34], DISC-
+FinLLM [4], XuanYuan-6B 8 and Stock-Chain [15]. These models
+are tailored for financial forecasting and investment recommen-
+dations, making them suitable for downstream backtesting and
+comparison.
+• Financial Institutions. To the best of our knowledge, this is
+the first work to incorporate real-world institutional strategies as a
+baseline. The selected institutions—Tianfeng, Southwest, Sinolink,
+Soochow, Guolian-Mingsheng, Guosen, Huaan, Kaiyuan, China
+Fortune, and China Post—were chosen as leading brokerages that
+frequently publish research reports, each appearing in at least 300
+reports.
+4.4 Experimental Results
+Figure 5 illustrates that FinKario-RAG consistently outperforms all
+benchmark models in cumulative returns, showcasing the effective-
+ness of our knowledge graph-enhanced retrieval framework. In late
+September 2024, most strategies surged in response to favorable
+Chinese fiscal policies, followed by a period of pullback and side-
+ways movement, during which SOOCHOW’s strategy remained
+notably stable.
+A major turning point occurred in early February 2025, as many
+strategies rebounded. Stock-Chain exhibited a sharp spike, while
+FinKario-RAG entered a phase of steady and accelerating growth,
+ultimately surpassing nearly all competitors by early March. These
+results highlight FinKario-RAG’s adaptability to market shifts, ef-
+fectiveness in capturing transient signals, and robust performance
+across volatile periods through its structured graph-based design.
+In addition to the visual insights from cumulative NAV trends,
+Table 2 presents a quantitative comparison that further validates
+FinKario-RAG’s superiority. FinKario-RAG achieves the highest
+scores in ARR (2.633), Sharpe Ratio (4.926), Calmar Ratio (15.315),
+and ACC (0.581), while maintaining a moderate Maximum Draw-
+down (MDD) of 0.172. These results reflect a balanced and effective
+investment strategy.
+In terms of ARR, FinKario-RAG outperforms Guolian-Minsheng
+(2.012) by 30.8%, SOOCHOW (1.625) by 62.0%, and exceeds Stock-
+Chain by a significant 123.7%. For risk-adjusted returns, FinKario-
+RAG’s SR and CR represent improvements of 58.1% and 24.4% over
+the runner-up performers. Although its volatility (0.534) is not the
+lowest, it remains well-controlled relative to its high returns.
+Regarding predictive accuracy, FinKario-RAG achieves a leading
+ACC of 0.581, outperforming Guolian-Minsheng (0.575), China For-
+tune (0.573), and RAG (0.559). While some institutional strategies
+also demonstrate strong accuracy, performance varies considerably
+across institutions, with the maximum accuracy gap reaching 0.164.
+Overall, FinKario-RAG strikes a robust risk-reward balance. Its
+knowledge graph-enhanced design delivers both superior profitabil-
+ity and effective risk control, positioning it as a state-of-the-art
+approach for LLM-based quantitative investment.
+4.5 Ablation Study
+We conduct two ablation studies. All variants are built on the same
+backbone, GPT-4o-mini, serving as both the chat-based reasoning
+8https://huggingface.co/Duxiaoman-DI/XuanYuan-6B
+module and the embedding encoder for vector retrieval, ensuring
+consistency across comparisons.
+4.5.1 Varied Knowledge Source Injection. Table 3 presents an abla-
+tion study quantifying the significance of varied knowledge sources.
+Removing the Event graph (w/o Event graph) results in a dramatic
+decrease in ARR, showing an 87.2% drop, from 2.633 to 0.336, and a
+reduction in SR by 81.1%, from 4.926 to 0.932. In contrast, removing
+the Attribute graph (w/o Attribute graph) also leads to performance
+degradation, but the decline is less pronounced across all indicators,
+underscoring the complementary role of the Event graph in en-
+hancing model performance. Additionally, we examine the impact
+of raw markdown content, which leads to a noticeable decline in
+performance. The model struggles to filter out useful information,
+particularly when processing long-text, highlighting its inefficiency
+in handling unstructured data. Furthermore, we compare the open-
+source knowledge base HiDy 9, which integrates multiple sources
+of financial data. The results suggest that HiDy provides valuable
+supplementary knowledge but does not outperform the full knowl-
+edge graph structure in improving performance, with a reduction
+in SR by 72.5%.
+4.5.2 Varied Retrieval Approach. Table 4 highlights the ablation
+study on varied retrieval approaches. We integrate FinKario with
+traditional retrieval methods. The Vanilla RAG approach shows
+lowest performance across all metrics, with ARR and SR both drop-
+ping by 85.7% and 80.5%, respectively. In contrast, the LightRAG
+method shows modest gains, with ARR and SR improvements of
+23.5% and 17.5%, respectively, suggesting the effectiveness of the
+graph-based retrieval approach. However, it still underperforms
+compared to FinKario-RAG. These results underscore the advantage
+of FinKario-RAG framework, which delivers superior performance
+across all metrics.
+4.6 Case Study
+To illustrate model behavior, we compare FinKario-RAG with the
+best-performing models in each category: Qwen3-8B (vanilla LLM),
+Guolian-Mingsheng (institution), and Stock-Chain (financial LLM).
+As depicted in Figure 6, FinKario-RAG exhibits a strong concentra-
+tion in high-growth sectors such as Electrical Equipment, Semicon-
+ductor, and Healthcare—an allocation strategy that closely aligns
+with the technology-led market rally observed around February
+2025.
+In contrast, Qwen3-8B and Stock-Chain present broader and less
+focused industry allocations across their top 3–4 sectors. Guolian-
+Mingsheng narrows its focus mainly to Auto Parts and Semicon-
+ductor, which aligns with FinKario-RAG to some extent and helps
+sustain performance in the later market stages. Although Stock-
+Chain also overweights Semiconductor, its simultaneous heavy
+allocation to sectors like Food, Coal Mining and Bank results in an
+implicit internal hedging effect, partially diluting return potential
+during sector rallies. FinKario-RAG’s industry targeting strategy,
+by contrast, reflects higher consistency and adaptability to sector
+momentum.
+9https://zenodo.org/records/12630355
+
+
+[Page 8]
+Conference’17, July 2017, Washington, DC, USA Xiang Li et al.
+Figure 5: Accumulated returns (AR) of each baseline strategy on the financial-report dataset from August 28, 2024 to March 7,
+2025. The figure shows the net asset value (NA V) curves over the weekly backtesting period.
+Table 2: Performance comparison across market indices, vanilla LLMs, financial domain LLMs, and institutional strategies.
+Model ARR ↑ VOL↓ SR↑ MDD↓ CR↑ ACC↑
+CSI 300 0.392 0.295 1.330 0.091 4.332 -
+CSI 500 0.648 0.342 1.894 0.137 4.729 -
+SSE 0.390 0.265 1.471 0.082 4.748 -
+Dividend Index 0.096 0.233 0.411 0.079 1.208 -
+Qwen3-8b 0.941 0.459 2.051 0.132 7.130 0.475
+GPT-4o-mini 0.351 0.372 0.944 0.178 1.977 0.471
+RAG (4o-mini) 0.336 0.360 0.932 0.197 1.703 0.559
+FinMA 0.348 0.389 0.895 0.214 1.623 0.479
+FinGPT 0.443 0.327 1.355 0.103 4.294 0.475
+DISC-FinLLM 0.729 0.468 1.559 0.163 4.462 0.474
+XuanYuan-6B 0.318 0.373 0.852 0.170 1.868 0.471
+Stock-Chain 1.177 1.211 0.971 0.190 6.182 0.546
+Tianfeng 0.054 0.542 0.100 0.225 0.242 0.411
+Southwest 0.121 0.485 0.249 0.173 0.701 0.492
+Sinolink 0.391 0.648 0.604 0.365 1.070 0.438
+SOOCHOW 1.625 0.522 3.115 0.132 12.311 0.557
+Guolian-Minsheng 2.012 0.647 3.108 0.169 11.880 0.575
+Guosen 0.167 0.456 0.366 0.197 0.845 0.460
+Huaan 0.170 0.471 0.361 0.333 0.509 0.435
+KaiYuan 0.181 0.473 0.383 0.279 0.650 0.552
+China-Fortune 0.263 0.537 0.489 0.216 1.218 0.573
+China-Post 0.830 0.559 1.485 0.236 3.519 0.440
+FinKario-RAG 2.633 0.534 4.926 0.172 15.315 0.581
+Table 3: Ablation study on the impact of different knowl-
+edge sources. ′𝑤 /′ uses other knowledge sources instead of
+FinKario; ′𝑤 /𝑜′ removes parts of FinKario for ablation.
+Knowledge ARR↑ SR↑ MDD↓ ACC↑
+FinKario-RAG
+w/ Research report 0.336 0.932 0.197 0.559
+w/ HiDy 0.462 1.353 0.174 0.455
+w/o Event graph 0.386 0.903 0.177 0.474
+w/o Attribute graph 2.230 4.691 0.181 0.433
+FinKario (Ours) 2.633 4.926 0.172 0.581
+Table 4: Ablation study of varied retrieval approach.
+Method ARR↑ SR↑ MDD↓ ACC↑
+FinKario
+Vanilla RAG 0.377 0.758 0.120 0.413
+LightRAG 0.821 1.313 0.140 0.495
+FinKario-RAG (Ours) 2.633 4.926 0.172 0.581
+
+
+[Page 9]
+FinKario: Event-Enhanced Automated Construction of Financial Knowledge Graph Conference’17, July 2017, Washington, DC, USA
+(a) FinKario-RAG
+ (b) Qwen3-8b
+(c) Guolian-Mingsheng
+ (d) Stock-Chain
+Figure 6: Visualization of Model Industry Preferences vs.
+Baseline Preferences. The baseline reflects the original in-
+dustry distribution derived from raw research reports.
+5 Conclusion
+This work presentsFinKario, a fully automated dataset constructed
+with event-enhanced knowledge grounded in professional institu-
+tional templates, ensuring both domain alignment and scalable dy-
+namic updates. By integrating FinKario-RAG, a two-stage graph-
+based RAG mechanism, our approach overcomes the limitations
+of single-target retrieval and reduces hallucination risk when han-
+dling large, dynamically evolving graphs. Extensive experiments
+demonstrate that FinKario-RAG significantly outperforms both
+vanilla LLMs and state-of-the-art FinLLMs in stock trend forecast-
+ing. To the best of our knowledge, this is the first benchmark against
+real-world institutional strategies, providing a more grounded and
+practical performance comparison. Looking forward, FinKario can
+be extended to incorporate multi-modal financial inputs, such as
+tables, charts, and time-series data from research reports, to further
+enrich its retrieval context and enhance predictive robustness.
+References
+[1] Titilope Tosin Adewale, Titilayo Deborah Olorunyomi, and Theodore Narku
+Odonkor. 2023. Big data-driven financial analysis: A new paradigm for strategic
+insights and decision-making. Journal of Financial Innovation and Analytics 1, 1
+(2023), 1–15.
+[2] Dogu Araci. 2019. Finbert: Financial sentiment analysis with pre-trained language
+models. arXiv preprint arXiv:1908.10063 (2019).
+[3] Hanzhu Chen, Xu Shen, Qitan Lv, Jie Wang, Xiaoqi Ni, and Jieping Ye. 2024.
+SAC-KG: Exploiting Large Language Models as Skilled Automatic Constructors
+for Domain Knowledge Graph. In Proceedings of the 62nd Annual Meeting of
+the Association for Computational Linguistics (Volume 1: Long Papers) , Lun-Wei
+Ku, Andre Martins, and Vivek Srikumar (Eds.). Association for Computational
+Linguistics, 4345–4360. doi:10.18653/v1/2024.acl-long.238
+[4] Wei Chen, Qiushi Wang, Zefei Long, Xianyin Zhang, Zhongtian Lu, Bingxuan Li,
+Siyuan Wang, Jiarong Xu, Xiang Bai, Xuanjing Huang, et al. 2023. Disc-finllm: A
+chinese financial large language model based on multiple experts fine-tuning.
+arXiv preprint arXiv:2310.15205 (2023).
+[5] Yuemin Chen, Feifan Wu, Jingwei Wang, Hao Qian, Ziqi Liu, Zhiqiang Zhang, Jun
+Zhou, and Meng Wang. 2024. Knowledge-augmented Financial Market Analysis
+and Report Generation. InProceedings of the 2024 Conference on Empirical Methods
+in Natural Language Processing: Industry Track . 1207–1217.
+[6] Dawei Cheng, Fangzhou Yang, Xiaoyang Wang, Ying Zhang, and Liqing Zhang.
+2020. Knowledge graph-based event embedding framework for financial quanti-
+tative investments. In Proceedings of the 43rd International ACM SIGIR Conference
+on Research and Development in Information Retrieval . 2221–2230.
+[7] Andrea Colombo, Teodoro Baldazzi, Luigi Bellomarini, Emanuel Sallinger, and
+Stefano Ceri. 2025. Template-based Explainable Inference over High-Stakes
+Financial Knowledge Graphs. computational complexity 7, 24 (2025), 47.
+[8] E Philip Davis. 1996. The role of institutional investors in the evolution of
+financial structure and behaviour. The Future of the Financial System 33 (1996),
+49–99.
+[9] Linyi Ding, Sizhe Zhou, Jinfeng Xiao, and Jiawei Han. 2024. Automated con-
+struction of theme-specific knowledge graphs. arXiv preprint arXiv:2404.19146
+(2024).
+[10] Ziliang Gan, Yu Lu, Dong Zhang, Haohan Li, Che Liu, Jian Liu, Ji Liu, Haipang
+Wu, Chaoyou Fu, Zenglin Xu, Rongjunchen Zhang, and Yong Dai. 2024. MME-
+Finance: A Multimodal Finance Benchmark for Expert-level Understanding and
+Reasoning. arXiv:2411.03314 [cs.CV] https://arxiv.org/abs/2411.03314
+[11] Denis J Hilton. 2001. The psychology of financial decision-making: Applications
+to trading, dealing, and investment analysis. The Journal of Psychology and
+Financial Markets 2, 1 (2001), 37–53.
+[12] Aaron Hurst, Adam Lerer, Adam P Goucher, Adam Perelman, Aditya Ramesh,
+Aidan Clark, AJ Ostrow, Akila Welihinda, Alan Hayes, Alec Radford, et al. 2024.
+Gpt-4o system card. arXiv preprint arXiv:2410.21276 (2024).
+[13] K Kapellas and G Siougle. 2017. Financial reporting practices and investment
+decisions: A review of the literature. Industrial Engineering & Management 6, 04
+(2017), 1–9.
+[14] Natthawut Kertkeidkachorn, Rungsiman Nararatwong, Ziwei Xu, and Ryutaro
+Ichise. 2023. Finkg: A core financial knowledge graph for financial analysis. In
+2023 IEEE 17th International Conference on Semantic Computing (ICSC) . IEEE,
+90–93.
+[15] Xiang Li, Zhenyu Li, Chen Shi, Yong Xu, Qing Du, Mingkui Tan, Jun Huang,
+and Wei Lin. 2024. Alphafin: Benchmarking financial analysis with retrieval-
+augmented stock-chain framework. arXiv preprint arXiv:2403.12582 (2024).
+[16] Xiaohui Victor Li and Francesco Sanna Passino. 2024. Findkg: Dynamic knowl-
+edge graphs with large language models for detecting global trends in financial
+markets. In Proceedings of the 5th ACM International Conference on AI in Finance .
+573–581.
+[17] Zhaowei Liu, Xin Guo, Fangqi Lou, Lingfeng Zeng, Jinyi Niu, Zixuan Wang, Jiajie
+Xu, Weige Cai, Ziwei Yang, Xueqian Zhao, et al. 2025. Fin-R1: A Large Language
+Model for Financial Reasoning through Reinforcement Learning. arXiv preprint
+arXiv:2503.16252 (2025).
+[18] Zhenghao Liu, Zhijian Zhang, and Xi Zeng. 2024. Risk identification and man-
+agement through knowledge Association: A financial event evolution knowledge
+graph approach. Expert Systems with Applications 252 (2024), 123999.
+[19] A Craig MacKinlay. 1997. Event studies in economics and finance. Journal of
+economic literature 35, 1 (1997), 13–39.
+[20] Bhaskarjit Sarmah, Dhagash Mehta, Benika Hall, Rohan Rao, Sunil Patel, and
+Stefano Pasquali. 2024. Hybridrag: Integrating knowledge graphs and vector
+retrieval augmented generation for efficient information extraction. InProceedings
+of the 5th ACM International Conference on AI in Finance . 608–616.
+[21] Michael C Schlachter. 2013. How You Compare to the Big Funds: Advantages and
+Disadvantages of Individual Investors. In INVEST LIKE AN INSTITUTION: PRO-
+FESSIONAL STRATEGIES FOR FUNDING A SUCCESSFUL RETIREMENT . Springer,
+1–14.
+[22] Kuldeep Singh, Simerjot Kaur, and Charese Smiley. 2024. Finqapt: Empowering
+financial decisions with end-to-end llm-driven question answering pipeline. In
+Proceedings of the 5th ACM International Conference on AI in Finance . 266–273.
+[23] Zheng Su, Mukai Hao, Qiang Zhang, Bo Chai, and Ting Zhao. 2020. Automatic
+knowledge graph construction based on relational data of power terminal equip-
+ment. In 2020 5th International Conference on Computer and Communication
+Systems (ICCCS). IEEE, 761–765.
+[24] ShaoBo Sun, Xiaoming Pan, Shuang Qi, and Jun Gao. 2025. Knowledge Enhanced
+Prompt Learning Framework for Financial News Recommendation. Pattern
+Recognition (2025), 111461.
+[25] Rex Thompson. 1995. Empirical methods of event studies in corporate finance.
+Handbooks in Operations Research and Management Science 9 (1995), 963–992.
+[26] Bin Wang, Chao Xu, Xiaomeng Zhao, Linke Ouyang, Fan Wu, Zhiyuan Zhao,
+Rui Xu, Kaiwen Liu, Yuan Qu, Fukai Shang, et al. 2024. Mineru: An open-source
+solution for precise document content extraction. arXiv preprint arXiv:2409.18839
+(2024).
+[27] Mengyu Wang, Tiejun Ma, and Shay B Cohen. 2025. Pre-training Time Series
+Models with Stock Data Customization. arXiv preprint arXiv:2506.16746 (2025).
+[28] Wenguang Wang, Yonglin Xu, Chunhui Du, Yunwen Chen, Yijie Wang, and
+Hui Wen. 2021. Data set and evaluation of automated construction of financial
+knowledge graph. Data Intelligence 3, 3 (2021), 418–443.
+[29] Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski, Mark Dredze, Sebastian
+Gehrmann, Prabhanjan Kambadur, David Rosenberg, and Gideon Mann. 2023.
+BloombergGPT: A Large Language Model for Finance. arXiv:2303.17564 [cs.LG]
+https://arxiv.org/abs/2303.17564
+[30] Bolun Xia, Vipula Rawte, Aparna Gupta, and Mohammed Zaki. 2024. FETILDA:
+evaluation framework for effective representations of long financial documents.
+ACM Transactions on Knowledge Discovery from Data 18, 7 (2024), 1–27.
+
+
+[Page 10]
+Conference’17, July 2017, Washington, DC, USA Xiang Li et al.
+[31] Qianqian Xie, Weiguang Han, Xiao Zhang, Yanzhao Lai, Min Peng, Alejandro
+Lopez-Lira, and Jimin Huang. 2023. Pixiu: A large language model, instruction
+data and evaluation benchmark for finance. arXiv preprint arXiv:2306.05443
+(2023).
+[32] Yuanjian Xu, Jianing Hao, Kunsheng Tang, Jingnan Chen, Anxian Liu, Peng Liu,
+and Guang Zhang. 2025. FinRipple: Aligning Large Language Models with Finan-
+cial Market for Event Ripple Effect Awareness. arXiv preprint arXiv:2505.23826
+(2025).
+[33] An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng,
+Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, et al. 2025. Qwen3 technical
+report. arXiv preprint arXiv:2505.09388 (2025).
+[34] Hongyang Yang, Xiao-Yang Liu, and Christina Dan Wang. 2023. FinGPT: Open-
+Source Financial Large Language Models. arXiv:2306.06031 [q-fin.ST] https:
+//arxiv.org/abs/2306.06031
+[35] Yangyang Yu, Zhiyuan Yao, Haohang Li, Zhiyang Deng, Yupeng Cao, Zhi Chen,
+Jordan W. Suchow, Rong Liu, Zhenyu Cui, Zhaozhuo Xu, Denghui Zhang, Ko-
+duvayur Subbalakshmi, Guojun Xiong, Yueru He, Jimin Huang, Dong Li, and
+Qianqian Xie. 2024. FinCon: A Synthesized LLM Multi-Agent System with Con-
+ceptual Verbal Reinforcement for Enhanced Financial Decision Making. arXiv
+preprint arXiv:2407.06567 (2024).
+[36] Bowen Zhang and Harold Soh. 2024. Extract, define, canonicalize: An llm-based
+framework for knowledge graph construction. arXiv preprint arXiv:2404.03868
+(2024).
+[37] Wentao Zhang, Lingxuan Zhao, Haochong Xia, Shuo Sun, Jiaze Sun, Molei Qin,
+Xinyi Li, Yuqing Zhao, Yilei Zhao, Xinyu Cai, et al. 2024. A multimodal founda-
+tion agent for financial trading: Tool-augmented, diversified, and generalist. In
+Proceedings of the 30th acm sigkdd conference on knowledge discovery and data
+mining. 4314–4325.
+[38] Tianyu Zhou, Pinqiao Wang, Yilin Wu, and Hongyang Yang. 2024. Finrobot:
+Ai agent for equity research and valuation with large language models. arXiv
+preprint arXiv:2411.08804 (2024).
+[39] Xinyi Zhu, Liping Wang, Hao Xin, Xiaohan Wang, Zhifeng Jia, Jiyao Wang, Chun-
+ming Ma, and Yuxiang Zengt. 2023. T-FinKB: A Platform of Temporal Financial
+Knowledge Base Construction. In 2023 IEEE 39th International Conference on Data
+Engineering (ICDE). IEEE, 3671–3674.
+A Prompts in FinKario
+A.1 The Prompt for Acquiring Schema of
+Attribute Graph
+We leverage standardized equity research templates from author-
+itative sources (e.g., the CFA Institute and J.P. Morgan) as refer-
+ence guides. We design a prompt that guides the model to iden-
+tify core company attributes for schema construction, including
+name, ticker, rating, market capitalization, and more. Specifically,
+the attribute schema comprises 11 relation types: Stock Ticker,
+Primary Exchange, Primary Industry, Investment Rating, Current
+Stock Price, Market Capitalization, Target Price, Major Sharehold-
+ers, Risk Assessment, Key Products, Research Institution. Figure 7
+illustrates an example of the automatically acquired schema for our
+Attribute graph.
+A.2 The Prompt for Attribute Graph
+Construction
+After acquiring the schema of the Attribute Graph, this structure
+serves as the foundation for attribute-level knowledge population
+from financial research reports. Figure 8 provides an example of
+the designed prompt used to guide the model in extracting these
+attributes during the knowledge population process.
+A.3 The Prompt for Acquiring Schema of Event
+Graph
+We automatically construct the top-down event-driven schema by
+prompting LLMs to extract high-level driven categories from the
+Wisconsin handbook and further match low-level event ontologies
+from FIBO to support interpretable event graph construction. Fig-
+ure 9 illustrates the resulting tree-structured schema. Each event
+category corresponds to a high-level driver and is associated with
+its fine-grained instances or relations. Below is the list of categories
+and their typical subtypes:
+• Supply: is provided by, Capacity Adjustment, Market Action,
+Holds
+• Demand: Sales, Consumption, Performance, Is needed by
+• Revenue: Earning, Profit, Income-oriented classifier, Is is-
+sued by, Has increased / decreased
+• Efficiency Cost: Lower the cost, Automation
+• Strategic Action: Merger / Acquisition, Overseas expansion,
+Spin-off
+• Technology Innovation: Is applicable in, New product, Has
+innovated, Iteration
+• Policy Regulation: Regulatory action, Governs, License
+• Macro: Interest rate, GDP, Disaster
+A.4 The Prompt for Event Graph Construction
+After establishing the event schema, we designed a tailored prompt
+to guide large language models in extracting structured event-level
+information from equity research reports. As illustrated in Figure 10,
+the prompt instructs the model to (1) identify the subject and object
+of the event, (2) extract relevant entities such as company names,
+products, and indicators, (3) annotate the timeframe, and (4) deter-
+mine a driven category from options like “Supply”, “Demand”, or
+“Strategic Action”.
+To ensure relevance and accuracy, the prompt restricts extraction
+to events directly tied to company activities. The resulting JSON
+output includes not only the core event tuple but also a reasoning
+statement that explains the event linkage. The figure presents both
+an illustrative example and a real-case output to demonstrate the
+clarity and consistency achieved through our prompt design.
+B The Case Study of Investment Query
+Response
+This subsection presents a case study comparing how various mod-
+els—including FinLLMs such as FinGPT, XuanYuan-6B, Stock-Chain,
+and FinKario-RAG, as well as an advanced vanilla LLM (GPT-4o-
+mini), respond to a user query about investment analysis for Haier
+Biomedical (Haier Bio). The query asks the model to analyze the
+stock’s investment potential and predict its future price trend.
+As shown in Figure 11, FinGPT, XuanYuan-6B, and GPT-4o-mini
+consistently emphasize the limitations of LLMs in delivering defini-
+tive investment predictions. These models cite the inherent uncer-
+tainty of market dynamics and the lack of access to real-time data as
+major barriers. Their responses generally avoid direct suggestions,
+instead encouraging users to consider macroeconomic conditions,
+company fundamentals, and to consult financial professionals. In
+contrast, Stock-Chain attempts a more analytical response by sum-
+marizing company fundamentals and macro-level trends. However,
+its output includes factual inaccuracies such as misidentifying the
+stock code, and it fails to synthesize comparative insights across
+the industry, falling short of the user’s request for a cross-company
+
+
+[Page 11]
+FinKario: Event-Enhanced Automated Construction of Financial Knowledge Graph Conference’17, July 2017, Washington, DC, USA
+Input:
+Text: BASIC INFORMATION: The research report should begin with some basic information about the firm, 
+including the company’s ticker symbol, the primary exchange where its shares are traded, the primary sector and 
+industry where it operates, the investment recommendation, the current stock price and market capitalization, and 
+the target stock price. 
+In addition, the liquidity and float of a security are important considerations for the equity analyst. The liquidity 
+of a stock refers to the degree to which it can be purchased and sold without affecting the price. The analyst 
+should understand that periods of financial stress can affect the liquidity of a security. A stock’s float refers to the 
+number of shares that are publicly owned and available for trading and generally excludes restricted shares and 
+the holdings of insiders. The float of a stock can be significantly smaller than its market capitalization and thus is 
+an important consideration for large institutional investors, especially when it comes to investing in companies 
+with smaller market capitalizations. Consequently, a relatively small float deserves mention. Finally, it is good 
+practice to identify the major shareholders of a firm ….
+Instruction: 1. Act as an experienced financial information extraction expert. Given a paragraph from a 
+financial research report, extract the following company-specific information: (a) the company's investment 
+rating; (b) any relevant risk assessments;  (c) the company's main products or services.
+2. Explicitly exclude all content related to analysts, financial institutions, or brokerage firms—only retain 
+information directly attributable to the target company. 3. The output should be organized into distinct modules, 
+such as rating, risk, and product, to prevent cross-field contamination.  4. All numerical values must include clear 
+and appropriate units (e.g., “billion CNY”)
+Output: “labels”: “Company Name:\n Stock Ticker:\n Primary Exchange:\n Primary Industry:\n Investment 
+Rating:\n Current Stock Price:\n Market Capitalization:\n Target Price:\n Major Shareholders:\n Risk 
+Assessment:\n Key Products:\n Research Institution:"
+CFA 
+handbook 
+Figure 7: Prompt for acquiring schema of Attribute graph.
+investment evaluation. Moreover, it does not offer actionable invest-
+ment guidance, only suggesting that decisions require consideration
+of multiple external factors.
+FinKario-RAG addresses these shortcomings by accurately ground-
+ing its analysis in correct entity identifiers, comparing the target
+stock with other industry players, and offering nuanced conclusions.
+This demonstrates the effectiveness of our financial knowledge
+graph construction and retrieval approach, which goes beyond
+traditional single-document retrieval methods to support more
+context-aware and investor-aligned responses.
+C The Supplementary Experiments of
+Institutional Strategy
+In the main manuscript, we compared our method against institu-
+tional agencies that published at least 300 equity research reports.
+To enable a more comprehensive evaluation of institutional strategy
+effectiveness, we additionally included agencies that have rated
+at least 100 reports in this supplementary analysis. The cumula-
+tive performance of these strategies is illustrated in the NAV curve
+shown in Figure 12, while detailed performance metrics are sum-
+marized in Table 5.
+For example, Guolian-Minsheng, SOOCHOW, and Caixin demon-
+strate strong annualized returns, with Guolian-Minsheng reaching
+2.012, SOOCHOW at 1.625, and Caixin also at 1.625. Compared to
+low-return agencies such as Tianfeng and Cinda, whose annualized
+returns are below 0.06, these top performers yield more than 25
+times higher returns. However, high returns do not always equate
+to stability. Caixin, despite having the highest Sharpe Ratio of 3.816,
+shows relatively low accuracy at 0.455, indicating that effective
+market timing can sometimes matter more than raw predictive ac-
+curacy. In contrast, Guolian-Minsheng achieves both a high return
+and an accuracy of 0.575, the best among all institutions. Zhongtai
+and Ping-An exhibit the lowest volatility values at 0.312 and 0.324,
+respectively, which are about 40% lower than the average across
+institutions. Nonetheless, their returns remain moderate, indicating
+a trade-off between risk and reward. Meanwhile, Shanxi and Dongx-
+ing record negative returns, highlighting potential weaknesses in
+their investment strategies during weekly backtesting. Some insti-
+tutions, such as China-Post and Pacific, deliver reasonably high
+returns above 0.8 and 1.5, respectively. However, their performance
+metrics such as drawdown and accuracy remain suboptimal, indi-
+cating inconsistent prediction quality. Agencies like Guosen and
+KaiYuan exhibit more balanced profiles with moderate returns and
+volatility, yet lack standout performance in any single dimension.
+Overall, these results illustrate the fragmented quality and strate-
+gic effectiveness among institutional players. Against this backdrop,
+FinKario-RAG delivers the strongest performance across all ma-
+jor return-oriented metrics, including the highest annualized re-
+turn, Sharpe Ratio, and accuracy, while keeping risk measures such
+as maximum drawdown and volatility within acceptable bounds,
+thereby reinforcing the advantage of our structured retrieval and
+knowledge-grounded approach.
+
+
+[Page 12]
+Conference’17, July 2017, Washington, DC, USA Xiang Li et al.
+Input:
+Schema {label}  + Markdown of Equity research report
+Instruction: 1. Act as an experienced information extraction expert and extract key information from stock 
+research reports. 2. Identify entities related to {label} from the following content, and return only the entity 
+names. 3. If relevant entities are found, return their names; if no relevant information is found, return "No 
+relevant information found".
+The required output format is as follows:
+{
+    "label": "{label}",
+    "entities": [
+        "Entity Name 1",
+        "Entity Name 2",
+        ...
+    ]
+}
+4. For company names, recognizing abbreviations is sufficient; the full official name is not required.
+5. For research institutions, if the name ends with "securities", discard any additional suffixes (e.g., "CITIC 
+Securities Research Institute" should be normalized to "CITIC Securities").
+6. For numerical entities such as market capitalization, current price, target price, liquidity, and floating shares, 
+be sure to include the unit mentioned in the surrounding context (e.g., "billion CNY", "million CNY", "%") to 
+avoid ambiguity.
+7. The following is the content of the research report. Please extract the key information accordingly:
+''' + "\n" + markdown_text
+Output: Company Name: Lankun Environmental; Stock Ticker: 301305.SZ; Primary Exchange: 
+Shenzhen Stock Exchange; Primary Industry: Environmental Protection; Investment Rating: Outperform; 
+Current Stock Price: 17.58 CNY; Market Capitalization: RMB 4.20 billion / USD 0.58 billion; Target 
+Price: 21.46 CNY; Major Shareholders: Chen Jianxiang, Zhang Liyin; Risk Assessment: Product price 
+fluctuations, Lower-than-expected downstream demand; Key Products: Biodiesel, Green Power, Biogas, 
+HMOs; Research Institution: Haitong International.
+Examples 
+Figure 8: Prompt for Attribute graph construction.
+Input:
+Text:"…Those events that are separated from ongoing operations may in fact be a part of operations and 
+should not be kept separate. In reality, it’s not unusual to separate five or more items to highlight their 
+affect on the financial results.  Some of them might include: (1) Major events such as earthquakes or 
+strikes in other countries. (2) New product launches where management and investors may want to see 
+the impact of new sales, any cannibalization of other products, incremental marketing or other expenses. 
+(3) Exchange rate fluctuations if international sales exist…"
++ “\n” + FIBO ontology list
+Instruction: Act as an experienced financial information extraction expert.  
+Given a paragraph from a professional academic manuscript, extract the key event-driven categories that 
+may influence a company’s financial performance.  
+For each identified category, provide:
+(1) a concise category name;  
+(2) a short description ("desc") that summarizes the typical triggers, causes, or phenomena it covers.  
+Additionally, reference the Financial Industry Business Ontology (FIBO) to align each category—where 
+possible—with an appropriate concept in the ontology hierarchy.  
+If a direct match is not available, define the category based on context, ensuring semantic consistency 
+with standard financial ontologies.
+Output:
+Driven categories:
+Efficiency Cost: desc: Cost reduction, Production line automation,  Cost compression
+fibo_reference: Lower the cost, Automation
+Strategic Action: desc: Equity Incentive , Overseas Base Commissioning
+fibo_reference : Merger /Acquisition, Overseas expansion,  spin off
+Supply: desc: Capacity adjustment, Inventory liquidation, Raw material cost
+fibo_reference: is provided by, Capacity Adjustment, Martet action, Holds
+……
+Wisconsin 
+handbook
+/FIBO
+Examples
+Figure 9: Prompt for acquiring schema of Event graph.
+
+
+[Page 13]
+FinKario: Event-Enhanced Automated Construction of Financial Knowledge Graph Conference’17, July 2017, Washington, DC, USA
+Input:
+Schema {choice} + Markdown of Equity research report
+Instruction: Please extract events from the following paragraph and return the results in JSON format.
+(1) Identify the subject and object components of each event and output logically consistent relations. (2) 
+Extract involved entities, including companies, products, and indicators. (3) Annotate the time frame of 
+the event (if available). (4) Only consider events centered around companies; ignore entities that are not 
+directly related to company activities. (5) Based on the type of event, assign a driven category, which 
+must be selected from the following options: {choices}
+Example Input:
+"Due to production cuts by original manufacturers driving up storage prices, Demingli's net profit in Q4 
+2023 increased by 500%.”
+Example Output:
+{“subject”: “Production cuts by original manufacturers”, “object”: “Increase in net profit ”, “entities”: 
+{“Company”: [“Demingli”], “Product”: [“Storage”], "Indicator": ["Net Profit"]},"timeframe": "2023Q4",
+“reasoning”: “The production cuts directly led to an increase in storage prices. Demingli‘s 500% 
+increase in net profit is linked to this. The event is primarily driven by factors related to Supply.",
+"driven_category": "Supply"
+}
+Output:
+{“subject”: “Jinbo Biotech’s active expansion into overseas markets”, “object”: “Improvement in brand 
+awareness and market competitiveness”, “entities”: {“Product”: [“ProtY outh Collagen Peptide Essence”, 
+“ProtYouth Triple Collagen Cream”, “Single-ingredient Luxurious Collagen Essence”],“Indicator”: 
+[“Brand Awareness”]}, “timeframe”: “By the end of January 2025”, “confidence”: 0.8, “reasoning”: 
+“Jinbo Biotech’s active expansion into overseas markets is the reason behind the improvement in brand 
+awareness and market competitiveness. The time frame is explicitly indicated as the end of January 
+2025.”, “source_paragraph”: “…”, “driven_category”: “Strategic Action”}
+Examples
+Figure 10: Prompt for Event graph construction.
+Table 5: Performance of institutional agencies that published at least 100 equity research reports.
+Agency ARR ↑ VOL↓ SR↑ MDD↓ CR↑ ACC↑
+Tianfeng 0.054 0.542 0.100 0.225 0.242 0.411
+Southwest 0.121 0.485 0.249 0.173 0.701 0.492
+Sinolink 0.391 0.648 0.604 0.365 1.070 0.438
+SOOCHOW 1.625 0.522 3.115 0.132 12.311 0.557
+Guolian-Minsheng 2.012 0.647 3.108 0.169 11.880 0.575
+Guosen 0.167 0.456 0.366 0.197 0.845 0.460
+Huaan 0.170 0.471 0.361 0.333 0.509 0.435
+KaiYuan 0.181 0.473 0.383 0.279 0.650 0.552
+China-Fortune 0.263 0.537 0.489 0.216 1.218 0.573
+China-Post 0.830 0.559 1.485 0.236 3.519 0.440
+Pacific 1.557 0.582 2.674 0.170 9.138 0.458
+China-Galaxy 0.533 0.452 1.179 0.289 1.847 0.482
+Huafu 0.465 0.381 1.222 0.162 2.881 0.409
+Zhongtai 0.432 0.312 1.388 0.068 6.358 0.328
+Cinda 0.005 0.413 0.011 0.117 0.041 0.496
+Shanxi -0.198 0.817 -0.243 0.532 -0.373 0.440
+Guohai 0.340 0.387 0.879 0.136 2.506 0.402
+Huajin 0.813 0.569 1.429 0.192 4.233 0.358
+Ping-An 0.403 0.324 1.243 0.196 2.056 0.538
+Guoyuan 1.488 0.623 2.391 0.220 6.768 0.491
+Huayuan 0.553 0.421 1.314 0.168 3.292 0.409
+Haitong-International 0.852 0.571 1.490 0.256 3.322 0.395
+Zhongyuan 0.964 0.561 1.718 0.270 3.565 0.483
+Caixin 1.625 0.426 3.816 0.126 12.897 0.455
+AVIC -0.091 0.589 -0.154 0.329 -0.276 0.437
+Dongxing -0.087 0.391 -0.223 0.181 -0.481 0.415
+FinKario-RAG 2.633 0.534 4.926 0.172 15.315 0.581
+
+
+[Page 14]
+Conference’17, July 2017, Washington, DC, USA Xiang Li et al.
+Could you help me analyze the stock of Haier Bio? You can compare it with other stocks 
+in the same industry to see if it's worth investing in and predict its future price trend.
+Haier Biomedical (688139.SH) holds a strong position in the healthcare industry, operating across 
+domestic and international markets with a focus on technology-driven innovation. While its 2024–2026 
+revenue and net profit forecasts have been revised downward due to disruptions in overseas projects—from 
+RMB 2.63/3.13/3.67 billion to RMB 2.42/2.78/3.23 billion and from RMB 510/630/760 million to RMB 
+420/500/590 million respectively—the corresponding PE ratios of 22x/18x/15x reflect a cautious market 
+outlook. Compared with competitors such as Yuwell Medical, Hualan Biological, and Mindray Medical, 
+Haier Biomedical demonstrates distinct advantages in its specialized segments. It is actively expanding into 
+emerging business areas, with strong growth in newly signed orders, product diversification, and notable 
+progress in technologies such as automated cell preparation for cell and gene therapy (CGT). Despite short-
+term pressures, the company’s solid fundamentals and innovation capacity support its long-term
+investment appeal, especially for investors seeking entry during this adjustment period.
+Haier Biomedical (600193.SS) is a leading biopharmaceutical company with strong capabilities in R&D and 
+production of blood products, vaccines, and medical devices. It benefits from favorable industry trends such as 
+aging demographics and increasing healthcare demand. The company is well-positioned to expand its market 
+share through its technological strengths and strategic collaborations. However, investors should be aware of 
+industry risks like market volatility, cost pressures, and regulatory uncertainty. A well-informed investment 
+decision requires a balanced assessment of both the company’s fundamentals and external market factors.
+ Stock-Chain
+I cannot provide real-time data or specific future price predictions. To determine if Haier Bio is worth 
+investing in, you should weigh its financial health, growth potential, and how it stacks up against competitors. 
+Keep an eye on industry trends and analyst opinions to inform your decision
+GPT-4o-mini
+FinKario-RAG
+Haier Biomedical’s future stock performance is uncertain due to various external factors. Investors should 
+assess their risk tolerance and market conditions carefully and consider consulting financial professionals 
+before making decisions.
+As an AI language model, based on the available information about Haier Biomedical, I cannot provide a 
+definitive prediction regarding the stock‘s future price movement. Forecasting stock trends requires 
+consideration of … dynamic factors, including…, many of which are uncertain or rapidly changing.
+ FinGPT
+XuanYuan-6B
+Figure 11: Evaluation of investment suggestions from FinGPT, XuanYuan-6B, GPT-4o-mini, Stock-Chain, and FinKario
+Figure 12: Accumulated returns (AR) of each institutional strategy on the financial-report dataset from August 28, 2024 to
+March 7, 2025. The figure shows the net asset value (NA V) curves over the weekly backtesting period.

@@ -1,0 +1,1279 @@
+[Page 1]
+Research 
+Artificial Intelligence—Review 
+Advancing Financial Engineering with Foundation Models: Progress, 
+Applications, and Challenges 
+Liyuan Chen a,b, Shuoling Liu b, Jiangpeng Yan a,b, Xiaoyu Wang b, Henglin Liu a, Chuang Li a, Kecheng Jiao a, Jixuan Ying a, 
+Yang Veronica Liu c, Qiang Yang c,*, Xiu Li a,* 
+a Tsinghua Shenzhen International Graduate School，Tsinghua University, Shenzhen 518055, China 
+b E Fund Management Co., Ltd., Hengqin 519031, China 
+c Department of Data Science and Artificial Intelligence, The Hong Kong Polytechnic University, Hong Kong 999077, China 
+*Corresponding authors. 
+E-mail addresses:  profqiang.yang@polyu.edu.hk (Q. Yang), li.xiu@sz.tsinghua.edu.cn (X. Li) 
+ 
+ABSTRACT  
+The advent of foundation models (FMs ), large-scale pre-trained models with strong generalization capabilities , has opened new frontiers for 
+financial engineering. While general-purpose FMs such as GPT-4 and Gemini have demonstrated promising performance in tasks ranging from 
+financial report summarization to sentiment -aware forecasting, many financial applications remain constrained by unique domain requirements  
+such as multimodal reasoning, regulatory compliance, and data privacy. These challenges have spurred the emergence of financial foundation 
+models (FFMs) : a new class of models explicitly designed for finance. This survey presents a comprehensive overview of FFMs, with a 
+taxonomy spanning three key modalities: financial language foundation models (FinLFMs), financial time -series foundation models 
+(FinTSFMs), and financial visual-language foundation models (FinVLFMs). We review their architectures, training methodologies, datasets, and 
+real-world applications. Furthermore, we identify critical challenges in data availability, algorithmic scalability, and infrastru cture constraints 
+and offer insights into future research opportunities. We hope this survey can serve as both a comprehensive reference for understanding FFMs 
+and a practical roadmap for future innovation.  
+Keywords  
+Foundation models 
+Financial engineering 
+Artificial intelligence  
+Multimodal models 
+ 
+1. Introduction 
+Financial engineering, an interdisc iplinary domain that combines finance, mathematics, and computer science, has 
+become the cornerstone of modern financial systems. It plays a critical role in designing complex financial products, 
+managing risk, and supporting decision -making through quanti tative models and data -driven algorithms [1]. As financial 
+markets grow in complexity and data heterogeneity, there is an increasing need for intelligent systems [2 –5] that can 
+generalize across a wide range of tasks, adapt to changing environments, and su pport scalable, automated financial 
+workflows. 
+Recent advancements in foundation models (FMs)—that is, large-scale pre-trained models such as GPT-4 [6], Gemini 
+[7], Qwen [8], and DeepSeek [9]—have demonstrated impressive generalization capabilities across modalities and domains. 
+In financial contexts, these general -purpose FMs have already begun to reshape traditional pipelines, offering strong 
+performance on tasks such as financial report summarization, portfolio commentary generation, sentiment -aware 
+forecasting, and risk disclosure analysis [10 –12]. This emerging paradigm shift  from narrowly specialized artificial 
+intelligence ( AI) systems to general -purpose FMs promises to transform the landscape of financial engineering, as 
+illustrated in Fig. 1.
+
+
+[Page 2]
+2                            
+ 
+Fig. 1. The financial AI paradigm is shifting from the use of traditional models for specific tasks to the use of FMs for 
+multiple tasks. FOMC: Federal Open Market Committee. 
+ 
+Despite the strong potential of general -purpose FMs in finance, many financial tasks  possess unique characteristics , 
+such as the need for legal compliance, multimodal document processing, long -horizon time -series analysis, and strict 
+privacy requirements, that are not fully addressed by off-the-shelf models. These challenges have motivated the research of 
+financial foundation models (FFMs) —a class of FMs designed specifically for financial scenarios through domain -aware 
+pre-training, task-specific fine-tuning, and alignment with financial reasoning and regulatory goals. 
+In this survey, our aim is to systematize the development of FFMs. We categorize FFMs into three major types based 
+on input modality and application scope: 
+ Financial language foundation models (FinLFMs). Also referred to as financial large language models 
+(FinLLMs) [13,14], FinLFMs are models pre-trained on financial texts, including reports, news, and contracts, and 
+optimized for tasks such as question answering, summarization, and compliance checking [15,16]. 
+ Financial time-series foundation models (FinTSFMs). FinTSFMs extend FFMs beyond language by processing 
+sequential financial data (e.g., price histories  and economic indicators) for financial time -series data analysis. 
+Unlike texts, financial time series are continuous, non-stationary, and often multivariate, requiring inductive biases 
+for temporal dependencies, regime shifts, and volatility clustering [17]. 
+ Financial visual-language foundation models (FinVLFMs). FinVLFMs are designed to process both textual and 
+visual information, such as financial charts, tables, and fi gures, which enables them to perform complex tasks that 
+require multimodal understanding.  These models address the growing need for cross -modal reasoning, in which 
+financial knowledge is communicated through both textual narratives and visual artifacts [18–20]. 
+These three categories collectively represent the ongoing shift from narrow task -specific modeling to broadly adaptable 
+and general-purpose systems, which is enabling a new era of scalable, multimodal, and intelligent financial engineering 
+[10,16,21]. In this survey, we aim to explore the current state of FFMs comprehensively. The following questions guide our 
+study: ① Given that FMs have made remarkable achievements in other fields, what is the current progress of FFMs in the 
+financial industry? ② With the development of these models, what challenges do they encounter in terms of data, 
+algorithms, and infrastructure? By answering these questions, we hope to provide a comprehensive overview of the current 
+situation of FFMs and offer a clear vision for their future development. In this article, we focus on the current progress of 
+FinLFMs, FinTSFMs, and FinVLFMs from 2018 (the start of the FM era in a broader sense [13]) to June 2025, along with 
+associated challenges and opportunities. We believe this survey will assist financial researchers and practitioners in quickly 
+grasping the development of FFMs and will inspire new ideas for further innovation. 
+1.1. A brief history of FMs in finance 
+The evolution of FFMs mirrors key milestones in the broader develo pment of AI. The launch of bidirectional encoder 
+representations from transformers (BERT) in 2 019 [22] marked the start of the pre-training era, leading to early 
+finance-specific BERT-style varients (FinBERT) [23–25] tailored for financial text understandi ng. This initiated the first 
+wave of FinLFMs.  The emergence of GPT -3 and ChatGPT, built on the now -famous scaling law [26], demonstrated the 
+power of massive autoregressive models and instruction tuning. These advances inspired a new generation of FinLFMs that 
+leveraged generative capabilities, human feedback alignment, and multi -task transfer [13 ,14]. However, early FinLFMs 
+trained solely on text data perform poorly when directly applied to numerical time series, as they lack inductive biases for 
+sequential dynamics such as seasonality, volatility, and cross -asset dependencies. This limitation motivated the
+
+
+[Page 3]
+3 
+ 
+development of FinTSFMs [27], which either pre -train directly on historical price data or adapt large language models 
+(LLMs) with temporal encoding modules, highlighting the distinct requirements of financial time-series forecasting. 
+As a further challenge , financial information is not only embedded in text and raw sequences but also conveyed 
+through visual modalities such as the interest rate “dot plot” and projection charts at the Federal Open Market Committee 
+(FOMC) press meetings , tabular statements, and regulatory filings. The advent of multimodal FMs such as GPT-4o [28] 
+inspired the design of FinVLFMs [18 –20], which align visual and textual streams t o support tasks such as chart -based 
+question-answering (QA), table interpretation, and report  figure analysis. This line of research emphasizes that FinVLFMs 
+are not substitutes for FinTSFMs but rather complementary tools that capture the visual -symbolic l ayer of financial 
+communication.  
+Together, the progression from FinLFMs to FinTSFMs and FinVLFMs marks the trajectory of FFMs toward broader 
+generality, stronger reasoning, and richer modality integration in financial AI. 
+1.2. Comparison of related surveys with our contributions 
+In our extensive literature search, we identified nine representative surveys on FFMs. These existing works have 
+provided valuable insights from various perspectives. However, compared with these prior studies, our survey offers a more 
+comprehensive and in -depth examination of FFMs , spanning methodologies, data sources, and applications, along with  
+detailed discussions on current challenges and future research directions. Table 1 [10–12,16,21,29–32] summarizes the key 
+distinctions b etween our survey and the existing literature. Specifically, our survey presents the following unique 
+contributions: 
+(1) A systematic taxonomy and thorough coverage of FFM sub -fields. Our survey categorizes FFMs into three 
+major sub-fields—language, time-series, and visual-language models—in the context of financial tasks. This comprehensive 
+taxonomy provides a unified view of the entire FFM landscape, surpassing the scope of existing surveys that tend to focus 
+on specific modalities. 
+(2) A holistic and dee per exploration of multiple dimensions of FFMs.  We investigate FFMs from a range of 
+perspectives, including modeling techniques, data characteristics, practical applications, technical challenges, and potentia l 
+future directions. Compared with those in previous reviews, this integrated approach allows readers to gain a more complete 
+and nuanced understanding of FFMs. 
+(3) An up -to-date and practitioner -oriented synthesis of methods and resources.  Beyond reviewing published 
+work, we provide a curated and cont inuously updated repository  of FFM-related papers, tools, an d datasets on GitHub 
+entitled “finllm/Awesome-FinFMs”. This living resource serves as a practical reference hub for researchers and 
+practitioners, something that is rarely addressed in other surveys. 
+Table 1 
+Comparison between our survey and existing surveys on FFMs. 
+Reference FinLFMs FinTSFMs FinVLFMs Datasets Applications Challenges 
+[21] ○ × × × ○ ○ 
+[29] × × × × ✓ ○ 
+[16] × × × ✓ ✓ ○ 
+[10] ✓ × × ✓ ✓ ✓ 
+[11] ○ × × ○ ○ ○ 
+[12] × × × ✓ ○ ○ 
+[30] × × × × ○ ○ 
+[31] × × × × ✓ ✓ 
+[32] ○ × × ○ ○ ○ 
+Our survey ✓ ✓ ✓ ✓ ✓ ✓ 
+× indicates no content discussion, ○ indicates brief and non-comprehensive discussion, and ✓ indicates comprehensive discussion.  
+ 
+1.3. Contributions 
+In this survey, we contribute to the field by providing the following: 
+(1) A systematic review of methods (Sections 2 –4). We propose a novel taxonomy of FFMs and conduct a 
+comprehensive review of existing methods across the three major sub -fields: language (Section 2), time -series (Section 3), 
+and visual-language (Section 4). We also investigate different training strategies, offering insights into potential technical 
+innovations for FFMs.
+
+
+[Page 4]
+4                            
+(2) A comprehensive survey of datasets (Sections 2–4). Alongside the model review, we survey a wide ra nge of 
+large-scale datasets and databases that are applicable to training FFMs in different modalities. This survey helps identify 
+key limitations of current financial data resources and provides practical guidance for dataset selection in future research. 
+(3) A thorough overview of applications (Section 5 ). We present an overview of diverse financial applications 
+enabled by FFMs, illustrating how these models are currently being deployed in real-world financial engineering tasks. This 
+serves as a reference point for extending FFMs to new application scenarios. 
+(4) An in-depth discussion of key challenges and future research (Section 6). We analyze critical challenges related 
+to data, algorithm, and computing infrastructure in the development and deployment of FFMs. These discussions identify 
+major bottlenecks and open new directions for future research. 
+2. Financial language foundation models 
+To start, we introduce FinLFMs in this section. FinLFMs are a class of domain -specific language foundation models 
+(LFMs) that are specifically trained on financial corpora to acquire text comprehension, reasoning, and generation 
+capabilities tailored for financial scenarios. We investigate FinLFMs through three analytical lenses:  
+(1) Collection and category. This lens f ocuses on how the reviewed FinLFMs are collected and classified into 
+BERT-style FinLFMs, generative pre-trained transformer (GPT)-style FinLFMs, and reasoning-enhanced FinLFMs.  
+(2) Training method analysis. Through this lens, we investigate innovations across pre-training strategies, supervised 
+fine-tuning techniques, and alignment mechanisms for training FinLFMs.  
+(3) Language -related datasets. Here, we  introduce commonly used datasets in the training and evaluation of 
+FinLFMs. 
+2.1. Model classification 
+To comprehensively review FinLFMs, we conducted an extensive search across multiple channels (e.g., Google Scholar, 
+Web of Science, and arXiv) and scoured GitHub repositories and official announcements from major financial institutions 
+and tech companies for open-source and proprietary FinLFM projects. In total, our survey covers 21 representative FinLFM 
+models.  
+The evolution of FinLFMs closely mirrors that of general  LFMs. Fig. 2 shows the development trajectory of the 
+reviewed FinLFMs based on their archi tectural backbones, with a timeline. Guided by this timeline, we categorize the 
+FinLFMs into three groups: BERT-style, GPT-style, and reasoning-enhanced FinLFMs. 
+ 
+Fig. 2. The development trajectory of FinLFMs based on their architectural backbones, shown along a timeline. Each 
+horizontal strip corresponds to an institution that released a backbone FM; the tiles arrayed along the strip denote FinLFMs 
+developed atop one of that institution’s backbones. The name of each FinLFM appears in the upper portion of the tile, while 
+its corresponding backbone model is listed in the lower portion. T5: text-to-text transfer transformer; ELECTRA: efficiently 
+learning an encoder that classifies token replacements accurately; FinBERT-19/20/21: financial-specific BERT-style variant 
+developed in 2019/2020/2021; Mengzi-Fin: a BERT-style financial model trained for Chinese texts; BLOOM: BigScience 
+large open-science open-access multilingual language model ; FLANG: financial LANGuage model; LLaMA: a family of 
+LLMs developed by  Meta; CFGPT:  Chinese financial GPT; BBT -Fin: BigBang t ransformer financial model; 
+DISC-FinLLM: data intelligence and social computing laboratory-financial LLM; InternLM: a family of LLMs developed 
+by Shanghai AI Laboratory; Fino1: an open financial reasoning model trained via supervised fine-tuning and group relative 
+policy optimization (GRPO)-based reinforcement learning; Open-FinLLMs:  open LLMs for financial applications ;
+
+
+[Page 5]
+5 
+ 
+InvestLM: an LLM for investment using financial domain instruction tuning ; Ploutos: an interpretable financial LLM for 
+stock movement prediction; XuanYuan2: a large Chinese financial chat model from Du Xiaoman Technology; FinGPT: an 
+open-source financial LLM from AI4Finance Foundation; PIXIU: a financial LLM from ChanceFocus; Qwen: a family of 
+LLMs developed by Alibaba Cloud;  FinQwen: an LLM for financial domain based on Qwen base model ; ICE-INTENT: a 
+Chinese–English bilingual financial by fine -tuning the InternLM backbone model ; YunShan:  a specialized LLM for 
+domains of finance and law from Huawei; Baichuan4-Finance: an aligned language model tailored for finance domain from 
+Baichuan Intelligent Technology ; Baichuan2:  a series of large -scale multilingual language models from Baichuan 
+Intelligent Technology; FinX1: a financial industry reasoning big model from Du Xiaoman Technology. 
+ 
+2.1.1. BERT-style FinLFMs 
+We use the term “BERT -style FinLFM” to refer to transformer language models  that are primarily designed for 
+bidirectional representation learning and discriminative tasks, typically train ed with masked language modeling (MLM) or 
+related objectives, inspired by  the original BERT [22] architecture. Early efforts in this line produced the first 
+finance-specific LFM variants. For instance, a financial-specific BERT-style variant developed in 2019 (FinBERT-19) [23] 
+continued pre -training BERT on financial news , while  another financial-specific BERT -style variant developed in 20 20 
+(FinBERT-20) [24] and financial-specific BERT -style variant developed in 20 21 ( FinBERT-21) [25] were further 
+pre-trained on different and mixed general and financial corpora. Additionally,  Zhang et al. [33] explored the development 
+of a BERT-based financial model  trained for Chinese texts  named Mengzi-Fin. Another example is financial LANGuage 
+model (FLANG) [34], a finan ce-specialized variant of efficiently learning an encoder that classifies token replacements 
+accurately (ELECTRA) [35], that uses selective masking tailored to financial keywords and phrases for better performance. 
+More recently, with BigBang t ransformer financial model (BBT-Fin) [36], researchers  introduced a text-to-text transfer 
+transformer (T5)-style [37] financial pre-trained language model  with knowledge-enhanced pre-training. Together, these 
+BERT-style FinLFMs learn domain-specific vocabularies and patterns, forming a backbone for many later systems. 
+2.1.2. GPT-style FinLFMs 
+GPT-style FinLFMs are transformer language models trained with causal language modeling (CLM) objectives ; they 
+excel at autoregressive text generation and instruction following. T hese models inherit the generative strengths of GPT 
+architectures and are increasingly specialized for financial applications through domain -specific pre-training or supervised 
+fine-tuning. The rise of GPT -style FinLFMs was catalyzed by the success of Chat GPT [38] , with BloombergGPT [15] 
+marking a pivotal start. Built on the BigScience large open-science open-access multilingual language model (BLOOM) [39] 
+architecture and trained on Bloomberg’s proprietary data, BloombergGPT demonstrated the feasibility of  domain-specific 
+LLMs at scale. Since then, numerous finance -oriented variants have emerged, including a large Chinese financial chat 
+model from Du Xiaoman Technology (XuanYuan2) [40] for Chinese markets. Crucially, the rise of GPT-style FinLFMs has 
+paralleled the rapid evolution of their open -source foundations. As general-purpose LLMs such as Meta’s LLaMA [41,42], 
+Alibaba Cloud’s Qwen [8], and  Shanghai AI Laboratory’s InternLM [43] continue to scale, FinLFMs have inherited 
+architectural advancements such as deeper attention, longer context, and stronger instruction following , while layering in 
+financial expertise via supervised fine -tuning or continual pre-training. This symbiotic relationship enables fast capability 
+upgrades without training from scratch.  For instance, Meta’s LLaMA series has been used to underpin models such as a 
+financial LLM from ChanceFocus  (PIXIU) [44], an LLM for investment using financial domain instruction tuning  
+(InvestLM) [45], an open-source financial LLM from AI4Finance Foundat ion (FinGPT) [46,47], open-source LLMs for 
+financial applications (Open-FinLLMs) [19], an interpretable financial LLM for stock movement prediction  (Ploutos) [48], 
+and a large Chinese financial chat model from Du Xiaoman Technology (XuanYuan3) [49], while Qwen inspired an LLM 
+for financial domain based on Qwen base model  (FinQwen) [50]. InternLM [43] powers large -scale models such as  a 
+Chinese–English bilingual financial by fine -tuning the InternLM backbone model  (ICE-INTENT) [51] and  the Chinese 
+financial GPT (CFGPT) [52], which combines extensive instruction datasets with financial domain knowledge. Collectively, 
+these developments highlight how FinLFMs increasingly benefit from and contribute to the open -source LLM ecosystem. 
+Commercial models also exist, such as a specialized LLM for domains of finance and law from Huawei (YunShan) [53] and 
+an aligned language model tailored for finance domain from Baichuan Intelligent Technology  (Baichuan4-Finance) [54], 
+which follow similar patterns without disclosing full architectural details. 
+2.1.3. Reasoning-enhanced FinLFMs 
+More recently, a new class of FinLFMs has emerged with advanced reasoning and decision -making capabilities, 
+inspired by models such as OpenAI-o1 and DeepSeek-R1 [55]. These systems leverage reinforcement learning to elicit long 
+chain-of-thought (CoT) reasoning, enabling FinLFMs to generate multi -step analytical traces that improve factual accuracy 
+and robustness in answering complex financial questions.  For instance, a financial industry reasoning big model from Du 
+Xiaoman Technology (FinX1) [49] and an open financial reasoning model trained via supervised fine -tuning and group 
+relative policy optimization (GRPO)-based reinforcement learning (Fino1) [56] use CoTs to guide the models to generate 
+intermediate reasoning steps before arriving at the final answer. These models represent a transition toward autonomous 
+financial agents, built not only to respond but to reason, plan, and act across complex tasks with step-by-step CoTs.
+
+
+[Page 6]
+6                            
+2.2. Training method analysis 
+This section focuses on GPT -style FinLFMs, which now dominate the field in both research and deployment. Their 
+training strategies are summarized in Table 2  [15,19,40,44,45,47–54,56,57], following the standard three -stage framework 
+of pre-training, supervised fine-tuning, and alignment proposed in the State of GPT 2023 report by Karpathy [58]. 
+Table 2 
+Training details of representative FinLFMs. 
+Model Backbone Method Parameters Additional training data Reference Open source 
+BloombergGPT BLOOM PT and SFT 50 billion [G] 345billion + [F] 363 billion 
+tokens 
+[15] — 
+PIXIU LLaMA SFT 7 billion and 30 
+billion 
+[F] 136 000 instructions [44] https://github.com/The-FinAI/PIXIU 
+InvestLM LLaMA SFT 65 billion [F] 1 335 instructions [45] https://github.com/AbaciNLP/InvestLM 
+XuanYuan2 BLOOM PT and SFT 176 billion — [40] https://github.com/Duxiaoman-DI/XuanYuan 
+YunShan — PT and SFT 7 billion [F] 36.5 billion tokens [53] — 
+FinQwen Qwen PT and SFT 14 billion [F] 200 billion tokens [50] https://github.com/Tongyi-EconML/FinQwen 
+FinGPT LLaMA2 SFT 7 billion [F] 151 000 instructions [47] https://github.com/AI4Finance-Foundation/FinGPT 
+Ploutos LLaMA2 SFT 7 billion [F] ~30 000 instructions [48] — 
+DISC-FinLLM Baichuan2 SFT — [F] 250 000 instructions [57] https://github.com/FudanDISC/DISC-FinLLM 
+CFGPT InternLM PT and SFT 7 billion [F] 141 billion tokens + 1.5 million 
+instructions 
+[52] https://github.com/TongjiFinLab/CFGPT 
+ICE-INTENT InternLM SFT 7 billion [F] 604 000 bilingual samples from 
+36 datasets 
+[51] https://github.com/YY0649/ICE-PIXIU 
+Open-FinLLMs LLaMA3 PT and SFT 8 billion [G] 18 billion + [F] 52 billion 
+tokens  
+[19] https://anonymous.4open.science/r/PIXIU2-0D70/B1D7/
+LICENSE 
+XuanYuan3 LLaMA3 PT, SFT, and 
+alignment 
+70 billion ([G] + [F]) 275 billion tokens [49] https://github.com/Duxiaoman-DI/XuanYuan 
+Baichuan4-Finance — PT, SFT, and 
+alignment 
+— [G] 400 billion + [F] 100 billion 
+tokens 
+[54] — 
+FinX1 LLaMA3 SFT and alignment 70 billion — [49] https://github.com/Duxiaoman-DI/XuanYuan 
+Fino1 LLaMA3 SFT and alignment 8 billion [F] 5 000 instructions [56] https://github.com/The-FinAI/Fino1 
+PT: pre-training; SFT: supervised fine-tuning; [G]: general-purpose data; [F]: financial-specific data.   
+ 
+2.2.1. Pre-training 
+Pre-training establishes the core language understandi ng and reasoning capabilities of FinLFMs. While early models 
+such as BloombergGPT [15] were trained from scratch on massive financial corpora, recent trends favor continuous 
+pre-training (CPT) on top of open-source general-purpose LLMs (e.g., LLaMA and Qwen), combining general and financial 
+domains. This strategy, employed by models such as FinQwen [50] and Open -FinLLMs [19], enhances domain 
+specialization without sacrificing generalization. Pre-training typically involves more than 100 billion tokens and requires a 
+large-scale distributed infrastructure ; thus, it  remains mostly within the scope of industry lab oratories. For instance, 
+Baichuan4-Finance [54] employs 500 billion tokens across the general and financial domains. In contrast, academic models 
+often skip this stage due to resource limitations, relying instead on downstream fine-tuning, which is introduced next. 
+2.2.2. Supervised fine-tuning 
+Supervised fine-tuning (SFT) adapts a pre-trained model to financial downstream tasks using high -quality instruction 
+datasets. A distinguishing feature of FinLFMs is the emphasis on instruction-following formats tailored to financial contexts, 
+such as  forecasting, question answering, risk assessment, and summarization. Recent models such as FinGPT [46 ,47], 
+PIXIU [44], and Ploutos [48] leverage instruction datasets ranging from 30 000 to 150 000 examples. High-quality curation 
+is critical: InvestLM [45], for example, demonstrates satisfying performance with only 1335 expert -crafted instructions. 
+CFGPT [52] represent s one of the most expansive efforts, using over 1.5 million financial instructions in addition to 141 
+billion tokens during pre-training. ICE -INTENT [51] also demonstrates the potential of multilingual and multi -dataset 
+fusion by integrating over 600 000 bilingual financial instructions. 
+2.2.3. Alignment 
+Alignment constitutes the final stage, in which FinLFMs are optimized to meet domain-specific behavioral objectives: 
+factual accuracy, regulatory consistency, and reasoning transparency. Two major trends ha ve emerged in alignment for 
+financial models: ① Compliance-focused alignment, as seen in XuanYuan3 [49] and Baichuan4 -Finance [54], employs 
+reward models and reinforcement learning (e.g., proximal policy optimization (PPO)) to penalize hallucinations and ensure 
+output consistency with legal and financial norms. ② Reasoning-centric alignment, exemplified by FinX1 and Fino1 [56], 
+uses techniques such as GRPO to encourage detailed, interpretable CoT reasoning for high -stakes tasks. Despite its 
+relatively nasce nt development, alignment is poised to become a cornerstone of future FinLFM research. As financial 
+applications demand increasing levels of trustworthiness, interpretability, and regulatory compliance, alignment techniques
+
+
+[Page 7]
+7 
+ 
+offer a promising pathway for bridging model capabilities with domain-specific behavioral expectations. Future efforts will 
+likely focus on developing standardized evaluation benchmarks, more robust reward modeling frameworks, and scalable 
+alignment pipelines tailored to the financial domain. 
+2.3. Financial text-based datasets 
+Table 3 [34,44,51,59–75] summarizes representative financial text-based datasets that have been developed to support 
+the training and evaluation of FinLFMs. These datasets span a variety of tasks, languages, and mod alities, reflecting the 
+growing maturity and diversity of financial natural language-processing (FinNLP) resources. We categorize the evolution of 
+financial-text datasets into three stages based on their scale, scope, and language coverage. 
+Table 3 
+Details of common financial text-based datasets. 
+Dataset Task(s) Scale Language Open source 
+FPB [59] Sentiment analysis 4 840 financial news sentences English https://huggingface.co/datasets/takala/financial_phrasebank 
+NER [73] Named entity recognition 1 473 annotated sentences from 8 financial 
+agreements 
+English http://people.eng.unimelb.edu.au/tbaldwin/resources/financ
+e-sec/ 
+FiQA [60] Sentiment analysis and 
+question answering 
+675 microblogs + 498 headlines English https://sites.google.com/view/fiqa/home 
+ACL18 [61] Stock prediction Tweets and daily prices for 88 stocks (2014–2016) English https://github.com/yumoxu/stocknet-dataset 
+CIKM18 [62] Stock prediction 746 287 tweets for 47 stocks over 231 days (2017) English https://github.com/wuhuizhe/CHRNN 
+Headline [74] News classification 11 412 financial news headlines English https://www.kaggle.com/datasets/daittan/gold-commodity-n
+ews-and-dimensions 
+ConvFinQA [75] Question answering 3 892 dialogues with 14  115 question answering 
+pairs 
+English https://github.com/czyssrs/ConvFinQA 
+FLUE [34] Multi-task evaluation Aggregates FPB, FiQA, NER, Headline, and 
+ConvFinQA 
+English https://github.com/SALT-NLP/FLANG 
+FLARE [44] Multi-task evaluation Unified benchmark combining 9 + FinNLP datasets English https://github.com/The-FinAI/PIXIU 
+FinEval [63] Multi-task evaluation 8 351 question answering samples from exams, 
+textbooks, and websites 
+Chinese https://github.com/SUFE-AIFLM-Lab/FinEval 
+CFBenchmark 
+[64] 
+Multi-task evaluation 3 917 financial texts across 8 tasks for recogni tion, 
+classification, and generation 
+Chinese https://github.com/TongjiFinLab/CFGPT/tree/main/benchm
+ark 
+FinanceIQ [65] Multi-task evaluation 7 173 multiple-choice questions across 10 topics Chinese https://github.com/Duxiaoman-DI/XuanYuan 
+FinBen [69] Multi-task evaluation 36 datasets covering 24 FinNLP tasks English https://github.com/The-FinAI/PIXIU 
+AlphaFin [70] Multi-task evaluation ~220 000 question answering samples 
+(stock/news/report) with retrieval + CoT 
+English https://github.com/AlphaFin-proj/AlphaFin 
+ICE-FLARE [51] Cross-lingual task 
+evaluation 
+21 tasks covering question answering and 
+classification 
+English https://github.com/YY0649/ICE-PIXIU 
+CFinBench [66] Multi-task evaluation 99 100 mock exam questions across law, finance, 
+and practice 
+Chinese https://cfinbench.github.io/ 
+FinGEITje [72] Cross-lingual task 
+evaluation 
+140 000 Instruction-tuning samples + Dutch 
+question answering benchmark 
+Dutch https://github.com/snoels/fingeit 
+CFLUE [68] Multi-task evaluation > 38 000 multiple-choice questio ns + 16 000 
+application tests 
+English Chinese https://github.com/aliyun/cflue 
+M3FinMeeting 
+[71] 
+Cross-lingual task 
+evaluation 
+Meeting dialogues in 11 sectors with summarization 
+and question answering pairs 
+English Chinese 
+Japanese 
+https://github.com/aliyun/qwen-dianjin 
+FLAME [67] Multi-task evaluation 16 000 exam questions + 100 tasks across 10 
+real-world scenarios 
+Chinese https://github.com/FLAME-ruc/FLAME 
+FPB: Financial PhraseBank; FiQA: financial question answering; ConvFinQA: conversational financial question answering; 
+FLUE: financial language understanding evaluation; FLARE: financial language model assessment and risk evaluation; 
+ICE-FLARE: InternLM -based financial language model assessment and risk evaluation; CFLUE: Chinese financial 
+language understanding evaluation; FinEval: financial evaluation benchmark; CFBenchmark: Chinese financial benchmark 
+2022; CFinBench: Chinese financial benchmark 2023; FLAME: financial language model evaluation; NER: named entity 
+recognition; FinanceIQ: financial intelligence quotient; FinBen: financial benchmark; AlphaFin: alpha finance; 
+M3FinMeeting: multimodal financial meeting; FinNLP: financial natural language-processing. 
+2.3.1. Early stage: Task-specific and English-centric 
+Initial FinNLP datasets were typically small-scale, focused on a single task, and exclusively in English. For example, 
+the Financial PhraseBank (FPB)  [59] provided sentence -level annotations for sentiment analysis; financial question 
+answering (FiQA) dataset [60] introduced fine -grained annota tions across microblogs and headlines for sentiment and 
+question-answering (QA) tasks; and ACL18 stock movement prediction dataset [61], along with CIKM18 stock movement 
+prediction d ataset [62], collected tweets for stock movement prediction. These dataset s enabled early FinLFMs such as 
+FinBERT-19 [23], FLANG [34], and BloombergGPT [15] to demonstrate domain adaptation and transfer learning 
+capabilities. 
+2.3.2. Middle stage: Multi-task integration and language expansion 
+The next wave of dataset development involved integrating multiple FinNLP tasks and expanding linguistic diversity. 
+Financial language understanding evaluation (FLUE) dataset [34] and financial language model assessment and risk
+
+
+[Page 8]
+8                            
+evaluation (FLARE) dataset [44] consolidated earlier benchmarks into unified evaluation suites, covering sentiment 
+analysis, QA, named entity recognition, and forecasting. Parallel efforts in the Chinese financial domain resulted in datasets 
+such as financial evaluation benchmark (FinEval) [63], Chinese financial benchmark 2022 (CFBenchmark) [64], financial 
+intelligence quotient (FinanceIQ) dataset [65], Chinese financial benchmark 2023 (CFinBench) [66], and financial language 
+model evaluation (FLAME) dataset [67], which simulate certification exams and textbook -style r easoning tasks. These 
+multilingual, multi-task resources have significantly broadened the benchmarking landscape for non-English FinLFMs. 
+2.3.3. Recent stage: Cross-lingual and real-world benchmarks 
+More recent datasets push toward cross -lingual, instruction-tuned, and real -world financial understanding. Datasets 
+such as InternLM-based financial language model assessment and risk evaluation (ICE-FLARE) [51], Chinese financial 
+language understanding evaluation (CFLUE) [68], and financial benchmark (FinBen) dataset [69] offer multi -task 
+evaluation across English and Chinese in retrieval, QA, and classification settings. The alpha finance (AlphaFin) dataset [70] 
+integrates large -scale CoT -enhanced QA samples with document retrieval, targeting complex financial reasoning. 
+Meanwhile, multimodal financial meeting (M3FinMeeting) dataset [71] and Dutch financial dataset  (FinGEITje) [72] 
+introduce multilingual financial dialogues, meeting summaries, and Dutch financial QA tasks , emphasizing realistic, 
+interactive applications. These resources mark a shift toward comprehensive, practical benchmarks that reflect the practical 
+requirements of advanced FinLFMs. 
+2.4. Summary 
+FinLFMs have evolved rapidly from BERT-style encoders to GPT-style chatbots and reasoning-enhanced agents. This 
+evolution has been driven by advances in updated and open-source base LFMs, scalable training pipelines, and increasingly 
+diverse financial datasets. While FinLFMs now serve as the backbone for a wide range of FinNLP tasks, their limitations in 
+handling temporal dynamics and multimodal content underscore the need for FMs that go beyond language. In the 
+following sections, we turn our attention to FinTSFMs and FinVLFMs, which are intended to complement FinLFMs and 
+build more holistic financial AI systems. 
+3. Financial time-series foundation models 
+This section introduces FinTSFMs, which are developed to analyze financial time -series data, including stock price, 
+order book flow, and so forth . Similar to FinLFMs, we categorize FinTSFMs from three an alytical perspectives: ① 
+collection and category, ② training strategies, and ③ financial time-series datasets. 
+3.1. Model classification 
+While FinLFMs have rapidly matured over recent years, the exploration of FinTSFMs remains at an early stage. In this 
+section, we provide a rep resentative overview of existing FinTSFM efforts. Through an extensive literature search, we 
+identify and summarize seven key models that exemplify the current landscape of FinTSFM research. As illustrated in Fig. 
+3, these models can be broadly categorized  into two types: those trained from scratch solely on time -series data and those 
+adapted from pre-trained LFMs using both time-series and related textual or structured inputs. 
+ 
+Fig. 3. Two categories of FinTSFMs: (left) models trained from scratch on time-series data and (right) models adapted from 
+LFMs using both time-series and related textual data. 
+ 
+3.1.1. Naive FinTSFMs trained from scratch 
+Naive FinTSFMs are pre -trained from scratch on financial time -series data using transformer-based architectures. A 
+representative example is MarketGPT [76], which uses a decoder-only transformer trained directly on National Association 
+of Securities Dealers Automated Quotations (NASDAQ) order flow data. It is designed to act as an order-generation engine 
+within discrete event simulations. Another milestone in this category is time-series foundation model (TimesFM) [77], a
+
+
+[Page 9]
+9 
+ 
+general-purpose time -series foundation model trained on real -world and synthetic time -series data in multiple domains 
+including finance, transportation, and weather. Building on TimesFMs, several studies have adapted TimesFM for financial 
+scenarios. For example, financial adaptation of TimesFM (Fin-TimesFM) [27] and financial-data-augmented TimesFM 
+(FinDA-TimesFM) [78] extend TimesFM via continual pre -training on stock, currency, and crypto time -series data to 
+improve domain specificity. Other recent studies [79 ,80] have explored how TimesFM can be adopted for value -at-risk 
+(VaR) and realized volatility forecasting. However, a limitation of naive FinTS FMs is that they typically handle only 
+numerical time -series data, lacking multimodal capabilities (e.g., joint text –time reasoning), which constrains their 
+versatility in real-world financial scenarios. 
+3.1.2. FinTSFMs adapted from language models 
+LLMs are inherently designed for sequential data and have demonstrated strong cross -domain generalization due to 
+their pre-training on large-scale web corpora. Their adaptation to time -series tasks is motivated by two key factors: ① the 
+efficacy of transformer-based models in long -range sequence modeling [81 ,82], and ② their ability to integrate 
+multimodal knowledge, including numerical reasoning [83 ,84]. In this category, a time -series reprogramming LLM 
+(Time-LLM) [85] introduces a reprogramming technique to conv ert time series into natural language -like prompts, which 
+are then fed into a frozen LLM using the prompt-as-prefix strategy for time-series reasoning. A unified time-series model 
+(UniTime) [86] extends this idea by integrating domain -specific instructions  and multivariate time  series as input to a 
+finetuned GPT-2 model, achieving competitive results. Furthermore, SocioDojo [87] offers a unique non-training approach, 
+leveraging the agentic capabilities of GPT -3.5 and GPT -4. It combines structured knowledge bases, Internet tools, and 
+high-quality socioeconomic time  series to evaluate AI agents on a financial time -series value prediction task called 
+“hyperportfolio.” Overall, FinTSFMs adapted from language models retain the powerful language understanding 
+capabilities of LLMs while expanding into the time -series domain, making them more suitable for broad and practical 
+financial applications. 
+3.2. Training method analysis 
+We summarize the training strategies of representative FinTSFMs in Table 4  [27,76–78, 85–88]. These models can be 
+grouped into three categories based on their adaptation paradigm: time -series pre-training, training-based LLM adaptation, 
+and non-training methods. 
+Table 4 
+Training details of representative FinTSFMs. 
+Dataset Backbone Method Training data Reference Open source 
+MarketGPT Transformer Time-series pre-training NASDAQ data [76] https://github.com/aaron-wheeler/MarketGPT 
+TimesFM Transformer Time-series pre-training Google trends, wiki statistics, and synthetic data [77] https://huggingface.co/google/timesfm-1.0-200m 
+Fin-TimesFM TimesFM Time-series pre-training Stocks, indices, foreign exchange, and crypto [27] https://github.com/pfnet-research/timesfm_fin 
+FinDA-TimesFM TimesFM Time-series pre-training Stock price time-series [78] — 
+Kronos Transformer Time-series pre-training Financial candlestick (K-line) sequences [88] https://github.com/shiyu-coder/Kronos 
+Time-LLM GPT-2 Training-based adaptation Public datasets [85] https://github.com/KimMeen/Time-LLM 
+UniTime GPT-2 Training-based adaptation Public datasets [86] https://github.com/liuxu77/UniTime 
+SocioDojo GPT-3.5/4 Non-training — [87] https://github.com/chengjunyan1/SocioDojo 
+3.2.1. Time-series pre-training 
+This strategy in volves pre-training FinTSFMs directly on time -series data, typically using autoregressive objectives 
+analogous to those used in language modeling. However, due to the continuous and multivariate nature of time-series inputs, 
+these models often incorporate  patching techniques [ 89] to divide input sequences into fixed -length segments. A 
+representative example is TimesFM [77], along with its financial -domain adaptations such as Fin -TimesFM [27] and 
+FinDA-TimesFM [78]. These models adopt patch -wise encoding to capture temporal dependencies across multiple 
+correlated variables. Another notable design is MarketGPT [76], a decoder -only transformer that tokenizes raw 
+order-message data from electronic trading systems into discrete event sequences. This transformatio n enables 
+autoregressive learning over market microstructure events, diverging from conventional numerical patching approaches and 
+representing a unique trajectory for financial sequence modeling. Most recently, Kronos [88] introduces a language-inspired 
+formulation that represents financial candlestick ( K-line) time -series as a symbolic vocabulary. By embedding 
+open–high–low–close–volume–amount (OHLCVA) patterns into discrete tokens, Kronos treats market dynamics as a 
+structured “language,” allowing large -scale pre-training over extended price trajectories. This symbolic design highlights 
+interpretable temporal motifs and demonstrates strong performance in tasks such as market regime detection and volatility 
+forecasting.  
+3.2.2. Training-based LLM adaptation
+
+
+[Page 10]
+10                            
+This approach adapts general -purpose language models to time -series tasks via additional training. A key distinction 
+among existing methods lies in whether the LLM’s parameters are updated. For instance, Time -LLM [85] preserves all 
+frozen parameters of t he backbone LLM while introducing an adaptation layer that reprograms time -series segments into 
+prompt-like representations for reasoning. In contrast, UniTime [86], a fine -tuned GPT -2 variant, updates the LLM 
+parameters directly using multivariate time-series data and domain-specific instruction tuning, thereby enabling it to model 
+temporal dependencies natively.  The contrast between these two approaches reflects the absence of a standardized 
+adaptation pipeline for FinTSFMs —unlike FinLFMs, which increasin gly follow a pre-training/SFT/alignment paradigm. 
+This divergence suggests that training strategies for FinTSFMs remain exploratory and ripe for future formalization and 
+innovation. 
+Table 5 
+Details of common financial time-series-related datasets. 
+Dataset Scale Task(s) Reference Open source 
+Google Stock Prices Daily, 2012–2017 Stock price prediction [90] https://www.kaggle.com/datasets/vaibhavsxn/google-stock-pric
+es-training-and-test-data 
+S&P 500 Index Daily, 1927–2020 Stock price prediction [91] https://www.kaggle.com/datasets/henryhan117/sp-500-historica
+l-data 
+Exchange Rate (8 currencies) Daily, 1990–2016 Exchange rate prediction [92] https://github.com/laiguokun/multivariate-time-series-data 
+Bitcoin Prices Daily, 2010–2020 Cryptocurrency trend 
+forecasting 
+[93] https://www.kaggle.com/datasets/soham1024/bitcoin-time-serie
+s-data-till-02082020 
+FNSPID (news + prices) 1999–2023, 29.7 million prices, and   
+15.7 million news 
+Integrated market analysis and 
+price forecasting 
+[94] https://huggingface.co/datasets/Zihan1004/FNSPID 
+FinTSB Comprises 20 datasets, each with 
+300 stocks over 250 days, grouped 
+into 4 distinct market patterns: 
+uptrend, downtrend, volatility, and 
+black swan 
+Stock movement forecasting 
+under realistic constraints 
+[95] https://github.com/TongjiFinLab/FinTSBenchmark 
+FNSPID: financial news and stock price integration dataset; FinTSB: financial time-series benchmark. 
+ 
+3.2.3. Non-training methods 
+SocioDojo [87] exemplifies an alternative to training -intensive methods by leveraging LLMs as reasoni ng agents 
+without explicit time -series fine-tuning. Built upon GPT -3.5 or GPT -4, SocioDojo equips LLMs with access to external 
+tools, including Internet-based application programming interfaces (APIs), knowledge bases, and analytical modules. These 
+agents interact with structured time -series inputs through multi -step planning and decision -making workflows, enabling 
+tasks such as hyperportfolio construction and dynamic forecasting. This approach underscores the potential of agentic LLM 
+systems to reason over  time-series data without extensive retraining, paving the way for lightweight and tool -augmented 
+FinTSFMs. 
+3.3. Financial time-series-related datasets 
+Commonly used datasets for financial time -series modeling are summarized in Table 5 [90–95]. These datasets vary in 
+scale, format, and task coverage. For instance, the Google Stock Prices dataset [ 90] provides daily stock data from 2012 to 
+2017 and is widely used for basic market trend prediction. The S&P 500  Index dataset [91] offers a long historical span 
+(1927–2020), supporting index -level forecasting and macroeconomic analysis. The Exchange Rate dataset [9 2], which 
+covers the daily rates of eight currencies from 1990 to 2016, is frequently used to evaluate long-horizon forecasting models. 
+The Bitcoin Prices dataset [93] tracks cryptocurrency price fluctuations and serves as a benchmark for volatile financial 
+assets. For multimodal or multi -source financial applications, financial news and stock price integration da taset (FNSPID) 
+[94] is a large -scale dataset integrating over 29. 7 million price records and 15. 7 million news headlines across more than 
+4000 listed companies, enabling the joint modeling of time  series, event impact s, and sentiment effects. Most recently, 
+financial time-series benchmark (FinTSB) [95] has been introduced as a standardized benchmark for financial time-series 
+forecasting. It addresses key limitations of prior datasets , including limited pattern diversity, inconsistent evaluation, and 
+unrealistic trading assumptions. FinTSB consists of 20 datasets across four market regimes (uptrend, downtrend, volatility, 
+and black swan), each containing 300 stocks over 250 days. It offers unified metrics (ranking, portfolio, and error), 
+simulates real-world constraints (e.g., transaction fees), and provides detailed sequence characteristics (e.g., non-stationarity 
+and forecastability).  
+Despite recent progress, the development of financial time -series datasets remains in its early stages. Most existing 
+resources are constrained by limited scope or sh ort temporal coverage, hindering the comprehensive evaluation of 
+long-context modeling, reasoning, and generalization. Continued efforts are needed to build larger, more diverse, and 
+practically grounded benchmarks to support future advancements of FinTSFMs. 
+3.4. Summary 
+FinTSFMs are still in an early yet rapidly evolving stage. Current efforts range from scratch pre -training to LLM 
+adaptation and non -training approaches, but a standardized pipeline like that of FinLFMs has not emerged. While new 
+datasets such as FNSPID [9 4] and FinTSB [9 5] broaden the evaluation scope, most resources remain limited in scale or 
+realism, hindering the assessment of long-horizon and multimodal capabilities. Recent work, such as  that by Marconi [96],
+
+
+[Page 11]
+11 
+ 
+has demonstrated that pre-training time-series foundation models  (TSFMs) increases sample efficiency and transferability 
+across tasks including treasury yield, foreign exchange volatility, and equity spread forecasting. These findings highlight 
+both the promise of FinTSFMs and the n eed for domain -specific pre-training, task-oriented refinement, and more robust 
+benchmarks. 
+4. Financial visual-language foundation models 
+This section focuses on FinVLFMs, which aim to jointly process financial visual information  (e.g., line charts, 
+candlestick diagrams, and scanned reports) and associated textual context to support tasks such as visual question answering 
+(VQA), document parsing, and multimodal reasoning in financial domains. A representative case is the FOMC press 
+meeting, where monetary policy is communicated not only through textual statements and Q&A transcripts but also through 
+visual artifacts such as the interest rate “dot plot” and projection charts. These meetings exemplify the need for FinVLFMs 
+to integrate structured visual signals with natural language context in order to extract insights and support downstream tasks 
+such as policy impact assessment and market reaction forecasting. Like FinTSFMs, FinVLFMs are in early developmental 
+stages, with only a few representative works fol lowing relatively consistent design patterns. Our analysis introduces 
+FinVLFMs through three lenses: ① common architectural components, ② training methodologies, and ③ specialized 
+datasets that combine financial visuals (e.g., charts and report images) wit h textual content (e.g., news articles and 
+regulatory filings). In what follows, we detail each component individually and discuss how FinVLFMs may benefit from 
+techniques developed in general-purpose VLMs. 
+4.1. Common FinVLFM architecture components 
+As shown in Fig. 4, most FinVLFMs follow a three-module architecture:  
+ Vision encoder. This module involves a pre-trained image encoder (e.g., contrastive language–image pre-training 
+(CLIP) model [97]) that transforms financial visuals into dense feature embeddings.  
+ Vision projector. This module involves a lightweight adapter (e.g., a multi-layer perceptron (MLP)) that aligns 
+visual embeddings with the latent space of the LLM.  
+ Base LLM . This module involves a powerful LFM that integrates visual and textual inp uts for downstream 
+financial tasks.  
+In what follows, we detail each component individually and discuss how FinVLFMs may benefit from techniques 
+developed in general-purpose VLMs. 
+ 
+Fig. 4. Current FinVLFMs share three common components: a vision encoder, vision projector, and base LLM. 
+ 
+4.1.1. Vision encoder 
+The vision encoder converts diverse financial visual inputs  (e.g., line charts, bar graphs, and tables ) into embedding 
+representations. Most existing FinVLFMs (e.g., financial large language and vision  assistant (FinLLaVA) [19] 
+andmultimodal financial LLM built on Mistral (FinTral) [20]) employ CLIP or other general -purpose encoders. While
+
+
+[Page 12]
+12                            
+convenient, this design overlooks the domain -specific visual patterns in finance. For example, line charts often re quire 
+fine-grained resolution, and tabular data demands cell -level parsing—tasks not well -captured by generic visual encoders. 
+Recent progress in general vision-language models ( VLMs) offers promising pathways. Bootstrapping language -image 
+pre-training (BLIP) [98] improves image–text alignment through bootstrapped contrastive learning, while Large multimodal 
+model perceiving any aspect ratio and high-resolution images (LLaVA-UHD) [99] enhances detail resolution using adaptive 
+image patching. These methods can be directly adapted to improve the visual understanding capabilities of FinVLFMs. 
+4.1.2. Vision projector 
+The vision projector aligns the visual embedding space with the LLM’s token space, acting as the critical modality 
+adapter. In current FinVLFMs, this layer is usually implemented using simple MLPs or linear projections (e.g., FinLLaVA 
+[19] uses a two-layer MLP). While sufficient for coarse-grained tasks, such basic aligners may struggle with complex visual 
+semantics in financial reports. In contrast, general-domain VLMs increasingly employ cross -attention mechanisms 
+[100,101], gating layers, or dynamic adapters that better preserve inter -modal dependencies. Applying such techniques to 
+FinVLFMs can improve interpretability and context -aware reasoning, especially in tasks involving tabular -cell and 
+chart-element mapping. 
+4.1.3. Base LLM 
+The base LLM decodes aligned multimodal representations and performs financial reasoning. The early financial vision 
+GPT (FinVis-GPT) used Vicuna [102] as the backbone de coder. However, domain mismatch limits financial fluency. To 
+address this issue, FinLLaVA [19] introduced FinLLaMA, an LLaMA-based model further pretrained on financial corpora. 
+Similarly, FinTral [20] leverages Mistral -7B for its superior numerical handli ng. These adaptations underscore the 
+importance of integrating a FinLFM in FinVLFM pipelines, particularly for tasks such as earnings call summarization, 
+portfolio optimization, or risk-disclosure analysis. 
+4.2. Training method analysis 
+Table 6 [18–20] summarizes representative FinVLFMs, including their model backbones, parameter scales, training 
+methods, and dataset sizes. Despite architectural diversity, these models consistently follow a two -stage training paradigm: 
+modal alignment pre-training to align cross-modal embeddings, and SFT to improve finance-specific reasoning. 
+ 
+Table 6 
+Training details of FinVLFMs. 
+Model Backbone Parameter Training method Training dataset size Reference Open source 
+FinVis-GPT Vicuna — Modal alignment PT and SFT 300 000 VQA pairs [18] https://github.com/wwwadx/FinVis-GPT 
+FinTral Mistral 7 billion  Modal alignment PT and SFT 1.86 million VQA pairs [20] https://github.com/UBC-NLP/fintral 
+FinLLaVA FinLLaMA 8 billion Modal alignment PT and SFT 1.43 million VQA pairs [19] https://www.thefin.ai/model/open-finllms 
+4.2.1. Modal alignment pre-training 
+The first stage focuses on aligning the visual encoder and the language model within a shared semantic space. This is 
+typically achieved by freezing the backbone components (i.e., the v ision encoder and the LLM) and training the visual 
+projection layers. All three FinVLFMs adopt this alignment -first approach, but they differ in their alignment data 
+construction strategies. FinVis -GPT [18] uses historical Chinese A -share market data to ge nerate candlestick charts with 
+technical indicators, supplemented by textual explanations generated by ChatGPT. FinTral [20] and FinLLaVA [19] 
+integrate large-scale generic visual datasets with domain-specific financial data derived from stock price charts. 
+4.2.2. Supervised fine-tuning 
+After modal alignment, the models undergo supervised fine -tuning to improve response quality and financial task 
+alignment. Unlike the alignment stage, this phase often unfreezes both the LLM and the projection layer, enablin g full 
+parameter optimization. FinVLFMs differ in the granularity and content of their instruction datasets. Regardless of the data 
+source, the goal of this phase is to teach the model how to follow financial -specific prompts, interpret visual evidence, an d 
+generate coherent, grounded responses. 
+4.3. Financial visual-language-related datasets 
+Table 7 [19,20,103–113] summarizes commonly used financial visual-language-related datasets. These datasets cover a 
+variety of modalities , such as charts, tables, and documents. In the context of FinVLFMs, however, all non -text 
+modalities—including tables—are typically rendered as images and processed through a unified visual encoder. This design 
+simplifies the system pipeline and provides a consistent input format, whi ch is beneficial for downstream financial 
+applications. 
+Table 7 
+Details of common financial (VQA datasets. 
+Benchmark Data type Task Size Reference Open source
+
+
+[Page 13]
+13 
+ 
+Australian Credit Table (credit records) Credit scoring 690 [103] https://archive.ics.uci.edu/dataset/143/statlog+australian+credit+approval 
+German Credit Table (credit records) Credit scoring 1 000 [104] https://archive.ics.uci.edu/dataset/144/statlog+german+credit+data 
+TAT-QA  Text and table Numerical VQA 19 309 [105] https://nextplusplus.github.io/TAT-QA/ 
+FinQA Text and table (earnings) Financial VQA 8 281 [106] https://github.com/czyssrs/FinQA 
+ChartQA Chart Chart VQA 2 500 [108] https://github.com/vis-nlp/ChartQA 
+ConvFinQA Text and table (earnings) Financial domain VQA 3 892 [107] ttps://github.com/czyssrs/ConvFinQA 
+MMMU Business Charts, diagrams, and tables Business VQA 1 428 [110] https://mmmu-benchmark.github.io/ 
+FinVQA Chart (finance and stock market) Chart VQA 1 025 [20] https://github.com/UBC-NLP/fintral 
+ChartBench Chart Reasoning over charts 350 [19] https://chartbench.github.io/ 
+TableBench Table Reasoning over tables 450 [19] https://tablebench.github.io/ 
+MME-Finance Charts, tables, and documents Financial domain VQA 1 171 [109] https://hithink-research.github.io/MME-Finance/ 
+FCMR Text, table, image, and chart Multi-hop VQA 2 199 [111] — 
+FAMMA Text, charts, and tables Financial domain VQA 1 758 [112] https://famma-bench.github.io/famma/ 
+FinMME Text, charts, and tables Financial domain VQA 11 099 [113] https://huggingface.co/datasets/luojunyu/FinMME 
+TAT-QA: tabular and textual dataset for question answering; MMMU: massive multi-discipline multimodal understanding; 
+ChartQA: chart question answering; FCMR: financial cross -modal retri eval; FAMMA: financial assistant multimodal 
+multi-task assessme nt; FinMME: financial multimodal e valuation; FinVQA: financial visual question answ ering; 
+ChartBench: chart understanding and reasoning ben chmark; TableBench: table understanding and reasoning be nchmark; 
+MME-Finance: multimodal evaluation finance subset. 
+As a result, most tasks across these datasets can be consistently categorized as VQA, regardless of the original modality. 
+For example, datasets such as Australian  Credit and German Credit [10 3,104] provide table -based VQA tasks targeting 
+credit scoring scenarios.  Tabular and textual dataset for question answering (TAT-QA) [105], FinQA [10 6], and 
+conversational financial question an swering ( ConvFinQA) [107] focus on numerical VQA tasks grounded in financial 
+earnings reports, often involving complex multi-step reasoning over visualized tabular data. 
+Chart-oriented datasets such as chart question an swering ( ChartQA) [108], financial visual question an swering 
+(FinVQA) [20], and chart understanding and reasoning benchmark (ChartBench) [19] evaluate a model’s ability to interpret 
+line charts, bar plots, and other financial graphics for answering quantitative or descriptive questions. Multimodal 
+evaluation finance subset (MME-Finance) [109] further expands this by integrating multiple financial visual f ormats (i.e., 
+charts, tables, and documents) into a unified evaluation suite for diverse VQA tasks. 
+In addition, massive multi -discipline multimodal und erstanding (MMMU) Business [1 10], financial cross -modal 
+retrieval (FCMR) [111], and financial assistant multimodal multi-task assessment (FAMMA) [112] propose more complex, 
+multimodal or multi-hop financial VQA settings. These benchmarks introduce questions requiring reasoning over multiple 
+types of inputs, integration of domain knowledge, and higher-level abstraction beyond single-modal analysis. Most recently, 
+financial multimodal eva luation (FinMME) [113] has collected over 10 000 high-quality VQAs with detailed annotation, 
+aiming to establish a new benchmark for FinVLFMs. 
+Despite the diversity of content and design, most current datasets remain limited in scale, typically offering only 
+hundreds of to a few thousand VQA pairs. Thus, they are best suited for evaluating early -stage FinVLFMs within a 
+multidimensional evaluation ecosystem and motivating the dev elopment of more robust, large -scale, and 
+finance-specialized multimodal benchmarks. In particular, while these datasets are valuable for performance benchmarking, 
+they are not sufficient to support the pre -training or large -scale instruction tuning of Fin VLFMs. Future research will 
+require the construction of significantly larger, more diverse, and task-rich financial visual-language datasets encompassing 
+real-world financial charts, tables, filings, and reports to unlock the full potential of FinVLFMs. 
+4.4. Summary 
+FinVLFMs represent a promising yet nascent direction in financial AI, enabling multimodal understanding across charts, 
+documents, and textual narratives. Current models converge on a common three -component architecture and two -stage 
+training paradigm, yet remain constrained by limited data scale, domain -specific visual encoding, and instruction diversity. 
+Recent work such as vision-language inference for training -free stock time -series analysis ( VISTA) [114] has shown that 
+vision-language inference can directly support stock forecasting in a training -free manner, while Quant 4.0 [ 115] positions 
+multimodal and knowledge -driven AI as the next frontier of quantitative investment. These advances suggest that 
+FinVLFMs hold promise not only as technical  enablers but also as integral components of future financial engineering 
+pipelines. 
+5. FFM-based financial applications
+
+
+[Page 14]
+14                            
+In this section, we review representative applications involving FFMs. A survey of  the literature revealed that many 
+existing studies still rely on general-purpose FMs (e.g., GPT-4 and Gemini) to explore the feasibility and potential of FMs 
+in various financial tasks. However, several emerging works have begun to employ domain -specific FFMs (e.g., 
+ICE-INTENT, TimesFM, and CFGPT) that demo nstrate clear advantages in bilingual understanding, compliance, and 
+time-series prediction. Therefore, we have selected 11 representative application -oriented studies, encompassing both 
+general-purpose and domain -specialized FMs, to illustrate the current  landscape of FFM-based financial applications. We 
+categorize these applications into four types: ① financial knowledge extraction , ② market prediction, ③ trading and 
+financial decision-making, and ④ agent-based financial simulation. Table 8 [51,79,116–126] summarizes representative 
+studies within each category, with domain-specific FFMs highlighted in bold. 
+Table 8 
+An overview of FFM-based applications with representative works.  
+Task Reference Involved 
+FM(s) 
+Description 
+Financial knowledge extraction 
+Bilingual financial text 
+understanding 
+[51] ICE-INTEN
+T, 
+DISC-FinLL
+M, CFGPT, 
+and GPT-4 
+ICE-INTENT supports 18 bilingual tasks and surpasses GPT -4 and other FinLFMs in 
+bilingual financial understanding 
+Financial relation extraction [116] GPT-4, 
+pathways 
+language 
+model 2 
+（ PaLM2 ） 
+and mosaic 
+pretrained 
+transformer 
+(MPT) 
+Zero-shot annotation of financial relations for efficient and reliable dataset creation 
+Financial table parsing [117] GPT-4 Accurate extraction of values from annual report tables 
+Market prediction 
+VaR forecasting [79] TimesFM Evaluates TimesFM for left-tail VaR prediction on S&P 100  Index, showing superior 
+performance over traditional models 
+Stock ranking from 
+multi-source signals 
+[118] GPT-4 Outperforms S&P 100 Index with CoT investment signals 
+Sentiment-driven trading [119] GPT-4 Improves timing by filtering investor sentiment 
+Signal enhancement qualitative 
+portfolio insight generation 
+[120] GPT-4 Assists stock selection and diversification with GPT-driven analysis 
+Trading and financial decision 
+Retrieval-augmented-generatio
+n-based financial assistant 
+system 
+[121] CFGPT Introduces a retrieval -augmented FinLFM with a hybrid knowledge base, and 
+compliance-aware checkers for tasks such as question and answering, investment 
+advising, and risk control 
+Trading with memory and 
+personality 
+[122] GPT-4 Introduces a layered memory architecture and persona -driven design to improve 
+trading decision-making 
+Explainable factor extraction [123] GPT-4 Uses customized prompting to extract interpretable market-moving factors from news  
+Portfolio diversification support [120] GPT-4 Improves portfolio diversification and returns when combined with quant 
+optimization 
+Agent-based financial simulation 
+Role-specialized trading  [124] GPT-4o, 
+OpenAI-o1 
+Multi-role AI agents collaborate to trade and manage risk 
+Simulation market theory 
+Testing via agent simulation 
+[125] GPT-4 Multiple agents simulate realistic market to test financial theories 
+Investor behavior emulation [126] GPT-3.5, 
+Gemini 
+Multiple agents simulate different trading behaviors to real news and price data 
+Most studies adopt general-purpose FMs for initial exploration; domain-specific FFMs are highlighted in bold.  
+5.1. Financial knowledge extraction 
+A fundamental application of FFMs is the transf ormation of unstructured financial text, tables, and reports into 
+structured knowledge representations that directly support downstream analysis, prediction, and decision -making. Rather 
+than serving merely as a preprocessing step, financial knowledge extra ction should be viewed as an end -to-end application 
+that enables systematic knowledge management in finance. Existing studies emphasize this potential across diverse 
+scenarios: Hu et al. [51] show ed that the domain-specialized ICE-INTENT model outperforms GPT-4 and other FinLFMs 
+in bilingual financial understanding; Aguda et al. [11 6] employed GPT-4 in a zero -shot setting for relation extraction by 
+generating tuples such as <organization, date>; and recent work on annual report analysis has demonstrated how LLMs can 
+parse financial tables to extract key corporate items [11 7]. Together, these efforts demonstrate that FFMs function not only
+
+
+[Page 15]
+15 
+ 
+as technical enablers but also as practical tools for financial knowledge extraction, converting raw documents into 
+structured knowledge that forms the basis for applications such as market prediction, compliance monitoring, and trading 
+decision support. 
+5.2. Market prediction 
+FFMs have also been increasingly applied to market forecasting tasks, such as predicting asset risk , market sentiment, 
+and timing signals from financial text and time -series data. Goel et al. [79] were recently among the first to apply a 
+TimesFM to VaR forecasting , estimating left -tail return quantiles for assets in the S&P 100 Index. While such efforts  
+highlight the emerging role of FinTSFMs, most current studies still rely on general -purpose LLMs to explore the feasibility 
+of market prediction tasks in financial contexts. Fatouros et al. [11 8] developed MarketSenseAI, prompting GPT -4 with 
+multi-source signals including fundamentals, macroeconomic indicators, and news headlines  to generate investment 
+rationales that outperform the S&P 100  Index. Similarly, Chen et al. [11 9] proposed a multimodal framework in which 
+GPT-4 evaluates investor forum comments to enhance sentiment-driven stock timing, improving profitability and win rates 
+in backtests. Ko and Lee [1 20] investigated the role GPT-4 can play  in portfolio analysis, finding that it offers useful 
+qualitative insights for stock selection and diversific ation when used alongside quantitative methods. These studies have 
+collectively shown that, while general-purpose LLMs dominate current explorations, FFMs—particularly FinTSFMs—are 
+beginning to demonstrate unique advantages, paving the way for more specialized solutions in financial prediction. 
+5.3. Trading and financial decision-making 
+Beyond forecasting, FFMs are increasingly deployed in end -to-end financial decision-making pipelines, encompassing 
+trading strategy development, investment advising, and ris k control. For example, Li et al. [1 21] propose d a Chinese 
+financial assistant  named as RA -CFGPT, built upon a finetuned FinLLM, a hybrid knowledge base under a 
+retrieval-augmented-generation framework, and compliance -aware checkers. The system demonstrate s robust performance 
+across tasks such as question answering, investment advising, and risk assessment. Other studies have explored the use of 
+general LLMs for trading and financial decision -making. Here, a representative work is FinMem, proposed by Yu et al. 
+[122]; it enhances LLM-based trading agents with a layered memory system and persona-driven architecture. By simulating 
+short-, mid-, and long-term memory along with distinct investor styles (e.g., aggressive  or conservative), FinMem achieves 
+superior backtest performance compared with both deep reinforcement learning and vanilla LLM agents. Complementing 
+this, Wang et al. [1 23] introduced LLMFactor, a sequential prompting framework that extracts interpretable alpha signals 
+from financial news aligned with market dynamics, improving both predictive performance and interpretability. Finally, Ko 
+and Lee [120] demonstrated that GPT-4-guided portfolio construction can yield improved risk -adjusted returns, especially 
+when combined with classical quantitative optimization. Collectively, these works illustrate the diverse ways in which 
+FFMs can be adapted for high-stakes decision-making under uncertainty. 
+5.4. Agent-based financial simulation 
+Agent-based financial simulation is a rapidly emerging application are a for FFMs, in which multiple AI-driven agents 
+interact to emulate market dynamics and investor behaviors. Unlike generic multi -agent frameworks, this line of work 
+explicitly targets financial contexts such as trading, risk management, and market microstru cture analysis. For example,  
+Xiao et al. [12 4] simulated realistic market interactions with agents assigned to trading -related roles (e.g., trader  and risk 
+officer), achieving coordinated decision -making through structured prompts. Lopez -Lira [125] simulated price formation 
+and liquidity using GPT -4-driven market -making agents, offering new ways to test economic hypotheses. Similarly, 
+StockAgent [126] emulates investor behavior in reaction to market news using multi -agent systems powered by GPT -3.5 
+and Gemini. While most current systems still rely on general -purpose LLMs, their methods can be naturally extended to 
+FFMs. Incorporating domain-specific FFMs could increase realism, compliance alignment, and predictive fidelity in future 
+simulations. Notably, several existing research groups [124,126] have explicitly listed the training of task-specific FFMs as 
+part of their future work, suggesting that agents specialized for trading, risk management, or investor -behavior modeling 
+may provide more accurate and dom ain-aligned outcomes. This indicates a clear trajectory from proof -of-concept 
+multi-agent simulations toward FFM-driven agent architectures that embed financial expertise at the task level. 
+5.5. Summary 
+Current FFM -based financial applications mainly rely on general -purpose FMs to test feasibility in knowledge 
+extraction, market prediction, trading, and simulation. These studies demonstrate the exploratory potential of FMs in 
+finance but often lack domain specificity for high -stakes use cases.  However, emer ging domain -specific FFMs (e.g., 
+ICE-INTENT [51], CFGPT [52], and DISC-FinLLM [ 57]) are beginning to demonstrate advantages in financial 
+understanding, compliance, and structured reasoning. These developments suggest a clear trajectory toward the integrati on 
+of specialized FFMs, which are expected to improve accuracy, interpretability, and robustness in high -stakes financial 
+environments. 
+ 
+6. Challenges and opportunities
+
+
+[Page 16]
+16                            
+Despite the rapid progress in developing and applying FFMs, their widespread adoption s till presents significant 
+obstacles arising not only from the limitations of current algorithmic designs and computational infrastructure but 
+also—crucially—from the unique characteristics of financial data and tasks. Unlike general AI domains, financial 
+engineering presents distinctive requirements such as regulatory compliance, market non-stationarity, structured multimodal 
+data (e.g., candlestick charts, balance sheets, order flows), and latency -critical decision-making. Understanding and 
+addressing these bottlenecks is essential for advancing FFMs from proof  of concept to practical deployment. To provide a 
+structured perspective, we categorize the key challenges and corresponding research opportunities into three dimensions: 
+data, algorithm, and computing infrastructure. Each dimension reflects a crucial aspect of the FFM development pipeline, 
+from data acquisition to system-level deployment. In what follows, we highlight critical limitations, emerging solutions, and 
+representative works that pave the way for future progress. 
+6.1. Data 
+6.1.1. Scarcity of large-scale multimodal financial datasets 
+As discussed in Sections 2 –4, current FFMs, especially FinVLFMs and FinTSFMs, are constrained by the lack of 
+large-scale, high -quality multimodal datasets (e.g., c hart–text or table –report pairs). Unlike natural images or videos in 
+general AI, financial multimodal data is highly structured, domain -specific, and often requires precise numerical 
+interpretation. Researchers have highlighted this scarcity and the underd eveloped multimodal capabilities of FFMs [19], 
+which limit these models’ real-world applicability. However, acquiring such data from financial environments is costly and 
+heavily regulated. An alternative strategy is data synthesis using advanced LLMs, whic h is emerging as a promising 
+approach for constructing financial benchmarks. For example, He et al. [12 7] generated synthetic chart reasoning datasets 
+by programmatically producing candlestick plots paired with high-quality QA items. Recent works such as FinTral [20] and 
+FinLLaVA [19] also attempt to build chart -based QA datasets tailored for financial contexts. The automatic generation of 
+accurate, diverse, and finance-specific multimodal data remains a key research direction. 
+6.1.2. Privacy and regulatory constraints 
+Many valuable financial datasets, such as internal bank reports, client transactions, and proprietary trading strategies, are 
+confidential and inaccessible to the public due to privacy regulations (e.g., general data protection regulation (GDPR) [128], 
+markets in financial instruments directive II (MiFID II) [129], and Basel III [130]) and competitive concerns. This severely 
+limits data sharing and aggregation for FFM training, making the challenge far more pronounced than in other domains. A 
+promising solution lies in federated learning, which allows multiple institutions (e.g., banks  and hedge funds) to 
+collaboratively train models without sharing raw data. Several works  have already explored federated training paradigms 
+for general -domain LLMs that preserve data privacy  [131,132]. Domain -specific efforts such as the differential-privacy 
+protection financial large language model (DPFinLLM) [133] offer a concrete attempt at the privacy-preserving fine-tuning 
+of FinLFMs by combining low-rank adaptation with a differential privacy strategy. Recent models such as XuanYuan3 [49] 
+and Baichuan4-Finance [54] incorporate compliance-focused alignment using reinforcement learning, explicitly penalizing 
+responses that violate financial regulations.  These approaches offer valuable technical foundations for privacy -preserving 
+and regulation-aware FFM development in finance. 
+6.2. Algorithm 
+6.2.1. Hallucination and factual inconsistency 
+FMs are prone to hallucination—that is, generating incorrect or fabricated information. In financial contexts, such errors 
+can have severe consequences, particularly when models produce false statements regarding earnings, asset risks, or 
+regulatory events. Even state -of-the-art systems such as DeepSeek-R1 have been shown to gene rate unverified or 
+inconsistent financial claims [9]. Addressing this issue requires the integration of FFMs with structured knowledge sources. 
+For instance, Jiang et al. [134] proposed a multimodal retrieval-augmented generation (RAG) system that combines a vector 
+database and a financial knowledge graph. By converting visual data into text and retrieving structured facts across 
+modalities, the system supports LLM reasoning grounded in reliable information. Such integration between FFMs and 
+knowledge engineering offers a promising path toward trustworthy financial applications. 
+6.2.2. Lookahead bias and market non-stationarity 
+FFMs are typically trained on large corpora that may contain future information relative to backtest periods, introducing 
+lookahead bias. This bias leads to inflated performance during model evaluation because the model has inadvertently 
+learned about future events. For example, a n FM evaluated on data from 2020 may have been trained on news published 
+after 2020, violating the temporal  integrity of the backtest [1 35]. To mitigate this  problem, careful curation of temporally 
+consistent datasets is essential. One example is TimeMachineGPT [1 36], in which models are trained exclusively on data 
+constrained to specific time horizons to preve nt future leakage. Developing temporally aware training and evaluation 
+protocols remains a critical direction for FFMs.  Beyond lookahead bias, financial time -series data is inherently 
+non-stationary due to regime shifts, volatility clustering, and abrupt m arket shocks —properties rarely encountered in 
+general natural language-processing (NLP) tasks. Recent models such as Fin -TimesFM [27], MarketGPT [76], and Kronos 
+[88] attempt to address this issue through continual pre-training on streaming market data or by directly modeling
+
+
+[Page 17]
+17 
+ 
+order-book dynamics. Nevertheless, developing robust methods to adapt to structural breaks and rapidly changing financial 
+environments remains an open research frontier. 
+6.3. Computing infrastructure 
+6.3.1. High training and deployment costs 
+Training or fine -tuning FFMs with tens of billions of parameters is extremely resource -intensive, often requiring 
+thousands of graphics processing units ( GPUs), extensive memory, and weeks of computation time. This presents a 
+significant financial a nd infrastructural barrier, especially for academic institutions and small enterprises. For example, 
+BloombergGPT [15] was trained using approximately 1.3 million GPU hours on NVIDIA A100s, an effort estimated to cost 
+1–2 million USD. In addition to traini ng costs, deploying large -scale FFMs poses substantial challenges. Inference with 
+large models typically incurs high latency, substantial energy consumption, and complex infrastructure requirements, 
+particularly in real -time or low -latency financial applic ations such as trading, risk monitoring, or customer interaction 
+systems. In response, research has begun to explore lightweight alternatives such as distilled, small , yet powerful FFMs 
+derived from general -purpose LLMs [9], which aim to retain financial d omain capabilities while significantly reducing 
+computational demands. Beyond simple model compression, an emerging paradigm advocates for a collaborative system 
+that integrates large and small models. Researchers [137,138] have discussed hybrid systems in which large LLMs are used 
+to provide domain knowledge, supervision, or feature augmentation, while lightweight models handle privacy -sensitive or 
+latency-critical tasks on the edge. For example, RA -CFGPT [1 21] integrates a small seven billion self-trained Chinese 
+financial expert model with GPT -4 and LLaMA into a chatbot system to balance latency and trustworthiness. This 
+collaborative architecture is particularly attractive for financial scenarios with strict regulatory or cost constraints, 
+suggesting that future FFMs may evolve into modular ecosystems of large and small models working in synergy.  
+7. Conclusions 
+FFMs are reshaping the landscape of financial engineering by enabling scalable, adaptable, and multimodal intelligence 
+across tasks such as analysis, forecasting, and decision-making. In this survey, we systematically reviewed the architectural 
+designs, training methodologies, benchmark datasets, and practical applications of FFMs, categorizing them into three main 
+types: FinLFMs, FinTSFMs, and FinVLFMs. 
+Despite notable progress, FFMs still present a range of open challenges, from data availability and temporal consistency 
+to model trustworthiness, efficiency, and domain adaptation. Tackling these issues will require advances across multiple 
+fronts, including high-quality dataset construction, multimodal integration, efficient training and deployment strategies, and 
+deeper alignment with financial knowledge and regulatory requirements. We hope this work provides a useful foundation 
+for further research and encourages the responsible development of FFMs in real-world financial systems. 
+ 
+Data availability 
+    An updated collection of FFM -related publications and resources are accessible via the following link: 
+https://github.com/FinFM/Awesome-FinFMs. 
+ 
+ 
+References 
+[1] Lyuu YD. Financial engineering and computation: principles, mathematics, algorithms. Cambridge: Cambridge University Press; 2001. 
+[2] Raghavan P, El Gayar N. Fraud detection using machine learning and deep learning. In: Proceedings of the 2019 International Conference on 
+Computational Intelligence and Knowledge Economy; 2019 Dec 11–12; Dubai, United Arab Emirates. New York City: IEEE; 2019. p. 334–9. 
+[3] Ozbayoglu AM, Gudelek MU, Sezer OB. Deep learning for financial applications: a survey. Appl Soft Comput 2020;93:106384. 
+[4] Kumbure MM, Lohrmann C, Luukka P, Porras J. Machine learning techniques and data for stock market forecasting: a literature review.  
+Expert Syst Appl 2022;197:116659. 
+[5] Sun Y, Li J. Deep learning for intelligent assessment of financial investment risk prediction. Comput Intell Neurosci 2022;2022(1):3062566. 
+[6] Sanderson K. GPT-4 is here: what scientists think. Nature 2023;615(7954):773. 
+[7] Gemini Team Google; Anil R, Borgeaud S, Alayrac JB, Yu J, Soricut R, et al. Gemini: a family of highly capable multimodal models.  2023. 
+arXiv:2312.11805. 
+[8] Yang A, Li A, Yang B, Zhang B, Hui B, Zheng B, et al. Qwen3 technical report. 2025. arXiv:2505.09388. 
+[9] Liu S, Chen L, Yan J, Jiang Y, Wang X, Liu X, et al. When DeepSeek-R1 meets financial applications: benchmarking, opportunities, and 
+limitations. Front Inf Technol Electro Eng. In press. 
+[10] Nie Y, Kong Y, Dong X, Mulvey JM, Poor H V, Wen Q, et al.  A survey of large language models for financial applications: progress, 
+prospects and challenges. 2024. arXiv:2406.11903. 
+[11] Chen Z, Ma J, Zhang X, Hao N, Yan A, Nourbakhsh A, et al. A survey on large language models for critical societal domains: finance, 
+healthcare, and law. 2024. arXiv:2405.01769. 
+[12] Liu J. A survey of financial AI: architectures, advances and open challenges. 2024. arXiv:2411.12747. 
+[13] Bommasani R, Hudson DA, Adeli E , Altman R, Arora S, von Arx S, et al . On the opportunities and risks of foundation models.  2021. 
+arXiv:2108.07258. 
+[14] Shanahan M. Talking about large language models. Commun ACM 2024;67(2):68–79. 
+[15] Wu S, Irsoy O, Lu S, Dabravolski V, Dredze M, Gehrmann S, et al.  BloombergGPT: a large language model for finance.  2023. 
+arXiv:2303.17564. 
+[16] Zhao H, Liu Z, Wu Z, Li Y, Yang T, Shu P, et al. Revolutionizing finance with LLMs: an overview of applications and insights.  2024. 
+arXiv:2401.11641.
+
+
+[Page 18]
+18                            
+[17] Yeh CCM, Dai X, Chen H, Zheng Y, Fan Y, Der A, et al. Toward a foundation model for time series data. In: Proceedings of the 32nd 
+ACM International Conference on Information and Knowledge Management; 2023 Oct 21 –25; Birmingham, UK. New York City:  Association 
+for Computing Machinery; 2023. p. 4400–4. 
+[18] Wang Z, Li Y, Wu J, Soon J, Zhang X. FinVis-GPT: a multimodal large language model for financial chart analysis. 2023. 
+arXiv:2308.01430. 
+[19] Huang J, Xiao M, Li D, Jiang Z, Yang Y, Zhang Y, et al . Open -FinLLMs: open multimodal large language models for financial 
+applications. 2024. arXiv:2408.11878. 
+[20] Bhatia G, Nagoudi EMB, Cavusoglu H, Abdul-Mageed M. FinTral: a family of GPT -4 level multimodal financial large language models.  
+2024. arXiv:2402.10986. 
+[21] Li Y, Wang S, Ding H, Chen H. Large language models in finance: a survey. In: Proceedings of the Fourth ACM International Conference 
+on AI in Finance; 2023 Nov 27–29; Brooklyn, NY, USA. New York City: Association for Computing Machinery; 2023. p. 374–82. 
+[22] Devlin J, Chang MW, Lee K, Toutanova K. BERT: pre -training of deep bidirectional transformers for language understanding. 2019. 
+arXiv:1810.04805. 
+[23] Araci D. FinBERT: financial sentiment analysis with pre-trained language models. 2019. arXiv:1908.10063. 
+[24] Yang Y, Mark CSU, Huang A. FinBERT: a pretrained language model for financial communications. 2020. arXiv:2006.08097. 
+[25] Liu Z, Huang D, Huang K, Li Z, Zhao J. FinBERT: a pre -trained financial language representation model for financial text mining. In : 
+Proceedings of the 29th International Conference on International Joint Conferences on Artificial Intelligence; 2021 Jan 7 –15; Yokohama, Japan. 
+New York City: Association for Computing Machinery; 2021. p. 4513–9. 
+[26] Kaplan J, McCandlish S, Henighan T, Brown TB, Chess B, Child R, et al. Scaling laws for neural language models . 2020. 
+arXiv:2001.08361. 
+[27] Fu X, Hirano M, Imajo K. Financial fine-tuning a large time series model. 2024. arXiv:2412.09880. 
+[28] Open AI, Hurst A, Lerer A, Goucher AP, Perelman A, Ramesh A, et al. GPT-4o system card. 2024. arXiv:2410.21276. 
+[29] Dong MM, Stratopoulos TC, Wang VX.  A scoping review of ChatGPT research in  accounting and finance.  Int J Account Inf Syst  
+2024;55:100715. 
+[30] Ding H, Li Y, Wang J, Chen H. Large language model agent in financial trading: a survey. 2024. arXiv:2408.06361. 
+[31] Desai AP, Ravi T, Luqman M, Mallya G, Kota N, Yadav P. Opportunities and challenges of generative -AI in finance. In: Proceedings of 
+the IEEE International Conference on Big Data; 2024 Dec 15–18; Washington, DC, USA. New York City: IEEE; 2024. p. 4913–20. 
+[32] Lee J, Stevens N, Han SC. Large language models in finance (FinLLMs). Neural Comput Appl 2025;37:24853–67. 
+[33] Zhang Z, Zhang H, Chen K, Guo Y, Hua J, Wang Y, et al. Mengzi: towards lightweight yet ingenious pre-trained models for Chinese. 2021. 
+arXiv:2110.06696. 
+[34] Shah RS, Chawla K, Eidnani D, Shah A, Du W, Chava S, et al. When FLUE meets FLANG: benchmarks and large pre -trained language 
+model for financial domain. 2022. arXiv:2211.00083. 
+[35] Clark K, Luong MT, Le QV, Manning CD. ELECTRA: pre -training text encoders as discriminators rather than generators.  2020. 
+arXiv:2003.10555. 
+[36] Lu D, Wu H, Liang J, Xu Y, He Q, Geng Y, et al. BBT-Fin: comprehensive construction of Chinese financial domain pretrained language 
+model, corpus and benchmark. 2023. arXiv:2302.09432. 
+[37] Raffel C, Shazeer N, Roberts A, Lee K, Narang S, Matena M, et al. Exploring the limits of transfer learning with a unified text -to-text 
+transformer. 2019. arXiv:1910.10683. 
+[38] Dowling M, Lucey B. ChatGPT for (finance) research: the bananarama conjecture. Finance Res Lett 2023;53:103662. 
+[39] Scao TL, Fan A, Akiki C, Pavlick E, Ilić S, Hesslow D, et al. BLOOM: a 176B-parameter open-access multilingual language model. 2022. 
+arXiv:2211.05100. 
+[40] Zhang X, Yang Q. XuanYuan2.0: a large Chinese financial chat model with hundreds of billions parameters. In: Proceedings of the 32nd 
+ACM International Conference on Information and Knowledge Management, CIKM’23; 2023 Oct 21 –25; Birmingham, UK. New York City: 
+Association for Computing Machinery; 2023. p. 4435–9. 
+[41] Touvron H, Martin L, Stone K, Albert P, Almahairi A, Babaei Y, et al. LLaMA 2: open foundation and fine -tuned chat models.  2023. 
+arXiv:2307.09288. 
+[42] Jayaseelan N. LLaMA 2: the new open source language model. J Mach Learn Res 2023;24(1):1–15. 
+[43] Cai Z, Cao M, Chen H, Chen K, Chen K, Chen X, et al. InternLM2 technical report.2024.  arXiv:2403.17297. 
+[44] Xie Q, Han W, Zhang X, Lai Y, Peng M, Lopez-Lira A, et al. PIXIU: a large language model, instruction data and evaluation benchmark 
+for finance. 2023. arXiv:2306.05443. 
+[45] Yang Y, Tang Y, Tam KY. InvestLM: a large languag e model for investment using financial domain instruction tuning.  2023. 
+arXiv:2309.13064. 
+[46] Wang N, Yang H, Wang CD. FinGPT: instruction tuning benchmark for open -source large language models in financial datasets.  2023. 
+arXiv:2310.04793. 
+[47] Yang H, Liu XY, Wang CD. FinGPT: open-source financial large language models. 2023. arXiv:2306.06031. 
+[48] Tong H, Li J, Wu N, Gong M, Zhang D, Zhang Q. Ploutos: towards interpretable stock movement prediction with financial large language 
+model. 2024. arXiv:2403.00782. 
+[49] Duxiaoman-DI. Xuanyuan -finx1 [Internet]. San Francisco: GitHub, Inc.; [cited 2025 Nov 5]. Available from:  
+https://github.com/Duxiaoman-DI/XuanYuan. 
+[50] Tongyi-EconML. FinQwen: AI+finance [Internet]. San Francisco: GitHub, Inc.; undated [cited 2 025 Nov 5]. Available from: 
+https://github.com/Tongyi-EconML/FinQwen. 
+[51] Hu G, Qin K, Yuan C, Peng M, Lopez-Lira A, Wang B, et al. No language is an Island: unifying Chinese and English in financial large 
+language models, instruction data, and benchmarks. 2024. arXiv:2403.06249. 
+[52] Li J, Bian Y, Wang G, Lei Y, Cheng D, Ding Z, et al.  CFGPT: Chinese financial assistant with large language model.  2023. 
+arXiv:2309.10654. 
+[53] Wang Y, Chen H, Tang Y, Guo T, Han K, Nie Y, et al. PanGu-τ: enhancing language model architectures via nonlinearity compensation.  
+2023. arXiv:2312.17276. 
+[54] Zhang H, Qiu B, Feng Y, Li S, Ma Q, Zhang X, et al. Baichuan4-finance technical report. 2024. arXiv:2412.15270. 
+[55] Guo D, Yang D, Zhang H, Song J, Zhang R, Xu R, et al. DeepSeek-R1: incentivizing reasoning capability in LLMs via reinforcement 
+learning. 2025. arXiv:2501.12948. 
+[56] Qian L, Zhou W, Wang Y, Peng X, Yi H, Huang J, et al. Fino1: on the transferability of reasoning enhanced LLMs to financ e. 2025. 
+arXiv:2502.08127.
+
+
+[Page 19]
+19 
+ 
+[57] Chen W, Wang Q, Long Z, Zhang X, Lu Z, Li B, et al. DISC-FinLLM: a Chinese financial large language model based on multiple experts 
+fine-tuning. 2023. arXiv:2310.15205. 
+[58] Karpathy A . State of GPT 2023 [Internet]. San Fran cisco: GitHub, Inc.; [cited 2025 Nov 5]. Available from: 
+https://github.com/giachat/State-of-GPT-2023. 
+[59] Malo P, Sinha A, Korhonen P, Wallenius J, Takala P. Good debt or bad debt: detecting semantic orientations in economic texts. J Assoc Inf 
+Sci Technol 2014;65(4):782–96. 
+[60] Maia M, Handschuh S, Freitas A, Davis B, McDermott R, Zarrouk M, et al.  WWW’18 open challenge: financial opinion mining and 
+question answering. In: Proceedings of the Web Conference ; 2018 Apr 23 –27; Lyon, France . Geneva: Internati onal World Wide Web 
+Conferences Steering Committee; 2018. p. 1941–2. 
+[61] Xu Y, Cohen SB. Stock movement prediction from tweets and historical prices. In: Gurevych I, Miyao Y, editors. Proceedings of the 56th 
+Annual Meeting of the Association for Computati onal Linguistics; 2018 Jul 15 –20; Melbourne, VIC, Australia. Stroudsburg: Association for 
+Computational Linguistics; 2018. p. 1970–9. 
+[62] Wu H, Zhang W, Shen W, Wang J. Hybrid deep sequential modeling for social text -driven stock prediction. In: Proceedin gs of the 27th 
+ACM International Conference on Information and Knowledge Management; 2018 Oct 22 –26; Turin, Italy. New York City: Association for 
+Computing Machinery; 2018. p. 1627–30. 
+[63] Guo X, Xia H, Liu Z, Cao H, Yang Z, Liu Z, et al.  FinEval: a Chine se financial domain knowledge evaluation benchmark for large 
+language models. 2023. arXiv:2308.09975. 
+[64] Lei Y , Li JT , Cheng D, Ding Z, Jiang C . CFBenchmark: Chinese financial assistant benchmark for large language model.  2023. 
+arXiv:2311.05812. 
+[65] Duxiaoman-DI. FinanceIQ: Chinese financial domain knowledge assessment dataset [Internet]. San Francisc o: GitHub, Inc. ; [cited 2025 
+Nov 5]. Available from: https://github.com/Duxiaoman-DI/XuanYuan. 
+[66] Nie Y, Yan B, Guo T, Liu H, Wang H, He W, et al. CFinBench: a comprehensive Chinese financial benchmark for large language models.  
+2024. arXiv:2407.02301. 
+[67] Guo J, Guo Y, Li M, Tan S. FLAME: financial large-language model assessment and metrics evaluation. 2025. arXiv:2501.06211. 
+[68] Zhu J, Li J, Wen Y, Guo L. Benchmarking large language models on CFLUE —a Chinese financial language understanding evaluation 
+dataset. 2024. arXiv:2405.10542. 
+[69] Xie Q, Han W, Chen Z, Xiang R, Zhang X, He Y, et al.  FinBen: a holistic financial benchmark for large language models.  2024. 
+arXiv:2402.12659. 
+[70] Li X, Li Z, Shi C, Xu Y, Du Q, Tan M, et al. AlphaFin: benchmarking financial analysis with retrieval -augmented stock-chain framework. 
+2024. arXiv:2403.12582. 
+[71] Chen Y, Nakamura T, Zhang R. M3FinMeeting: multilingual multimodal benchmark for financial meeting understanding.  2024. 
+arXiv:2406.07890. 
+[72] Noels S, De Blaere J, De Bie T. A Dutch financial large language model. In: Proceedings of the 5th ACM International Conference on AI in 
+Finance; 2024 Nov 14–17; Brooklyn, NY, USA. New York City: Association for Computing Machinery; 2024. p. 283–91. 
+[73] Alvarado JCS, Verspoor K, Baldwin T. Domain adaption of named entity recognition to support credit risk assessment. I n: Proceedings of 
+the Australasian Language Technology Association Workshop 2015; 2015 Dec 8–9; Parramatta, NSW, Australia. Stroudsburg: Association for 
+Computational Linguistics; 2015. p. 84–90. 
+[74] Sinha A, Khandait T. Impact of news on the commodity ma rket: dataset and results. In: Proceedings of the Future of Information and 
+Communication Conference; 2021 Apr 29–30; Vancouver, BC, Canada. Berlin: Springer; 2021. p. 589–601. 
+[75] Chen Z, Li S, Smiley C, Ma Z, Shah S, Wang WY. ConvFinQA: exploring the ch ain of numerical reasoning in conversational finance 
+question answering. 2022. arXiv:2210.03849. 
+[76] Wheeler A , Varner JD. MarketGPT: developing a pretrained transformer (GPT) for modeling financial time series.  2024. 
+arXiv:2411.16585. 
+[77] Das A, Kong W, Sen R, Zhou Y. A decoder -only foundation model for time -series forecasting. In : Proceedings of the 41st International 
+Conference on Machine Learning; 2024 Jul 21–27; Vienna, Austria. Cambridge: JMLR.org; 2024. p. 10148–67. 
+[78] Chitsaz F, Haratizadeh S. D ual adaptation of time -series foundation models for financial forecasting. In: Proceedings of the 1st ICML 
+Workshop on Foundation Models for Structured Data ; 2025 Jul 13 –19; Vancouver, BC, Canada.  San Diego: International Conference on 
+Machine Learning; 2025. p. 1–5. 
+[79] Goel A, Pasricha P, Kanniainen J. Time-series foundation model for value-at-risk. 2024. arXiv:2410.11773. 
+[80] Goel A, Pasricha P, Magris M, Kanniainen J. Foundation time-series AI model for realized volatility forecasting. 2025. arXiv:2505.11163. 
+[81] Zhou T, Ma Z, Wen Q, Wang X, Sun L, Jin R. FEDformer: frequency enhanced decomposed transformer for long -term series forecasting. 
+2022. arXiv:2201.12740. 
+[82] Nie Y , Nguyen NH , Sinthong P , Kalagnanam J. A time series is worth 64 words: long -term forecasting with transformers. 2023. 
+arXiv:2211.14730. 
+[83] Zhu D, Chen J, Shen X, Li X, Elhoseiny M. MiniGPT-4: enhancing vision-language understanding with advanced large language models. 
+2023. arXiv:2304.10592. 
+[84] Zhang Y , Gong K , Zhang K , Li H , Qiao Y , Ouyang W , et al. Meta -transformer: a unified framework for multimodal learning. 2023. 
+arXiv:2307.10802. 
+[85] Jin M, Wang S, Ma L, Chu Z, Zhang JY, Shi X, et al. Time-LLM: time series forecasting by reprogramming large language models.  2023. 
+arXiv:2310.01728. 
+[86] Liu X, Hu J, Li Y, Diao S, Liang Y, Hooi B, et al. UniTime: a language-empowered unified model for cross-domain time series forecasting. 
+In: Proceedings of the ACM Web Conference 2024; 2024 May 13–17; Singapore. New York City: Association for Computing Machinery; 2024. 
+p. 4095–106. 
+[87] Cheng J, Chin P. SocioDojo: building lifelong analytical agents with real -world text and time series. In: Proceedings of the 12th 
+International Conference on Learning Representations; 2024 May 7–11; Vienna, Austria. New York City: IEEE; 2024. p. 1–35. 
+[88] Shi Y, Fu Z, Chen S, Zhao B, Xu W, Zhang C, et al. . Kronos: a foundation model for the language of financial markets . 2025.  
+arXiv:2508.02739.  
+[89] Nie Y, Nguyen NH, Sinthong P, Kalagnanam J. A time series i s worth 64 words: long -term forecasting with transformers.  2022. 
+arXiv:2211.14730. 
+[90] Saxena V. Google stock prices—training and test data (2012–2017) [Internet]. Mountain View: Kaggle; [cited 2025 Nov 5]. Available from: 
+https://www.kaggle.com/datasets/vaibhavsxn/google-stock-prices-training-and-test-data.
+
+
+[Page 20]
+20                            
+[91] Han H . S&P 500 historical data (1927 –2020) [Internet].  Mountain View: Kaggle; [cited 2025 Nov 5]. Available from: 
+https://www.kaggle.com/datasets/henryhan117/sp-500-historical-data. 
+[92] Lai G, Chang WC, Yang Y, Liu H. Modeling long- and short-term temporal patterns with deep neural networks. In: Proceedings of the 41st 
+International ACM SIGIR Conference on Research and Development in Information Retrieval; 2018 Jul 8 –12; Ann Arbor, MI, USA. New York 
+City: Association for Computing Machinery (ACM); 2018. p. 747–56. 
+[93] Bitcoin time  series data [Internet]. Mountain View:  Kaggle; 2020 [cited 2025 Nov 12]. Available from: 
+https://www.kaggle.com/datasets/soham1024/bitcoin-time-series-data-till-02082020 
+[94] Dong Z , Fan X , Peng Z . FNSPID: a comprehensive financial news dataset in time series. In: Proceedings of the 30th ACM SIGKDD 
+Conference on Knowledge Discovery and Data Mining; 2024 Aug 25 –29; Barcelona, Spain. New York City: Association for Computing  
+Machinery; 2024. p. 4918–27. 
+[95] Hu Y, Li Y, Liu P, Zhu Y, Li N, Dai T, et al. FinTSB: a comprehensive and practical benchmark for financial time series forecasting.  2025. 
+arXiv:2502.18834. 
+[96] Marconi BA. Time series foundation models for multivariate financial time series forecasting. 2025. arXiv:2507.07296. 
+[97] Radford A, Kim JW, Hallacy C, Ramesh A, Goh G, Agarwal S, et al.  Learning transferable visual models from natural language 
+supervision. In: Proceedings of the 38th International Conference on Machine Learning; 2021 Jul 18 –24; online. New York City: ML Research 
+Press; 2021. p. 8748–63. 
+[98] Li J, Li D, Xiong C, Hoi S. BLIP: bootstrapping language–image pre-training for unified vision-language understanding and generation. In: 
+Proceedings of the 39th International Conference on Machine Learning; 2022 Jul 17 –23; Baltimore, MD, USA.  New York City: ML Research 
+Press; 2022. p. 12888–900. 
+[99] Guo Z, Xu R, Yao Y, Cui J, Ni Z, Ge C, et al.  LLaVA-UHD: an LMM perceiving any aspect ratio and high -resolution images. In: 
+Proceedings of the 18th European Conference on Computer Vision; 2024 Sep 29; Milan, Italy. Berlin: Springer; 2024. p. 390–406. 
+[100] Alayrac JB, Donahue J, Luc P, Miech A, Barr I, Hasson Y, et al. Flamingo: a visual language model for few-shot learning. In: Proceedings 
+of the 36th International Conference on Neural Information Processing Systems; 2022 Nov 28 –Dec 9; New Orleans, LA, USA. Red Hook: 
+Curran Associates Inc.; 2022. p. 23716–36. 
+[101] Li J, Li D, Savarese S, Hoi S. BLIP-2: bootstrapping language–image pre-training with frozen image encoders and large language models.  
+In: Proceedings of the 40th International Conference on Machine Learning; 2023 Jul 23 –29; Honolulu, HI, USA.  C New York City : ML  
+Research Press; 2023. p. 19730–42. 
+[102] Vicuna Team. Vicuna: an open -source chatbot impressing GPT -4 with 90%* ChatGPT quality [Internet]. Bretagne:  LMSYS ORG; 2023 
+Mar 30 [cited 2023 Apr 14]. Available from: https://lmsys.org/blog/2023-03-30-vicuna/. 
+[103] Quinlan R. Statlog (Australian Credit approval) [Internet]. Irvine: UCI Machine Learning Repository; [cited 2023 Apr 14]. Available from: 
+https://doi.org/10.24432/C59012. 
+[104] Hofmann H. Statlog (German Credit data) [Internet]. Irvine: UCI Machine Learning Repository; [cited 2023 Apr 14]. Ava ilable from: 
+https://archive.ics.uci.edu/dataset/144/statlog+german+credit+data. 
+[105] Zhu F, Lei W, Huang Y, Wang C, Zhang S, Lv J, et al. TAT-QA: a question answering benchmark on a hybrid of tabular and textual 
+content in finance. In: Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint 
+Conference on Natural Language Processing; 2021 Aug 1–6; online. Stroudsburg: Association for Computational Linguistics; 2021. p. 3277–87. 
+[106] Chen Z, Chen W, Smiley C, Shah S, Borova I, Langdon D, et al.  FinQA: a dataset of numerical reasoning over financial data. In: 
+Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing; 2021 Nov 7 –11; Punta Cana, Dominican Republic. 
+Stroudsburg: Association for Computational Linguistics; 2021. p. 3697–711. 
+[107] Chen Z, Li S, Smiley C, Ma Z, Shah S, Wang WY. ConvFinQA: exploring the chain of numerical reasoning in conversational finance 
+question answering. In: Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing; 2022 Dec 7–11; Abu Dhabi, 
+United Arab Emirates. Stroudsburg: Association for Computational Linguistics; 2022. p. 6279–92. 
+[108] Masry A, Long DX, Tan JQ, Joty S, Hoque E. ChartQA: a benchmark fo r question answering about charts with visual and logical 
+reasoning. 2022. 
+arXiv:2203.10244. 
+[109] Gan Z, Lu Y, Zhang D, Li H, Liu C, Liu J, et al. MME-Finance: a multimodal finance benchmark for expert -level understanding and 
+reasoning. 2024. arXiv:2411.03314. 
+[110] Yue X, Ni Y, Zhang K, Zheng T, Liu R, Zhang G, et al. MMMU: a massive multi -discipline multimodal understanding and reasoning 
+benchmark for expert AGI. In: Proceedings of  the IEEE/CVF Conference on Computer Vision and Pattern Recognition 2024; 2024 Jun 17–21; 
+Seattle, DC, USA. New York City: IEEE; 2024. p. 9556–67. 
+[111] Kim S, Kim C, Kim T. FCMR: robust evaluation of financial cross-modal multi-hop reasoning. 2024. arXiv:2412.12567. 
+[112] Xue S, Chen T, Zhou F, Dai Q, Chu Z, Mei H. FAMMA: a benchmark for financial domain multilingual multimodal question answering.  
+2024. arXiv:2410.04526. 
+[113] Luo J, Kou Z, Yang L, Luo X, Huang J, Xiao Z, et al. FinMME: benchmark dataset for financial multi-modal reasoning evaluation. 2025. 
+arXiv:2505.24714. 
+[114] Khezresmaeilzadeh T, Razmara P, Azizi S, Sadeghi ME, Potraghloo EB. VISTA: vision -language inference for training -free stock 
+time-series analysis. 2025. arXiv:2505.18570. 
+[115] Guo J, Wang S, Ni LM, Shum HY. Quant 4.0: engineering quantitative investment with automated, explainable, and knowledge -driven 
+artificial intelligence. Front Inf Technol Electron Eng 2024;25(11):1421–45. 
+[116] Aguda T, Siddagangappa S, Kochkina E, Kaur S, Wang D, Smiley C, et al. Large language models as financial data annotators: a study on 
+effectiveness and efficiency. 2024. arXiv:2403.18152. 
+[117] Balsiger D, Dimmler HR, Egger-Horstmann S, Hanne T. Assessing large language models  used for extracting table information from 
+annual financial reports. Computers 2024;13(10):257. 
+[118] Fatouros G, Metaxas K, Soldatos J, Kyriazis D. Can large language models beat wall street? Evaluating GPT -4’s impact on financial 
+decision-making with marketsenseai. Neural Comput Appl 2025;37:24893–18. 
+[119] Chen M, Tang Y, Qi Q, Dai H, Lin Y, Ling C, et al. Enhancing stock timing predictions based on multimodal architecture: leveraging 
+large language models (LLMs) for text quality improvement. PLoS One 2025;20(6):e0326034. 
+[120] Ko H, Lee J. Can ChatGPT improve investment decisions? From a portfolio management perspective. Finance Res Lett 2024;64:105433. 
+[121] Li J, Lei Y, Bian Y, Cheng D, Ding Z, Jiang C. RA-CFGPT: Chinese financial assistant with retri eval-augmented large language model.  
+Front Comput Sci 2024;18(5):185350. 
+[122] Yu Y, Li H, Chen Z, Jiang Y, Li Y, Suchow JW, et al. FinMem: a performance -enhanced LLM trading agent with layered memory and 
+character design. IEEE Trans Big Data. In press.
+
+
+[Page 21]
+21 
+ 
+[123] Wang M, Izumi K, Sakaji H. LLMFactor: extracting profitable factors through prompts for explainable stock movement prediction.  2024. 
+arXiv:2406.10811. 
+[124] Xiao Y, Sun E, Luo D, Wang W. TradingAgents: multi-agents LLM financial trading framework. 2024. arXiv:2412.20138. 
+[125] Lopez-Lira A. Can large language models trade? Testing financial theories with LLM agents in market simulations.  2025. 
+arXiv:2504.10789. 
+[126] Zhang C, Liu X, Zhang Z, Jin M, Li L, Wang Z, et al. When AI meets finance (stockagent) : large language model -based stock trading in 
+simulated real-world environments. 2024. arXiv:2407.18957. 
+[127] He W, Xi Z, Zhao W, Fan X, Ding Y, Shan Z, et al. Distill visual chart reasoning ability from LLMs to MLLMs. 2024. arXiv:2410.18798. 
+[128] Albrecht JP. How the GDPR will change the world. Eur Data Prot L Rev 2016;2(3):287–9. 
+[129] Yeoh P. MiFID II key concerns. J Financ Regul Compliance 2019;27(1):110–23. 
+[130] King P, Tarbert H. Basel III: an overview. Banking & Financial Services Policy Report 2011;30(5):1–18. 
+[131] Fan T, Kang Y, Ma G, Chen W, Wei W, Fan L, et al. FATE-LLM: a industrial grade federated learning framework for large language 
+models. 2023. arXiv:2310.10049. 
+[132] Fan T, Ma G, Kang Y, Gu H, Song Y, Fan L, et al. FedMKT: federated mutual knowledge transfer for large and small language models. In: 
+Proceedings of the 31st International Conference on Computational Linguistics; 2025 Jan 19 –24; Dhabi, United Arab Emirates. Stroudsburg: 
+Association for Computational Linguistics; 2025. p. 243–55. 
+[133] Zhu S, Leung H, Wang X, Wei J, Xu H. When fintech meets privacy: securing financial LLMs with differential private fine -tuning. 2025. 
+arXiv:2509.08995. 
+[134] Jiang C, Zhang P, Ni Y, Wang X, Peng H, Liu S, et al. Multimodal retrieval-augmented generation for financial documents: image-centric 
+analysis of charts and tables with large language models. Vis Comput 2025;41(10):7657–70. 
+[135] Glasserman P, Lin C. Assessing look -ahead bias in stock return predictions generated by GPT sentiment analysis.  2023. 
+arXiv:2309.17322. 
+[136] Drinkall F, Rahimikia E, Pierrehumbert JB, Zohren S. Time machine GPT. 2024. arXiv:2404.18543. 
+[137] Wu F, Shen T, Bä ck T, Chen J, Huang G, Jin Y, et al. Knowledge-empowered, collaborative, and co -evolving AI models: the post -LLM 
+roadmap. Engineering 2025;44:87–100. 
+[138] Liu Y, Yan B, Zou T, Zhang J, Gu Z, Ding J, et al. Towards harnessing the collaborative power of large and small models for domain 
+tasks. 2025. arXiv:2504.17421.

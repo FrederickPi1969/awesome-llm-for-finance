@@ -1,0 +1,3701 @@
+[Page 1]
+Fin-RATE: A Real-world Financial Analytics and Tracking
+Evaluation Benchmark for LLMs on SEC Filings
+Yidong Jiang
+2253899@tongji.edu.cn
+Tongji University
+Shanghai, China
+Junrong Chen
+juc036@ucsd.edu
+University of California,
+San Diego
+San Diego, CA, USA
+Eftychia Makri
+eftychia.makri@yale.edu
+Yale University
+New Haven, CT, USA
+Jialin Chen
+jialin.chen@yale.edu
+Yale University
+New Haven, CT, USA
+Peiwen Li
+peiwen.li@yale.edu
+Yale University
+New Haven, CT, USA
+Ali Maatouk
+ali.maatouk@yale.edu
+Yale University
+New Haven, CT, USA
+Leandros Tassiulas
+leandros.tassiulas@yale.edu
+Yale University
+New Haven, CT, USA
+Eliot Brenner
+eliot.brenner@ny.email.gs.com
+Goldman Sachs
+New York, NY, USA
+Bing Xiang
+bing.xiang@ny.email.gs.com
+Goldman Sachs
+New York, NY, USA
+Rex Ying
+rex.ying@yale.edu
+Yale University
+New Haven, CT, USA
+Abstract
+With the increasing deployment of Large Language Models (LLMs)
+in the finance domain, LLMs are increasingly expected to parse
+complex regulatory disclosures. However, existing benchmarks of-
+ten focus on isolated details, failing to reflect the complexity of
+professional analysis that requires synthesizing information across
+multiple documents, reporting periods, and corporate entities. Fur-
+thermore, these benchmarks do not disentangle whether errors arise
+from retrieval failures, generation inaccuracies, domain-specific rea-
+soning mistakes, or misinterpretation of the query or context, mak-
+ing it difficult to precisely diagnose performance bottlenecks. To
+bridge these gaps, we introduce Fin-RATE, a benchmark built on U.S.
+Securities and Exchange Commission (SEC) filings and mirroring fi-
+nancial analyst workflows through three pathways: detail-oriented
+reasoning within individual disclosures, cross-entity comparison
+under shared topics, and longitudinal tracking of the same firm
+across reporting periods. We benchmark 17 leading LLMs, span-
+ning open-source, closed-source, and finance-specialized models,
+under both ground-truth context and retrieval-augmented settings.
+Results show substantial performance degradation, with accuracy
+dropping by 18.60% and 14.35% as tasks shift from single-document
+reasoning to longitudinal and cross-entity analysis. This degrada-
+tion is driven by increased comparison hallucinations, temporal
+and entity mismatches, and is further reflected in declines in rea-
+soning quality and factual consistency—limitations that existing
+benchmarks have yet to formally categorize or quantify.
+CCS Concepts
+•Computing methodologies → Information extraction;•Ap-
+plied computing→Business intelligence.
+Keywords
+Large Language Models, Financial Benchmark, SEC Filings, Domain-
+Specific Evaluation
+1 Introduction
+In recent years, the application of general-purpose large language
+models (LLMs) in the financial domain has rapidly expanded, with
+an increasing number of financial institutions exploring their use
+in high-value tasks such as financial report analysis, risk monitor-
+ing, and investment research assistance. According to the McKin-
+sey 2025 report [7], several finance teams have already leveraged
+LLMs to improve the accuracy of budgeting and the timeliness
+of financial reporting. LLMs are viewed as promising analytical
+assistants, expected to undertake parts of professional analysis
+workflows, particularly in parsing structurally complex and seman-
+tically dense regulatory disclosures such as SEC filings. However,
+effective understanding of such documents goes far beyond fact-
+level extraction or isolated question answering. Instead, it involves
+cross-document, cross-temporal, and cross-entity information in-
+tegration and structured reasoning, imposing significantly higher
+demands on a model’s consistency, depth of reasoning, information
+aggregation, and robustness in expression.
+While prior studies have shown that LLMs exhibit promising ca-
+pabilities in financial knowledge question answering (QA) and struc-
+tured numerical reasoning [14, 28], multiple benchmarks grounded
+in real-world financial filings [6, 15–17, 24, 33] have highlighted
+persistent limitations in several core dimensions: (1) difficulty in
+integrating dispersed information from long documents and estab-
+lishing reasoning paths across paragraphs and time periods; (2) chal-
+lenges in maintaining factual consistency between answers and the
+original disclosures, especially under complex semantic contexts;
+and (3) absence of explanatory reasoning to justify comparisons,
+interpret trends, or verify claims based on financial disclosures.
+Although these limitations have been partially identified in prior
+benchmarks, existing evaluations still suffer from systematic short-
+comings in both task design and evaluation methodology.(1) Most
+benchmarks oversimplify SEC filings as flat, isolated text
+GitHub: https://github.com/jyd777/Fin-RATE
+HuggingFace: https://huggingface.co/datasets/GGLabYale/Fin-RATE
+arXiv:2602.07294v3  [cs.CE]  14 Feb 2026
+
+
+[Page 2]
+Under Review, February, 2026 Yidong Jiang et al.
+Table 1: The criteria columns of the table include: (1) cross-company comparison, (2) cross-year tracking, (3) multi-document
+reasoning, (4) analysis-oriented question formulation, (5) fine-grained evaluation beyond answer-level correctness, and (6) data
+source coverage. Fin-RATE incorporates a wide range of SEC filings beyond 10-K, 10-Q, and 8-K (see Appendix A for details).
+Benchmark Cross-Comp. Cross-Year Multi-Doc. Analytic Fine-grained Eval. Data Source Details
+FinQA[4]× × × × ×annual report (source not disclosed)
+Tab-CQA[18]× × × × ×annual report (source not disclosed)
+ConvFinQA[5]× × × × ×annual report (source not disclosed)
+Financial Touchstone[27]× × ×✓×annual report (source not disclosed)
+PACIFIC[9]× × × × ×SEC filings (10-K)
+TAT-QA[34]× × × × ×SEC filings (10-K)
+FinDER[6]× × ×✓×SEC filings (10-K)
+DocFinQA[24]× × × × ×SEC filings (10-K)
+SECQUE[1]✓× ×✓×SEC filings (10-K, 10-Q)
+FinanceBench[15]× × ×✓×SEC filings (10-K, 10-Q, 8-K)
+SEC-QA[17]✓ ✓ ✓× ×SEC filings (10-K, 10-Q, 8-K)
+Fin-RATE (Ours) ✓ ✓ ✓ ✓ ✓ SEC filings(10-K, 10-Q, 8-K, 6-K, etc.)
+Detail & Reasoning Enterprise Comparison Longitudinal Tracking
+Parse Text
+Locate Evidence
+Compute & Reason
+Compare Peers
+Align Disclosures
+Diagnose Differences
+Spot Trends
+Track Evolution
+Construct Logic
+What was B's Q3 2020 
+share purchase amount 
+and its liquidity impact?
+What differed in A’s and 
+B's 2020 COVID risk 
+disclosures?
+What changed in B's 
+product positioning from 
+2019 to 2020?
+Figure 1: An overview of Fin-RATE with core tasks and cor-
+responding evaluated capabilities.
+spans,focusing on information extraction, numerical computation
+over tabular data, and QA restricted to a single section and reporting
+year [4, 15, 24, 27]. This narrow view ignores competitive dynamics
+between peer firms, the evolution of a single company across years,
+and the mutually reinforcing relationship between sections. As a
+result, the depth and breadth of the constructed questions fall far
+short of real-world analyst workflows, failing to effectively evaluate
+LLMs for practical financial analysis.(2) Evaluation protocols
+remain coarse-grained,focusing primarily on final answer cor-
+rectness. Even benchmarks that incorporate LLM-as-Judge modules
+[1, 6] remain confined to generic axes like faithfulness. They pro-
+vide little visibility into how and why models degrade on complex
+financial analysis, struggling to quantify capability loss or reveal
+concrete failure modes.
+To close these gaps, we proposeFin-RATE, a benchmark de-
+signed to model multi-dimensional alignment across corporate en-
+tities, temporal sequences, and heterogeneous disclosure structures
+as shown in Figure 1.Detail & Reasoning QA (DR-QA)assesses
+if a model can extract and integrate related information within a
+financial disclosure section to interpret specific financial impacts
+or perform calculations.Enterprise Comparison QA (EC-QA)
+evaluates the model’s ability to align disclosures from different com-
+panies and identify salient differences across structured metrics
+and narrative content, despite variations in reporting style.Lon-
+gitudinal Tracking QA (LT-QA)examines whether the model
+can detect trends and shifts across filings from the same company
+over time, including structural or semantic changes under evolving
+disclosure frames. Furthermore, to systematically diagnose model
+failures, we construct a fine-grained error taxonomy derived from
+extensive manual examination of model outputs on SEC filing tasks.
+Based on recurring failure patterns, we define thirteen core types
+across four categories: retrieval errors, generation inconsistencies,
+financial reasoning failures, and comprehension issues. We further
+observe persistent entity- and year-level retrieval mismatches in
+EC-QA and LT-QA, motivating the hierarchical retrieval strategy
+introduced later. We summarize our key contributions below:
+• We introduceFin-RATE, the first benchmark that models realis-
+tic financial analysis workflow by integrating information across
+documents, reporting periods, and corporate entities.
+• We incorporate a domain-grounded Likert scoring scheme to-
+gether with a 13-type error taxonomy grounded in real failure
+patterns to quantify model degradation and identify bottlenecks.
+• We evaluate 17 LLMs under ground-truth context and retrieval-
+augmented settings, observing distinct capability profiles. Finance-
+specific models perform well in numeric reasoning and domain
+terminology but break down under complex reasoning demands.
+• Our error taxonomy reveals task-specific weaknesses, with EC-
+QA prone to hallucinated comparisons and entity confusion, and
+LT-QA to temporal mismatches and trend distortion.
+2 Related Work
+Early financial QA benchmarks, such as FinQA [4], TAT-QA [34],
+and PACIFIC [9], rely on curated tables and text excerpts, treating
+financial information as isolated knowledge units. Such atomization
+reduces analysis to symbolic computation, shielding models from
+the semantic noise and narrative complexity inherent in full SEC
+filings. With the advancement of long-context language models,
+subsequent benchmarks, including FinanceBench [15], FinDER [6],
+and DocFinQA [24] began to incorporate full-length SEC disclosure
+documents. These works focus on evaluating information retrieval
+and factual extraction under long-document settings.
+Despite incorporating richer contexts, these benchmarks still fun-
+damentally model filings as flattened databases, where core tasks are
+limited to point-wise fact lookup or single-period detail verification.
+As a result, they do not test whether models can reason about logical
+
+
+[Page 3]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+p Hallucination
+p Cacluation Acc
+p Answer Acc
+p Relevance of Chunk 
+to QA
+Item 10
+Item 1A
+Item 1
+EDGAR
+Company Selection
+30 SIC sector
+7 GICS sectorIndustry
+ Location Scale
+Corpus Construction
+Heading
+-aware 
+Chunking
+Corpus
+·---- --- ·---
+----- ------ -
+----- ·----- -
+-----· ----- -
+---·---·----
+---------·---- 
+·--- ----·--
+id
+title
+text
+metadata
+• company
+• document
+• date 
+      . . .
+(1) Data Collection
+Corpus
+Detail & Reasoning
+Q&A Generation
+Focus Guidance
+Based on 
+Doc Type
+Chunks
+Chunk Content
+Enterprise Comp.
+Longitudinal Tracking
+Focus Guidance
+Based on 
+GICS Type
+Focus Guidance
+Based on 
+Item Type
+Chunk Content
+Chunk Content
+(2) Q&A Generation & Refinement
+Summarize
+Focus Guidance
+Based on Item Type
+{-------·-·-- ---
+  ----·---·· -----
+  -·---·-·----- --}
+Selection
+QA Co. Yr.
+EC diff. same
+LT same diff.
+Q&A Filtering
+   Regex Filter
+    LLM Filter
+p Mention Co. Name
+p Mention Year
+p Question\ Instruction
+p Answerable Question
+p Factual Acc.
+p Answer Completeness
+p Context Dependency
+p Calculation Acc.
+p Comparability
+. . .
+Human Validation
+p Factual Acc.
+p Calculation Acc.
+p No Over-Inference
+. . .
+p    Chunk-QA Relevance
+Final QA
+Scoring Point Generation
+Question
+Answer
+Scoring Points
+• Factual
+• Complete
+• Verifiable
+• Mandatory
+Figure 2: Overview of the Fin-RATE dataset construction framework. Stage (1) builds a heterogeneous corpus from SEC filings
+via systematic collection, parsing, and chunking. Stage (2) generates and refines QA pairs through task-specific prompting,
+multi-step filtering (regex and LLM-based), human validation, and scoring point extraction.
+consistency, structural alignment, or semantic evolution across dis-
+closures. To extend beyond single-document retrieval, SEC-QA [17]
+introduces cross-company queries through a template-based gen-
+eration pipeline. While enabling limited cross-entity comparison,
+the resulting questions are highly rigid in structure and struggle
+to capture the heterogeneous and narrative-driven nature of dis-
+closures across different companies. Although SECQUE [1] further
+incorporates expert-authored analytical questions spanning tasks
+such as trend analysis, its comparative settings focus on financial
+metrics and remain restricted to single reporting periods, leaving
+non-financial dimensions like risk factors largely unexplored. Be-
+yond task construction, existing benchmarks also suffer from a
+pronounced black-box issue in their evaluation mechanisms. As
+illustrated in Table 1, prior work relies solely on answer-level accu-
+racy or coarse-grained labels such as Correct, Partial, or Incorrect.
+Such shallow evaluation protocols obscure the true failure modes of
+language models in complex financial reasoning scenarios, making
+it difficult to distinguish whether errors stem from long-document
+perception degradation, breakdowns in multi-step financial logic,
+or misalignment across temporal and structural contexts.
+3 Fin-RATE Dataset Construction
+3.1 Data Source and Statistics
+As illustrated in Figure 2, Fin-RATE is built entirely from official
+filings retrieved via the U.S. SEC EDGAR database1, ensuring au-
+thoritative, traceable, and consistent data sourcing. We select a
+1https://www.sec.gov/edgar/search-and-access
+representative set of filing types that together cover the key dimen-
+sions required for realistic financial analysis, including periodic
+reports (10-K, 10-Q), event-driven disclosures (8-K), governance
+materials (DEF 14A), foreign issuer updates (6-K), equity incentive
+plans (S-8), securities offerings (424B series), and shareholder com-
+munications (SC series). To support cross-year and cross-company
+reasoning, we filter companies by: (1) ranking candidates by the
+number of available 10-K filings and retaining those with sufficient
+multi-year coverage; and (2) sampling across GICS sectors to ensure
+broad industry and reporting-style diversity. The collection spans
+sectors ranging from relatively stable industries such as utilities
+and consumer goods to dynamic or newly regulated areas such as
+cryptocurrency services and biopharmaceutical R&D.
+All the filings are converted into Markdown, retaining section
+headings, tables, and lists. We segment each filing with SEC-standard
+item boundaries into coherent analytical units to support reasoning
+and retrieval at multiple levels of granularity. The final corpus com-
+prises 15,311 document chunks derived from 2,472 filings, covering
+43 companies across 36 industries from 2020 to 2025, with each
+chunk containing an average of 2,649 words. Periodic and event-
+driven reports like 10-K, 8-K, and 10-Q forms constitute the majority
+of the collection, with their distributions and regulatory functions
+detailed in Appendix A. Based on this corpus, we construct three
+QA tasks: Detail Reasoning (DR-QA), Enterprise Comparison (EC-
+QA), and Longitudinal Tracking (LT-QA). Each task contains 2,500
+instances. DR-QA questions are grounded in a single chunk, while
+EC-QA and LT-QA require aggregating evidence from an average
+of 5.6 and 3.0 chunks, respectively.
+
+
+[Page 4]
+Under Review, February, 2026 Yidong Jiang et al.
+3.2 Task Definition and Construction
+3.2.1 Detail & Reasoning QA (DR-QA).DR-QA examines a model’s
+capability for fine-grained financial reasoning within a single, self-
+contained document chunk. It focuses on local-context comprehen-
+sion, precise detail extraction, and analytical interpretation of both
+structured and unstructured financial content. Questions involve
+numerical computation, semantic understanding, and professional
+judgment based on dense textual disclosures, without reliance on ex-
+ternal retrieval. A core challenge lies in precision. The model must
+ground its reasoning strictly in textual evidence, avoid unsupported
+assumptions, and correctly interpret nuanced yet materially sig-
+nificant expressions, including technical accounting terms, nested
+tabular data, and qualitative risk descriptions.
+To ensure the analytical depth of each generated QA pair, we
+design adaptive prompt templates guided by the official section
+definitions of various SEC filing types. Prompts for 10-K filings em-
+phasize annual ratio analysis, 10-Q filings highlight quarterly trend
+dynamics, and 8-K filings direct attention to the quantitative impact
+of material events. This ensures that each question focuses on the
+most analytically salient components of the disclosure, effectively
+reducing the generation of low-value questions and establishing
+a high-fidelity benchmark for local financial comprehension. See
+Appendix B for details.
+3.2.2 Enterprise Comparison QA (EC-QA).EC-QA aims to evaluate
+a model’s ability to perform cross-company comparative reasoning
+under consistent disclosure contexts. The task involves aligning
+multi-entity information and identifying salient differences across
+shared analytical dimensions, covering both structured financial
+metrics and unstructured narrative disclosures. A core challenge
+lies in accurate entity alignment and multi-source comparison. The
+model must distinguish between disclosures from different com-
+panies, identify comparable dimensions, and avoid misalignment
+caused by variations in disclosure styles or contextual framing.
+To ensure interpretability and regulatory consistency, EC-QA
+is framed within the same Global Industry Classification Standard
+(GICS) sector. category and limited to companies filing 10-K reports
+in the same fiscal year, ensuring consistency in disclosure frame-
+works and data granularity. During text selection, we pinpoint
+semantically aligned sections using structured headings from SEC
+filings, prioritizing high-comparability modules such as “Item 1A:
+Risk Factors” and “Item 7: Management Discussion and Analysis. ”
+Besides, cross-sectional combinations are introduced to support
+multi-dimensional comparative questions across business opera-
+tions, risk exposures, governance structures, and financial perfor-
+mance. To mitigate the risks of information dilution and hallucina-
+tion caused by long input contexts, EC-QA construction process
+adopts a two-stage generation strategy. It first generates structured
+summaries for each selected company section and then constructs
+comparison-oriented QA pairs from these aligned summaries. In
+this way, EC-QA balances analytical depth with input complexity
+control. See Appendix C for details.
+3.2.3 Longitudinal Tracking QA (LT-QA).LT-QA aims to evaluate a
+model’s ability to perform longitudinal integration and trend analy-
+sis over multi-year financial disclosures for a single company. It em-
+phasizes structured understanding and temporal continuity across
+reporting periods, requiring models to identify trends, year-over-
+year changes, and strategic or risk-related shifts across multiple
+thematic sections. The core challenge lies in tracking semantic con-
+sistency over time despite variations in terminology, measurement
+units, or narrative framing. Models must synthesize information
+across years to derive generalized conclusions, rather than relying
+on isolated, single-period evidence, which requires strong temporal
+sensitivity and multi-level semantic abstraction.
+LT-QA is constructed based on long-form disclosures, primarily
+annual 10-K reports and DEF 14A proxy statements, and adopts a
+two-stage, summary-first generation pipeline similar to that used
+in EC-QA. First, structured summaries are generated for each com-
+pany–year–section unit, capturing key aspects such as strategic
+orientation. Subsequently, QA instances are constructed based on
+these summaries, with each question explicitly linking the same
+section across multiple years and reflecting temporal comparisons
+and evolutionary reasoning. See Appendix D for details.
+3.3 Rigorous Quality Control
+Fin-RATE includes three quality control stages designed to ensure
+the reliability, factual grounding, and financial relevance of all QAs.
+In the automated quality control phase, we adopt a dual-model
+generation-verification mechanism. First, the generation model
+(DeepSeek-V3.2) produces multiple candidate QAs under either
+chunk-level or document-level contexts, based on different prompt-
+ing strategies. Then, two structurally distinct and high-performing
+LLMs (DeepSeek-V3.2 and Qwen3-235B) independently assess each
+candidate QA, focusing on whether the answer is sufficiently sup-
+ported by the context, whether it has numerical or logical errors, and
+whether it relies on unsupported inference. Based on task-specific
+validation rules and a standardized rubric, each QA is labeled as
+Correct, Partial, Incorrect, or Failure. Any QA flagged as erroneous
+by either model is discarded, and only those rated as correct pro-
+ceed to the human review stage. In the final manual review phase,
+each QA that passed automated filtering is confirmed one by one to
+ensure strict adherence to the original disclosure without subjective
+interpretation. For each QA type, this process is repeated iteratively
+until 2,500 valid QAs are retained. Full criteria for manual review
+are detailed in Appendix E. For QAs involving multiple chunks
+or cross-document contexts, we examine whether each referenced
+chunk contributes substantively to the reasoning chain. If any ref-
+erenced chunk is irrelevant, the QA is rewritten or discarded. For
+numerical questions, we recalculate all values to avoid potential
+errors. During this process, we observed recurring error patterns,
+which motivated the error type taxonomy used in our evaluation.
+4 Experiments
+We evaluate 17 LLMs on DR-QA, EC-QA, and LT-QA. Under the
+gold-context setting, we combine Likert-scale scores with system-
+atic error taxonomy to analyze task-level challenges in EC-QA and
+LT-QA, as well as category-specific behaviors across closed-source,
+general open-source, and finance-tuned models. Under the RAG set-
+ting, we further investigate how retrieval quality affects end-to-end
+performance using standard IR metrics and retrieval-stage error
+analysis. Based on these insights, we design a hierarchical retrieval
+framework to improve evidence coverage and ranking robustness.
+
+
+[Page 5]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+Table 2: Each model with Ground Truth Context is evaluated on three task types (DR-QA, EC-QA, LT-QA) using four label
+distributions (Corr / Partial / InCorr / Fail) and overall accuracy (Acc. (%)= Corr/Total).Bold indicates the highest score across all
+models; Underlined indicates the second-highest overall. Colored values are the highest score within each category.
+DR-QA EC-QA LT-QA
+Model Corr Partial Incorr Failure Acc. (%) Corr Partial Incorr Failure Acc. (%) Corr Partial Incorr Failure Acc. (%)
+Closed-Source
+GPT-4.1 964 1156 379 1 38.56 722 949 812 17 28.88 807 1091 584 18 32.28
+GPT-4.1-websearch 939 1174 385 2 37.56 683 988 811 18 27.32 763 1111 600 26 30.52
+GPT-5-websearch 1074 1036 384 6 42.96 1091 683 716 1043.64 1088 791 592 2943.52
+Open-Source General
+MIMO-V2-Flash 587 1381 520 12 23.48 339 1114 1009 38 13.56 428 1129 923 20 17.12
+DeepSeek-V3 453 1634 412 1 18.12 77 536 370 1517 3.08 206 1016 314 964 8.24
+DeepSeek-V3.2 505 1574 420 1 20.20 318 1050 932 200 12.72 401 1189 683 227 16.04
+DeepSeek-R1 578 1469 420 33 23.12 197 966 925 412 7.88 390 1162 604 344 15.60
+GPT-OSS-20B 1088 913 498 1 43.52 60 283 1506 651 2.40 254 130 1914 202 10.16
+Llama-3.3-70B-Instruct 873 1063 563 1 34.92 107 1092 1174 127 4.28 277 1250 799 174 11.08
+Qwen3-8B 320 873 1057 250 12.80 8 226 920 1346 0.32 83 684 1101 632 3.32
+Qwen3-14B 660 881 843 116 26.40 42 440 657 1361 1.68 142 636 552 1170 5.68
+Qwen3-30B-A3B-Insturct-2507 792 1105 602 1 31.68 199 1030 1262 9 7.96 331 1189 957 23 13.24
+Qwen3-235B 998 1060 441 1 39.92 338 909 791 462 13.52 493 983 782 242 19.72
+Open-Source Finance
+Fin-R1 1437 618 444 157.48 83 555 1498 364 3.32 243 680 1559 18 9.72
+Fino1-14B 767 989 652 92 30.68 41 761 904 794 1.64 177 1036 706 581 7.08
+FinanceConnect-13B 178 1206 1094 22 7.12 1 559 654 1286 0.04 20 909 790 781 0.80
+TouchstoneGPT-7B-Instruct 9 556 1864 71 0.36 2 401 846 1251 0.08 20 63 1256 1161 0.80
+4.1 Setup
+4.1.1 Models.To comprehensively evaluate financial analytics ca-
+pabilities, we select 17 LLMs categorized into three groups:
+• Closed-source Models:To evaluate top-tier search-augmented
+financial reasoning, we evaluate GPT-5 with Web Search [26],
+GPT-4.1 [22], and GPT-4.1 with Web Search.
+• Open-Source Models:For reproducibility and architectural di-
+versity, we choose DeepSeek-V3.2/V3 [8], DeepSeek-R1 [13], the
+Qwen3 family [32] (8B, 14B, 30B, 235B), Llama-3.3-70B [12], GPT-
+OSS-20B [21], and the MoE-based MiMo-V2-Flash [29].
+• Finance-Specific Models:To assess the effect of domain adapta-
+tion, we evaluate TouchstoneGPT-7B [31], Fin-R1 [19], Fino1-14B
+[23], and FinanceConnect-13B [2].
+4.1.2 Retrieval Settings.To simulate realistic document access and
+knowledge grounding in professional financial analysis, we evaluate
+models under a retrieval-augmented generation (RAG) setting:
+• Lexical Retrieval:A sparse BM25-based retrieval method [ 25]
+focusing on exact term matching, essential for formal financial
+terminology and specific entity identifiers.
+• Dense Vector Retrieval:A semantic approach using the most
+downloaded general (all-MiniLM-L6-v2 [30]) and domain-specific
+(finance-embeddings-investopedia [11]) embedding models on
+HuggingFace to evaluate financial domain adaptation’s impact.
+• Hybrid Retrieval:An equal-weighted fusion of BM25 and se-
+mantic vectors generated by finance-embeddings-investopedia
+via Elasticsearch [10], balancing keyword precision with seman-
+tic depth through dual-signal integration.
+• Reranking Stage:To further refine the candidate set, we em-
+ploy the bge-reranker-v2-m3 [3, 20] to re-scores the retrieved
+documents for high contextual relevance
+4.2 Evaluation Protocol
+4.2.1 Generation Evaluation Metrics.We evaluate model-generated
+answers using a unified LLM-as-Judge framework. Three LLMs with
+distinct architectures—GPT-5 [ 26], DeepSeek-V3.2 [8], and Qwen3-
+235B [32]—serve as independent judges. Each judge assesses the
+response strictly based on the provided reference answer or context,
+following standardized instructions that prohibit the use of external
+knowledge or speculative inference. To ensure reliable judgment,
+we derive weights through an alignment analysis (Appendix F)
+and fuse their outputs using weighted averaging for correctness
+labels and Likert scores, and a union rule for error-type attribution
+(Appendix G). The judge ensemble provides three assessments:
+Correctness Rateis the proportion of CORRECT responses
+among all answers, based on four mutually exclusive labels provided
+by LLM Judges:CORRECT:fully accurate and complete with no
+factual errors;PARTIAL:partially correct, missing key information
+but factually sound;INCORRECT:containing factual errors or
+contradictions; andFAILURE:off-topic, irrelevant, or empty.
+Fine-grained Likert Scoresassess each answer on five dimen-
+sions—information coverage, reasoning quality, factual consistency,
+clarity, and analytical depth, with each rated on a 1–5 Likert scale.
+Error Type Attributioncaptures the failure cause for all non-
+CORRECT responses, enabling diagnostic analysis. Definitions of
+error categories are provided in Appendix H.
+
+
+[Page 6]
+Under Review, February, 2026 Yidong Jiang et al.
+Figure 3: Distribution of QA error subtypes across three task Left: Level 1 error types, covering broad categories B1–B4, C1–C4,
+and D1–D2. Right: Level 2 refinements of B1 (Hallucination) and D1 (Query Misunderstanding).
+4.2.2 Retrieval Component Evaluation.We evaluate the retriever’s
+ability to surface relevant gold evidence with three metrics:
+Recall@Kmeasures the proportion of queries where any gold
+evidence appears in the top-𝐾results:
+Recall@K= 1
+𝑁
+𝑁∑︁
+𝑖=1
+1(rank gold
+𝑖 ≤𝐾),
+where𝑁is the number of queries.
+Precision@Kcomputes the proportion of gold evidences among
+top-𝐾candidates:
+Precision@K= 1
+𝐾·𝑁
+𝑁∑︁
+𝑖=1
+𝐾∑︁
+𝑗=1
+1(𝑐 𝑖 𝑗 ∈ G𝑖 ),
+with 𝑐𝑖 𝑗 denoting the 𝑗-th candidate and G𝑖 the gold set for query 𝑖.
+MRR(Mean Reciprocal Rank) evaluates how early the first cor-
+rect evidence appears:
+MRR= 1
+𝑁
+𝑁∑︁
+𝑖=1
+1
+rankfirst
+𝑖
+,
+where rankfirst
+𝑖 is the position of the first correct retrieval.
+4.3 Main Results
+4.3.1 Task-Level Challenge Landscape.Table 2, Figure 3, and Ap-
+pendix I.2 demonstrate distinct challenges for EC-QA and LT-QA.
+EC-QA: Challenges in multi-entity integration and comparison.
+Most generative error types increase significantly after task transi-
+tion. Comparative stance hallucination (B1-3) and entity misidentifi-
+cation (D1-2) increase by 4,834 and 3,964 cases, and entity-attribute
+hallucination (B1-2) reaches 22,885 cases. These trends indicate that
+models struggle to maintain consistent comparative logic, often ex-
+tending partial evidence into unsupported conclusions or confusing
+the entities being contrasted. These errors lead to inconsistent com-
+parative reasoning and fabricated judgments, reflected in declines
+in clarity (-1.26) and factual consistency (-1.07).
+LT-QA: Challenges in temporal alignment and trend reasoning.
+LT-QA’s time mismatch (C3, 5.03%) and trend hallucination (B1-4,
+8.43%) are the highest among all tasks. Intent misunderstanding
+(D1-1) further accounts for 35.38% of LT-QA errors, showing that
+models often treat trend-oriented questions as requests for yearly
+summaries. Besides, information coverage and reasoning scores
+decline by 0.88 and 1.03, respectively, compared with DR-QA. The
+DR-QA Radar Chart EC-QA Radar Chart
+ LT-QA Radar Chart
+S1
+S2
+S3
+S4
+S5
+S1
+S2
+S3
+S4
+S5
+S1
+S2
+S3
+S4
+S5
+Figure 4: Radar charts showing model categories’ perfor-
+mance across DR-QA, EC-QA, and LT-QA, with solid lines for
+mean and shaded areas for standard deviation. S1 = Reason-
+ing Chain, S2 = Information Coverage, S3 = Analytical Depth,
+S4 = Clarity of Expression, S5 = Factual Consistency.
+model lacks mechanisms for temporal abstraction and cross-year
+integration. It processes yearly information as independent units
+rather than linking them into a continuous temporal sequence.
+Without a representation that captures how indicators evolve over
+time, the model cannot infer stable trends or causal relations and in-
+stead relies on isolated factual recall, which fragments its temporal
+reasoning. As a result, generated answers tend to include fabricated
+temporal claims, exhibit reduced clarity (-0.99), and become verbose
+without providing actionable trend insights.
+4.3.2 Model category-Specific Behavior.All three model categories
+degrade on cross-document tasks with distinct severities, error
+patterns, and failure mechanisms, as shown in Figure 4 and Table 2.
+Closed-source models: Stable performance with reasoning inconsis-
+tencies.Closed-source models exhibit the highest robustness across
+all tasks. Their Correct rate decreases only moderately from 39.69%
+in DR-QA to 33.28% in EC-QA, with Failure consistently below
+1%. Radar plots show a nearly intact circular profile, with cross-
+dimensional degradation limited to 3.28%–12.49%. Such robustness
+likely stems from large parameter counts and extended training
+chains, along with engineering advances such as position encoding
+that support superior long-context parsing and minimize informa-
+tion loss. Despite low hallucination rates, closed-source models
+frequently misattribute reasoning steps. Hallucination (B1) errors
+decrease substantially from DR-QA to EC-QA, while Contradicts
+Evidence (B2) rises to 1,980 cases, revealing a core bottleneck in
+maintaining self-consistent reasoning, despite correct retrieval.
+
+
+[Page 7]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+Table 3: Retrieval performance across DR-QA, EC-QA, and LT-QA. Bold indicates the highest score across all models; Underlined
+indicates the second-highest overall. Abbreviation key: R@K = Recall; P@K = Precision@K; MRR = Mean Reciprocal Rank;
+BM25+R = BM25 retrieval with reranking; VM+R = vector retrieval using MiniLM-L6-v2 embeddings with reranking; VF+R
+= vector retrieval using finance-embeddings-investopedia embeddings with reranking; VF = vector retrieval using finance-
+embeddings-investopedia embeddings; Hybrid+R = hybrid Retrieval.
+Retriever DR-QA EC-QA LT-QA
+R@1 R@5 R@10 P@1 P@5 P@10 MRR R@1 R@5 R@10 P@1 P@5 P@10 MRR R@1 R@5 R@10 P@1 P@5 P@10 MRR
+BM25 17.08 33.36 41.16 17.08 6.67 4.12 24.06 0.73 2.66 4.46 3.08 2.30 1.92 6.42 11.05 33.71 43.86 29.76 18.55 12.12 40.43
+BM25 + R 24.4439.84 44.84 24.447.97 4.48 30.82 1.63 4.35 5.94 7.12 3.84 2.61 11.31 10.8534.87 44.25 26.92 17.76 11.81 38.49
+Hybrid 5.12 12.48 17.24 5.12 2.50 1.72 8.30 0.58 2.28 3.83 2.68 2.00 1.73 5.56 5.94 23.08 32.53 15.96 12.38 8.84 26.04
+Hybrid + R 13.76 20.32 22.04 13.76 4.06 2.20 16.45 1.61 3.86 5.42 7.40 3.59 2.45 11.18 10.11 30.73 36.74 25.28 15.72 9.81 34.79
+VF 7.48 20.16 27.44 7.48 4.03 2.74 12.8 1.40 4.57 7.81 5.08 3.94 3.43 11.16 3.29 14.00 20.86 8.08 6.73 5.04 14.33
+VF + R 22.12 32.76 35.72 22.12 6.55 3.57 26.6 2.4 6.73 9.73 9.88 5.81 4.27 17.01 7.65 22.85 27.39 18.24 10.85 6.62 25.17
+VM 11.00 23.96 30.52 11.00 4.79 3.05 16.33 0.71 2.68 4.67 3.56 2.67 2.34 7.86 3.10 13.92 20.47 7.36 6.70 5.02 13.66
+VM + R 24.48 34.80 37.04 24.48 6.96 3.70 28.84 1.87 4.77 6.22 9.40 4.82 3.18 14.63 7.82 21.73 25.34 18.84 10.39 6.20 25.03
+Figure 5: Retrieval error distribution. ME = Missing Evidence,
+SF = Sorting Failure, DE = Distractor Evidence.
+General open-source models: Uniform degradation under cross-
+document reasoning.Although achieving 27.42% Correct in DR-QA,
+their Failure rate spikes from 1.63% to 24.49% in EC-QA. EC-QA trig-
+gers simultaneous increases in multiple error types, with surges in
+Query Misunderstanding (D1), Hallucination (B1), and Contradicts
+Evidence (B2), along with a6 .8× rise in Context Window Abuse
+(D2). This pattern arises because broad-domain pretraining and
+smaller capacity lead these models to rely on shallow lexical cues
+and short-range attention, preventing stable tracking of entities,
+temporal references, or section relations. With errors spreading
+across dimensions, the radar plots show uniform collapses across
+all evaluation axes as semantic drift and information loss cause
+early misalignments to compound along the reasoning chain.
+Finance-tuned open-source models: Strong domain grounding but
+complete collapse on cross-entity tasks.Correct rates drop from
+23.91% in DR-QA to just 1.27% in EC-QA, with both Failure and
+Incorrect sharply rising. Radar plots reveal a lopsided profile, where
+nearly 50% of metrics degrade, and Reasoning Chain drops by
+49.16%. In DR-QA, Query Misunderstanding (D1) errors are only
+804.5, comparable to top closed-source models. In EC-QA and LT-
+QA, it also produces fewer numerical errors (C1, C2, C4) than
+general open-source models. However, Hallucination (B1) rates
+remain consistently higher than in other model categories. Current
+finance-tuning pipelines rely on single-document supervision fo-
+cused on lexical cues, terminology, and numerical patterns. While
+this enhances domain grounding, it also reinforces template-based
+guessing: models infer missing relations or numbers from familiar
+financial patterns, causing frequent hallucinations dominated by
+Entity Attribute Hallucination (B1-2).
+4.3.3 Retrieval Behavior Across QA Tasks.As shown in Table 3,
+retrieval performance varies by task, and the low overlap between
+sparse and dense retrievers leads hybrid retrieval to amplify noise.
+Task-dependent retrieval preferences.Different QA scenarios show
+distinct retrieval preferences. DR-QA and LT-QA depend heav-
+ily on localized, explicitly anchored information, while EC-QA
+requires broader semantic correspondence across corporate narra-
+tives. BM25, which relies on lexical matching, achieves 41.2% recall
+in DR-QA and 94.3% accuracy in locating year-aligned evidence in
+LT-QA, outperforming VF at 27.4% and 74.7%. However, in EC-QA,
+VF retrieves multi-company evidence in 23.8% of cases, more than
+doubling BM25’s 10.4%. These patterns reflect fundamental differ-
+ences in how the retrievers operate. BM25 prioritizes distinctive
+tokens such as years and financial terms, making it effective when
+explicit anchors exist. VF, in contrast, encodes semantic similar-
+ity and therefore better captures heterogeneous cross-company
+narratives, but loses precision on fine-grained temporal cues.
+Failure mode of hybrid retrieval.Hybrid retrieval does not achieve
+complementary gains, underperforming both BM25 and VF. Hybrid
+degradation is caused by the extremely low overlap between BM25
+and VF candidate sets. The Jaccard similarity of their top-ranked
+passages is only 0.0412, 0.0113, and 0.0603 in DR-QA, EC-QA, and
+LT-QA. With almost no shared candidates, linear fusion combines
+mismatched ranking signals, disrupting each retriever’s strengths
+and ultimately weakening retrieval quality.
+4.3.4 End-to-End RAG Failure Attribution.To evaluate end-to-end
+performance under retrieved context, we randomly select 500 ex-
+amples for each QA type to evaluate model performance under
+
+
+[Page 8]
+Under Review, February, 2026 Yidong Jiang et al.
+Table 4: Each model with the top-5 retrieved chunks is evalu-
+ated on three task types (DR-QA, EC-QA, LT-QA).
+Model Retrieve DR-QA EC-QA LT-QA
+GPT-5
+BM25+R 21.60 6.00 12.40
+Hybrid+R 8.20 9.4018.80
+VF 25.00 9.00 11.60
+VF+R 26.20 10.8014.00
+VM+R 22.20 8.40 11.40
+DeepSeek-V3
+BM25+R 3.20 0.00 0.40
+Hybrid+R 1.40 0.00 0.00
+VF 7.60 1.00 1.20
+VF+R 8.20 0.80 0.80
+VM+R 8.20 0.60 1.60
+Qwen3-235B
+BM25+R 14.40 0.40 3.20
+Hybrid+R 11.00 1.60 5.20
+VF 18.00 2.80 5.00
+VF+R 23.80 3.60 5.60
+VM+R 21.60 3.40 4.40
+Fin-R1
+BM25+R 4.60 1.20 3.00
+Hybrid+R 2.20 0.80 2.40
+VF 5.40 1.20 1.80
+VF+R 7.40 1.00 2.20
+VM+R 10.80 0.80 1.20
+retrieved context. For EC-QA and LT-QA, we restrict our evalua-
+tion to the subset of questions that contain at most five gold chunks,
+which serve as the ground-truth context.
+Across all QA tasks, end-to-end degradation under RAG is driven
+primarily by retrieval rather than generation. As illustrated in Ta-
+ble 4, end-to-end accuracy under retrieved context remains below
+27% across all tasks. In contrast, Table 2 shows that with gold
+context, the same models reach 57.48% on DR-QA and 43–44%
+on EC-QA and LT-QA, demonstrating that adequate reasoning is
+achievable once relevant evidence is available. Moreover, all re-
+trievers perform weakly on EC-QA, with the best 𝑅@10 ≤ 9.73%,
+leaving LLMs without the evidence needed to answer the questions.
+Thus, the dominant bottleneck in the RAG pipeline is the retriever’s
+failure to surface essential evidence, not deficiencies in generation.
+To further analyze task-specific failure patterns under RAG, we
+categorize retrieval-stage errors into three types: Missing Evidence
+(no gold chunk retrieved), Sorting Failure (gold retrieved but ranked
+below top-3), and Distractor Evidence (gold appears within the top-
+3 but accounts for no more than 20% of the top-5 context). EC-QA
+exhibits the most severe breakdowns. Figure 5 shows that Miss-
+ing Evidence reaches 75.44%. Moreover, 57.6% of multi-company
+questions fail to retrieve all relevant entities, leaving key company
+evidence absent. This forces the model to conduct comparative rea-
+soning over severely asymmetric or biased contexts. LT-QA shows a
+distinct error profile. The 7.64% Sorting Failure and 4.96% Distractor
+Evidence reflect frequent temporal misalignment, with correct-year
+gold chunks pushed down by similar paragraphs from other years
+or entangled with multi-year narratives in the top-5 results.
+4.3.5 Hierarchical Retrieval Improvements.Section 4.3.3 shows that
+retrieval failures in EC-QA and LT-QA largely stem from missing
+Figure 6: Performance comparison (R@10, P@1, MRR) be-
+tween BM25 + Reranker and Hierarchical Retrieval.
+entity or year evidence. To overcome this, we introduceHierarchi-
+cal Retrieval, which reduces search noise by routing queries to
+structure-aware corpus subsets. During preprocessing, the corpus
+is bucketed by company and year. We adopt BM25+reranker for
+retrieval, as it delivers balanced performance across all three tasks.
+At retrieval, DeepSeek-V3 identifies the entities and temporal refer-
+ences in the query to locate relevant buckets. For multi-company
+queries, candidates are retrieved from each company’s bucket sepa-
+rately brefore merging and reranking. For multi-year queries, cor-
+responding yearly buckets are concatenated for unified search. If
+no bucket is matched, the system falls back to global retrieval.
+We evaluate hierarchical retrieval using R@10, P@1, and MRR, to
+measure overall coverage, top-ranked accuracy, and ranking quality.
+Hierarchical retrieval substantially improves both evidence cover-
+age and ranking quality by constraining search within entity–year
+buckets. Compared to BM25+Reranker, the hierarchical retriever
+improves P@1 by 5.64 points in DR-QA, R@10 by 4.29 points in LT-
+QA, and both R@10 and MRR by 12.76 and 16.64 points respectively
+in EC-QA. Entity-aware routing also offers clear benefits: company
+hit rate in EC-QA rises from 13.2% to 52.9%, year coverage in LT-QA
+increases from 94.6% to 98.7%. These improvements suggest that
+future RAG systems should adopt more structure-aware, entity-
+and time-guided retrieval.
+5 Conclusion
+In this work, we introduce Fin-RATE, a benchmark constructed
+from real-world SEC filings to evaluate LLMs’ financial reasoning
+across detailed interpretation, enterprise comparison, and longitu-
+dinal tracking. Fin-RATE highlights persistent challenges in align-
+ing time-sensitive evidence, synthesizing multi-entity disclosures,
+and performing longitudinal financial reasoning across fiscal years.
+While LLMs perform well when reasoning over isolated passages,
+performance deteriorates sharply in tasks requiring interlinked
+evidence, such as cross-entity comparison or multi-year trend anal-
+ysis. In EC-QA and LT-QA, we observe notable drops in clarity and
+factual consistency, driven by hallucinated comparisons, trend mis-
+alignment, and intent misunderstanding. Among different model
+families, finance-tuned models emerge as the most sensitive to task
+complexity. While they demonstrate strong command of domain-
+specific terminology and numerical accuracy, they are prone to
+hallucinations during complex multi-entity reasoning. This fragility
+underscores the importance of integrating long-form contexts and
+deeper logical dependencies into the fine-tuning process.
+
+
+[Page 9]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+References
+[1] Noga BenYoash, Menachem Brief, Oded Ovadia, Gil Shenderovitz, Moshik
+Mishaeli, Rachel Lemberg, and Eitam Sheetrit. 2025. SECQUE: A Benchmark
+for Evaluating Real-World Financial Analysis Capabilities. InProceedings of
+the Fourth Workshop on Generation, Evaluation and Metrics (GEM2), Ofir Ar-
+viv, Miruna Clinciu, Kaustubh Dhole, Rotem Dror, Sebastian Gehrmann, Eliya
+Habba, Itay Itzhak, Simon Mille, Yotam Perlitz, Enrico Santus, João Sedoc, Michal
+Shmueli Scheuer, Gabriel Stanovsky, and Oyvind Tafjord (Eds.). Association
+for Computational Linguistics, Vienna, Austria and virtual meeting, 212–230.
+https://aclanthology.org/2025.gem-1.16/
+[2] CeADAR. 2023. FinanceConnect-13B (Revision 5f7841d). doi:10.57967/hf/1405
+[3] Jianlyu Chen, Shitao Xiao, Peitian Zhang, Kun Luo, Defu Lian, and Zheng Liu.
+2024. M3-Embedding: Multi-Linguality, Multi-Functionality, Multi-Granularity
+Text Embeddings Through Self-Knowledge Distillation. InFindings of the As-
+sociation for Computational Linguistics: ACL 2024, Lun-Wei Ku, Andre Martins,
+and Vivek Srikumar (Eds.). Association for Computational Linguistics, Bangkok,
+Thailand, 2318–2335. doi:10.18653/v1/2024.findings-acl.137
+[4] Zhiyu Chen, Wenhu Chen, Charese Smiley, Sameena Shah, Iana Borova, Dylan
+Langdon, Reema Moussa, Matt Beane, Ting-Hao Huang, Bryan Routledge, and
+William Yang Wang. 2021. FinQA: A Dataset of Numerical Reasoning over
+Financial Data. InProceedings of the 2021 Conference on Empirical Methods in
+Natural Language Processing, Marie-Francine Moens, Xuanjing Huang, Lucia
+Specia, and Scott Wen-tau Yih (Eds.). Association for Computational Linguistics,
+Online and Punta Cana, Dominican Republic, 3697–3711. doi:10.18653/v1/2021.
+emnlp-main.300
+[5] Zhiyu Chen, Shiyang Li, Charese Smiley, Zhiqiang Ma, Sameena Shah, and
+William Yang Wang. 2022. ConvFinQA: Exploring the Chain of Numerical Rea-
+soning in Conversational Finance Question Answering. InProceedings of the 2022
+Conference on Empirical Methods in Natural Language Processing, Yoav Goldberg,
+Zornitsa Kozareva, and Yue Zhang (Eds.). Association for Computational Linguis-
+tics, Abu Dhabi, United Arab Emirates, 6279–6292. doi:10.18653/v1/2022.emnlp-
+main.421
+[6] Chanyeol Choi, Jihoon Kwon, Jaeseon Ha, Hojun Choi, Chaewoon Kim, Yongjae
+Lee, Jy-yong Sohn, and Alejandro Lopez-Lira. 2025.FinDER: Financial Dataset for
+Question Answering and Evaluating Retrieval-Augmented Generation. Association
+for Computing Machinery, New York, NY, USA, 638–646. https://doi.org/10.
+1145/3768292.3770361
+[7] McKinsey & Company. 2025.How finance teams are putting AI to work to-
+day. https://www.mckinsey.com/capabilities/strategy-and-corporate-finance/
+our-insights/how-finance-teams-are-putting-ai-to-work-today Accessed: 2026-
+02-08.
+[8] DeepSeek-AI, Aixin Liu, Bei Feng, Bing Xue, Bingxuan Wang, Bochao Wu,
+Chengda Lu, Chenggang Zhao, Chengqi Deng, Chenyu Zhang, Chong Ruan,
+Damai Dai, Daya Guo, Dejian Yang, Deli Chen, Dongjie Ji, Erhang Li, Fangyun
+Lin, Fucong Dai, Fuli Luo, Guangbo Hao, Guanting Chen, Guowei Li, H. Zhang,
+Han Bao, Hanwei Xu, Haocheng Wang, Haowei Zhang, Honghui Ding, Huajian
+Xin, Huazuo Gao, Hui Li, Hui Qu, J. L. Cai, Jian Liang, Jianzhong Guo, Jiaqi
+Ni, Jiashi Li, Jiawei Wang, Jin Chen, Jingchang Chen, Jingyang Yuan, Junjie
+Qiu, Junlong Li, Junxiao Song, Kai Dong, Kai Hu, Kaige Gao, Kang Guan, Kexin
+Huang, Kuai Yu, Lean Wang, Lecong Zhang, Lei Xu, Leyi Xia, Liang Zhao, Litong
+Wang, Liyue Zhang, Meng Li, Miaojun Wang, Mingchuan Zhang, Minghua Zhang,
+Minghui Tang, Mingming Li, Ning Tian, Panpan Huang, Peiyi Wang, Peng Zhang,
+Qiancheng Wang, Qihao Zhu, Qinyu Chen, Qiushi Du, R. J. Chen, R. L. Jin, Ruiqi
+Ge, Ruisong Zhang, Ruizhe Pan, Runji Wang, Runxin Xu, Ruoyu Zhang, Ruyi
+Chen, S. S. Li, Shanghao Lu, Shangyan Zhou, Shanhuang Chen, Shaoqing Wu,
+Shengfeng Ye, Shengfeng Ye, Shirong Ma, Shiyu Wang, Shuang Zhou, Shuiping
+Yu, Shunfeng Zhou, Shuting Pan, T. Wang, Tao Yun, Tian Pei, Tianyu Sun, W. L.
+Xiao, Wangding Zeng, Wanjia Zhao, Wei An, Wen Liu, Wenfeng Liang, Wenjun
+Gao, Wenqin Yu, Wentao Zhang, X. Q. Li, Xiangyue Jin, Xianzu Wang, Xiao Bi,
+Xiaodong Liu, Xiaohan Wang, Xiaojin Shen, Xiaokang Chen, Xiaokang Zhang,
+Xiaosha Chen, Xiaotao Nie, Xiaowen Sun, Xiaoxiang Wang, Xin Cheng, Xin
+Liu, Xin Xie, Xingchao Liu, Xingkai Yu, Xinnan Song, Xinxia Shan, Xinyi Zhou,
+Xinyu Yang, Xinyuan Li, Xuecheng Su, Xuheng Lin, Y. K. Li, Y. Q. Wang, Y. X.
+Wei, Y. X. Zhu, Yang Zhang, Yanhong Xu, Yanhong Xu, Yanping Huang, Yao
+Li, Yao Zhao, Yaofeng Sun, Yaohui Li, Yaohui Wang, Yi Yu, Yi Zheng, Yichao
+Zhang, Yifan Shi, Yiliang Xiong, Ying He, Ying Tang, Yishi Piao, Yisong Wang,
+Yixuan Tan, Yiyang Ma, Yiyuan Liu, Yongqiang Guo, Yu Wu, Yuan Ou, Yuchen
+Zhu, Yuduan Wang, Yue Gong, Yuheng Zou, Yujia He, Yukun Zha, Yunfan Xiong,
+Yunxian Ma, Yuting Yan, Yuxiang Luo, Yuxiang You, Yuxuan Liu, Yuyang Zhou,
+Z. F. Wu, Z. Z. Ren, Zehui Ren, Zhangli Sha, Zhe Fu, Zhean Xu, Zhen Huang, Zhen
+Zhang, Zhenda Xie, Zhengyan Zhang, Zhewen Hao, Zhibin Gou, Zhicheng Ma,
+Zhigang Yan, Zhihong Shao, Zhipeng Xu, Zhiyu Wu, Zhongyu Zhang, Zhuoshu
+Li, Zihui Gu, Zijia Zhu, Zijun Liu, Zilin Li, Ziwei Xie, Ziyang Song, Ziyi Gao, and
+Zizheng Pan. 2025. DeepSeek-V3 Technical Report. arXiv:2412.19437 [cs.CL]
+https://arxiv.org/abs/2412.19437
+[9] Yang Deng, Wenqiang Lei, Wenxuan Zhang, Wai Lam, and Tat-Seng Chua. 2022.
+PACIFIC: Towards Proactive Conversational Question Answering over Tabular
+and Textual Data in Finance. InProceedings of the 2022 Conference on Empirical
+Methods in Natural Language Processing, Yoav Goldberg, Zornitsa Kozareva, and
+Yue Zhang (Eds.). Association for Computational Linguistics, Abu Dhabi, United
+Arab Emirates, 6970–6984. doi:10.18653/v1/2022.emnlp-main.469
+[10] Elastic. [n. d.]. elasticsearch (GitHub repository). https://github.com/elastic/
+elasticsearch. https://github.com/elastic/elasticsearch Accessed: 2026-01-20.
+[11] FinLang. 2024. Finance embeddings investopedia. https://huggingface.co/
+FinLang/finance-embeddings-investopedia. https://huggingface.co/FinLang/
+finance-embeddings-investopedia Accessed: 2026-01-20.
+[12] Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Ab-
+hishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten,
+Alex Vaughan, Amy Yang, Angela Fan, Anirudh Goyal, Anthony Hartshorn, Aobo
+Yang, Archi Mitra, Archie Sravankumar, Artem Korenev, Arthur Hinsvark, Arun
+Rao, Aston Zhang, Aurelien Rodriguez, Austen Gregerson, Ava Spataru, Baptiste
+Roziere, Bethany Biron, Binh Tang, Bobbie Chern, Charlotte Caucheteux, Chaya
+Nayak, Chloe Bi, Chris Marra, Chris McConnell, Christian Keller, Christophe
+Touret, Chunyang Wu, Corinne Wong, Cristian Canton Ferrer, Cyrus Nikolaidis,
+Damien Allonsius, Daniel Song, Danielle Pintz, Danny Livshits, Danny Wyatt,
+David Esiobu, Dhruv Choudhary, Dhruv Mahajan, Diego Garcia-Olano, Diego
+Perino, Dieuwke Hupkes, Egor Lakomkin, Ehab AlBadawy, Elina Lobanova,
+Emily Dinan, Eric Michael Smith, Filip Radenovic, Francisco Guzmán, Frank
+Zhang, Gabriel Synnaeve, Gabrielle Lee, Georgia Lewis Anderson, Govind That-
+tai, Graeme Nail, Gregoire Mialon, Guan Pang, Guillem Cucurell, Hailey Nguyen,
+Hannah Korevaar, Hu Xu, Hugo Touvron, Iliyan Zarov, Imanol Arrieta Ibarra,
+Isabel Kloumann, Ishan Misra, Ivan Evtimov, Jack Zhang, Jade Copet, Jaewon
+Lee, Jan Geffert, Jana Vranes, Jason Park, Jay Mahadeokar, Jeet Shah, Jelmer
+van der Linde, Jennifer Billock, Jenny Hong, Jenya Lee, Jeremy Fu, Jianfeng Chi,
+Jianyu Huang, Jiawen Liu, Jie Wang, Jiecao Yu, Joanna Bitton, Joe Spisak, Jongsoo
+Park, Joseph Rocca, Joshua Johnstun, Joshua Saxe, Junteng Jia, Kalyan Vasu-
+den Alwala, Karthik Prasad, Kartikeya Upasani, Kate Plawiak, Ke Li, Kenneth
+Heafield, Kevin Stone, Khalid El-Arini, Krithika Iyer, Kshitiz Malik, Kuenley
+Chiu, Kunal Bhalla, Kushal Lakhotia, Lauren Rantala-Yeary, Laurens van der
+Maaten, Lawrence Chen, Liang Tan, Liz Jenkins, Louis Martin, Lovish Madaan,
+Lubo Malo, Lukas Blecher, Lukas Landzaat, Luke de Oliveira, Madeline Muzzi,
+Mahesh Pasupuleti, Mannat Singh, Manohar Paluri, Marcin Kardas, Maria Tsim-
+poukelli, Mathew Oldham, Mathieu Rita, Maya Pavlova, Melanie Kambadur, Mike
+Lewis, Min Si, Mitesh Kumar Singh, Mona Hassan, Naman Goyal, Narjes Torabi,
+Nikolay Bashlykov, Nikolay Bogoychev, Niladri Chatterji, Ning Zhang, Olivier
+Duchenne, Onur Çelebi, Patrick Alrassy, Pengchuan Zhang, Pengwei Li, Petar Va-
+sic, Peter Weng, Prajjwal Bhargava, Pratik Dubal, Praveen Krishnan, Punit Singh
+Koura, Puxin Xu, Qing He, Qingxiao Dong, Ragavan Srinivasan, Raj Ganapathy,
+Ramon Calderer, Ricardo Silveira Cabral, Robert Stojnic, Roberta Raileanu, Ro-
+han Maheswari, Rohit Girdhar, Rohit Patel, Romain Sauvestre, Ronnie Polidoro,
+Roshan Sumbaly, Ross Taylor, Ruan Silva, Rui Hou, Rui Wang, Saghar Hosseini,
+Sahana Chennabasappa, Sanjay Singh, Sean Bell, Seohyun Sonia Kim, Sergey
+Edunov, Shaoliang Nie, Sharan Narang, Sharath Raparthy, Sheng Shen, Shengye
+Wan, Shruti Bhosale, Shun Zhang, Simon Vandenhende, Soumya Batra, Spencer
+Whitman, Sten Sootla, Stephane Collot, Suchin Gururangan, Sydney Borodinsky,
+Tamar Herman, Tara Fowler, Tarek Sheasha, Thomas Georgiou, Thomas Scialom,
+Tobias Speckbacher, Todor Mihaylov, Tong Xiao, Ujjwal Karn, Vedanuj Goswami,
+Vibhor Gupta, Vignesh Ramanathan, Viktor Kerkez, Vincent Gonguet, Virginie
+Do, Vish Vogeti, Vítor Albiero, Vladan Petrovic, Weiwei Chu, Wenhan Xiong,
+Wenyin Fu, Whitney Meers, Xavier Martinet, Xiaodong Wang, Xiaofang Wang,
+Xiaoqing Ellen Tan, Xide Xia, Xinfeng Xie, Xuchao Jia, Xuewei Wang, Yaelle Gold-
+schlag, Yashesh Gaur, Yasmine Babaei, Yi Wen, Yiwen Song, Yuchen Zhang, Yue
+Li, Yuning Mao, Zacharie Delpierre Coudert, Zheng Yan, Zhengxing Chen, Zoe
+Papakipos, Aaditya Singh, Aayushi Srivastava, Abha Jain, Adam Kelsey, Adam
+Shajnfeld, Adithya Gangidi, Adolfo Victoria, Ahuva Goldstand, Ajay Menon,
+Ajay Sharma, Alex Boesenberg, Alexei Baevski, Allie Feinstein, Amanda Kallet,
+Amit Sangani, Amos Teo, Anam Yunus, Andrei Lupu, Andres Alvarado, Andrew
+Caples, Andrew Gu, Andrew Ho, Andrew Poulton, Andrew Ryan, Ankit Ram-
+chandani, Annie Dong, Annie Franco, Anuj Goyal, Aparajita Saraf, Arkabandhu
+Chowdhury, Ashley Gabriel, Ashwin Bharambe, Assaf Eisenman, Azadeh Yazdan,
+Beau James, Ben Maurer, Benjamin Leonhardi, Bernie Huang, Beth Loyd, Beto De
+Paola, Bhargavi Paranjape, Bing Liu, Bo Wu, Boyu Ni, Braden Hancock, Bram
+Wasti, Brandon Spence, Brani Stojkovic, Brian Gamido, Britt Montalvo, Carl
+Parker, Carly Burton, Catalina Mejia, Ce Liu, Changhan Wang, Changkyu Kim,
+Chao Zhou, Chester Hu, Ching-Hsiang Chu, Chris Cai, Chris Tindal, Christoph
+Feichtenhofer, Cynthia Gao, Damon Civin, Dana Beaty, Daniel Kreymer, Daniel
+Li, David Adkins, David Xu, Davide Testuggine, Delia David, Devi Parikh, Diana
+Liskovich, Didem Foss, Dingkang Wang, Duc Le, Dustin Holland, Edward Dowl-
+ing, Eissa Jamil, Elaine Montgomery, Eleonora Presani, Emily Hahn, Emily Wood,
+Eric-Tuan Le, Erik Brinkman, Esteban Arcaute, Evan Dunbar, Evan Smothers, Fei
+Sun, Felix Kreuk, Feng Tian, Filippos Kokkinos, Firat Ozgenel, Francesco Cag-
+gioni, Frank Kanayet, Frank Seide, Gabriela Medina Florez, Gabriella Schwarz,
+Gada Badeer, Georgia Swee, Gil Halpern, Grant Herman, Grigory Sizov, Guangyi,
+Zhang, Guna Lakshminarayanan, Hakan Inan, Hamid Shojanazeri, Han Zou, Han-
+nah Wang, Hanwen Zha, Haroun Habeeb, Harrison Rudolph, Helen Suk, Henry
+
+
+[Page 10]
+Under Review, February, 2026 Yidong Jiang et al.
+Aspegren, Hunter Goldman, Hongyuan Zhan, Ibrahim Damlaj, Igor Molybog,
+Igor Tufanov, Ilias Leontiadis, Irina-Elena Veliche, Itai Gat, Jake Weissman, James
+Geboski, James Kohli, Janice Lam, Japhet Asher, Jean-Baptiste Gaya, Jeff Marcus,
+Jeff Tang, Jennifer Chan, Jenny Zhen, Jeremy Reizenstein, Jeremy Teboul, Jessica
+Zhong, Jian Jin, Jingyi Yang, Joe Cummings, Jon Carvill, Jon Shepard, Jonathan
+McPhie, Jonathan Torres, Josh Ginsburg, Junjie Wang, Kai Wu, Kam Hou U,
+Karan Saxena, Kartikay Khandelwal, Katayoun Zand, Kathy Matosich, Kaushik
+Veeraraghavan, Kelly Michelena, Keqian Li, Kiran Jagadeesh, Kun Huang, Kunal
+Chawla, Kyle Huang, Lailin Chen, Lakshya Garg, Lavender A, Leandro Silva, Lee
+Bell, Lei Zhang, Liangpeng Guo, Licheng Yu, Liron Moshkovich, Luca Wehrstedt,
+Madian Khabsa, Manav Avalani, Manish Bhatt, Martynas Mankus, Matan Has-
+son, Matthew Lennie, Matthias Reso, Maxim Groshev, Maxim Naumov, Maya
+Lathi, Meghan Keneally, Miao Liu, Michael L. Seltzer, Michal Valko, Michelle
+Restrepo, Mihir Patel, Mik Vyatskov, Mikayel Samvelyan, Mike Clark, Mike
+Macey, Mike Wang, Miquel Jubert Hermoso, Mo Metanat, Mohammad Rastegari,
+Munish Bansal, Nandhini Santhanam, Natascha Parks, Natasha White, Navy-
+ata Bawa, Nayan Singhal, Nick Egebo, Nicolas Usunier, Nikhil Mehta, Niko-
+lay Pavlovich Laptev, Ning Dong, Norman Cheng, Oleg Chernoguz, Olivia Hart,
+Omkar Salpekar, Ozlem Kalinli, Parkin Kent, Parth Parekh, Paul Saab, Pavan
+Balaji, Pedro Rittner, Philip Bontrager, Pierre Roux, Piotr Dollar, Polina Zvyag-
+ina, Prashant Ratanchandani, Pritish Yuvraj, Qian Liang, Rachad Alao, Rachel
+Rodriguez, Rafi Ayub, Raghotham Murthy, Raghu Nayani, Rahul Mitra, Ran-
+gaprabhu Parthasarathy, Raymond Li, Rebekkah Hogan, Robin Battey, Rocky
+Wang, Russ Howes, Ruty Rinott, Sachin Mehta, Sachin Siby, Sai Jayesh Bondu,
+Samyak Datta, Sara Chugh, Sara Hunt, Sargun Dhillon, Sasha Sidorov, Satadru
+Pan, Saurabh Mahajan, Saurabh Verma, Seiji Yamamoto, Sharadh Ramaswamy,
+Shaun Lindsay, Shaun Lindsay, Sheng Feng, Shenghao Lin, Shengxin Cindy Zha,
+Shishir Patil, Shiva Shankar, Shuqiang Zhang, Shuqiang Zhang, Sinong Wang,
+Sneha Agarwal, Soji Sajuyigbe, Soumith Chintala, Stephanie Max, Stephen Chen,
+Steve Kehoe, Steve Satterfield, Sudarshan Govindaprasad, Sumit Gupta, Summer
+Deng, Sungmin Cho, Sunny Virk, Suraj Subramanian, Sy Choudhury, Sydney
+Goldman, Tal Remez, Tamar Glaser, Tamara Best, Thilo Koehler, Thomas Robin-
+son, Tianhe Li, Tianjun Zhang, Tim Matthews, Timothy Chou, Tzook Shaked,
+Varun Vontimitta, Victoria Ajayi, Victoria Montanez, Vijai Mohan, Vinay Satish
+Kumar, Vishal Mangla, Vlad Ionescu, Vlad Poenaru, Vlad Tiberiu Mihailescu,
+Vladimir Ivanov, Wei Li, Wenchen Wang, Wenwen Jiang, Wes Bouaziz, Will
+Constable, Xiaocheng Tang, Xiaojian Wu, Xiaolan Wang, Xilun Wu, Xinbo Gao,
+Yaniv Kleinman, Yanjun Chen, Ye Hu, Ye Jia, Ye Qi, Yenda Li, Yilin Zhang, Ying
+Zhang, Yossi Adi, Youngjin Nam, Yu, Wang, Yu Zhao, Yuchen Hao, Yundi Qian,
+Yunlu Li, Yuzi He, Zach Rait, Zachary DeVito, Zef Rosnbrick, Zhaoduo Wen,
+Zhenyu Yang, Zhiwei Zhao, and Zhiyu Ma. 2024. The Llama 3 Herd of Models.
+arXiv:2407.21783 [cs.AI] https://arxiv.org/abs/2407.21783
+[13] Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Peiyi Wang, Qihao Zhu,
+Runxin Xu, Ruoyu Zhang, Shirong Ma, Xiao Bi, Xiaokang Zhang, Xingkai Yu,
+Yu Wu, Z. F. Wu, Zhibin Gou, Zhihong Shao, Zhuoshu Li, Ziyi Gao, Aixin Liu,
+Bing Xue, Bingxuan Wang, Bochao Wu, Bei Feng, Chengda Lu, Chenggang
+Zhao, Chengqi Deng, Chong Ruan, Damai Dai, Deli Chen, Dongjie Ji, Erhang Li,
+Fangyun Lin, Fucong Dai, Fuli Luo, Guangbo Hao, Guanting Chen, Guowei Li,
+H. Zhang, Hanwei Xu, Honghui Ding, Huazuo Gao, Hui Qu, Hui Li, Jianzhong
+Guo, Jiashi Li, Jingchang Chen, Jingyang Yuan, Jinhao Tu, Junjie Qiu, Junlong
+Li, J. L. Cai, Jiaqi Ni, Jian Liang, Jin Chen, Kai Dong, Kai Hu, Kaichao You, Kaige
+Gao, Kang Guan, Kexin Huang, Kuai Yu, Lean Wang, Lecong Zhang, Liang
+Zhao, Litong Wang, Liyue Zhang, Lei Xu, Leyi Xia, Mingchuan Zhang, Minghua
+Zhang, Minghui Tang, Mingxu Zhou, Meng Li, Miaojun Wang, Mingming Li,
+Ning Tian, Panpan Huang, Peng Zhang, Qiancheng Wang, Qinyu Chen, Qiushi
+Du, Ruiqi Ge, Ruisong Zhang, Ruizhe Pan, Runji Wang, R. J. Chen, R. L. Jin,
+Ruyi Chen, Shanghao Lu, Shangyan Zhou, Shanhuang Chen, Shengfeng Ye,
+Shiyu Wang, Shuiping Yu, Shunfeng Zhou, Shuting Pan, S. S. Li, Shuang Zhou,
+Shaoqing Wu, Tao Yun, Tian Pei, Tianyu Sun, T. Wang, Wangding Zeng, Wen Liu,
+Wenfeng Liang, Wenjun Gao, Wenqin Yu, Wentao Zhang, W. L. Xiao, Wei An,
+Xiaodong Liu, Xiaohan Wang, Xiaokang Chen, Xiaotao Nie, Xin Cheng, Xin Liu,
+Xin Xie, Xingchao Liu, Xinyu Yang, Xinyuan Li, Xuecheng Su, Xuheng Lin, X. Q.
+Li, Xiangyue Jin, Xiaojin Shen, Xiaosha Chen, Xiaowen Sun, Xiaoxiang Wang,
+Xinnan Song, Xinyi Zhou, Xianzu Wang, Xinxia Shan, Y. K. Li, Y. Q. Wang, Y. X.
+Wei, Yang Zhang, Yanhong Xu, Yao Li, Yao Zhao, Yaofeng Sun, Yaohui Wang, Yi
+Yu, Yichao Zhang, Yifan Shi, Yiliang Xiong, Ying He, Yishi Piao, Yisong Wang,
+Yixuan Tan, Yiyang Ma, Yiyuan Liu, Yongqiang Guo, Yuan Ou, Yuduan Wang, Yue
+Gong, Yuheng Zou, Yujia He, Yunfan Xiong, Yuxiang Luo, Yuxiang You, Yuxuan
+Liu, Yuyang Zhou, Y. X. Zhu, Yanping Huang, Yaohui Li, Yi Zheng, Yuchen Zhu,
+Yunxian Ma, Ying Tang, Yukun Zha, Yuting Yan, Z. Z. Ren, Zehui Ren, Zhangli
+Sha, Zhe Fu, Zhean Xu, Zhenda Xie, Zhengyan Zhang, Zhewen Hao, Zhicheng
+Ma, Zhigang Yan, Zhiyu Wu, Zihui Gu, Zijia Zhu, Zijun Liu, Zilin Li, Ziwei Xie,
+Ziyang Song, Zizheng Pan, Zhen Huang, Zhipeng Xu, Zhongyu Zhang, and Zhen
+Zhang. 2025. DeepSeek-R1 incentivizes reasoning in LLMs through reinforcement
+learning.Nature645, 8081 (Sept. 2025), 633–638. doi:10.1038/s41586-025-09422-z
+[14] Xin Guo, Haotian Xia, Zhaowei Liu, Hanyang Cao, Zhi Yang, Zhiqiang Liu, Sizhe
+Wang, Jinyi Niu, Chuqi Wang, Yanhui Wang, Xiaolong Liang, Xiaoming Huang,
+Bing Zhu, Zhongyu Wei, Yun Chen, Weining Shen, and Liwen Zhang. 2025.
+FinEval: A Chinese Financial Domain Knowledge Evaluation Benchmark for
+Large Language Models. InProceedings of the 2025 Conference of the Nations of
+the Americas Chapter of the Association for Computational Linguistics: Human
+Language Technologies (Volume 1: Long Papers), Luis Chiruzzo, Alan Ritter, and
+Lu Wang (Eds.). Association for Computational Linguistics, Albuquerque, New
+Mexico, 6258–6292. doi:10.18653/v1/2025.naacl-long.318
+[15] Pranab Islam, Anand Kannappan, Douwe Kiela, Rebecca Qian, Nino Scherrer, and
+Bertie Vidgen. 2023. FinanceBench: A New Benchmark for Financial Question
+Answering. arXiv:2311.11944 [cs.CL]
+[16] Lanlan Ji, Dominic Seyler, Gunkirat Kaur, Manjunath Hegde, Koustuv Das-
+gupta, and Bing Xiang. 2025. PHANTOM: A Benchmark for Hallucination
+Detection in Financial Long-Context QA. InThe Thirty-ninth Annual Confer-
+ence on Neural Information Processing Systems Datasets and Benchmarks Track.
+https://openreview.net/forum?id=5YQAo0S3Hm
+[17] Viet Lai, Michael Krumdick, Charles Lovering, Varshini Reddy, Craig Schmidt, and
+Chris Tanner. 2025. SEC-QA: A Systematic Evaluation Corpus for Financial QA. In
+Proceedings of The 10th Workshop on Financial Technology and Natural Language
+Processing, Chung-Chi Chen, Genta Indra Winata, Stephen Rawls, Anirban Das,
+Hsin-Hsi Chen, and Hiroya Takamura (Eds.). Association for Computational
+Linguistics, Suzhou, China, 221–236. doi:10.18653/v1/2025.finnlp-2.15
+[18] Chuang Liu, Junzhuo Li, and Deyi Xiong. 2023. Tab-CQA: A Tabular Conver-
+sational Question Answering Dataset on Financial Reports. InProceedings of
+the 61st Annual Meeting of the Association for Computational Linguistics (Volume
+5: Industry Track), Sunayana Sitaram, Beata Beigman Klebanov, and Jason D
+Williams (Eds.). Association for Computational Linguistics, Toronto, Canada,
+196–207. doi:10.18653/v1/2023.acl-industry.20
+[19] Zhaowei Liu, Xin Guo, Zhi Yang, Fangqi Lou, Lingfeng Zeng, Mengping Li, Qi
+Qi, Zhiqiang Liu, Yiyang Han, Dongpo Cheng, Ronghao Chen, Huacan Wang,
+Xingdong Feng, Huixia Judy Wang, Chengchun Shi, and Liwen Zhang. 2026.
+Fin-R1: A Large Language Model for Financial Reasoning through Reinforcement
+Learning. arXiv:2503.16252 [cs.CL] https://arxiv.org/abs/2503.16252
+[20] Zheng Liu, Chaofan Li, Shitao Xiao, Yingxia Shao, and Defu Lian. 2025. Llama2Vec:
+Unsupervised Adaptation of Large Language Models for Dense Retrieval.
+arXiv:2312.15503 [cs.CL] https://arxiv.org/abs/2312.15503
+[21] OpenAI, :, Sandhini Agarwal, Lama Ahmad, Jason Ai, Sam Altman, Andy Apple-
+baum, Edwin Arbus, Rahul K. Arora, Yu Bai, Bowen Baker, Haiming Bao, Boaz
+Barak, Ally Bennett, Tyler Bertao, Nivedita Brett, Eugene Brevdo, Greg Brockman,
+Sebastien Bubeck, Che Chang, Kai Chen, Mark Chen, Enoch Cheung, Aidan Clark,
+Dan Cook, Marat Dukhan, Casey Dvorak, Kevin Fives, Vlad Fomenko, Timur
+Garipov, Kristian Georgiev, Mia Glaese, Tarun Gogineni, Adam Goucher, Lukas
+Gross, Katia Gil Guzman, John Hallman, Jackie Hehir, Johannes Heidecke, Alec
+Helyar, Haitang Hu, Romain Huet, Jacob Huh, Saachi Jain, Zach Johnson, Chris
+Koch, Irina Kofman, Dominik Kundel, Jason Kwon, Volodymyr Kyrylov, Elaine Ya
+Le, Guillaume Leclerc, James Park Lennon, Scott Lessans, Mario Lezcano-Casado,
+Yuanzhi Li, Zhuohan Li, Ji Lin, Jordan Liss, Lily, Liu, Jiancheng Liu, Kevin Lu,
+Chris Lu, Zoran Martinovic, Lindsay McCallum, Josh McGrath, Scott McKin-
+ney, Aidan McLaughlin, Song Mei, Steve Mostovoy, Tong Mu, Gideon Myles,
+Alexander Neitz, Alex Nichol, Jakub Pachocki, Alex Paino, Dana Palmie, Ashley
+Pantuliano, Giambattista Parascandolo, Jongsoo Park, Leher Pathak, Carolina
+Paz, Ludovic Peran, Dmitry Pimenov, Michelle Pokrass, Elizabeth Proehl, Huida
+Qiu, Gaby Raila, Filippo Raso, Hongyu Ren, Kimmy Richardson, David Robinson,
+Bob Rotsted, Hadi Salman, Suvansh Sanjeev, Max Schwarzer, D. Sculley, Harshit
+Sikchi, Kendal Simon, Karan Singhal, Yang Song, Dane Stuckey, Zhiqing Sun,
+Philippe Tillet, Sam Toizer, Foivos Tsimpourlas, Nikhil Vyas, Eric Wallace, Xin
+Wang, Miles Wang, Olivia Watkins, Kevin Weil, Amy Wendling, Kevin Whin-
+nery, Cedric Whitney, Hannah Wong, Lin Yang, Yu Yang, Michihiro Yasunaga,
+Kristen Ying, Wojciech Zaremba, Wenting Zhan, Cyril Zhang, Brian Zhang, Ed-
+die Zhang, and Shengjia Zhao. 2025. gpt-oss-120b & gpt-oss-20b Model Card.
+arXiv:2508.10925 [cs.CL] https://arxiv.org/abs/2508.10925
+[22] OpenAI, Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge
+Akkaya, Florencia Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam
+Altman, Shyamal Anadkat, Red Avila, Igor Babuschkin, Suchir Balaji, Valerie Bal-
+com, Paul Baltescu, Haiming Bao, Mohammad Bavarian, Jeff Belgum, Irwan Bello,
+Jake Berdine, Gabriel Bernadett-Shapiro, Christopher Berner, Lenny Bogdonoff,
+Oleg Boiko, Madelaine Boyd, Anna-Luisa Brakman, Greg Brockman, Tim Brooks,
+Miles Brundage, Kevin Button, Trevor Cai, Rosie Campbell, Andrew Cann, Brit-
+tany Carey, Chelsea Carlson, Rory Carmichael, Brooke Chan, Che Chang, Fotis
+Chantzis, Derek Chen, Sully Chen, Ruby Chen, Jason Chen, Mark Chen, Ben
+Chess, Chester Cho, Casey Chu, Hyung Won Chung, Dave Cummings, Jeremiah
+Currier, Yunxing Dai, Cory Decareaux, Thomas Degry, Noah Deutsch, Damien
+Deville, Arka Dhar, David Dohan, Steve Dowling, Sheila Dunning, Adrien Ecoffet,
+Atty Eleti, Tyna Eloundou, David Farhi, Liam Fedus, Niko Felix, Simón Posada
+Fishman, Juston Forte, Isabella Fulford, Leo Gao, Elie Georges, Christian Gibson,
+Vik Goel, Tarun Gogineni, Gabriel Goh, Rapha Gontijo-Lopes, Jonathan Gor-
+don, Morgan Grafstein, Scott Gray, Ryan Greene, Joshua Gross, Shixiang Shane
+Gu, Yufei Guo, Chris Hallacy, Jesse Han, Jeff Harris, Yuchen He, Mike Heaton,
+Johannes Heidecke, Chris Hesse, Alan Hickey, Wade Hickey, Peter Hoeschele,
+Brandon Houghton, Kenny Hsu, Shengli Hu, Xin Hu, Joost Huizinga, Shantanu
+
+
+[Page 11]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+Jain, Shawn Jain, Joanne Jang, Angela Jiang, Roger Jiang, Haozhun Jin, Denny
+Jin, Shino Jomoto, Billie Jonn, Heewoo Jun, Tomer Kaftan, Łukasz Kaiser, Ali
+Kamali, Ingmar Kanitscheider, Nitish Shirish Keskar, Tabarak Khan, Logan Kil-
+patrick, Jong Wook Kim, Christina Kim, Yongjik Kim, Jan Hendrik Kirchner,
+Jamie Kiros, Matt Knight, Daniel Kokotajlo, Łukasz Kondraciuk, Andrew Kon-
+drich, Aris Konstantinidis, Kyle Kosic, Gretchen Krueger, Vishal Kuo, Michael
+Lampe, Ikai Lan, Teddy Lee, Jan Leike, Jade Leung, Daniel Levy, Chak Ming
+Li, Rachel Lim, Molly Lin, Stephanie Lin, Mateusz Litwin, Theresa Lopez, Ryan
+Lowe, Patricia Lue, Anna Makanju, Kim Malfacini, Sam Manning, Todor Markov,
+Yaniv Markovski, Bianca Martin, Katie Mayer, Andrew Mayne, Bob McGrew,
+Scott Mayer McKinney, Christine McLeavey, Paul McMillan, Jake McNeil, David
+Medina, Aalok Mehta, Jacob Menick, Luke Metz, Andrey Mishchenko, Pamela
+Mishkin, Vinnie Monaco, Evan Morikawa, Daniel Mossing, Tong Mu, Mira Murati,
+Oleg Murk, David Mély, Ashvin Nair, Reiichiro Nakano, Rajeev Nayak, Arvind
+Neelakantan, Richard Ngo, Hyeonwoo Noh, Long Ouyang, Cullen O’Keefe, Jakub
+Pachocki, Alex Paino, Joe Palermo, Ashley Pantuliano, Giambattista Parascan-
+dolo, Joel Parish, Emy Parparita, Alex Passos, Mikhail Pavlov, Andrew Peng,
+Adam Perelman, Filipe de Avila Belbute Peres, Michael Petrov, Henrique Ponde
+de Oliveira Pinto, Michael, Pokorny, Michelle Pokrass, Vitchyr H. Pong, Tolly
+Powell, Alethea Power, Boris Power, Elizabeth Proehl, Raul Puri, Alec Radford,
+Jack Rae, Aditya Ramesh, Cameron Raymond, Francis Real, Kendra Rimbach,
+Carl Ross, Bob Rotsted, Henri Roussez, Nick Ryder, Mario Saltarelli, Ted Sanders,
+Shibani Santurkar, Girish Sastry, Heather Schmidt, David Schnurr, John Schul-
+man, Daniel Selsam, Kyla Sheppard, Toki Sherbakov, Jessica Shieh, Sarah Shoker,
+Pranav Shyam, Szymon Sidor, Eric Sigler, Maddie Simens, Jordan Sitkin, Katarina
+Slama, Ian Sohl, Benjamin Sokolowsky, Yang Song, Natalie Staudacher, Felipe Pet-
+roski Such, Natalie Summers, Ilya Sutskever, Jie Tang, Nikolas Tezak, Madeleine B.
+Thompson, Phil Tillet, Amin Tootoonchian, Elizabeth Tseng, Preston Tuggle,
+Nick Turley, Jerry Tworek, Juan Felipe Cerón Uribe, Andrea Vallone, Arun Vi-
+jayvergiya, Chelsea Voss, Carroll Wainwright, Justin Jay Wang, Alvin Wang,
+Ben Wang, Jonathan Ward, Jason Wei, CJ Weinmann, Akila Welihinda, Peter
+Welinder, Jiayi Weng, Lilian Weng, Matt Wiethoff, Dave Willner, Clemens Winter,
+Samuel Wolrich, Hannah Wong, Lauren Workman, Sherwin Wu, Jeff Wu, Michael
+Wu, Kai Xiao, Tao Xu, Sarah Yoo, Kevin Yu, Qiming Yuan, Wojciech Zaremba,
+Rowan Zellers, Chong Zhang, Marvin Zhang, Shengjia Zhao, Tianhao Zheng,
+Juntang Zhuang, William Zhuk, and Barret Zoph. 2024. GPT-4 Technical Report.
+arXiv:2303.08774 [cs.CL] https://arxiv.org/abs/2303.08774
+[23] Lingfei Qian, Weipeng Zhou, Yan Wang, Xueqing Peng, Han Yi, Yilun Zhao,
+Jimin Huang, Qianqian Xie, and Jian yun Nie. 2025. Fino1: On the Transfer-
+ability of Reasoning-Enhanced LLMs and Reinforcement Learning to Finance.
+arXiv:2502.08127 [cs.CL] https://arxiv.org/abs/2502.08127
+[24] Varshini Reddy, Rik Koncel-Kedziorski, Viet Dac Lai, Michael Krumdick, Charles
+Lovering, and Chris Tanner. 2024. DocFinQA: A Long-Context Financial Rea-
+soning Dataset. InProceedings of the 62nd Annual Meeting of the Association for
+Computational Linguistics (Volume 2: Short Papers), Lun-Wei Ku, Andre Martins,
+and Vivek Srikumar (Eds.). Association for Computational Linguistics, Bangkok,
+Thailand, 445–458. doi:10.18653/v1/2024.acl-short.42
+[25] Stephen Robertson, Hugo Zaragoza, et al . 2009. The probabilistic relevance
+framework: BM25 and beyond.Foundations and trends®in information retrieval
+3, 4 (2009), 333–389.
+[26] Aaditya Singh, Adam Fry, Adam Perelman, Adam Tart, Adi Ganesh, Ahmed
+El-Kishky, Aidan McLaughlin, Aiden Low, AJ Ostrow, Akhila Ananthram, et al.
+2025. Openai gpt-5 system card.arXiv preprint arXiv:2601.03267(2025).
+[27] Jan Spörer. 2025.Can AI Read Like a Financial Analyst? A Financial Touchstone for
+Frontier Language Models Such as Gemini 2.5 Pro, o3, and Grok 4 on Long-Context
+Annual Report Comprehension. Association for Computing Machinery, New York,
+NY, USA, 291–298. https://doi.org/10.1145/3768292.3770417
+[28] Zichen Tang, E Haihong, Ziyan Ma, Haoyang He, Jiacheng Liu, Zhongjun Yang,
+Zihua Rong, Rongjin Li, Kun Ji, Qing Huang, et al . 2025. Financereasoning:
+Benchmarking financial numerical reasoning more credible, comprehensive and
+challenging. InProceedings of the 63rd Annual Meeting of the Association for
+Computational Linguistics (Volume 1: Long Papers). 15721–15749.
+[29] Core Team, Bangjun Xiao, Bingquan Xia, Bo Yang, Bofei Gao, Bowen Shen,
+Chen Zhang, Chenhong He, Chiheng Lou, Fuli Luo, Gang Wang, Gang Xie,
+Hailin Zhang, Hanglong Lv, Hanyu Li, Heyu Chen, Hongshen Xu, Houbin Zhang,
+Huaqiu Liu, Jiangshan Duo, Jianyu Wei, Jiebao Xiao, Jinhao Dong, Jun Shi, Junhao
+Hu, Kainan Bao, Kang Zhou, Lei Li, Liang Zhao, Linghao Zhang, Peidian Li, Qianli
+Chen, Shaohui Liu, Shihua Yu, Shijie Cao, Shimao Chen, Shouqiu Yu, Shuo Liu,
+Tianling Zhou, Weijiang Su, Weikun Wang, Wenhan Ma, Xiangwei Deng, Bohan
+Mao, Bowen Ye, Can Cai, Chenghua Wang, Chengxuan Zhu, Chong Ma, Chun
+Chen, Chunan Li, Dawei Zhu, Deshan Xiao, Dong Zhang, Duo Zhang, Fangyue
+Liu, Feiyu Yang, Fengyuan Shi, Guoan Wang, Hao Tian, Hao Wu, Heng Qu,
+Hongfei Yi, Hongxu An, Hongyi Guan, Xing Zhang, Yifan Song, Yihan Yan, Yihao
+Zhao, Yingchun Lai, Yizhao Gao, Yu Cheng, Yuanyuan Tian, Yudong Wang, Zhen
+Tang, Zhengju Tang, Zhengtao Wen, Zhichao Song, Zhixian Zheng, Zihan Jiang,
+Jian Wen, Jiarui Sun, Jiawei Li, Jinlong Xue, Jun Xia, Kai Fang, Menghang Zhu,
+Nuo Chen, Qian Tu, Qihao Zhang, Qiying Wang, Rang Li, Rui Ma, Shaolei Zhang,
+Shengfan Wang, Shicheng Li, Shuhao Gu, Shuhuai Ren, Sirui Deng, Tao Guo,
+Tianyang Lu, Weiji Zhuang, Weikang Zhang, Weimin Xiong, Wenshan Huang,
+Wenyu Yang, Xin Zhang, Xing Yong, Xu Wang, Xueyang Xie, Yilin Jiang, Yixin
+Yang, Yongzhe He, Yu Tu, Yuanliang Dong, Yuchen Liu, Yue Ma, Yue Yu, Yuxing
+Xiang, Zhaojun Huang, Zhenru Lin, Zhipeng Xu, Zhiyang Chen, Zhonghua
+Deng, Zihan Zhang, and Zihao Yue. 2026. MiMo-V2-Flash Technical Report.
+arXiv:2601.02780 [cs.CL] https://arxiv.org/abs/2601.02780
+[30] Wenhui Wang, Furu Wei, Li Dong, Hangbo Bao, Nan Yang, and Ming Zhou. 2020.
+MiniLM: Deep Self-Attention Distillation for Task-Agnostic Compression of Pre-
+Trained Transformers. arXiv:2002.10957 [cs.CL] https://arxiv.org/abs/2002.10957
+[31] Xiaojun Wu, Junxi Liu, Huan-Yi Su, Zhouchi Lin, Yiyan Qi, Chengjin Xu, Jiajun
+Su, Jiajie Zhong, Fuwei Wang, Saizhuo Wang, Fengrui Hua, Jia Li, and Jian Guo.
+2025. Golden Touchstone: A Comprehensive Bilingual Benchmark for Evaluating
+Financial Large Language Models. InFindings of the Association for Computational
+Linguistics: EMNLP 2025, Christos Christodoulopoulos, Tanmoy Chakraborty,
+Carolyn Rose, and Violet Peng (Eds.). Association for Computational Linguistics,
+Suzhou, China, 22544–22560. doi:10.18653/v1/2025.findings-emnlp.1227
+[32] An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng,
+Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, Chujie Zheng, Dayiheng
+Liu, Fan Zhou, Fei Huang, Feng Hu, Hao Ge, Haoran Wei, Huan Lin, Jialong
+Tang, Jian Yang, Jianhong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jing Zhou,
+Jingren Zhou, Junyang Lin, Kai Dang, Keqin Bao, Kexin Yang, Le Yu, Lianghao
+Deng, Mei Li, Mingfeng Xue, Mingze Li, Pei Zhang, Peng Wang, Qin Zhu, Rui
+Men, Ruize Gao, Shixuan Liu, Shuang Luo, Tianhao Li, Tianyi Tang, Wenbiao Yin,
+Xingzhang Ren, Xinyu Wang, Xinyu Zhang, Xuancheng Ren, Yang Fan, Yang Su,
+Yichang Zhang, Yinger Zhang, Yu Wan, Yuqiong Liu, Zekun Wang, Zeyu Cui,
+Zhenru Zhang, Zhipeng Zhou, and Zihan Qiu. 2025. Qwen3 Technical Report.
+arXiv:2505.09388 [cs.CL] https://arxiv.org/abs/2505.09388
+[33] Mengao Zhang, Jiayu Fu, Tanya Warrier, Yuwen Wang, Tianhui Tan, and Ke-wei
+Huang. 2025. FAITH: A Framework for Assessing Intrinsic Tabular Hallucinations
+in Finance. InProceedings of the 6th ACM International Conference on AI in Finance.
+159–167.
+[34] Fengbin Zhu, Wenqiang Lei, Youcheng Huang, Chao Wang, Shuo Zhang,
+Jiancheng Lv, Fuli Feng, and Tat-Seng Chua. 2021. TAT-QA: A Question An-
+swering Benchmark on a Hybrid of Tabular and Textual Content in Finance. In
+Proceedings of the 59th Annual Meeting of the Association for Computational Lin-
+guistics and the 11th International Joint Conference on Natural Language Processing
+(Volume 1: Long Papers). Association for Computational Linguistics, Online, 3277–
+3287. doi:10.18653/v1/2021.acl-long.254
+
+
+[Page 12]
+Under Review, February, 2026 Yidong Jiang et al.
+A Detailed Corpus and Task Statistics
+Our dataset comprises 34 publicly traded companies spanning seven
+major industry sectors, providing diverse representation across the
+U.S. economy. Table 9 provides a high-level summary of sector
+distribution. The Energy sector as the most represented with 8 com-
+panies. The Basic Materials sector follows with 7 companies, while
+Technology and Services sectors each contribute 4-5 companies
+to the dataset. This distribution ensures adequate representation
+of both capital-intensive industries (Energy, Basic Materials) and
+knowledge-intensive sectors (Technology, Healthcare), enabling
+comprehensive evaluation of financial analysis capabilities across
+diverse business environments.
+The geographic location of a company’s headquarters provides
+a crucial dimension for understanding its operational environment,
+regulatory framework, and potential regional economic linkages. To
+analyze the geographical distribution of companies in our dataset,
+we tallied the states where they registered their headquarters. We
+extracted the geographic information directly from the official web-
+site of the U.S. Securities and Exchange Commission (SEC) to ensure
+data accuracy and authority. Figure 7 presents the distribution of
+company headquarters across U.S. states.
+20%
+17%
+15%6%
+6%3%
+3%
+3%
+3%
+3%
+3%
+3%
+3%
+3%
+3% 3% 3%
+Headquarters Distribution by State
+Texas California New York
+Colorado Illinois Pennsylvania
+Virginia Georgia Ohio
+North Carolina Tennessee Oregon
+New Hampshire Idaho Arizona
+Florida Wyoming
+Figure 7: Pie chart illustrating the state-wise distribution of
+corporate headquarters for 34 SEC-registered companies.
+A.1 Document Length and Type Distribution
+Our dataset comprises SEC filings from 2020 to 2025, totaling 15,311
+documents across 11 primary document types. Table 11 presents
+the annual distribution, revealing significant variations in filing
+patterns over time.
+The SEC document types in our dataset represent the diverse
+regulatory filings required for publicly traded companies. Each
+6%
+6%
+59%
+20%
+9%
+   Company Scale Classification Dstribution
+ 
+ 
+  
+    
+     
+  
+Accelerated filer
+Non-accelerated filer
+Large accelerated filer
+Non-accelerated filer, Smaller reporting company 
+Non-accelerated filer, Smaller reporting company,
+Emerging growth company
+Figure 8: Pie chart illustrating the distribution of the 34 sam-
+ple companies by their SEC filing status.
+document type serves specific regulatory purposes and contains
+distinct types of financial information:
+• 10-K (Annual Report):Comprehensive annual filing that
+provides a complete overview of a company’s financial per-
+formance, business operations, risk factors, and management
+discussion. It includes audited financial statements, detailed
+notes to financial statements, and disclosures about corpo-
+rate governance, making it the most authoritative source for
+annual financial analysis.
+• 10-Q (Quarterly Report):Interim financial report filed
+quarterly (excluding the fourth quarter, covered by 10-K)
+containing unaudited financial statements and management
+discussion. 10-Q filings provide timely updates on company
+performance between annual reports and include important
+disclosures about material changes in financial condition.
+• 424B2/B3/B4 (Prospectus Amendments):Registration
+statement amendments filed in connection with securities
+offerings. These documents contain detailed information
+about security pricing, underwriting arrangements, and risk
+disclosures for debt or equity offerings, providing insights
+into corporate financing activities.Note: No 424B4 filings
+were available from 2023 to 2025 in our selected companies.
+• 6-K (Foreign Issuer Report):Periodic report filed by for-
+eign private issuers to disclose material information required
+in their home countries. These filings often include earnings
+releases, interim financial information, and other corporate
+developments that may not be immediately available through
+other SEC filings.
+• 8-K (Current Report):"Current events" report filed to dis-
+close significant corporate events that shareholders should
+know about, including mergers and acquisitions, executive
+
+
+[Page 13]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+Table 5: LLM Focus Guidance for QA Generation by SEC Form Type
+Form Type Focus Area Guidance Keywords
+10-K Financial Ratio Analysis financial ratios, performance metrics, year-over-year comparisons
+Performance Trend Analysis business performance trends, revenue growth, operational efficiency
+10-Q Quarterly Analysis quarterly financial performance, seasonal trends, period-over-period changes
+Cash Flow Analysis cash flow patterns, working capital management, liquidity position
+8-K Materiality Impact Analysis material events and their quantitative business impacts
+Strategic Significance Analysis strategic importance and long-term implications of disclosed events
+DEF 14A Executive Compensation Details executive compensation details, shareholder proposals
+Governance Structure board structure, corporate governance changes
+Table 6: Individual SEC Filing Items for Focused Analysis (10-K)
+Section Full Title Key Analysis Dimensions
+Item 1Business Business operations; competition & regulation
+Item 1ARisk Factors Risk identification; industry threats.
+Item 7AMarket Risk Disclosures Risk measurement; sensitivity analysis.
+Item 7MD&A Financial interpretation; business trends.
+Item 8Financial Statements Financial quantification; profitability.
+Item 3Legal Proceedings Litigation exposure; compliance.
+Item 10Governance Leadership; board composition.
+Table 7: Strategic Item Combinations for Cross-Company Comparative Analysis
+Combination Type Items Combined Comparative Analytical Dimension
+Business Model & Financial
+Performance
+Item 8 + Item 1 Linking operational business models to resulting financial out-
+comes across companies.
+Strategy & Integrated Risk
+Profile
+Item 1 + Item 1A + Item 7A Evaluating business strategy against a complete (qualitative +
+quantitative) risk landscape in comparative analysis.
+Comprehensive Risk & Legal
+Assessment
+Item 1A + Item 7A + Item 3 Holistic risk evaluation combining market, operational and legal
+exposures for cross-firm comparison.
+Governance & Performance
+Linkage
+Item 8 + Item 10 Examining the relationship between corporate governance
+structure and financial results across different organizations.
+changes, bankruptcy filings, and material agreements. 8-Ks
+provide real-time insight into corporate developments be-
+tween periodic reports.
+•DEF-14A (Definitive Proxy Statement):Comprehensive
+disclosure document distributed to shareholders before an-
+nual meetings, containing detailed information about board
+of director elections, executive compensation, shareholder
+proposals, and corporate governance matters.
+• NT (Notification of Late Filing):Formal notification filed
+when a company cannot submit a required report by the
+SEC deadline. These filings often include explanations for
+the delay and estimated filing dates, providing signals about
+potential corporate distress or operational issues.
+• S-8 (Employee Benefit Plan Registration):Registration
+statement for securities to be offered to employees under
+employee benefit plans. While primarily procedural, these
+filings can provide information about stock-based compen-
+sation programs and employee ownership structures.
+• SC 13D/13G (Beneficial Ownership Reports):Mandatory
+disclosures filed when an individual or entity acquires ben-
+eficial ownership of more than 5% of a class of securities,
+revealing significant ownership positions, activist investor
+
+
+[Page 14]
+Under Review, February, 2026 Yidong Jiang et al.
+Table 8: Focus Areas for Tracking QA Analysis by SEC Filing Item
+Section Primary Focus Specific Tracking & Comparative Dimensions
+DEF 14A Corporate Governance & Exec-
+utive Compensation
+Annual changes in board composition, executive pay structure, shareholder propos-
+als, audit details, related-party transactions, director independence, equity plans,
+risk oversight, and organizational structure.
+Item 1Business Overview & Strategy Year-over-year evolution across six core dimensions: Strategy & Business Model,
+Financial Performance & Revenue Structure, Product & Technology Portfolio, Op-
+erations & Human Capital, Market, Competition & Customers, and Growth Drivers
+& Investment Focus.
+Item 1ARisk Factors Comparative analysis of risk profiles: identification of new, removed, or modified
+risks; changes in risk description, severity, or prioritization; adjustments to mitiga-
+tion strategies; and emerging risk trends.
+Item 3Legal Proceedings Tracking changes in legal exposure: status of ongoing cases, new filings, resolved
+matters, case nature, financial implications, and trends in litigation activity.
+Table 9: Sector Summary Statistics
+GICS Sector Name Companies Industry Focus
+10 Energy 8 Oil, Gas, Utilities, Mining
+15 Basic Materials 7 Building Materials, Apparel, Food
+25 Consumer Cyclicals 4 Apparel, Retail, Food Services
+35 Healthcare 3 Pharmaceuticals, Biotechnology
+40 Financials 3 Banking, Insurance, Securities
+45 Technology 4 Software, IT Services, Telecom
+60 Services 5 Construction, Real Estate, Hospitality
+Table 10: SEC Filer Status Definitions Based on Public Float and Annual Revenues
+Filer Status Qualification Criteria
+Large Accelerated Filer An issuer with a public float of $700 million or more as of the last business day of its most
+recently completed second fiscal quarter.
+Accelerated Filer An issuer with a public float of $75 million or more but less than $700 million, and with
+annual revenues of $100 million or more.
+Non-Accelerated Filer An issuer that either: (1) has a public float of less than $75 million; or (2) has a public float
+between $75 million and $700 million with annual revenues below $100 million.
+Smaller Reporting Company An issuer that qualifies if either: (1) its public float is less than $250 million; or (2) its annual
+revenues are less than $100 million. This status may overlap with other filer categories.
+Emerging Growth Company A separate designation for issuers within five years of their initial public offering. Emerging
+Growth Companies may simultaneously qualify as Smaller Reporting Companies or Non-
+Accelerated Filers and are eligible for scaled disclosure requirements.
+involvement, and potential changes in corporate control.
+Note: No SC 13D/13G filings were available for 2025 in our
+selected companies.
+A.2 Document Type Distribution by Question
+Category
+Table 12 presents the distribution of SEC document types referenced
+across all 7,500 questions in our dataset. Annual reports (10-K)
+constitute the dominant source, referenced in 72.92% of questions,
+reflecting their comprehensive nature for financial analysis. Proxy
+statements (DEF-14A) and quarterly reports (10-Q) are the next
+
+
+[Page 15]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+Table 11: Annual Statistics of Chunks by SEC Document Type (2020–2025)
+Year Document Type Counts
+10-K 10-Q 424B2 424B3 424B4 6-K 8-K DEF-14A NT S-8 SC 13D/13G
+2020 321 597 384 92 5 93 559 236 28 46 133
+2021 765 828 197 61 66 105 586 256 24 44 129
+2022 1049 546 241 97 55 113 594 289 13 52 249
+2023 865 502 183 111 0 113 594 149 29 26 151
+2024 642 332 171 83 0 110 489 70 14 39 186
+2025 753 99 141 42 0 68 345 107 16 28 0
+Total4395 2904 1317 486 126 602 3167 1107 124 235 848
+most frequently referenced at 8.65% and 7.79% respectively, while
+current reports (8-K) account for 6.17% of references.
+Table 12: Document Type Distribution Across Questions
+Document Type Questions Percentage
+10-K 5,469 72.92%
+10-Q 584 7.79%
+424B2 90 1.20%
+424B3 57 0.76%
+424B4 36 0.48%
+6-K 41 0.55%
+8-K 463 6.17%
+DEF-14A 649 8.65%
+NT 4 0.05%
+S-8 13 0.17%
+SC 13D/13G 94 1.25%
+Total7,500 100.00%
+A.3 Question Type and Context Analysis
+Our evaluation framework categorizes questions into three types
+based on their information complexity. Table 13 presents the dataset
+composition and context requirements for each question type.
+Table 13: Dataset Statistics by Question Type
+QA Type Avg. Chunks/Q Avg. Words/Q
+Detail & Reasoning 1.00 802.39
+Enterprise Comparison 5.61 43,674.20
+Longitudinal Tracking 3.05 35,697.75
+B LLM Focus Guidance for Detail & Reasoning
+QA
+We guide the generation direction by embedding Targeted Focus
+Guidance in the prompt as shown in Table 5, instructing the LLM
+to concentrate on annual financial ratios, quarterly trend analysis,
+or the quantitative impact of material events, among others.
+C LLM Focus Guidance for Enterprise
+Comparison QA
+Table 6 and Table 7 detail the SEC filing items and their strategic
+combinations specifically designed for Enterprise Comparison QA
+(EC-QA) generation. In practice, Item 1A (Risk Factors) and Item
+7A (Market Risk Disclosures) are intrinsically linked and are used
+together to form a complete qualitative and quantitative risk profile.
+Item 7 provides narrative, expert-driven analysis of financial results,
+whereas Item 8 contains standardized numerical data with minimal
+interpretation, focusing on precise financial figures.
+D LLM Focus Guidance for Longitudinal
+Tracking QA
+Table 8 summarizes the primary analytical dimensions and tracking
+objectives associated with key SEC filing items, specifically tailored
+for generating time-series-based Tracking QA (T-QA) across multi-
+ple reporting periods.
+E Human Verification Criteria
+All QA pairs that pass automated filtering are manually reviewed to
+ensure strict adherence to the original disclosures and to eliminate
+unsupported interpretation.
+E.1 Factual Alignment
+This criterion ensures that every answer is strictly grounded in
+the cited disclosure content and does not introduce information
+beyond what is explicitly stated.
+• All statements in the answer must be directly supported by
+the referenced disclosure content.
+• No external knowledge, implicit assumptions, or unstated
+background information is allowed.
+• If the source text reports numerical outcomes or descriptive
+facts without evaluative conclusions, the answer must not
+introduce additional judgments.
+E.2 Contribution of Referenced Chunks
+This criterion evaluates whether each referenced chunk plays a
+necessary and substantive role in the reasoning process required
+to answer the question.
+
+
+[Page 16]
+Under Review, February, 2026 Yidong Jiang et al.
+• For QAs involving multiple chunks or cross-document con-
+texts, each referenced chunk must contribute essential infor-
+mation to the final answer.
+• A chunk is considered contributive only if it provides infor-
+mation such as a financial metric, a temporal reference, or a
+company-specific fact explicitly used in the answer.
+• Chunks that only provide general background information or
+repeat content already covered by other chunks are treated
+as non-contributive.
+• If any referenced chunk does not support the reasoning
+process, the QA is revised or discarded.
+E.3 Numerical Verification
+This criterion ensures that all numerical values and calculations in
+the answer are accurate, and consistent with the cited disclosure.
+• All numerical values must be manually recalculated and
+verified against the referenced disclosure content.
+• Arithmetic operations, percentage calculations, and the con-
+sistency of time periods are explicitly checked.
+• Units and scales must exactly match those used in the origi-
+nal disclosure, such as millions versus billions.
+• If a numerical result cannot be reproduced using the cited
+content, the QA is removed from the dataset.
+F Consistency Verification Between LLM and
+Human Evaluation
+To evaluate the reliability of the LLM-as-a-Judge framework and its
+alignment with human judgment, we conducted a consistency veri-
+fication experiment. A total of 4,500 representative QA instances are
+randomly sampled from the Fin-RATE dataset, covering three major
+task categories: DR-QA, EC-QA, and LT-QA, with 1,500 instances
+per category. Each question is paired with a gold-standard answer,
+key answering points, the corresponding ground truth context, and
+responses generated by multiple target LLMs.
+We use three large language models with distinct architectures
+and training paradigms, GPT-5, DeepSeek-V3.2, and Qwen3-235B,
+as automated Judges. For each Judge model, human-alignment eval-
+uation is conducted on the same set of QA instances. All judgments
+are based on the same questions and the same target-LLM responses
+to ensure controlled evaluation conditions. To assess inter-judge
+agreement and evaluate each model’s alignment with human rat-
+ings, we compute agreement metrics across model-human pairs.
+Furthermore, to derive a robust final judgment that integrates di-
+vergent evaluations, we perform a grid search (with a step size
+of 0.02) over possible weight combinations to optimize agreement
+with human annotations. The resulting optimal weights for com-
+bining the three Judges are as follows: for DR-QA, DeepSeek-V3.2
+= 0.70, Qwen3-235B = 0.10, GPT-5 = 0.20; for EC-QA, DeepSeek-
+V3.2 = 0.140, Qwen3-235B = 0.120, GPT-5 = 0.740; and for LT-QA,
+DeepSeek-V3.2 = 0.140, Qwen3-235B = 0.120, GPT-5 = 0.740.
+G Fusion Strategy for Multi-Judge Evaluation
+This section details the fusion strategies applied to the evaluation
+outputs of multiple LLM Judges, including correctness labels, Likert
+scores, and error type attributions. All fusion methods are based
+Table 14: Agreement scores between LLM judges and human
+evaluations across QA task types. For each QA type (DR-QA,
+EC-QA, LT-QA), we report the agreement between human
+scores and those from each LLM Judge, as well as the agree-
+ment from the final fused judgment (Multi-Judge), where
+weights are tuned via grid search with step size 0.02. Bold
+denote the best performance.
+Judge Model DR-QA EC-QA LT-QA
+DeepSeek-V3.2 84.29 82.99 81.35
+Qwen3-235B 84.10 84.34 84.67
+GPT-5 79.57 90.22 90.07
+Multi-Judge (Weighted)88.82 90.41 90.46
+on the optimal task-specific weights derived from the human align-
+ment experiment described in Appendix F.
+For each QA instance, we follow the same procedure as in the grid
+search setting of the alignment experiment. Discrete correctness
+labels are first mapped to ordinal numeric scores, where Failure is
+mapped to 0, Incorrect to 1, Partial to 3, and Correct to 5. Based
+on the task-specific weights optimized in Appendix F, we then
+compute a weighted average across the three Judges’ scores to
+obtain a continuous fused score. This score is mapped back to a
+final discrete label using the following rule: a score of 0 yields
+Failure, a score of 1 yields Incorrect, scores of 2–3 yield Partial, and
+scores of 4–5 yield Correct.
+For the five fine-grained dimensions, each LLM Judge provides a
+Likert score ranging from 1 to 5. The final score for each dimension
+is computed by applying the same task-specific weights used for
+correctness labels to the Judges’ Likert scores.
+For responses that are not labeled as Correct, each LLM Judge
+provide one or more error type attributions. During alignment
+verification, we observed that when an answer was also judged
+as non-Correct by human annotators, the errors identified by the
+Judges were generally valid. Therefore, we adopt a union-based
+fusion strategy: any error type identified by at least one Judge is
+retained in the final error set for diagnostic analysis. If the fused
+correctness label is Correct, all associated error types are discarded.
+H Error Type Taxonomy
+To enable fine-grained failure analysis and facilitate structured
+heatmap visualizations, we define a compact yet expressive taxon-
+omy of error types. Each INCORRECT judgment is annotated with
+primary error types. The taxonomy spans four major dimensions:
+H.1 Retrieval-Related Errors
+These errors arise from failures in the retrieval stage of retrieval-
+augmented generation, where the necessary evidence is missing,
+misleading, or improperly ranked before generation.
+• Missing Evidence: The key passage, table, or numerical
+evidence required to answer the question is never retrieved
+into the candidate pool, and thus does not appear in the final
+context. The model must answer without access to the gold
+evidence.
+
+
+[Page 17]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+• Sorting Failure: The gold evidence is retrieved but assigned
+a much lower rank than many less relevant chunks. It often
+appears near the tail of the top- 𝐾 list, making it hard for
+the model to attend to and prone to being partially or fully
+truncated.
+• Distractor Evidence: The gold evidence is included in the
+top-𝐾 context, but the context is dominated by noisy, par-
+tially relevant, or misleading chunks that are ranked ahead of
+it or occupy most of the context window. The model focuses
+on these distractors and reaches an incorrect conclusion even
+though the gold chunk is technically available.
+H.2 Generation-Related Errors
+These errors stem from the generation behavior of the model itself,
+including factual fabrication or failure to synthesize information.
+• Hallucination: The generated answer introduces informa-
+tion that directly contradicts the gold answer or key points.
+– Numeric or Categorical Hallucination: The generated
+answer introduces fabricated numbers, percentages, rat-
+ings, years, categories, or other hard values that contradict
+or are absent from evidence.
+– Entity Attribute Hallucination: The generated answer
+introduces fabricated attributes, states, policies, or strate-
+gies of a single entity that contradict or are absent from
+evidence.
+– Comparative Stance Hallucination: The generated an-
+swer introduces fabricated comparative statements (A is
+more/less than B) without sufficient evidence.
+– Trend or Trajectory Hallucination: The generated an-
+swer introduces fabricated trends or trajectories over mul-
+tiple periods without sufficient evidence
+• Contradicts Evidence: The model’s answer contains inter-
+nal logical inconsistencies, such as conflicting statements or
+reasoning that contradicts its own earlier claims.
+• Excessive Inference: The model draws overgeneralized or
+speculative conclusions not warranted by facts.
+• Evidence Fusion Failure: The model fails to correctly com-
+bine multiple evidence pieces, e.g., ignoring conflicting val-
+ues or mishandling complementary data.
+H.3 Finance-Specific Numerical & Semantic
+Errors
+These errors reflect domain-specific misunderstandings in financial
+computations, temporal references, or numerical precision.
+• Numerical Precision: Minor but relevant rounding, toler-
+ance, or percentage-point errors.
+• Units and Scales: Misuse of financial units, ratios vs abso-
+lute values, or incorrect currency references.
+• Time Mismatch: The model references an incorrect time
+period, or misidentifies the relevant fiscal year/quarter.
+• Computation Logic: The model uses correct base values
+but applies the wrong formula or arithmetic.
+H.4 Query and Contextual Understanding
+Errors
+These errors arise from failures in understanding the question or
+in handling the long/complex retrieved context.
+• Query Misunderstanding: The model misinterprets the
+user’s intent, misidentifies the target entity, or answers the
+wrong financial metric.
+– Intent Misunderstanding: The generated answer mis-
+understands the true intent of the question.
+– Entity Misidentification: The generated answer incor-
+rectly identifies key entities (company names, person names,
+metric names, etc.).
+– Metric Misidentification: The generated answer incor-
+rectly identifies the asked metric or measurement.
+• Context Window Abuse: The model fails to extract or
+prioritize the most relevant parts of a long context, or loses
+critical infomation due to truncation.
+I Supplementary Evaluation Results
+I.1 Full-Label Evaluation under Retrieved
+Context
+I.2 Likert-Scale Evaluation across Five
+Dimensions
+I.3 Error Pattern Analysis across Model
+Families
+We further analyze how different model families exhibit distinct
+failure patterns by grouping models into three categories: closed-
+source, open-source finance-tuned, and open-source general models.
+For each category, we report the distribution of Level 1 and Level 2
+error types based on our taxonomy. Level 1 captures high-level rea-
+soning failures—including hallucination (B1), contradictions (B2),
+excessive inference (B3), evidence fusion failures (B4), numerical
+issues (C1–C2), temporal mismatches (C3), computation-logic er-
+rors (C4), and comprehension failures (D1–D2). Level 2 refines the
+two most prevalent categories, B1 and D1, into eight subtypes:
+numeric or categorical hallucination (B1-1), entity-attribute hal-
+lucination (B1-2), comparative-stance hallucination (B1-3), trend
+or trajectory hallucination (B1-4), intent misunderstanding (D1-1),
+entity misidentification (D1-2), metric misidentification (D1-3), and
+context-window abuse (D1-4).
+J Illustrative Example Questions
+J.1 Detail & Reasoning QA
+Detail & Reasoning questions focus on precise information extrac-
+tion and localized reasoning within a single document segment.
+As shown in Figure 12, the question requires identifying specific
+factual statements and reasoning over closely related sentences,
+without relying on cross-document or cross-temporal aggregation.
+J.2 Enterprise Comparison QA
+Enterprise Comparison questions require models to compare fi-
+nancial or operational attributes across multiple companies. As
+
+
+[Page 18]
+Under Review, February, 2026 Yidong Jiang et al.
+Table 15: Each model with the top-5 retrieved chunks is evaluated on three task types (DR-QA, EC-QA, LT-QA). Abbreviations
+consistent with Table 3.
+Model Retrieve DR-QA EC-QA LT-QA
+Corr Part InCorr Fail Acc. (%) Corr Part InCorr Fail Acc. (%) Corr Part InCorr Fail Acc. (%)
+GPT-5
+BM25+R 108 152 113 127 21.60 30 92 368 10 6.00 62 115 302 21 12.40
+Hybrid+R 41 52 51 356 8.20 47 174 272 7 9.40 94 187 211 818.80
+VF 125 164 210 1 25.00 45 190 261 4 9.00 58 183 253 6 11.60
+VF+R 131 171 198 026.20 54 198 247 110.80 70 179 247 4 14.00
+VM+R 111 187 199 3 22.20 42 194 261 3 8.40 57 189 247 7 11.40
+DeepSeek-V3
+BM25+R 16 50 338 96 3.20 0 4 8 488 0.00 2 7 205 286 0.40
+Hybrid+R 7 35 439 19 1.40 0 3 192 305 0.00 0 4 223 273 0.00
+VF 38 128 301 33 7.60 5 70 205 220 1.00 6 83 151 260 1.20
+VF+R 41 142 271 46 8.20 4 71 177 248 0.80 4 88 133 275 0.80
+VM+R 41 148 286 25 8.20 3 73 184 240 0.60 8 95 136 261 1.60
+Qwen3-235B
+BM25+R 72 72 102 254 14.40 2 23 425 50 0.40 16 53 93 338 3.20
+Hybrid+R 55 84 265 96 11.00 8 126 348 18 1.60 26 189 275 10 5.20
+VF 90 121 289 0 18.00 14 122 345 19 2.80 25 148 302 25 5.00
+VF+R 119 136 245 0 23.80 18 137 342 3 3.60 28 167 288 17 5.60
+VM+R 108 141 251 0 21.60 17 154 314 15 3.40 22 186 277 15 4.40
+Fin-R1
+BM25+R 23 222 240 15 4.60 6 113 205 176 1.20 15 172 211 102 3.00
+Hybrid+R 11 162 307 20 2.20 4 116 183 197 0.80 12 174 193 121 2.40
+VF 27 150 316 7 5.40 6 87 297 110 1.20 9 159 248 84 1.80
+VF+R 37 173 277 13 7.40 5 116 252 127 1.00 11 181 224 84 2.20
+VM+R 54 173 262 11 10.80 4 125 261 110 0.80 6 166 252 76 1.20
+Figure 9: Level 1 and Level 2 error distributions for Closed-Source models
+Figure 10: Level 1 and Level 2 error distributions for Open-Source General models
+illustrated in Figure 13, the model must align heterogeneous dis-
+closures from different firms and reason over relative differences
+rather than isolated facts.
+J.3 Longitudinal Tracking QA
+Longitudinal Tracking questions examine a model’s ability to track
+changes in financial conditions, policies, or disclosures over time. As
+
+
+[Page 19]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+Figure 11: Level 1 and Level 2 error distributions for Open-Source Finance models
+ITEM 9A. CONTROLS AND PROCEDURES
+Evaluation of Disclosure Controls and Procedures
+Under the supervision and with the participation of our management, including our chief executive officer and 
+principal financial officer, we conducted an evaluation of our disclosure controls and procedures,as such term is 
+defined under Rule 13a-15(e) and Rule 15d-15(e) promulgated under the Securities Exchange Act of 1934, as 
+amended, as of December 31, 2017. Based on this evaluation, our chief executive officer and principal financial 
+officer have concluded such controls and procedures to be ineffective as of December 31, 2020, to ensure that 
+information required to be disclosed by the issuer in the reports that it files or submits under the Act is recorded, 
+processed, summarized and reported, within the time periods specified in the Commission’s rules and forms and to 
+ensure that information required to be disclosed by an issuer in the reports that it files or submits under the Act is 
+accumulated and communicated to the issuer’s management, including its principal executive and principal financial 
+officers, or persons performing similar functions ...
+question
+What was the assessment of Hi-Great Group Holding Co's internal control over financial 
+reporting as of December 31, 2020, and what material weakness was identified in its 2022 10-
+K filing?
+answer
+According to the 2022 10-K filing, Hi-Great Group Holding Co's management assessed the 
+effectiveness of its internal control over financial reporting as of December 31, 2020, and 
+concluded that it is not effective due to a material weakness. The identified material weakness was 
+related to resource constraints...
+K1: The assessment concluded that internal control over financial reporting was not effective as of 
+December 31, 2020.
+K2: The ineffectiveness was due to the existence of a material weakness.
+K3: The material weakness was related to resource constraints and a lack of segregation of duties.
+keypoints
+Hi-Great Group Holding Co 2022-02-24 10-K
+Figure 12: Example for Detail & Reasoning QA (DR) question
+shown in Figure 14, answering such questions requires integrating
+information across multiple reporting periods and reasoning about
+temporal trends or evolutions.
+K Experiment Details
+K.1 LLM Details
+We evaluate a diverse set of large language models (LLMs) covering
+different training paradigms, parameter scales, and domain spe-
+cializations, as summarized in Table 22. Open-source models are
+evaluated either via local inference on NVIDIA A100/A6000 GPUs
+(≤ 70B) or through APIs for larger models like Qwen3-235B, and
+all models use a unified decoding temperature of 0.7.
+K.2 Retrieval Methods
+To simulate realistic document access in financial analysis scenarios,
+we evaluate models under a retrieval-augmented generation (RAG)
+setting. We adopt three representative retrieval strategies that are
+widely used in both academic research and industrial systems.
+Lexical Retrieval (BM25).BM25 is used as a sparse retrieval
+baseline to capture exact term matching and keyword-based rele-
+vance, which remains a strong and interpretable method for finan-
+cial documents containing formal terminology.
+Dense Vector Retrieval.We employ dense semantic retrieval
+using two embedding models:all-MiniLM-L6-v2, a general-purpose
+sentence embedding model, andfinance-embeddings-investopedia,
+a finance-oriented embedding model trained on domain-specific
+corpora. This setup allows us to examine the effect of domain-
+adapted representations in dense retrieval.
+
+
+[Page 20]
+Under Review, February, 2026 Yidong Jiang et al.
+question
+For the year 2020, how did EAGLE MATERIALS INC and VERACYTE, INC. each describe 
+the specific financial and operational impact of the COVID-19 pandemic within their ITEM1A 
+risk disclosures, and what were the key differences in the nature of the risks identified?
+answer
+In their 2020 ITEM1A disclosures, both companies described the COVID-19 pandemic as a material 
+risk, but the specific financial and operational impacts identified differed in nature and immediacy. 
+EAGLE MATERIALS INC described the pandemic as having the potential for a material adverse 
+effect on its business, operations ... In contrast, VERACYTE, INC. stated the pandemic had already 
+caused a material adverse effect on its business, operations, and financial condition ...
+K1: The answer must specify EAGLE MATERIALS INC's described impact as a potential, indirect, 
+macroeconomic risk tied to reduced construction activity and demand for its building materials.
+K2: The answer must specify VERACYTE, INC.'s described impact as an actual, direct, operational 
+risk from deferred procedures reducing test volumes and revenue.
+keypoints
+VERACYTE  INC 2021-02-22 10-K
+ITEM 1A.    RISK FACTORS
+Summary of Risk Factors
+Investing in our common stock involves a high degree 
+of risk. You should carefully review the “Risk Factors” 
+section before you invest in shares of our common 
+stock. Listed below are some of the more significant 
+risks relating to an investment in our common stock ...
+• The outbreak of COVID-19 has had an adverse effect 
+on our business, results of operations and financial 
+condition. • Our financial results currently depend 
+mainly on sales of our Afirma tests ...
+ITEM 1A. Risk Factors
+The foregoing discussion of our business and 
+operations should be read together with the risk factors 
+set forth below. They describe various risks and 
+uncertainties to which we are or may become subject, 
+many of which are outside of our control. These risks 
+and uncertainties, together with other factors described 
+elsewhere in this Report, have affected, or may in the 
+future affect, our business ...
+COVID-19 RISK FACTORS
+The COVID-19 pandemic has caused severe 
+disruptions in the U.S. and global economies. 
+Although infection rates have recently improved in 
+many areas of the United States, the extent of the ...
+EAGLE MATERIALS INC 2021-05-21 10-K
+Figure 13: Example for Enterprise Comparison (EC) question
+Hybrid Retrieval.We further evaluate a hybrid retrieval strat-
+egy implemented via Elasticsearch, which combines BM25 with
+dense vector similarity. In this hybrid setting, the dense embeddings
+are generated using all-MiniLM-L6-v2, and the final retrieval scores
+are computed by integrating lexical and semantic signals.
+L Prompts for QA Generation
+L.1 Detail & Reasoning QA
+The prompts used in the QA generation system are designed with
+the following principles:
+(1) Dynamic Variable Insertion: Prompts incorporate context-
+specific variables such as report year, and document type to
+ensure each generated question is tailored.
+(2) Structured Output Control: Prompts enforce strict format-
+ting rules (e.g., "Q1:", "A1:") to facilitate automated parsing
+and validation.
+(3) Content Grounding: Each prompt includes explicit instruc-
+tions to base responses solely on provided document content,
+avoiding external knowledge.
+(4) Diversity Enhancement: Randomization elements are added
+to prompts to encourage varied question types and analytical
+angles, reducing repetition.
+The QA generation process follows a two-stage approach: ques-
+tion generation followed by answer generation with validation.
+L.1.1 Stage 1: Question Generation Prompt.This prompt is used to
+generate analytical questions based on a chunk, which includes:
+•Contextual variables (company, year, filing type)
+•Instructions for generating a fixed number of questions
+• Requirements for question uniqueness and document rele-
+vance
+•Formatting rules for easy parsing
+Prompt Template: Question Generation
+You are an expert financial analyst specializing in SEC
+filings analysis.
+TASK: Generate exactly {target_qa_count} analytical ques-
+tions based on the provided SEC filing document.
+You are analyzing a {filing_type} filing for {company_name}
+for the year {year}. This is {company_name}’s {year} annual
+financial report. Generate exactly {target_qa_count}
+sophisticated analytical questions based ONLY on the
+content provided.
+{filing_guidance}
+{text_analysis_guidance}
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY {target_qa_count} questions - Each
+question MUST explicitly mention {company_name} and
+{year}
+
+
+[Page 21]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+question How did AGILYSYS INC's core Point-of-Sale (POS) and Property Management System (PMS) 
+product offerings evolve from the descriptions in 2019 to those in 2020?
+answer
+AGILYSYS INC's core POS and PMS product offerings showed evolution and branding refinement 
+from the 2019 description to the 2020 description, indicating ongoing product development. For 
+POS solutions in 2019, the key offerings listed were InfoGenesis POS (cloud or on-premise), 
+InfoGenesis Flex (mobile), InfoGenesis KDS (kitchen), rGuest Buy Kiosk (self-service), and rGuest 
+Buy OnDemand (mobile ordering). By 2020, the POS suite was expanded and rebranded in some 
+instances: it included InfoGenesis POS, IG Flex (mobile POS), IG KDS (kitchen display) ...
+K1: The rebranding and refinement of product names (e.g., rGuest Stay to Stay PMS) and the 
+introduction of new modules
+K2: The shift toward cloud-based and SaaS solutions as evidenced by the descriptions in 2020 
+compared to 2019.
+keypoints
+AGILYSYS INC 2020-05-22 10-K AGILYSYS INC  2021-05-21 10-K
+Part I Item 1. Business.
+Overview
+Agilysys has been a leader in hospitality software for 
+more than 40 years, delivering innovative guest-centric 
+cloud-native and on-premises technology solutions...
+InfoGenesis POS is available as a cloud-based or on-
+premise solution ... Agilysys IG OnDemand allows 
+guests to place and pay for orders using their own device 
+- phone, tablet, laptop – for pick-up or delivery orders, 
+as well as for a tableside order and pay experience ... 
+Agilysys IG Quick Pay allows guests to use their own 
+mobile device, scan a QR code on the InfoGenesis check, 
+review a digital copy of the check, add a tip & initiate 
+payment, maintaining a fully touchless guest payment ...
+Part I Item 1. Business.
+Overview
+Agilysys has been a leader in hospitality software for 
+more than 40 years, delivering innovative guest-centric 
+cloud-native and on-premises technology solutions...
+InfoGenesis POS is available as a cloud-based or on-
+premise solution ...  Guest Buy OnDemand provides a 
+visual, interactive food and beverage ordering 
+experience to any mobile device - phone, tablet, laptop 
+- with a browser-based self-service experience. Using a 
+simple, intuitive interface, guests can easily order and 
+reorder from anywhere across the property, driving 
+order velocity and volume. Guest Buy OnDemand 
+allows our customers to immediately offer an online ...
+Figure 14: Example for Longitudinal Tracking (LT) question
+- Questions should be analytical and require detailed
+answers
+- Focus on financial analysis, business operations, risk
+factors, and strategic implications
+- Questions should be answerable based on the provided
+document
+- Each question must be UNIQUE and reflect specific
+content from the document
+MANDATORY FORMAT REQUIREMENTS:
+- Start each question with "Q" followed by the number and
+a colon (e.g., Q1:, Q2:, Q3:)
+- NO other formats are acceptable (no Q1., Q1), Q1-, etc.)
+- Each question MUST contain the exact text {com-
+pany_name} and {year}
+- Do not use any markdown formatting, asterisks, or
+special characters around Q labels
+EXAMPLE FORMAT (follow this exactly):
+Q1: [Question - MUST include {company_name} and {year}
+and be specific to the document content]
+Q2: [Question - MUST include {company_name} and {year}
+and be specific to the document content]
+Q3: [Question - MUST include {company_name} and {year}
+and be specific to the document content]
+YOU MUST Return in the following format:
+Q1: [Question - MUST include {company_name} and
+{year}]
+Q2: [Question - MUST include {company_name} and
+{year}]
+Q3: [Question - MUST include {company_name} and {year}]
+Document Content: {text}
+Filing-Specific Guidance
+The following filing-specific instructions are dynamically in-
+serted into the {text_analysis_guidance} field of the Question Gen-
+eration prompt based on document type:
+10-K Filing Guidance
+• Generate analytical questions about financial ratios,
+performance metrics, and year-over-year compar-
+isons
+• Create questions analyzing business performance
+trends, revenue growth, and operational efficiency
+
+
+[Page 22]
+Under Review, February, 2026 Yidong Jiang et al.
+Table 16: Likert-Scale Evaluation under Gold context Settings
+across Five Dimensions on DR-QA. Abbreviation key: Info-
+Cov = Information Coverage, Reason = Reasoning Chain, Fact
+= Factual Consistency, Clarity = Clarity of Expression, Depth
+= Analytical Depth. Bold indicates the highest score across
+all models; Underlined indicates the second-highest overall.
+Colored values are the highest score within each category.
+Model InfoCov Reason FactCon Clarity Depth
+Closed-Source
+GPT-4.1 3.99 4.294.45 4.833.85
+GPT-4.1-websearch 3.97 4.26 4.44 4.82 3.81
+GPT-5-websearch 3.90 4.07 4.42 4.75 3.71
+Open-Source General
+MIMO-V2-Flash 3.36 3.53 4.18 4.51 3.14
+DeepSeek-V3 3.30 3.44 4.37 4.59 3.04
+DeepSeek-V3.2 3.36 3.58 4.37 4.62 3.10
+DeepSeek-R1 3.33 3.49 4.32 4.53 3.04
+GPT-OSS-20B 4.03 4.20 4.28 4.82 3.93
+Llama-3.3-70B-Instruct 3.82 3.74 4.18 4.03 3.46
+Qwen3-8B 2.43 2.30 2.87 2.64 2.10
+Qwen3-14B 3.13 3.11 3.56 3.44 2.88
+Qwen3-30B 3.63 3.78 4.13 4.59 3.47
+Qwen3-235B 4.00 4.21 4.39 4.82 3.92
+Open-Source Finance
+Fin-R14.35 4.484.33 4.764.34
+Fino1-14B 3.52 3.73 3.91 4.09 3.47
+FinanceConnect-13B 2.46 2.57 3.25 3.80 2.30
+TouchstoneGPT-7B-Instruct 1.61 1.52 2.40 2.05 1.47
+10-Q Filing Guidance
+• Generate questions about quarterly financial per-
+formance, seasonal trends, and period-over-period
+changes
+• Create questions analyzing cash flow patterns,
+working capital management, and liquidity position
+8-K Filing Guidance
+• Generate questions about material events and their
+quantitative business impacts
+• Create questions evaluating strategic importance
+and long-term implications of disclosed events
+6-K Filing Guidance
+• Generate questions about foreign operations, cur-
+rency impacts, and international reporting require-
+ments
+• Create questions about regulatory compliance mat-
+ters and cross-border considerations
+Table 17: Likert-Scale Evaluation under Gold context Settings
+across Five Dimensions on EC-QA. Abbreviation key: InfoCov
+= Information Coverage, Reason = Reasoning Chain, Fact =
+Factual Consistency, Clarity = Clarity of Expression, Depth
+= Analytical Depth. Bold indicates the highest score across
+all models; Underlined indicates the second-highest overall.
+Colored values are the highest score within each category.
+Model InfoCov Reason FactCon Clarity Depth
+Closed-Source
+GPT-4.1 3.61 3.70 3.80 4.23 3.51
+GPT-4.1-websearch 3.57 3.68 3.79 4.22 3.49
+GPT-5-websearch3.99 4.09 4.04 4.53 3.99
+Open-Source General
+MIMO-V2-Flash 2.91 3.05 3.43 3.88 2.87
+DeepSeek-V3 1.66 1.62 2.19 2.10 1.60
+DeepSeek-V3.2 2.69 2.77 3.49 3.66 2.61
+DeepSeek-R1 2.36 2.42 2.98 3.12 2.27
+GPT-OSS-20B 1.40 1.42 2.63 2.53 1.42
+Llama-3.3-70B-Instruct 2.16 2.10 2.92 3.05 2.04
+Qwen3-8B 1.20 1.18 2.07 1.51 1.14
+Qwen3-14B 1.43 1.42 2.30 2.08 1.40
+Qwen3-30B 2.67 2.80 3.02 3.70 2.65
+Qwen3-235B 2.67 2.59 3.10 3.33 2.53
+Open-Source Finance
+Fin-R1 1.85 1.95 2.51 2.64 1.87
+Fino1-14B 1.72 1.71 2.73 2.34 1.68
+FinanceConnect-13B 1.13 1.13 2.47 1.88 1.12
+TouchstoneGPT-7B-Instruct 1.47 1.46 2.20 1.54 1.45
+SC 13G Filing Guidance
+• Generate questions about beneficial ownership pat-
+terns, stake sizes, and ownership changes
+• Create questions analyzing investment strategies,
+positions, and portfolio implications
+Content Analysis GuidanceTo ensure generated questions are
+specific and grounded in the actual document content rather than
+generic templates, the system includes detailed content analysis
+guidance. These prompts direct the LLM to focus on concrete details,
+unique document features, and diverse analytical perspectives.
+Part 1: Content-Based Question Generation
+• Analyze the specific content provided in the docu-
+ment below
+• Generate questions that are UNIQUE to this specific
+document section
+• Focus on specific details, numbers, events, or unique
+aspects mentioned in the text
+• Avoid generic financial analysis questions unless
+specifically relevant to this content
+
+
+[Page 23]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+Table 18: Likert-Scale Evaluation under Gold context Settings
+across Five Dimensions on LT-QA. Abbreviation key: InfoCov
+= Information Coverage, Reason = Reasoning Chain, Fact =
+Factual Consistency, Clarity = Clarity of Expression, Depth
+= Analytical Depth. Bold indicates the highest score across
+all models; Underlined indicates the second-highest overall.
+Colored values are the highest score within each category.
+Model InfoCov Reason FactCon Clarity Depth
+Closed-Source
+GPT-4.1 3.74 3.804.18 4.40 3.52
+GPT-4.1-websearch 3.68 3.73 4.12 4.29 3.41
+GPT-5-websearch3.91 3.97 4.154.45 3.68
+Open-Source General
+MIMO-V2-Flash 3.11 3.24 3.69 4.09 2.98
+DeepSeek-V3 2.22 2.12 3.06 2.84 2.08
+DeepSeek-V3.2 2.95 3.04 3.79 3.79 2.74
+DeepSeek-R1 2.80 2.83 3.62 3.53 2.58
+GPT-OSS-20B 1.49 1.52 1.66 3.21 1.52
+Llama-3.3-70B-Instruct 2.67 2.47 3.48 3.14 2.41
+Qwen3-8B 1.74 1.70 3.00 2.18 1.58
+Qwen3-14B 1.85 1.75 2.80 2.46 1.71
+Qwen3-30B 2.90 2.73 3.48 3.72 2.69
+Qwen3-235B 2.95 2.72 3.41 3.47 2.67
+Open-Source Finance
+Fin-R1 2.49 2.67 2.83 3.42 2.53
+Fino1-14B 2.34 2.17 3.23 2.69 2.14
+FinanceConnect-13B 1.31 1.28 2.65 2.15 1.27
+TouchstoneGPT-7B-Instruct 1.05 1.05 1.13 1.10 1.04
+• Each question should reflect something SPECIFIC
+found in the provided text
+• Questions should demonstrate deep understanding
+of the document’s unique content
+Part 2: Content Analysis Requirements
+• Look for specific financial figures, percentages, or
+ratios mentioned
+• Identify unique business operations, strategies, or
+events described
+• Find specific risk factors, challenges, or opportuni-
+ties discussed
+• Notice any industry-specific details or regulatory
+mentions
+• Extract specific time periods, locations, or business
+segments mentioned
+• Focus on concrete data points rather than general
+concepts
+Table 19: Likert-Scale Evaluation under RAG Settings across
+Five Dimensions on DR-QA. Abbreviation key: InfoCov =
+Information Coverage, Reason = Reasoning Chain, Fact =
+Factual Consistency, Clarity = Clarity of Expression, Depth
+= Analytical Depth. Bold indicates the highest score across
+all models; Underlined indicates the second-highest overall.
+Colored values are the highest score within each category.
+Model Retrieve InfoCov Reason FactCons Clarity AnaDepth
+BM25+R 2.07 2.09 2.16 2.53 2.06
+Hybrid+R 2.98 3.08 3.213.97 3.03
+VF 2.93 3.03 3.18 3.94 2.97
+VF+R 3.02 3.10 3.293.973.05
+GPT-4.1
+VM+R 2.93 3.02 3.14 3.91 2.98
+BM25+R 1.01 1.01 1.15 1.04 1.01
+Hybrid+R 1.09 1.09 1.40 1.35 1.09
+VF 1.47 1.50 1.75 2.16 1.48
+VF+R 1.48 1.48 1.75 2.08 1.46
+Deepseek-V3
+VM+R 1.41 1.46 1.80 2.13 1.44
+BM25+R 1.16 1.20 1.20 1.41 1.19
+Hybrid+R 2.05 2.26 2.16 3.29 2.25
+VF 2.03 2.20 2.17 3.23 2.19
+VF+R 2.21 2.37 2.47 3.44 2.35
+Qwen3-235B
+VM+R 2.09 2.30 2.51 3.40 2.26
+BM25+R 1.19 1.17 2.49 1.81 1.16
+Hybrid+R 1.21 1.17 2.54 1.82 1.16
+VF 1.39 1.40 2.16 2.17 1.38
+VF+R 1.38 1.38 2.57 2.24 1.36
+Fin-R1
+VM+R 1.33 1.35 2.32 2.13 1.33
+Part 3: Question Diversity Requirements
+• Each question should explore a DIFFERENT aspect
+of the document
+•Avoid repetitive question patterns
+• Mix analytical, quantitative, and qualitative ques-
+tion types
+• Include questions about specific business opera-
+tions, not just financial metrics
+• Ask about specific events, decisions, or strategies
+mentioned in the text
+Randomization Instructions
+To prevent repetitive question patterns and enhance the diversity
+of generated content, the system incorporates a randomization
+mechanism. This approach injects variability into each generation
+cycle by dynamically selecting different analytical angles and focus
+areas from predefined pools. The randomization occurs at two
+levels: the analytical perspective and the content emphasis.
+Randomization Instruction Template
+•Focus on {selected_angle} approach
+•Emphasize {selected_focus} in your questions
+
+
+[Page 24]
+Under Review, February, 2026 Yidong Jiang et al.
+Table 20: Likert-Scale Evaluation under RAG Settings across
+Five Dimensions on EC-QA. Abbreviation key: InfoCov =
+Information Coverage, Reason = Reasoning Chain, Fact =
+Factual Consistency, Clarity = Clarity of Expression, Depth
+= Analytical Depth. Bold indicates the highest score across
+all models; Underlined indicates the second-highest overall.
+Colored values are the highest score within each category.
+Model Retrieve InfoCov Reason FactCons Clarity AnaDepth
+BM25+R 2.07 2.09 2.16 2.53 2.06
+Hybrid+R 2.98 3.08 3.213.97 3.03
+VF 2.93 3.033.18 3.942.97
+VF+R 3.02 3.10 3.293.973.05
+GPT-4.1
+VM+R 2.93 3.02 3.14 3.91 2.98
+BM25+R 1.01 1.01 1.15 1.04 1.01
+Hybrid+R 1.09 1.09 1.40 1.35 1.09
+VF 1.47 1.50 1.75 2.16 1.48
+VF+R 1.48 1.48 1.75 2.08 1.46
+Deepseek-V3
+VM+R 1.41 1.46 1.80 2.13 1.44
+BM25+R 1.16 1.20 1.20 1.41 1.19
+Hybrid+R 2.05 2.26 2.16 3.29 2.25
+VF 2.03 2.20 2.17 3.23 2.19
+VF+R 2.21 2.37 2.47 3.44 2.35
+Qwen3-235B
+VM+R 2.09 2.30 2.513.402.26
+BM25+R 1.19 1.17 2.49 1.81 1.16
+Hybrid+R 1.21 1.17 2.54 1.82 1.16
+VF 1.39 1.40 2.16 2.17 1.38
+VF+R 1.38 1.38 2.57 2.24 1.36
+Fin-R1
+VM+R 1.33 1.35 2.32 2.13 1.33
+• Ensure each question explores different aspects of
+the document
+• Avoid repeating similar question structures from
+previous generations
+Analytical Angle Pool
+•quantitative financial analysis
+•qualitative business strategy analysis
+•operational efficiency assessment
+•risk and opportunity evaluation
+•competitive positioning analysis
+•regulatory compliance review
+•market performance evaluation
+•strategic decision impact analysis
+Focus Area Pool
+•specific financial metrics and ratios
+•unique business operations and processes
+•distinctive market strategies and initiatives
+•particular risk factors and mitigation strategies
+•specific regulatory challenges and responses
+Table 21: Likert-Scale Evaluation under RAG Settings across
+Five Dimensions on LT-QA. Abbreviation key: InfoCov =
+Information Coverage, Reason = Reasoning Chain, Fact =
+Factual Consistency, Clarity = Clarity of Expression, Depth
+= Analytical Depth. Bold indicates the highest score across
+all models; Underlined indicates the second-highest overall.
+Colored values are the highest score within each category.
+Model Retrieve InfoCov Reason FactCons Clarity AnaDepth
+BM25+R 2.39 2.41 2.63 2.85 2.34
+Hybrid+R 3.16 3.17 3.57 3.98 3.07
+VF 2.83 2.96 3.28 3.82 2.86
+VF+R 2.82 2.96 3.26 3.82 2.83
+GPT-4.1
+VM+R 2.72 2.89 3.24 3.77 2.79
+BM25+R 1.06 1.05 1.12 1.13 1.05
+Hybrid+R 1.09 1.11 1.46 1.41 1.08
+VF 1.40 1.40 1.89 2.05 1.39
+VF+R 1.41 1.43 1.88 2.04 1.41
+Deepseek-V3
+VM+R 1.45 1.46 1.93 2.06 1.43
+BM25+R 1.51 1.53 1.63 1.80 1.52
+Hybrid+R 2.35 2.44 2.73 3.40 2.40
+VF 2.06 2.19 2.45 3.22 2.13
+VF+R 2.20 2.34 2.74 3.41 2.27
+Qwen3-235B
+VM+R 2.23 2.45 2.78 3.48 2.33
+BM25+R 1.41 1.34 2.73 2.03 1.31
+Hybrid+R 1.39 1.30 2.66 1.98 1.29
+VF 1.45 1.44 2.41 2.24 1.41
+VF+R 1.38 1.36 2.74 2.19 1.33
+Fin-R1
+VM+R 1.43 1.42 2.51 2.16 1.41
+Table 22: Model Type and Scale Comparison
+Model Name Type Scale
+GPT-5-websearch Closed-Source N/A
+GPT-4.1 Closed-Source N/A
+GPT-4.1-websearch Closed-Source N/A
+MIMO-V2-Fash Open-Source General 309B
+DeepSeek-V3 Open-Source General 685B
+DeepSeek-V3.2 Open-Source General 685B
+DeepSeek-R1 Open-Source General 685B
+GPT-OSS-20B Open-Source General 20B
+Llama-3.3-70B-Instruct Open-Source General 70B
+Qwen3-8B Open-Source General 8B
+Qwen3-14B Open-Source General 14B
+Qwen3-30B-A3B-
+Instruct-2507
+Open-Source General 30B
+Qwen3-235B Open-Source General 235B
+Fin-R1 Open-Source Finance 7B
+Fino1-14B Open-Source Finance 14B
+FinanceConnect-13B Open-Source Finance 13B
+TouchstoneGPT-7B-
+Instruct
+Open-Source Finance 7B
+•unique competitive advantages and disadvantages
+
+
+[Page 25]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+•particular operational challenges and solutions
+•specific investment decisions and their rationale
+L.1.2 Stage 2: Answer Generation Prompt.This prompt generates
+comprehensive answers for individual questions while requesting
+log probability data for validation.
+QA Generation Prompt Template
+You are an expert financial analyst specializing in SEC
+filings analysis.
+TASK: Answer the following question based on the pro-
+vided SEC filing document.
+You are analyzing a {filing_type} filing for {company_name}
+for the year {year}.
+QUESTION: {question}
+CRITICAL REQUIREMENTS: - Provide a comprehensive
+answer based ONLY on the information provided in the
+document - Include specific data, calculations, and anal-
+ysis where applicable - Show step-by-step work for any
+calculations - Be accurate and professional - Use ONLY the
+information provided in the document
+Answer:
+L.2 Enterprise Comparison QA
+L.2.1 Stage 1: Summarization Generation Prompt.This prompt is
+used to generate comprehensive summaries of individual SEC filing
+sections. It includes:
+• Contextual variables including company name, section head-
+ing, focus area
+• Requirements for detailed, integrated analysis across chunks
+• Instructions for structured data extraction and organization
+•Specific output format with JSON schema for parsing
+• Constraints ensuring factual accuracy and data completeness
+Item Summary Generation Prompt Template
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+You are a senior financial analyst specializing in SEC filing
+analysis. Your task is to analyze the following document
+chunks from {company_name}’s {section_heading} section
+and provide a comprehensive, structured, and detailed sum-
+mary.
+Company:{company_name}
+Section:{section_heading}
+Focus Area:{self.item_summary_guidance.get(item, "Gen-
+eral analysis of the section content")}
+Analysis Requirements:1.Comprehensive Summary:
+Provide a detailed, integrated summary that synthesizes
+information from all chunks
+2.Key Points Extraction: Extract 5-10 most important
+points with specific details
+3.Data Extraction: Identify and extract specific numerical
+data, metrics, percentages, and quantitative information
+4.Structured Organization: Organize information logi-
+cally by themes or categories
+5.Specificity: Use exact figures, dates, and facts from the
+source material
+6.Context Awareness: Note any important context,
+trends, or changes mentioned
+INTEGRATED DOCUMENT CONTENT TO ANA-
+LYZE:{context_text}
+Required Output Format (JSON):
+{
+"summary": "A comprehensive, detailed summary
+↩→integrating all chunks. Must be
+↩→specific, factual, and include
+↩→quantitative data where available.
+↩→Length: 300-500 words.",
+"key_points": [
+"Key point 1 with specific details",
+"Key point 2 with numbers/dates/facts",
+"... (5-10 key points)"
+],
+"quantitative_data": {
+"metrics": ["metric 1", "metric 2", "..."],
+"numbers": ["specific number with context"],
+"percentages": ["percentage with context"],
+"dates": ["important date with context"]
+},
+"focus_area": "{focus_area}",
+"themes": ["theme 1", "theme 2", "..."],
+"strengths": ["identified strength 1", "..."],
+"risks": ["identified risk 1", "..."],
+"strategic_points": ["strategic point 1", "..."]
+}
+IMPORTANT:- Use ONLY information from the provided
+chunks above
+- Do NOT fabricate, assume, or infer data not explicitly
+stated
+- Extract ALL quantitative information (numbers, percent-
+ages, dates, metrics)
+- Be specific and detailed - avoid vague or generic state-
+ments
+- The summary should be comprehensive enough to enable
+detailed comparison analysis later
+Return ONLY the JSON object, no additional text or expla-
+nations.
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Item-Specific Summary GuidanceThis guidance maps each
+SEC filing item to its specific analytical focus for targeted summa-
+rization:
+
+
+[Page 26]
+Under Review, February, 2026 Yidong Jiang et al.
+Item-Specific Summary Guidance
+• Item 1 - Business:Focus on understanding the
+company’s core business model, operations, and
+market positioning
+• Item 1A - Risk Factors:Focus on identifying key
+risks, challenges, and potential threats disclosed by
+the company
+• Item 8 - Financial Statements:Focus on analyz-
+ing financial performance, trends, and key metrics
+• Item 7 - MD&A:Focus on extracting management’s
+perspective on financial condition and operational
+results
+• Item 3 - Legal Proceedings:Focus on assessing
+legal, regulatory, and compliance matters
+• Item 10 - Governance:Focus on analyzing corpo-
+rate governance structure and executive leadership
+Each focus area guides the summarization process to ex-
+tract relevant information for subsequent comparative
+analysis.
+L.2.2 Stage 2: QA Generation Prompt.This prompt is used to gener-
+ate enterprise comparison QAs based on summarizations generated
+in stage 1. It includes:
+• Task Definition: Clear instruction to generate comparative
+Q&A pairs
+• Focus Constraints: Section-based limitations and question
+type guidance
+• Information Availability Requirements: Critical constraint
+ensuring questions are only generated when both companies
+have relevant data
+• Quality Standards: Detailed requirements for both questions
+and answers
+•Output Format: JSON structure with"qa_pairs"array
+QA Generation Prompt Template
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+You are a financial analyst expert at generating insightful
+comparative questions and comprehensive answers based
+on company annual reports. You always output valid
+JSON objects.
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+Based on the following context information about {com-
+pany1} and {company2} for the year {year}, generate
+{num_pairs} complete question-answer pairs for compara-
+tive analysis.
+FOCUS AREA:{sections_str}
+{question_type_instruction}
+FOCUS GUIDANCE:{focus_guidance}
+CONTEXT INFORMATION:{context_text}
+CRITICAL REQUIREMENT - INFORMATION A V AIL-
+ABILITY:
+- You MUST ONLY generate questions about topics where
+BOTH {company1} AND {company2} have relevant infor-
+mation in the context - Before generating each question,
+verify that the context contains comparable information for
+BOTH companies - DO NOT generate questions that would
+require information from only one company or where one
+company’s information is missing - If information is only
+available for one company, DO NOT ask about that topic
+REQUIREMENTS FOR EACH QUESTION:
+1. MUST explicitly mention both company names:
+{company1} and {company2}
+2. MUST explicitly mention the year: {year}
+3. MUST focus on comparative analysis between the two
+companies
+4. MUST be specific and directly related to the provided
+context information
+5. MUST strictly follow the QUESTION TYPE instruction
+above𝑠𝑖𝑛𝑔𝑙𝑒𝑖𝑡𝑒𝑚𝑑𝑒𝑝𝑡ℎ𝑣𝑠.𝑚𝑢𝑙𝑡𝑖−𝑖𝑡𝑒𝑚𝑖𝑛𝑡𝑒𝑔𝑟𝑎𝑡𝑖𝑜𝑛
+6. MUST align with the focus guidance provided above
+7. MUST be suitable for financial or business analysis
+8. MUST be written in clear, professional English
+9. MUST address different aspects to ensure variety across
+the {num_pairs} questions
+10. For multi-item combinations: Each question MUST ref-
+erence multiple sections and show their interrelationship
+11. CRITICAL: MUST only ask about topics where BOTH
+companies have information - verify this before generating
+the question
+REQUIREMENTS FOR EACH ANSWER:
+1. MUST be comprehensive and detailed
+2. MUST be based on the provided context information
+3. MUST compare aspects between {company1} and
+{company2}
+4. MUST be written in clear, professional English
+5. MUST provide specific insights and comparisons
+6. For multi-item combinations: Answers MUST integrate
+information from multiple sections
+7. CRITICAL: MUST provide information for BOTH
+companies - DO NOT use phrases like "not mentioned" ,
+"not available" , "not disclosed" , "information is
+not provided" , or similar statements indicating missing
+information
+8. If you cannot provide information for both companies,
+DO NOT generate this question-answer pair - skip it and
+generate a different one
+IMPORTANT:Ensure questions are DISTINCT and cover
+different aspects. For single items, vary the specific de-
+tails being explored. For combinations, vary the types of
+relationships being analyzed.
+Generate exactly {num_pairs} distinct question-answer
+pairs. Format your response as a JSON object with a key
+"qa_pairs" containing an array of objects, where each
+object has"question"and"answer"keys.
+
+
+[Page 27]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Single Item Guidence: Deep Dive Analysis
+This guidance configures the prompt forgranular, in-depth
+analysisof individual sections.
+QUESTION TYPE: SINGLE ITEM DEEP DIVE
+- Generate questions that explore DEPTH within this single
+section - Focus on specific details, examples, methodolo-
+gies, or granular aspects - Avoid broad or general ques-
+tions - instead ask about concrete specifics - Each question
+should drill into particular elements within this section -
+Questions should be narrow, detailed, and section-specific
+Multi-item Guidance: Integrated Cross-sectional Analysis
+This guidance configures the prompt forcross-sectional, in-
+tegrated analysisthat connects multiple report sections. The ap-
+proach emphasizes:
+QUESTION TYPE: MULTI-ITEM INTEGRATED
+ANALYSIS
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+QUESTION TYPE: MULTI-ITEM INTEGRATED
+ANALYSIS
+- Generate questions that EXPLICITLY connect informa-
+tion from MULTIPLE sections, do not only use information
+from only one section
+- Each question MUST require information from at least 2
+different sections to answer
+- Focus on relationships, interactions, and cross-sectional
+insights
+- Ask "how" and "why" questions that show how sections
+relate to each other
+- Avoid questions that could be answered using only one
+section
+- Questions should demonstrate integrated analysis across
+sections
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Single Item Focus
+For each designated section, questions are generated that drill
+deeply into specific details, concrete examples, and nuanced aspects,
+emphasizingdepth over breadth, producing narrow, section-specific
+questions that explore granular differences in disclosure practices,
+methodologies, and prioritization strategies within each standalone
+section.
+Item 1A. Risk Factors - Individual Item Focus
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+INDIVIDUAL ITEM FOCUS - Generate questions that:
+1. Drill deep into specific risk categories (operational, fi-
+nancial, regulatory, market, etc.)
+2. Compare detailed risk descriptions, quantification meth-
+ods, and disclosure specificity
+3. Analyze granular differences in risk prioritization and
+presentation styles
+4. Focus on concrete examples and specific risk factors
+mentioned in each company’s disclosure
+5. Avoid general comparisons - instead ask about specific
+risk types, mitigation strategies, or risk assessment method-
+ologies
+6. Questions should be narrow and detailed, exploring
+depth within this single section
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Item 7. Management’s Discussion and Analysis of
+Financial Condition and Results of Operations - In-
+dividual Item Focus
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+INDIVIDUAL ITEM FOCUS - Generate questions that:
+1. Focus on specific financial metrics, trends, or perfor-
+mance indicators discussed in MD&A
+2. Compare detailed explanations of revenue drivers, cost
+factors, or operational changes
+3. Analyze specific forward-looking statements, guidance,
+or management outlook
+4. Explore granular differences in how each company ex-
+plains specific financial results or operational events
+5. Ask about concrete examples, specific periods, or partic-
+ular business segments discussed
+6. Questions should be narrow and detailed, exploring
+depth within this single section
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Item 3. Legal Proceedings - Individual Item Focus
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+INDIVIDUAL ITEM FOCUS - Generate questions that:
+1. Focus on specific legal cases, claims, or proceedings men-
+tioned by each company
+2. Compare detailed information about case types, poten-
+tial outcomes, or settlement amounts
+3. Analyze specific litigation strategies, legal reserves, or
+disclosure practices
+
+
+[Page 28]
+Under Review, February, 2026 Yidong Jiang et al.
+4. Explore granular differences in how each company cate-
+gorizes or prioritizes legal matters
+5. Ask about concrete examples of specific legal proceed-
+ings or their potential impacts
+6. Questions should be narrow and detailed, exploring
+depth within this single section
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Item 10. Directors, Executive Officers, and Corporate
+Governance - Individual Item Focus
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+INDIVIDUAL ITEM FOCUS - Generate questions that:
+1. Focus on specific governance structures, board commit-
+tees, or executive roles
+2. Compare detailed information about board composition,
+director qualifications, or executive compensation
+3. Analyze specific governance policies, codes of conduct,
+or corporate governance practices
+4. Explore granular differences in how each company struc-
+tures its governance framework
+5. Ask about concrete examples of governance mechanisms
+or specific governance-related disclosures
+6. Questions should be narrow and detailed, exploring
+depth within this single section
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Multi-item Focus
+The multi-item focus configuration enablesintegrated, rela-
+tional analysisacross multiple annual report sections by explicitly
+connecting information from different areas to generates questions
+that can exploreinterrelationships and systemic connections.
+Questions require synthesis of information from at least two distinct
+sections, focusing on how different business components interact,
+influence each other, and collectively shape the company’s overall
+profile and performance.
+Financial + Business Analysis - Core business model
+and financial performance relationship
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+MULTI-ITEM COMBINATION FOCUS - Generate
+questions that:
+1. EXPLICITLY connect information from BOTH Item 1
+(Business) AND Item 8 (Financial Statements)
+2. Ask about HOW business operations (from Item 1) trans-
+late into specific financial metrics (from Item 8)
+3. Compare the relationship between business model char-
+acteristics and financial performance indicators
+4. Analyze how operational strategies or business segments
+correlate with revenue, costs, or profitability
+5. Explore cross-sectional insights: how business descrip-
+tions explain financial results, or how financial data reflects
+business operations
+6. Questions MUST reference both sections and show their
+interrelationship - avoid questions that could be answered
+by only one section
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Business + Risk Analysis - Business strategy and risk
+exposure relationship
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+MULTI-ITEM COMBINATION FOCUS - Generate
+questions that:
+1. EXPLICITLY connect business strategy from Item 1 (Busi-
+ness) with risk factors from Item 1A (Risk Factors)
+2. Ask about HOW specific business operations or strate-
+gies create or mitigate particular risks
+3. Compare how each company’s business model charac-
+teristics relate to their identified risk exposures
+4. Analyze the alignment between strategic initiatives and
+risk management approaches
+5. Explore how business decisions or market positions in-
+fluence risk profiles
+6. Questions MUST reference both sections and show their
+interrelationship - avoid questions that could be answered
+by only one section
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Comprehensive Risk Analysis - Complete risk assess-
+ment framework
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+MULTI-ITEM COMBINATION FOCUS - Generate
+questions that:
+1. EXPLICITLY integrate information from Item 1A (Risk
+Factors), Item 3 (Legal Proceedings), AND Item 7A (Market
+Risk)
+2. Ask about HOW different types of risks (operational,
+legal, market) interact or relate to each other
+3. Compare the comprehensiveness and integration of each
+company’s overall risk management framework
+4. Analyze how different risk categories are prioritized,
+disclosed, or managed together
+5. Explore cross-risk insights: how legal risks relate to op-
+erational risks, or how market risks connect to other risk
+factors
+6. Questions MUST reference multiple risk sections and
+show their interrelationship - avoid questions that could
+be answered by only one section
+
+
+[Page 29]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Governance and Performance - Corporate gover-
+nance structure and financial performance relation-
+ship
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+MULTI-ITEM COMBINATION FOCUS - Generate
+questions that:
+1. EXPLICITLY connect governance structure from Item
+10 (Governance) with financial performance from Item 8
+(Financial Statements)
+2. Ask about HOW governance practices, board compo-
+sition, or executive leadership relate to specific financial
+outcomes
+3. Compare how governance characteristics correlate with
+financial performance metrics
+4. Analyze the relationship between governance mecha-
+nisms and financial results or strategic decisions
+5. Explore how governance quality or structure may influ-
+ence financial performance or operational efficiency
+6. Questions MUST reference both sections and show their
+interrelationship - avoid questions that could be answered
+by only one section
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+L.3 Longitudinal Tracking QA
+L.3.1 Stage 1: Summarization Generation Prompt.These prompts
+are used to generate structured summaries for specific SEC filing
+items before conducting cross-year comparison analysis.
+Item 1: Business Overview Summary Prompt
+Item 1 Business Overview Summary Prompt
+, breakablePlease act as a rigorous financial analyst. Summarize
+the following business overview text from {company_name} for
+year{year}from the following 6 dimensions:
+1.Strategy & Business Model Evolution- Summarize strategic
+direction, business model shifts, strategic initiatives, and major
+strategic decisions.
+2.Financial Performance & Revenue Structure- Summarize
+revenue sources, financial metrics, revenue composition, prof-
+itability trends, and key financial indicators.
+3.Product & Technology Portfolio- Summarize product
+offerings, technology platforms, product development, innovation
+initiatives, and portfolio composition.
+4.Operations & Human Capital- Summarize operational
+structure, facilities, employee counts, organizational changes, and
+operational efficiency.
+5.Market, Competition & Customers- Summarize market
+position, competitive landscape, customer base, market segments
+served, and market dynamics.
+6.Growth Drivers & Investment Focus- Summarize growth
+strategies, investment priorities, capital allocation, expansion
+plans, and growth initiatives.
+Text to Summarize:{text}
+Please provide a comprehensive summary covering all 6 dimen-
+sions. For each dimension, provide key facts, numbers, and im-
+portant information. Use exact numbers and data from the text.
+Format your response as a structured text covering each dimen-
+sion clearly.
+Return only the summary text, no additional explanation.
+Item 1A: Risk Factors Summary Prompt
+Item 1A Risk Factors Summary Prompt
+, breakablePlease act as a rigorous financial analyst. Summarize
+the following risk factors text from {company_name} for year
+{year}.
+Your Task:Extract and summarize all risks mentioned in the
+text. For each risk, provide a concise summary based on how
+it is actually described in the original text. Do not force a fixed
+structure - instead, summarize what the text actually says about
+each risk.
+Focus on:-All risks mentionedin the text (identify each
+distinct risk)
+-Risk names/titles(if explicitly named)
+-Risk categorization(if any explicit categories are mentioned)
+-Key information from the original textabout each risk -
+summarize the actual description as it appears, including:
+* What the text says about the nature of the risk
+* Any specific details, examples, or context mentioned
+Important Guidelines:- Follow the structure and emphasis of
+the original text
+- if the text focuses on certain aspects, your summary should
+reflect that
+- Do not create a fixed template
+- instead, summarize what the text actually describes about the
+risk itself
+- Keep summaries concise and focused on the risk’s nature and
+key characteristics
+- Preserve the actual wording and phrasing when describing the
+risk, especially for technical terms or specific risk characteristics
+Text to Summarize:{text}
+Please provide a structured summary that lists all risks mentioned,
+with each risk summarized based on its actual description in the
+original text, focusing on the risk’s nature and characteristics.
+Return only the summary text, no additional explanation.
+L.3.2 Stage 2: QA Generation Prompt.These prompts generate
+comparative tracking questions and answers by analyzing specific
+SEC filing items across multiple years.
+DEF 14A Tracking Analysis Prompt
+
+
+[Page 30]
+Under Review, February, 2026 Yidong Jiang et al.
+This prompt is designed to generate tracking questions and an-
+swers by comparing DEF 14A (Definitive Proxy Statement) docu-
+ments across different years. The focus is on identifying changes
+and trends in corporate governance, executive compensation, and
+shareholder matters.
+DEF 14A Tracking Analysis Prompt
+You are a professional financial analyst specializing in SEC filings
+analysis. Your task is to generate tracking questions and answers
+by comparing DEF 14A (Definitive Proxy Statement) documents
+from{company_name}across different years ({years_desc}).
+DEF 14A documents contain critical information about:
+- Board of Directors composition, qualifications, and elections
+- Executive compensation (salaries, bonuses, stock options,
+benefits)
+- Corporate governance practices and policies
+- Shareholder proposals and voting matters
+- Audit committee reports and auditor information
+- Related party transactions
+- Director independence and conflicts of interest
+- Equity compensation plans
+- Risk oversight and management
+- Company structure and employee composition
+Focus on identifying CHANGES and TRENDS across the years,
+such as:
+1. Changes in board composition (directors joining, leaving, age
+changes)
+2. Changes in executive compensation structure and amounts
+3. Changes in governance policies
+4. Changes in company structure
+5. Changes in employee composition
+6. Trends in financial metrics
+7. Changes in audit fees and auditor information
+8. Changes in equity compensation plans
+IMPORTANT REQUIREMENTS:
+- Each question MUST explicitly mention the company name
+"{company_name}"and the specific year(s) being compared
+- Generate 3-4 high-quality question-answer pairs that highlight
+meaningful changes or comparisons between the years
+- Each question should be specific and focused on observable
+changes
+- Each answer should reference specific data points from the doc-
+uments
+- Each answer should be clear, factual, and based on the provided
+content
+- Questions should be useful for tracking company evolution over
+time
+Format your response as a JSON array, where each item is a dic-
+tionary with"question"and"answer"keys.
+{comparison_text}
+Please generate the tracking Q&A pairs in JSON format:
+Item 3: Legal Proceedings Tracking Prompt
+Item 3 Legal Proceedings Tracking Prompt
+, breakablePlease act as a rigorous financial analyst. Based on
+the text passages I provide from different years, generate a set of
+"tracking analysis Q&A pairs. "
+Your Task and Objectives:1. Generate high-quality tracking
+analysis questions and answers.For Item 1, generate 12-18
+Q&A pairs (1-2 per dimension). For other items, generate 3
+Q&A pairs.
+2. Questions mustspan and compare multiple time points
+(years) mentioned in the texts, focusing on the evolution of
+the same entity, indicator, or theme.
+3.Answers must comprehensively utilize information from
+all provided text passages, none should be omitted.
+Special Focus for Item 3 - Legal Proceedings:- Focus
+specifically onlegal proceedingsand litigation matters.
+- Track changes in ongoing legal cases, new cases filed, resolved
+cases, and any significant developments.
+- Compare the status, nature, and impact of legal proceedings
+between the two years.
+- Analyze any trends in legal exposure, settlement amounts, or
+case outcomes.
+Specific Requirements for Question Design (all must be
+satisfied):-Form and Depth: Questions must be complete,
+meaningful interrogative sentences, not overly simple. They
+should simulate analytical questions that financial analysts would
+ask in their daily work when writing reports or making decisions.
+-Content Focus: Questions must explicitly mention the company
+name (e.g., "{company_name}") and the involved years (e.g.,
+"{year1} and {year2}").
+-Data Precision: All cited numbers, dates, percentages, etc.,
+must strictly use the exact wording from the original text.Any
+form of rounding or estimation is prohibited.
+-Analysis Requirements: Questions should guide answers that
+include description, comparison, cause analysis, and inference.
+Specific Specifications for Answer Generation (all must be
+satisfied):
+-Format: Answers must be coherent, fluent paragraph-style text.
+The use of bullet points, numbered lists, or point-by-point
+statements is prohibited.
+-CRITICAL: Number Accuracy and Traceability- This is of
+utmost importance:
+-Every number, percentage, date, and numerical value
+MUST be taken EXACTLY from the provided text passages.
+No rounding, approximation, or modification is allowed.
+-All numbers must have a clear source.Every numerical
+value in the answer must be traceable to a specific location in the
+provided text passages.
+-When Calculations are Involved: If analysis requires
+calculations:
+* Use ONLY exact numbers from the original text as inputs
+* Show calculation steps clearly and step by step
+* Verify all calculations are mathematically correct
+* Use the exact calculation results (no rounding unless the original
+text rounds)
+* Ensure all intermediate and final numerical results are accurate
+
+
+[Page 31]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+-Content Composition:
+a.Factual Description and Comparison: Based on texts from
+different years, clearly describe key facts, changes, and continuity
+of the theme along the timeline.
+b.Analysis and Inference: Provide reasonable analysis of the
+causes, impacts, or trends of changes. Logical inferences based on
+provided information are allowed, butexcessive speculation
+without textual basis or introduction of external knowledge
+is strictly prohibited.
+c.Comprehensive Integration: Answers must organically inte-
+grate all provided text information, demonstrating connections
+between information.
+Text Materials for Analysis:
+— Text from{year1}—{text1}
+— Text from{year2}—{text2}
+Now, please generate tracking analysis Q&A pairs that meet
+all the above requirements.For Item 1, generate 12-18 Q&A
+pairs (1-2 per dimension). For other items, generate 3 Q&A
+pairs.Format your response as a JSON array with the following
+structure:
+[
+{
+"question": "...",
+"answer": "..."
+},
+...
+]
+Only return the JSON array, no additional text. Do not include a
+"years" field in your response.
+Item 1: Business Overview Tracking Prompt
+Item 1 Business Overview Tracking Prompt
+, breakablePlease act as a rigorous financial analyst. Based on
+the text passages I provide from different years, generate a set of
+"tracking analysis Q&A pairs. "
+Your Task and Objectives:1. Generate high-quality tracking
+analysis questions and answers.For Item 1, generate 12-18
+Q&A pairs (1-2 per dimension). For other items, generate 3
+Q&A pairs.
+2. Questions mustspan and compare multiple time points
+(years) mentioned in the texts, focusing on the evolution of
+the same entity, indicator, or theme.
+3.Answers must comprehensively utilize information from
+all provided text passages, none should be omitted.
+Special Focus for Item 1 - Business Overview:Generate ques-
+tions that focus on tracking and comparing changes across the
+following key dimensions.IMPORTANT: Generate 1-2 Q&A
+pairs for EACH of the 6 dimensions below (total 12-18 Q&A
+pairs):
+1.Strategy & Business Model Evolution- Track changes in
+strategic direction, business model shifts, strategic initiatives, and
+major strategic decisions. Generate 1-2 Q&A pairs for this dimen-
+sion.
+2.Financial Performance & Revenue Structure- Track
+changes in revenue sources, financial metrics, revenue composi-
+tion, profitability trends, and key financial indicators. Generate
+1-2 Q&A pairs for this dimension.
+3.Product & Technology Portfolio- Track changes in product
+offerings, technology platforms, product development, innovation
+initiatives, and portfolio composition. Generate 1-2 Q&A pairs for
+this dimension.
+4.Operations & Human Capital- Track changes in operational
+structure, facilities, employee counts, organizational changes, and
+operational efficiency. Generate 1-2 Q&A pairs for this dimension.
+5.Market, Competition & Customers- Track changes in mar-
+ket position, competitive landscape, customer base, market seg-
+ments served, and market dynamics. Generate 1-2 Q&A pairs for
+this dimension.
+6.Growth Drivers & Investment Focus- Track changes in
+growth strategies, investment priorities, capital allocation, expan-
+sion plans, and growth initiatives. Generate 1-2 Q&A pairs for
+this dimension.
+Ensure questions span multiple years and focus on the evolution
+and changes in these critical business areas. You must generate a
+total of 6-12 Q&A pairs (1-2 per dimension).
+Specific Requirements for Question Design (all must be
+satisfied):
+-Form and Depth: Questions must be complete, meaningful
+interrogative sentences, not overly simple. They should simulate
+analytical questions that financial analysts would ask in their
+daily work when writing reports or making decisions.
+-Content Focus: Questions must explicitly mention the company
+name (e.g., "{company_name}") and the involved years (e.g.,
+"{year1} and {year2}").
+-Data Precision: All cited numbers, dates, percentages, etc.,
+must strictly use the exact wording from the original text.Any
+form of rounding or estimation is prohibited.
+-Analysis Requirements: Questions should guide answers that
+include description, comparison, cause analysis, and inference.
+Specific Specifications for Answer Generation (all must be
+satisfied):
+-Format: Answers must be coherent, fluent paragraph-style text.
+The use of bullet points, numbered lists, or point-by-point
+statements is prohibited.
+-CRITICAL: Number Accuracy and Traceability- This is of
+utmost importance:
+-Every number, percentage, date, and numerical value
+MUST be taken EXACTLY from the provided text passages.
+No rounding, approximation, or modification is allowed.
+-All numbers must have a clear source.Every numerical
+value in the answer must be traceable to a specific location in the
+provided text passages.
+-When Calculations are Involved: If analysis requires
+calculations:
+* Use ONLY exact numbers from the original text as inputs
+* Show calculation steps clearly and step by step
+* Verify all calculations are mathematically correct
+
+
+[Page 32]
+Under Review, February, 2026 Yidong Jiang et al.
+* Use the exact calculation results (no rounding unless the original
+text rounds)
+* Ensure all intermediate and final numerical results are accurate
+-Content Composition:
+a.Factual Description and Comparison: Based on texts from
+different years, clearly describe key facts, changes, and continuity
+of the theme along the timeline.
+b.Analysis and Inference: Provide reasonable analysis of the
+causes, impacts, or trends of changes. Logical inferences based on
+provided information are allowed, butexcessive speculation
+without textual basis or introduction of external knowledge
+is strictly prohibited.
+c.Comprehensive Integration: Answers must organically inte-
+grate all provided text information, demonstrating connections
+between information.
+Text Materials for Analysis:
+— Text from{year1}—{text1}
+— Text from{year2}—{text2}
+Now, please generate tracking analysis Q&A pairs that meet
+all the above requirements.For Item 1, generate 12-18 Q&A
+pairs (1-2 per dimension). For other items, generate 3 Q&A
+pairs.Format your response as a JSON array with the following
+structure:
+[
+{
+"question": "...",
+"answer": "..."
+},
+...
+]
+Only return the JSON array, no additional text. Do not include a
+"years" field in your response.
+Item 1A: Risk Factors Tracking Prompt
+Item 1A Risk Factors Tracking Prompt
+Please act as a rigorous financial analyst. Based on the text pas-
+sages I provide from different years, generate a set of "tracking
+analysis Q&A pairs. "
+Your Task and Objectives:
+1. Generate high-quality tracking analysis questions and answers.
+For Item 1, generate 12-18 Q&A pairs (1-2 per dimension).
+For other items, generate 3 Q&A pairs.
+2. Questions mustspan and compare multiple time points
+(years) mentioned in the texts, focusing on the evolution of
+the same entity, indicator, or theme.
+3.Answers must comprehensively utilize information from
+all provided text passages, none should be omitted.
+Special Focus for Item 1A - Risk Factors:
+- Focus specifically oncomparing risk factorsmentioned in both
+years.
+- Identify which risks have changed (new risks added, risks re-
+moved, risks modified).
+- Compare how thesame riskis described differently between
+the two years (if applicable).
+- Track changes in risk severity, risk descriptions, risk prioritiza-
+tion, and risk mitigation strategies.
+- Analyze whether risks have increased, decreased, or remained
+stable, and what factors might explain these changes.
+- Note any emerging risks in the later year and any risks that are
+no longer mentioned.
+Specific Requirements for Question Design (all must be sat-
+isfied):-Form and Depth: Questions must be complete, mean-
+ingful interrogative sentences, not overly simple. They should
+simulate analytical questions that financial analysts would ask in
+their daily work when writing reports or making decisions.
+-Content Focus: Questions must explicitly mention the com-
+pany name (e.g., "{company_name}") and the involved years (e.g.,
+"{year1} and {year2}").
+-Data Precision: All cited numbers, dates, percentages, etc., must
+strictly use the exact wording from the original text.Any form
+of rounding or estimation is prohibited.
+-Analysis Requirements: Questions should guide answers that
+include description, comparison, cause analysis, and inference.
+Specific Specifications for Answer Generation (all must be
+satisfied):
+-Format: Answers must be coherent, fluent paragraph-style text.
+The use of bullet points, numbered lists, or point-by-point
+statements is prohibited.
+-CRITICAL: Number Accuracy and Traceability- This is of
+utmost importance:
+-Every number, percentage, date, and numerical value
+MUST be taken EXACTLY from the provided text passages.
+No rounding, approximation, or modification is allowed.
+-All numbers must have a clear source.Every numerical
+value in the answer must be traceable to a specific location in the
+provided text passages.
+-When Calculations are Involved: If analysis requires
+calculations:
+* Use ONLY exact numbers from the original text as inputs
+* Show calculation steps clearly and step by step
+* Verify all calculations are mathematically correct
+* Use the exact calculation results (no rounding unless the original
+text rounds)
+* Ensure all intermediate and final numerical results are accurate
+-Content Composition:
+a.Factual Description and Comparison: Based on texts from
+different years, clearly describe key facts, changes, and continuity
+of the theme along the timeline.
+b.Analysis and Inference: Provide reasonable analysis of the
+causes, impacts, or trends of changes. Logical inferences based on
+provided information are allowed, butexcessive speculation
+without textual basis or introduction of external knowledge
+is strictly prohibited.
+c.Comprehensive Integration: Answers must organically inte-
+grate all provided text information, demonstrating connections
+between information.
+Text Materials for Analysis:
+— Text from{year1}—{text1}
+— Text from{year2}—{text2}
+
+
+[Page 33]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+Now, please generate tracking analysis Q&A pairs that meet all
+the above requirements.For Item 1, generate 12-18 Q&A pairs
+(1-2 per dimension). For other items, generate 3 Q&A pairs.
+Format your response as a JSON array with the following struc-
+ture:
+[
+{
+"question": "...",
+"answer": "..."
+},
+...
+]
+Only return the JSON array, no additional text. Do not include a
+"years" field in your response.
+L.4 Generate Scoring Points for Gold Answers
+To establish objective evaluation criteria for question-answer pairs,
+the system includes a specialized prompt that extracts essential
+scoring points from reference (“gold”) answers. This process iden-
+tifies the critical elements that must be present for an answer to
+be considered complete and correct. The generated scoring points
+serve as a benchmark for subsequent automated evaluation of LLM-
+generated answers.
+Scoring Points Generation
+You are an expert evaluator. Analyze the following
+question-answer pair and identify the CRITICAL key
+points that MUST be correctly addressed and mentioned
+for the answer to be considered correct.
+Question:{question}
+Answer:{answer}
+Your task: Generate 3-5 key points that represent the ES-
+SENTIAL elements that MUST be: 1. CORRECTLY an-
+swered - Each key point must be factually accurate and
+correctly addressed 2. EXPLICITLY mentioned - Each key
+point must be clearly stated or implied in the answer 3.
+COMPLETE - Missing any of these key points would make
+the answer incomplete or incorrect
+Each key point should: - Represent a MANDATORY re-
+quirement for a correct answer to this specific question -
+Be specific enough that you can verify whether the answer
+correctly addresses it - Cover the core information that the
+question is asking for - Be essential - if the answer fails on
+this point, the answer is wrong or incomplete - Be based
+ONLY on what the question requires and what the answer
+provides
+Focus on identifying what MUST be correct and what
+MUST be mentioned. These are non-negotiable require-
+ments for a correct answer.
+Please output the result in the following JSON format: {
+"key_points": [ "Key point 1 description" , "Key
+point 2 description" , "Key point 3 description" ]
+}
+Make sure to return only valid JSON without any additional
+text or explanation.
+M Prompts for QA Quality Assurance
+The accuracy evaluation prompt serves as a self-consistency check
+that validates whether generated answers are factually correct and
+contextually grounded.
+M.1 Detail & Reasoning QA
+QA Quality Evaluation Prompt for DR QA
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+You are an expert financial analyst evaluating Q&A pairs
+for accuracy and quality.
+EV ALUATION CRITERIA:
+1.CORRECT ANSWER: All facts, numbers, and
+calculations are accurate based on the provided context
+2.INCORRECT ANSWER: Contains factual errors,
+wrong numbers, or fabricated information
+3.FAILURE TO ANSWER: Refuses to answer or says
+information unavailable
+4.PARTIAL ANSWER: Contains some correct informa-
+tion but has minor issues or incomplete analysis
+CRITICAL RULES:
+- Numbers in answers MUST match numbers in context
+exactly
+- NO fabricated data (made-up figures, dates, or facts not
+in context)
+- NO external knowledge (industry averages, peer data,
+historical data not provided)
+- Calculations must use only data present in context
+- For investment funds with recent inception dates, reject
+historical trend questions
+- If context is provided, verify ALL numerical claims
+against it
+- If NO context is available, mark as FAILURE since
+verification is impossible
+- For PARTIAL answers: If the answer contains reasonable
+inferences based on the context or other parts of the
+answer that help understand the answer without going
+off-topic, consider it CORRECT rather than PARTIAL
+SCORING SYSTEM (1-5 points):
+- 5 points: CORRECT - Perfect accuracy, comprehensive
+analysis, all facts verified
+- 4 points: CORRECT - Mostly accurate with minor
+omissions, reasonable inferences
+- 3 points: PARTIAL - Some correct information but
+missing key details or minor errors
+- 2 points: INCORRECT - Significant factual errors or
+fabricated information
+- 1 point: FAILURE - Cannot answer or completely wrong
+RESPONSE FORMAT:
+
+
+[Page 34]
+Under Review, February, 2026 Yidong Jiang et al.
+ANALYSIS: [Brief analysis of accuracy and quality]
+VERDICT: [CORRECT/INCORRECT/PARTIAL/FAILURE]
+SCORE: [1-5]
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+QUESTION:{question}
+ANSWER:{answer}
+CONTEXT:{context}
+Evaluate this Q&A pair for accuracy and provide a score:
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+M.2 Enterprise Comparison QA
+QA Quality Evaluation Prompt for EC QA
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+You are a rigorous financial analyst evaluating enterprise
+comparison Q&A pairs for accuracy, completeness, and
+comparative validity.
+EV ALUATION CRITERIA:
+1.CORRECT ANSWER: The answer accurately com-
+paresall specified companiesusing information fully
+supported by the provided context
+2.INCORRECT ANSWER: Contains factual errors,
+incorrect comparisons, fabricated information, or unsup-
+ported claims
+3.FAILURE TO ANSWER: The question cannot be
+answered forboth companiesbased on the provided
+context
+4.PARTIAL ANSWER: Contains some correct com-
+parative information but is incomplete, imbalanced, or
+insufficiently supported
+CRITICAL RULES:
+- The answer MUST include information forall compa-
+nies involved in the comparison
+- The answer MUST perform an explicit comparison (not
+isolated descriptions)
+- NO phrases indicating missing information are allowed
+(e.g., “not mentioned”, “not disclosed”, “not available”)
+- If the context does not provide comparable information
+forboth companies, mark asFAILURE TO ANSWER
+- ALL factual statements and numerical values MUST be
+traceable to the provided context
+- NO external knowledge, assumptions, or industry-wide
+generalizations
+- If the comparison is one-sided or omits a key com-
+pany, mark as PARTIAL or FAILURE depending on severity
+SCORING SYSTEM (1–5 points):
+- 5 points: CORRECT — Fully accurate, balanced compari-
+son, all facts traceable, comprehensive analysis
+- 4 points: CORRECT — Mostly accurate comparison with
+minor omissions, all claims supported
+- 3 points: PARTIAL — Some correct comparison but
+missing key aspects or showing imbalance
+- 2 points: INCORRECT — Major factual errors, invalid
+comparisons, or unsupported claims
+- 1 point: FAILURE — Cannot perform a valid comparison
+based on the context
+RESPONSE FORMAT:
+ANALYSIS: [Brief analysis of comparative accuracy,
+completeness, and traceability]
+VERDICT: [CORRECT / INCORRECT / PARTIAL /
+FAILURE]
+SCORE: [1–5]
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+QUESTION:{question}
+ANSWER:{answer}
+CONTEXT:{context}
+Evaluate this enterprise comparison Q&A pair for accuracy
+and provide a score:
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+M.3 Longitudinal Tracking QA
+QA Quality Evaluation Prompt for LT QA
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+You are a rigorous financial analyst evaluating Q&A pairs
+for accuracy and quality.
+EV ALUATION CRITERIA:
+1.CORRECT ANSWER: All facts, numbers, dates, and
+calculations are accurate and traceable to the provided
+context
+2.INCORRECT ANSWER: Contains factual errors,
+wrong numbers, fabricated information, or untraceable
+numerical claims
+3.FAILURE TO ANSWER: Question cannot be answered
+based on the provided context
+4.PARTIAL ANSWER: Contains some correct informa-
+tion but has minor issues, incomplete analysis, or limited
+traceability
+CRITICAL RULES:
+- Numbers in answers MUST match numbers in context
+exactly (no rounding, approximation, or modification
+unless explicitly allowed)
+- EVERY number, percentage, date, and numerical value in
+the answer MUST have a clear source in the context
+- NO fabricated data (made-up figures, dates, or facts not
+in context)
+
+
+[Page 35]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+- NO external knowledge (industry averages, peer data,
+historical data not provided)
+- Calculations must use only data present in context and
+be mathematically correct
+- Verify ALL numerical claims against the context
+- If context does NOT contain sufficient information to
+answer the question, mark as FAILURE TO ANSWER
+- For calculations: verify input numbers, calculation steps,
+logic, and final results
+- If the answer contains any number without a clear source
+in the context, mark as INCORRECT
+SCORING SYSTEM (1-5 points):
+- 5 points: CORRECT - Perfect accuracy, all numbers
+traceable, comprehensive analysis, all facts verified
+- 4 points: CORRECT - Mostly accurate with minor
+omissions, all numbers traceable, reasonable inferences
+- 3 points: PARTIAL - Some correct information but
+missing key details, minor errors, or limited traceability
+- 2 points: INCORRECT - Significant factual errors,
+untraceable numbers, or fabricated information
+- 1 point: FAILURE - Cannot answer based on context or
+completely wrong
+RESPONSE FORMAT:
+ANALYSIS: [Brief analysis of accuracy, traceability, and
+quality]
+VERDICT: [CORRECT/INCORRECT/PARTIAL/FAILURE]
+SCORE: [1-5]
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+QUESTION:{question}
+ANSWER:{answer}
+CONTEXT:{context}
+Evaluate this Q&A pair for accuracy and provide a score:
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+N Prompts for Evaluation
+N.1 Prompts for Answer Generation at Test
+Time
+Prompt for Generating LLM Answer in EC QA Test
+<|begin_of_text|>
+<|start_header_id|>system<|end_header_id|>
+You are a SEC filing financial analysis expert.
+- Answer in English only.
+- Output only the final answer. Do not include chain-of-
+thought or<think>sections.
+<|eot_id|>
+<|start_header_id|>user<|end_header_id|>
+Question:{question}
+Context:{content}
+Based on the provided context, please answer the question.
+Remember to output only the final answer.
+<|eot_id|>
+<|start_header_id|>assistant<|end_header_id|>
+N.2 Prompts for Automated Evaluation
+LLM as Judge Evaluation Prompt
+<|begin_of_text|><|start_header_id|>system
+<|end_header_id|>
+You are an expert evaluator for financial Q&A tasks with
+retrieved evidence.
+CORE DEFINITIONS:
+- Use ONLY the provided GOLD ANSWER / KEY POINTS
+as reference.
+- The generated answer may contain additional correct
+information beyond what’s in the gold answer/key points.
+-CRITICAL CONSTRAINT: Without access to the
+full context/retrieved evidence, you cannot deter-
+mine if additional information is unsubstantiated.
+-Therefore: Only penalize for DIRECT CONTRA-
+DICTIONS with gold answer/key points.
+-DO NOT penalize for information merely absent
+from gold answer/key points.
+VERDICT LABELS (use exactly one):
+1.CORRECT:
+- All key points are correctly covered (explicitly or through
+reasonable paraphrase)
+- No factual errors or contradictions with gold answer/key
+points
+- Answer is relevant and complete
+-May include additional correct information not in
+gold answer/key points
+2.PARTIAL:
+- Some key points are correctly covered, but important
+ones are missing
+- Missing key points are essential for answering the
+question
+- No factual errors or contradictions with gold answer/key
+points
+- Answer is relevant but incomplete
+-May include additional correct information not in
+gold answer/key points
+3.INCORRECT:
+-Contains DIRECT CONTRADICTIONS with gold
+answer/key points
+-Has clear factual errors that conflict with provided
+reference
+- Answer is relevant but wrong
+-DO NOT mark as incorrect for missing gold
+answer/key points info if answer has alternative
+correct info
+
+
+[Page 36]
+Under Review, February, 2026 Yidong Jiang et al.
+4.FAILURE:
+- Answer is completely irrelevant to the question, OR
+- Answer fails to address the question’s topic, intent, or
+target entities, OR
+- Answer consists of off-topic, generic, or hallucinated
+content, OR
+- Answer is empty, null, or contains no substantive response
+KEY POINTS EV ALUATION RULES:
+- Check each key point against the generated answer.
+- For each key point, label as one of:
+PRESENT (correctly mentioned), PARTIAL (partially
+addressed),
+MISSING (not addressed), INCORRECT (addressed but
+factually wrong).
+- Consider numeric/date/percent equivalence and allow
+reasonable paraphrases.
+ERROR TYPE TAXONOMY (choose NONE if VER-
+DICT=CORRECT):
+B)Generation-related
+B1. Hallucination: answer not entailed by retrieved
+evidence
+-Hallucination = Information that CONTRADICTS
+gold answer/key points
+-NOT hallucination = Information absent from but
+not contradicting gold answer/key points
+- B1 Error Subtypes (select the applicable label(s)):
+- B1-1: Numeric or Categorical Hallucination - Fabricated
+numbers, percentages, ratings, years, categories, or other
+hard values that contradict or are absent from evidence.
+Examples: Making up specific percentages, case counts, or
+numerical comparisons when evidence doesn’t provide
+them.
+- B1-2: Entity Attribute Hallucination - Fabricated
+attributes, states, policies, or strategies of a single entity
+that contradict or are absent from evidence.
+Examples: Claiming a company has an ESG rating system,
+specific litigation status, or strategic policy when evidence
+doesn’t mention it.
+- B1-3: Comparative Stance Hallucination - Fabricated
+comparative statements (A is more/less than B) without
+sufficient evidence support.
+Examples: Claiming "A has significantly lower risk than
+B" or "A is more diversified than B" when evidence doesn’t
+support such comparisons.
+- B1-4: Trend or Trajectory Hallucination - Fabricated
+trends or trajectories over multiple periods without
+sufficient evidence.
+Examples: Claiming "continuously increasing", "steadily
+declining", or "long-term trend" when evidence only
+covers partial periods or doesn’t support such strong trend
+statements.
+B2. Contradicts Evidence : contains internal logical
+inconsistencies, explicitly conflicts with evidence it
+mentioned before
+B3. Excessive Inference : generalizes beyond a reason-
+able range based on the evidence
+B4. Evidence Fusion Failure : fails to correctly
+synthesize multiple evidence pieces (complementary or
+conflicting)
+C)Finance-specific numeric & semantic errors
+C1. Numerical Precision : rounding/tolerance mistakes;
+% vs bps confusion
+C2. Units and scales : millions vs billions; ratio vs
+absolute confusion; currency/unit mismatch
+C3. Time mismatch : wrong period (e.g., annual vs
+quarterly, wrong FY/Q)
+C4. Computation Logic : uses correct data but computes
+incorrectly (formula/arithmetic error)
+D)Query and context errors
+D1. Query misunderstanding : misidentifies intent, key
+entity, or asked metric
+- D1 Error Types (select the applicable label(s)):
+- D1-1: Intent Misunderstanding - The generated answer
+misunderstands the true intent of the question.
+- D1-2: Entity Misidentification - Incorrectly identifies key
+entities (company names, person names, metric names,
+etc.).
+- D1-3: Metric Misidentification - Incorrectly identifies the
+asked metric or measurement.
+D2. Context window abuse : loses key info due to length
+limits or fails to prioritize relevant parts
+ERROR TAGGING RULES:
+- Output 1 PRIMARY error group (B/C/D) and 1 PRIMARY
+subtype (B1..D2) when VERDICT != CORRECT.
+- Optionally output up to 2 SECONDARY subtypes if
+multiple issues contribute.
+- Prefer the MOST CAUSAL error: e.g., if evidence is
+present but model ignores it -> B/C; if question misunder-
+stood -> D.
+RESPONSE FORMAT (strict):
+ALL SECTIONS BELOW ARE MANDATORY. Do not omit
+any section. Use exactly the headings and labels as shown.
+Do not add extra text outside this format.
+ANALYSIS:[Concise analysis of answer quality, ground-
+edness, and any numeric/unit/period issues]
+KEY POINTS:
+1. [PRESENT|PARTIAL|MISSING|INCORRECT] - brief
+justification
+2. [PRESENT|PARTIAL|MISSING|INCORRECT] - brief
+justification
+... (one line per key point)
+
+
+[Page 37]
+Fin-RATE: A Real-world Financial Analytics and Tracking Evaluation Benchmark for LLMs on SEC Filings Under Review, February, 2026
+KEY POINTS SUMMARY:matched=<int>; partial=<int>;
+missing=<int>; incorrect=<int>
+DIMENSIONAL SCORES:
+1. Information Coverage: [1-5]
+- Includes all query-critical facts/constraints needed to an-
+swer.
+- Avoids spending space on irrelevant details that don’t
+support the answer.
+2. Reasoning Chain: [1-5]
+- Provides a logical sequence linking evidence → interme-
+diate conclusions→final answer.
+- Not just paraphrasing; shows why the conclusion follows.
+3. Factual Consistency: [1-5]
+- Every stated claim is supported by the given evidence/-
+context.
+- No contradictions with evidence; no unsupported addi-
+tions.
+4. Clarity of Expression: [1-5]
+- Main answer is easy to find; structure is organized (e.g.,
+bullet points, clear sentences).
+- Minimal redundancy; no “burying the lead” with unnec-
+essary text.
+5. Analytical Depth: [1-5]
+- Selects and prioritizes relevant evidence rather than sum-
+marizing everything.
+- Synthesizes/comparisons/inferences are reasonable and
+grounded in evidence.
+- Produces a decisive, query-directed outcome (e.g., classi-
+fication, comparison, recommendation).
+ERROR TYPE:
+PRIMARY_GROUP:[GENERATION_RELATED|
+FINANCE_NUMERIC_SEMANTIC|QUERY_CONTEXT|
+NONE]
+PRIMARY_SUBTYPE:[B1|B2|B3|B4|C1|C2|C3|C4|D1|D2|
+NONE]
+SECONDARY_SUBTYPES:[<subtype>|<subtype>
+|NONE]
+EVIDENCE_IDS_USED:[comma-separated ids from the
+provided evidence; or NONE]
+VERDICT:[CORRECT|INCORRECT|PARTIAL|FAILURE]
+(All sections are mandatory; the VERDICT line must
+contain only one of the listed labels.)
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+QUESTION:{question}
+GOLD ANSWER:{gold_answer}
+GENERATED ANSWER:{generated_answer}
+KEY POINTS TO CHECK:{kp_block}
+<|eot_id|><|start_header_id|>assistant
+<|end_header_id|>
+Received 20 February 2007; revised 12 March 2009; accepted 5 June 2009

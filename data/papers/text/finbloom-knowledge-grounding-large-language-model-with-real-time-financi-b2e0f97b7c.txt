@@ -1,0 +1,1740 @@
+[Page 1]
+FinBloom: Knowledge-Grounding Large Language Model
+with Real-Time Financial Data
+Ankur Sinhaasinha@iima.ac.in
+Department of Operations and Decision Sciences
+Indian Institute of Management Ahmedabad
+Gujarat, India 380015
+Chaitanya Agarwalchaitanyaa@iima.ac.in
+Brij Disa Centre for Data Science and AI
+Indian Institute of Management Ahmedabad
+Gujarat, India 380015
+Pekka Malopekka.malo@aalto.fi
+Department of Information and Service Economy
+Aalto University School of Business
+Helsinki, Finland
+Abstract
+Large language models (LLMs) excel at generating human-like responses but often struggle
+with interactive tasks that require access to real-time information. This limitation poses
+challenges in finance, where models must access up-to-date information, such as recent news
+or price movements, to support decision-making. To address this, we introduce Financial
+Agent, a knowledge-grounding approach for LLMs to handle financial queries using real-
+time text and tabular data. Our contributions are threefold: First, we develop a Financial
+Context Dataset of over 50,000 financial queries paired with the required context. Second,
+we develop FinBloom 7B, a custom 7 billion parameter LLM, by fine-tuning Bloom 7B
+on 14 million financial news articles from Reuters and Deutsche Presse-Agentur (DPA),
+alongside a random sample of 25% from 12 million Securities and Exchange Commission
+(SEC) filings. Third, we fine-tune FinBloom 7B using the Financial Context Dataset
+to serve as a Financial Agent. This agent generates relevant financial context, enabling
+efficient real-time data retrieval to answer user queries. By reducing latency and eliminating
+the need for users to manually provide accurate data, our approach significantly enhances
+the capability of LLMs to handle dynamic financial tasks. Our proposed approach makes
+real-time financial decisions, algorithmic trading and other related tasks streamlined, and
+is valuable in contexts with high-velocity data flows.
+1. Introduction
+Large Language Models (LLMs) use deep learning techniques to learn from massive text
+datasets to solve a variety of tasks using natural language (Devlin et al., 2018; Brown et al.,
+2020; Scao et al., 2022; Zhang et al., 2022). The most common tasks where these models have
+shown their proficiency include natural language generation, question-answering, reasoning,
+translation, summarization, etc. As the general-purpose models grow in size and learn from
+1
+arXiv:2502.18471v2  [cs.IR]  27 Feb 2026
+
+
+[Page 2]
+a larger data corpus, we observe that they become more versatile and develop the ability to
+handle multiple tasks that previously required separate specialized models. However, areas
+such as finance, healthcare, science, law, among others, often have their own domain-specific
+vocabulary that requires the fine-tuning of general-purpose models to perform domain-
+specific tasks (Wu et al., 2023; Luo et al., 2022; Taylor et al., 2022). As LLMs get larger, it
+will be interesting to see whether general-purpose LLMs can work equally well as domain-
+specific LLMs simply with appropriate prompts. A rather more urgent problem that needs
+attention is that many of the domains require access to real-time data arising from several
+sources to handle various tasks with high accuracy and efficiency, which is currently beyond
+the capability of frozen LLMs that are not grounded in real-time knowledge and work as
+static systems as shown in Figure 1. For instance, in the context of finance, a user is likely
+to prefer using an LLM that is knowledge-grounded with real-time news and asset prices
+as they would want to make decisions based on accurate financial news and tabular data
+related to their query. Unless one uses a financial LLM for educational purposes, it will be
+of limited use, as most of its responses will be based on stale data that is of little value to
+investors or analysts. However, there are innumerable challenges when it comes to training
+or fine-tuning an LLM on real-time data that we list below:
+1. Training or fine-tuning an LLM is very costly: Financial data such as asset prices
+change with a high frequency and similarly news data with an ability to impact asset
+prices is generated continuously in various parts of the world. Training or fine-tuning
+LLMs require an update in the model parameters which is quite time-consuming.
+Even if one attempts a small duration of fine-tuning based on batches of most recent
+numeric and text data, the LLM will still remain outdated as financial data flows at
+high velocity. Unless LLMs have the capability of quick online learning, knowledge-
+grounding based on frequent training or fine-tuning will not entirely help.
+2. Lack of knowledge on what the LLM has learned: Most LLMs learn from massive
+data corpus, but as users of the system, we do not know what the model has learned
+and where it may commit errors. Only intensive testing of the models often reveal
+its weakness. Therefore, without a complete knowledge that LLM has learned from
+the new data appropriately, one may not put it to use in financial contexts where
+decisions have to be made based on new data.
+Handling the above challenges would be useful for any general-purpose or domain-specific
+LLM; therefore, there is a large body of recent research on knowledge-grounding of LLMs
+(Li et al., 2021; Peng et al., 2023; Carta et al., 2023). An alternative approach to solve
+the above problem is to keep that LLM frozen, that is, do not change or fine-tune the
+weights of the LLM, rather add modules to the LLM for knowledge-grounding. Zhang
+et al. (2024) implemented this method of knowledge grounding in the financial domain,
+however, their approach focuses specifically on making trading decisions by leveraging LLMs
+to capitalize on market intelligence and technical indicators. Our study takes a distinct
+approach by designing and implementing modules that enable retrieval and incorporation
+of pertinent financial data for answering any financial query. This data augmentation is
+intended to enhance the LLM’s capacity to respond accurately to a diverse array of financial
+inquiries. The first module is the Data Module that provides access to real-time information
+2
+
+
+[Page 3]
+Figure 1: Static approach for answering user query without knowledge grounding
+(numeric and text data) that is flowing, and the second module consists of a Financial Agent
+that interprets the user query and extracts relevant data from the Data Module, thereby
+constructing the financial context required to answer the query. Advanced modules for
+video interpretation or audio analysis can also be added to the framework.
+In this paper, we present a Financial Agent for grounding large language models in
+financial knowledge, enabling them to address financial queries effectively while managing
+dynamic text and tabular data streams. Our methodology leverages an external agent com-
+prising a 7 billion parameter LLM integrated with real-time data sources to construct the
+contextual information required by a larger LLM (ChatGPT) for accurate query resolution.
+Our contributions in the paper are as follows:
+1. We develop a custom Financial Context Dataset 1, containing over 50,000 financial
+queries paired with the corresponding contextual information needed for the resolution
+of the queries.
+2. We fine-tune a 7 billion parameter LLM, referred to as FinBloom 7B 2, on over 14
+million financial news articles sourced from Reuters and Deutsche Presse-Agentur
+(DPA), equipping it with versatile capabilities for financial tasks. We also use a
+random sample of 25% from 12 million documents from Securities and Exchange
+(SEC) filings along with news data.
+3. We fine-tune FinBloom 7B on the Financial Context Dataset to create a Financial
+Agent3 that generates the context required to answer a user query and extracts data
+from a data module to effectively handle the financial query.
+The proposed approach facilitates the extraction of high-velocity real-time financial data,
+enabling the effective resolution of user queries with support from the larger LLM (say GPT
+3.5 or GPT 4). As a part of this study, we release the 50,000 Financial Context Dataset,
+7 billion parameter domain-specific LLM and fine-tuned Financial Agent for context gen-
+eration. We are unable to release the raw data, i.e. 14 million financial news articles from
+Reuters and DPA, because of contractual reasons.
+1. Dataset:https://www.kaggle.com/datasets/ankurzing/financial-context-dataset
+2. FinBloom 7B LLM:https://huggingface.co/Chaitanya14/FinBloom_7B
+3. FinBloom 7B Agent:https://huggingface.co/Chaitanya14/Financial_Agent
+3
+
+
+[Page 4]
+Figure 2: Dynamic approach for answering user query with knowledge grounding. The
+context (relevant dynamic information) is generated using the Data Module and the Agent,
+which is one of the main contributions of the paper.
+Existing approaches to knowledge-grounding in LLMs follow different methodologies,
+which have a number of similarities, but are known in the literature with different ter-
+minologies. We address these approaches in the later part of the paper. We adopt an
+agent-based procedure to perform knowledge-grounding keeping in mind that financial data
+is high volume and high velocity for which high latency approaches may not be suitable. An
+overview of the proposed system—designed to respond efficiently to dynamic, real-time fi-
+nancial information—is shown in Figure 2. The pipeline consists of three main components:
+a Data Module, a Financial Agent, and an LLM. Because real-time financial information is
+typically available in tabular and textual forms, the Data Module maintains two continu-
+ously updated repositories: (i) a tabular database containing prices, financial metrics, and
+financial statements, and (ii) a text database that stores the latest news. Together, these
+repositories provide streaming context that is accessible to the Financial Agent. Given a
+user queryx, the Financial Agent first interprets the request and retrieves the most relevant
+news and tabular records from the Data Module. The retrieved content is then transformed
+into a textual contextcand concatenated with the original query. The resulting input
+(c, x) is provided to the LLM, enabling the model to generate an answer grounded in the
+retrieved, up-to-date financial data. Details about the Data Module implementation and
+retrieval are provided in Appendix A. A detailed example on the working of the proposed
+system is provided in Appendix D. Additional examples in Appendix D also highlight how
+advanced LLMs may be of limited use to experts if not grounded with the necessary data.
+4
+
+
+[Page 5]
+A simple example of the operation of the proposed architecture is provided in Figure 3.
+The example in the figure demonstrates how the Financial Agent leverages knowledge-
+grounding to process and respond to a financial query. When the user inputs the query
+“Explain P/E ratio taking an example of Google,” the Financial Agent performs contextu-
+alization by accessing the Data Module, which contains real-time information from tabular
+and textual repositories. Relevant data, such as Google’s share price ($108.90) and earnings
+per share (EPS) ($4.20), is extracted from the Data Module. This information is converted
+into a textual representation to create a context (c) that complements the original query.
+The query enrichment process then appends this context to the user query, forming a consol-
+idated input (c, x) for the LLM. The enriched input enables the LLM to generate a detailed
+response, such as an explanation of the P/E ratio, its significance, and a calculation exam-
+ple using the provided data. By integrating real-time data extraction, contextualization,
+and query enrichment, the Financial Agent ensures precise and contextually relevant an-
+swers, demonstrating its capability for effective knowledge-grounding in dynamic financial
+scenarios.
+The structure of this paper is as follows. Section 2 presents a comprehensive survey
+of recent advancements in knowledge-grounding of LLMs and financial datasets. Section 3
+provides details on the Financial Context Dataset consisting of 50,000 queries followed by
+Section 4 where we introduce a domain-specific LLM, referred to as FinBloom 7B. An exten-
+sive comparison of FinBloom 7B is performed against other popular models. In Section 5,
+we fine-tune FinBloom 7B on the Financial Context Dataset and create a Financial Agent
+capable of context generation and data retrieval. We also discuss its working along with
+the Data Module in our proposed knowledge-grounding framework in Section 6. Finally,
+conclusions and future directions for research are discussed in Section 7.
+2. Literature Review
+In this section, we provide a review on knowledge-grounding, contributions of LLMs in
+finance, and popular financial datasets for financial text mining. We also talk about the
+limitations of some of the popular knowledge-grounding approaches when applied to the
+area of finance.
+2.1 Knowledge-Grounding of LLMs
+The usual strategy for broadening the applicability of an LLM to a particular downstream
+task has conventionally entailed refining the model’s parameters. This involves the process
+of training certain or all layers of the LLM on a bespoke dataset tailored to the specific
+requirements of the given downstream task (Radford et al., 2019). However, these strategies
+exhibit a considerable computational cost, especially if the data is dynamic and the model
+has to be updated frequently. The fundamental rationale for knowledge-grounding in LLMs
+resides in the motivation to equip these models with the faculties of reasoning and contextual
+comprehension based on relevant external data, as opposed to them being regarded as
+repositories of static knowledge.
+In recent years, a plethora of viable alternatives have emerged, offering potential en-
+hancements to the conventional fine-tuning methodology. Wei et al. (2022) introduced
+“chain-of-thought” (CoT), a few-shot prompting technique for LLMs. CoT employs se-
+5
+
+
+[Page 6]
+Figure 3: Working of the proposed architecture: An example
+quential examples within a prompt, comprising task inputs and intermediate steps, to drive
+contextual understanding and reasoning in large models. Brown et al. (2020) demonstrated
+GPT-3’s ability to learn complex tasks in a few-shot setting. But few-shot prompting
+requires manual effort to design the optimal prompt for any required downstream task.
+Reynolds and McDonell (2021) argued that few-shot learning isn’t a method of task learn-
+ing but rather a method of task location in the existing space of the model’s learned tasks.
+They introduced the concept of metaprompt programming, through which the job of writ-
+ing task-specific prompts can be assigned to the LLM itself. Gao et al. (2020) proposed an
+improvement in the few-shot strategy, where rather than relying on the arbitrary selection
+of random examples and their inclusion in the query, which lacks a guarantee of emphasizing
+the most informative demonstrations, their approach involved sequential random sampling
+of a single example from each class for every input resulting in the creation of multiple
+concise demonstration sets. Shin et al. (2020) introduced AUTOPROMPT, an approach
+that automatically constructs prompts by combining primary task inputs with an array
+of trigger tokens, adhering to a predetermined template. The set of trigger tokens used
+is same for all the inputs and is learned through a specialized adaptation of the gradient-
+based search strategy. The composite prompt is then supplied as input to a Mask Language
+Model. It was observed that for Natural Language Inference (NLI) tasks, AUTOPROMPT
+was comparable to a supervised fine-tuned BERT model.
+Another limitation inherent in the few-shot prompting methodology stems from the con-
+strained token capacity that the LLMs can intake. This might have thousands of examples
+that we need the LLM to learn from. A number of parameter efficient fine-tuning method-
+ologies have been proposed to tackle this issue. Liu et al. (2021) proposed P-Tuning, a
+6
+
+
+[Page 7]
+technique where the prompt tokens in the input embedding (containing context tokens and
+prompt tokens) are treated as pseudo tokens and mapped as trainable embedding tensors.
+This continuous prompt is modeled using a prompt encoder consisting of a bidirectional
+LSTM and is then optimized using the downstream loss function. Another unique ap-
+proach is Prefix Tuning (Li and Liang, 2021), where a sequence of continuous task-specific
+vectors are prepended to the input of an autoregressive LM, or to both the encoder and
+decoder layers of a Encoder-Decoder Model. The prefix consists of trainable parameters
+which do not correspond to real tokens in a model’s embedding. Instead of training the
+model’s parameters on the loss function, only the parameters in the prefix are optimized.
+A similar methodology was used in Prompt Tuning (Lester et al., 2021), but without any
+intermediate-layer prefixes. Dettmers et al. (2024) proposed QLoRA, which introduces a
+memory-efficient fine-tuning method for LLMs by quantizing the pre-trained model to 4-
+bits and using Low Rank Adapters (LoRA), achieving comparable performance to 16-bit
+fine-tuning with reduced memory.
+An alternate approach for the knowledge-grounding of LLMs involves equipping them
+with a retriever module that can access information relevant to the user’s query from a
+database. Lewis et al. (2020) introduced a retrieval-augmented generation (RAG) model,
+where they integrated a pre-trained retriever module with a pre-trained seq2seq model. The
+retriever provides latent documents conditioned on the input, and theseq2seqmodel then
+conditions on these latent documents together with the input to generate the output. Dinan
+et al. (2018) designed a dialogue model, where within the conversational framework, the
+chatbot is equipped with access to a curated collection of passages that maintain relevance
+to the ongoing discourse. At each turn, using a standard information retrieval system, the
+chatbot retrieves the top 7 articles for the last two turns of conversation. An attention
+mechanism is used to perform refined selection of specific sentences that will be used to
+create the next response. Izacard et al. (2022) created ATLAS, a RAG Model which is
+capable of few-shot learning. Peng et al. (2023) presented LLM-Augmenter, a module which,
+in addition to knowledge retrieval and prompt generation, checks the response generated
+by a fixed LLM for hallucinations. If the response is not correct, it generates a feedback
+message which is used to improve the prompt. This cycle continues until the response by
+the LLM is verified. Li et al. (2021) used a three step data cleaning procedure to supply an
+LLM with relevant context: retrieving associated triples from a knowledge graph, finding
+related triples by computing cosine similarity between the triples and the query, further
+refining the choices by estimating the semantic similarity score.
+Despite significant advancements in knowledge-grounding of LLMs, efficient deployment
+of them for real-time processing of enormous data flowing at high frequency, such as financial
+data, remains a challenge.
+2.2 Limitations of Traditional RAG Models in Retrieving Financial Data
+Recent years have witnessed a surge in the development and application of Retrieval-
+Augmented Generation (RAG) systems. By combining the power of LLMs with information
+retrieval techniques, RAG systems have the potential to revolutionize various industries.
+However, despite their promise, these systems still face several limitations that hinder their
+widespread adoption, particularly in complex and regulated domains.
+7
+
+
+[Page 8]
+A major source of confusion in the literature is that the termRAGis often used broadly
+to denote anyretrieval + generationpipeline. In this broader sense, many systems (includ-
+ing ours) can be considered RAG-like. In this section, however, we use “traditional RAG”
+to specifically refer to the dominant design pattern in which a large corpus is embedded
+into a dense vector space and retrieved via approximate nearest-neighbour (ANN) search
+over text chunks. The limitations discussed below target dense-embedding retrieval over
+textified content, which is particularly fragile when the underlying knowledge is structured
+and fast-flowing financial data.
+One of the core challenges in such RAG systems lies in the effectiveness of the retrieval
+mechanism. As highlighted by Gupta et al. (2024), while powerful, retrieval can struggle
+with ambiguous queries and niche knowledge domains. The reliance on dense vector repre-
+sentations can sometimes lead to the retrieval of irrelevant documents, which can negatively
+impact the quality of the generated response. Cuconasu et al. (2024) further emphasized this
+point, demonstrating that high-scoring retrieved documents that are not directly relevant
+to the query can degrade LLM effectiveness. Moreover, the quality of the generated output
+can be influenced by the number of retrieved passages, as outlined in Jin et al. (2024); while
+increasing the number of passages can initially improve quality, it can eventually lead to a
+decline in performance due to distraction and context dilution.
+When integrating knowledge graphs (KGs) into RAG systems, additional challenges arise
+in effectively utilizing structured information. Agrawal et al. (2024) identified several criti-
+cal failure points in existing KG-based RAG methods, including insufficient focus on ques-
+tion intent and inadequate context gathering from KG facts. The real-world applications
+of retrieval-augmented systems, especially in expert domains, are often characterized by
+complex and nuanced requirements. As noted by Zhao et al. (2024), the one-size-fits-all ap-
+proach to data augmentation may not be suitable for all scenarios. In compliance-regulated
+sectors, systems must also adhere to stringent data privacy, security, and governance re-
+quirements; Bruckhaus (2024) highlighted the importance of ensuring that sensitive data is
+not exposed or misused during the retrieval and generation process.
+Dealing with financial data presents additional challenges to traditional dense-vector
+RAG pipelines, primarily because the underlying knowledge is predominantlystructured
+(tables, time series, and numeric metrics), while dense-vector RAG is optimized forun-
+structured text. Specifically:
+1.Difficulties in representing financial data as retrievable text.Financial
+data is predominantly stored in structured, tabular formats (spreadsheets, relational
+databases, and time-series stores). Traditional dense-vector RAG commonly requires
+converting these tables into unstructured text chunks and embedding them for ANN
+search. This conversion is often impractical at scale, introduces redundancy, and can
+create errors or inconsistencies (e.g., mismatched units, stale snapshots, or fragmented
+rows). Further, because tabular structure encodes meaning through schema, keys, and
+alignment, naive textification may discard or obscure critical relationships needed for
+precise retrieval and reasoning.
+2.Retriever precision requirements for financial queries.Financial queries often
+specify companies, financial metrics and date ranges. Dense-vector retrieval over
+textified tables is not guaranteed to return the exact cell-level values required, and
+8
+
+
+[Page 9]
+small retrieval errors can lead to materially incorrect answers. Incomplete retrieval
+yields missing evidence, while excessive retrieval burdens the generator with irrelevant
+context, amplifying hallucinations and misinterpretations.
+3.High-velocity, high-volume updates.Financial datasets are frequently updated
+(earnings releases, macroeconomic indicators, market data, filings), and dense-vector
+indices require periodic re-embedding and re-indexing to stay current. In high-velocity
+settings, this pipeline can become costly and latency-prone, increasing the risk of stale
+retrieval and outdated generation.
+Motivated by these limitations, our system avoids embedding the structured financial
+database into a vector space and does not rely on ANN search over textified tables. Instead,
+structured financial retrieval is performed viaschema-aligned query prediction: a small text-
+to-text Financial Agent generates a Structured Data Request, which is compiled into exact
+data request queries over the relational store, returning precise responses. Only the retrieved
+slice is then linearized into text for the LLM to perform explanation and synthesis.
+2.3 Financial Datasets Review
+The domain of financial language processing has witnessed a significant rise in the devel-
+opment of annotated datasets, each serving distinct purposes within the field. Through
+Table 1, we have highlighted some prominent examples that have been widely used in the
+area of finance for training models. In the next sections, we discuss the core contributions
+of the paper in detail. The key contribution is the creation of a Financial Agent that is
+capable of understanding the context needed for a user query, extracting the relevant data
+from the databases, and supporting an LLM to handle the contextualized query effectively.
+3. Financial Context Dataset
+For any given user query, a Financial Agent is expected to provide the relevant context,
+which includes numeric and text data, which can be appended to the user query for further
+processing. In this section, we discuss the first core contribution of the paper, which is the
+Financial Context Dataset, consisting of 50,000 samples of user query and its corresponding
+context. The proposed dataset can be used to fine-tune a Financial Agent specifically for
+context identification and data extraction. In this section, we present a detailed account of
+the dataset creation and its description.
+To fine-tune our model effectively, the dataset should be diverse in terms of sentence
+structure and comprehensive in terms of financial metrics and companies. Specifically,
+the dataset should include queries in a variety of forms, such as simple yes/no questions,
+comparative questions, and open-ended questions. This will help the model to learn to
+understand the different ways that users can present their queries. Additionally, the dataset
+should include a large number of financial metrics and companies, in the form of their
+many possible names and other ways they are referred to generally. This diversity in the
+dataset will enable our model to generalize well to a wide range of user queries, ensuring
+that it can accurately identify the required information. To construct this dataset, which
+consists of natural language user queries and their corresponding structured data requests,
+we followed a multi-method query sampling approach. The first method involved collecting
+9
+
+
+[Page 10]
+Table 1: Summary of Financial Datasets and Resources
+Resource Description Reference
+SentiWordNet Establishes a lexical resource based on WordNet, assigning sen-
+timent scores (objective, positive, negative) to individual word
+senses (synsets).
+Baccianella
+et al. (2010)
+Financial
+Phrase Bank
+Contains almost 5,000 snippets of text, gathered from financial
+news and press releases about Finnish companies traded on the
+NASDAQ OMX Nordic Exchange. Each snippet is labeled as
+positive, negative, or neutral.
+Malo et al.
+(2014)
+SenticNet A dataset for understanding sentiment in financial texts, combin-
+ing artificial intelligence and Semantic Web technologies to better
+recognize, interpret, and process opinions within this context.
+Cambria et al.
+(2012)
+SEntFiN 1.0 Incorporates entity-sentiment annotation to address the challenge
+of headlines containing multiple entities with potentially conflict-
+ing sentiments. This human-annotated dataset of over 10,700
+news headlines provides insights into sentiment variations de-
+pending on specific entities in financial news.
+Sinha et al.
+(2022)
+Trillion Dollar
+Words
+A dataset of tokenized and annotated Federal Open Market Com-
+mittee (FOMC) speeches, meeting minutes, and press conference
+transcripts. This resource aims to understand the influence of
+monetary policy on financial markets by analyzing the language
+used by central bank.
+Shah et al.
+(2023a)
+REFinD An annotated dataset of relations within financial documents
+with approximately 29,000 instances and 22 relation types across
+eight entity pairs (e.g., person-title, org-money), extracted from
+SEC 10-X filings. Useful for identifying relationships between en-
+tities in financial reports.
+Kaur et al.
+(2023)
+Gold Commod-
+ity Dataset
+Compiled from diverse news sources and evaluated by human
+experts, allowing researchers to explore how news headlines in-
+fluence price movements, asset comparisons, and other financial
+events.
+Sinha and
+Khandait
+(2021)
+FiNER A dataset designed for Named Entity Recognition (NER) within
+the financial landscape, aiding in identifying and classifying fi-
+nancial companies within text data.
+Shah et al.
+(2023b)
+MULTIFIN Provides a multilingual financial NLP dataset with real-world
+financial article headlines in 15 languages. Annotated with high-
+level and low-level topics, facilitating multi-class and multi-label
+classification tasks.
+Jørgensen et al.
+(2023)
+FINQA A collection of question-answer pairs with in-depth analysis of
+financial reports. Written by financial experts, it focuses on deep
+reasoning over financial data, providing training data for answer-
+ing complex financial queries.
+Chen et al.
+(2021)
+queries sent by retail customers over technology channels to a brokerage and investment
+firm, like email, web-based forms, queries on app and Whatsapp. The second method
+involved interaction and consultation with 10 financial advisors on the kind of queries retail
+investors commonly have. The third method involved interviews with 20 retail investors
+about common questions that come to their mind before investing in a particular stock or
+forming a portfolio. Details of these interactions are provided in Appendix B. Based on
+the three methods of data collection; i.e. technology channel queries, advisor interviews
+and investor interviews; we created 5000 query templates, in which 4000 templates were
+extracted from technology channels, 500 were created with financial advisors, and another
+10
+
+
+[Page 11]
+Figure 4: Steps for dataset generation
+Table 2: Example queries and their corresponding templates.
+Query Template
+Judging by Apple’s revenue and profit
+margins in Q4 2024, is it a good invest-
+ment opportunity?
+Judging by [company]’s [metrics][date], is
+it a good investment opportunity?
+Evaluate the return-on-equity ratio asso-
+ciated with Infosys in 2022.
+Evaluate the [metrics] associated with
+[company][date].
+List the top 5 companies in Q3 2023 in
+terms of stock price growth.
+List the top 5 companies [date] in terms
+of [metrics].
+Were there any improvements seen in the
+market share of Samsung in 2023 as com-
+pared to Apple?
+Were there any improvements seen in
+the [metrics] of [company1][date] as com-
+pared to [company2]?
+500 were created with retail investors. This approach ensured the incorporation of a broad
+scope of financial queries, resulting in a diverse dataset. In order to extend the dataset
+to 50000 queries, the 5000 templates were scaled-up by randomly varying various aspects
+within each template. Table 2 shows 4 queries and the corresponding template that we
+created. Once the template is created, it is possible to map various kinds of queries to each
+template, for instance, Table 9 in Appendix B provides randomization of various aspects
+in the template leading to a larger set of queries in our dataset. The flow for the dataset
+generation process is provided through Figure 4.
+It is obvious that not all financial metrics or companies can be mapped to each of the
+queries because of the differences in how the queries are structured. For example, the
+metrics ‘revenue breakdown’, ‘market segmentation’, or ‘customer demographics’ can be
+mapped to the template,Provide details about the [metrics] of companies [date]., but not
+to the template,Did the [metrics] of [companies] increase [date]?because they may not
+inherently be quantitative or trackable over time. Metrics that exhibit clear numerical
+trends over time, such as profit margins, sales growth, or stock prices, are better suited to
+templates likeDid the [metrics] of [companies] increase [date]?, which require measurable
+changes or directional insights. Therefore, the metric set maintained by us is carefully
+curated to align with the specific structure and intent of each template.
+We maintain a comprehensive repository of financial metrics[metrics], company names
+[company], industries[industry], and augment it with time range variations[date]and
+numeric variations[number]to systematically generate a diverse set of natural language
+queries. This template-driven approach to query generation ensures that the resulting
+dataset is both highly diverse and semantically accurate. By leveraging predefined tem-
+11
+
+
+[Page 12]
+plates, we produce a dataset that encompasses a broad spectrum of financial metrics and
+company-specific contexts. Furthermore, this approach eliminates the need for manual
+extraction and labeling of financial information, thereby enhancing both efficiency and scal-
+ability in dataset creation.
+After creating 50000 queries using a template-based approach, we create two additional
+columns in the dataset, namely, “Required Data” and “Structured Data Request” . The
+“Required Data” column specifies the necessary information required for answering the
+query, comprising company names, their specific metrics required for analysis, and the
+corresponding date ranges for data retrieval. Each metric is associated with a list of “Related
+Metrics”, which are also to be retrieved from the Data Module. A snippet of our dataset,
+3 out of 50000 rows, with all three columns is shown in Table 3. The inclusion of related
+metrics serves four primary purposes: (1) It provides additional contextual information
+for an efficient processing of the query by an LLM. (2) It enhances the robustness of the
+analysis by mitigating potential ambiguities or inaccuracies in the data. Financial metrics
+often have complex interdependencies, and providing related metrics ensures that even if
+the primary metric is misunderstood, incomplete, or unavailable, the LLM can derive or
+approximate insights using the supplementary data. This redundancy in data retrieval
+acts as a safeguard against potential errors, thereby improving the reliability of the query
+responses. (3) It enables the generation of enriched and multidimensional insights that
+go beyond the scope of the original query. By retrieving additional metrics linked to the
+primary ones, the system can identify trends, correlations, or anomalies that might not be
+apparent when considering the primary metric alone. This capability allows the LLM to
+provide more comprehensive, informed, and actionable responses, thereby increasing the
+value of the analysis for end-users. (4) By leveraging “Related Metrics”, the LLM can
+perform multi-metric calculations (e.g., ratios, averages, or differences), which can be useful
+for educational queries or may also lead to insights for further interactions. For instance,
+see Figure 3, where the query is about the P / E ratio of a company, but it can be effectively
+tackled only when the data on the “share price” and the “earnings per share” are known.
+12
+
+
+[Page 13]
+Query Required Data Structured Data Request
+Based on Amcor’s Acid Test Ratio, Bid
+Size and Cash Conversion Efficiency Ratio
+for the previous 6 months, should I invest
+in it?
+Companies: Amcor plc
+Metrics: Quick Ratio (Related Metrics:
+Cash, Cash Equivalents, Marketable Secu-
+rities, Accounts Receivable, Current Lia-
+bilities); Bid Size (Related Metrics: Quan-
+tity of shares, Multiple bid prices, Depth
+of the market, Order book); Cash Con-
+version Efficiency Ratio (Related Metrics:
+Cash flow from operations, Net income)
+Dates: for the previous 6 months
+(Amcor plc)
+(Quick Ratio; Cash; Cash Equivalents;
+Marketable Securities; Accounts Receiv-
+able; Current Liabilities; Bid Size; Quan-
+tity of shares; Multiple bid prices; Depth
+of the market; Order book; Cash Conver-
+sion Efficiency Ratio; Cash flow from op-
+erations; Net income)
+(7/1/2024 - 7/7/2024)
+Give an overview of adobe and its com-
+petitor’s Sep 2018 sales revenue, EVA.
+Companies: Adobe Inc.; Adobe Inc. Peers
+Metrics: Sales Revenue (Related Metrics:
+Total Revenue); Economic Value Added
+(Related Metrics: Net operating profit af-
+ter tax (NOPAT), Cost of capital)
+Dates: Sep 2018
+(Adobe Inc.; Adobe Inc. Peers)
+(Sales Revenue; Total Revenue; Economic
+Value Added; Net operating profit after
+tax (NOPAT); Cost of capital)
+(1/9/2018 - 30/9/2018)
+What were the return on average assets
+and ROWC of Halliburton co. and other
+companies in the energy sector from Apr
+2016 to Jul 2017 compared to their Gross
+Profit Margin and CROAFA?
+Companies: Halliburton Co.; energy
+Companies
+Metrics: Return on Average Assets (Re-
+lated Metrics: Net income, Average to-
+tal assets); Return on Working Capital
+(Related Metrics: Net income, Working
+capital); Gross Profit Margin (Related
+Metrics: Revenue, Cost of Goods Sold
+(COGS)); Cash Return on Average Fixed
+Assets (Related Metrics: Operating cash
+flow, Average fixed assets)
+Dates: from Apr 2016 to Jul 2017
+(Halliburton Co.; Energy Companies)
+(Return on Average Assets; Net income;
+Average total assets; Return on Work-
+ing Capital; Net income; Working capi-
+tal; Gross Profit Margin; Revenue; Cost of
+Goods Sold (COGS); Cash Return on Av-
+erage Fixed Assets; Operating cash flow;
+Average fixed assets)
+(1/4/2016 - 1/7/2017)
+Table 3: Table showing snippet of the proposed dataset containing financial queries and their corresponding data request
+columns. A set of 3 out of 50000 rows are shown.
+13
+
+
+[Page 14]
+We have closely studied all the financial metrics that occur in financial text and gen-
+erated a predefined mapping that links each financial metric to a set of related metrics.
+Identification and selection of these related metrics were carried out through a meticulous
+human-driven process to ensure accuracy and domain relevance. While modern techniques,
+such as computing cosine similarity using transformer-based models, could have been em-
+ployed to identify related metrics automatically, we prioritized a human-based approach
+to maintain correctness and contextual appropriateness. This effort ensures a robust and
+reliable dataset, ensuring that the relationships between metrics are meaningful and aligned
+with practical financial analysis. Finally, the “Structured Data Request” field is prepared
+that represents a formalized, machine-readable version of the “Required Data” field, de-
+signed for direct input into the Data Module for efficient data retrieval.
+In a later section, we will utilize the prepared dataset for fine-tuning an LLM-based
+Financial Agent for identifying the relevant data required for answering the query. Before
+the fine-tuning exercise, in the next section we first create a financial LLM that can be
+fine-tuned for any downstream task.
+4. FinBloom 7B: A Large Language Model for Finance
+Our approach for addressing user queries requires a Financial Agent for forming a structured
+request of the financial data that the Data Module can understand and respond to. The
+user’s query is typically in natural language, which means that it may not explicitly contain
+all of the necessary information, like recent numbers and news, that is needed to answer it.
+Hence, the Agent needs to analyze the user’s query and intelligently identify the essential
+financial metrics, as well as any related metrics and news, that are needed to answer the
+query. It also needs to identify the companies for which the data is required, as well as the
+date ranges for which the data is needed. It finally needs to ensure that these requirements
+are presented in the form of a data request function that the Data Module can interpret.
+Manually specifying a set of hard rules to handle all possible user queries and perform these
+tasks would be very tedious and complicated. Therefore, a better approach is to fine-tune
+a text-to-text generation model on a large dataset of natural language user queries for
+generating the corresponding structured query formats which contain all the information
+required to answer the user query. There are quite a few financial LLMs such as FiMA
+(Xie et al. (2023)), FinGPT (Yang et al. (2023a)), CFGPT (Li et al. (2023)), InvestLM
+(Yang et al. (2023b)) available that can be fine-tuned to serve as an agent for the task of
+creating structured data request. However, most of these LLMs exhibit limitations that may
+hinder their effectiveness in real-world applications, especially for the purpose of identifying
+financial context for a given query.
+Many domain-specific models are typically developed by starting with a general-purpose
+base model, which is subsequently fine-tuned using human-curated financial datasets (for
+example, FinMA (Xie et al. (2023)), InvestLM (Yang et al. (2023b))) such as instruction
+datasets, question-answer datasets, structured datasets, or synthetic datasets. To the best
+of our knowledge, most existing financial LLMs are not trained on high-quality, large-scale
+domain-specific text corpora. This limitation primarily arises from the scarcity of extensive
+14
+
+
+[Page 15]
+and ethically 4 usable financial text corpora, as such resources are often difficult to access
+or compile from online channels. Many human-curated financial datasets used for training
+finance-specific LLMs are of limited size and highly structured; therefore, it may fail to con-
+vey domain-specific nuances and may not capture the complex inter-dependencies inherent
+in financial metrics and text. Human-curated datasets are also often inherent with human
+biases, leading to LLMs with shallow understanding of financial text. Using financial text
+corpora, such as large volumes of written financial text (books, news, filings, etc.), enriches
+the model’s knowledge of domain-relevant terminology, concepts, and context. Even in
+cases where one desires to train domain-specific instruction models, it is advisable to take
+a hybrid approach involving training on text-corpora followed by fine-tuning on instruction
+dataset. The existing domain-specific LLMs lack this phase of training on financial text
+corpora. Some financial LLMs such as FinGPT (Yang et al. (2023a)), CFGPT (Li et al.
+(2023)) are trained on publicly available financial text corpora, but are not competitive
+when evaluated on financial benchmarks in the later part of this section.
+To create the financial LLM, we choose a foundational model with robust general lan-
+guage understanding and the potential for domain-specific specialization in finance. We
+began by selecting the Bloom 7B parameter model as the base, leveraging its strong lin-
+guistic capabilities as a foundation for fine-tuning. To equip the model with financial exper-
+tise, we used a large corpus of financial news articles procured from Reuters and Deutsche
+Presse-Agentur (DPA). This dataset encompasses a wide array of financial topics, including
+market trends, economic indicators, corporate developments, and regulatory changes. The
+Reuters dataset spans the period from January 1, 2003, to December 31, 2012, while the
+DPA dataset covers the timeframe from June 1, 2001, to May 31, 2011. The combined
+dataset consists of over 14 million articles. The high-quality financial data used for train-
+ing is expected to lead to an LLM that understands interactions between various financial
+metrics and concepts well. We also utilized the publicly available SEC filings data from the
+period 31st Mar 2009 to 31st Oct 2023. The SEC filings consisted of overall 12.23 million
+documents but we utilized a random sample of 25% for the purpose of fine-tuning to avoid
+biasing the model with a large volume of “regulatory reporting data” . The details of the
+three datasets are provided in Table 4. fine-tuning was performed using the efficient QLoRA
+Dataset Documents Mean Words Mean Tokens Time Period
+Reuters 14,574,641 369.23 459.09 1st Jan 2003-31st Dec 2012
+DPA 387,187 286.20 390.37 1st Jun 2001-31st May 2011
+SEC 12,238,570 379.96 536.56 31st Mar 2009-31st Oct 2023
+Table 4: Dataset statistics with with mean words and mean tokens per document.
+method (Dettmers et al. (2024)), which facilitated significant performance improvements
+with minimal computational resources. The fine-tuning process spanned four epochs on a
+4. Ethical use in the context of financial LLM training involves ensuring that the text corpora used for
+model development are obtained with proper permissions and comply with copyright, privacy, and data
+ownership regulations. This includes avoiding the use of proprietary data without authorization and
+adhering to fair-use policies when sourcing publicly available content. All data used in this study is
+ethically sourced with appropriate authorization.
+15
+
+
+[Page 16]
+Tesla T4 GPU, requiring over 2000 hours. The model derived from this training will be
+referred to as “FinBloom 7B” in the later parts of the paper.
+To evaluate the capabilities of FinBloom 7B across a diverse range of financial tasks, we
+adopted the FinBen benchmark (Xie et al. (2024)). This comprehensive benchmark consists
+of multiple datasets, each assessing specific competencies such as information extraction,
+textual analysis, question answering, text generation, forecasting, risk management, and
+decision-making. Details of the FinBen benchmark are provided in Appendix C. By sub-
+jecting our model to this rigorous evaluation, we aimed to measure its effectiveness in
+handling various real-world financial applications. Table 5 presents the performance com-
+parison of FinBloom 7B against other widely used LLMs (FinMA-7B ( Xie et al. (2023)),
+FinGPT 7b-lora (Yang et al. (2023a)), CFGPT sft-7B-Full (Li et al. (2023)) across the
+FinBen benchmark, providing insights into its relative strengths and specialization within
+the financial domain. There are 35 datasets in the FinBen benchmark out of which we
+first consider 25 datasets for which one can compute the F1 score or its variation. The
+results reported for FinBloom 7B are without supervised fine-tuning on the datasets. On
+these 25 datasets, FinBloom 7B shows the best average performance. It is interesting to
+note that FinBloom 7B has not seen any of the data in Table 5 during the training phase.
+FinMA 7B, that is a close competitor to FinBloom 7B has seen significant amount of data
+(4 out of 25 datasets) during the training phase. Several models achieved scores of 0.00
+or performed poorly, primarily due to limitations such as inadequate instruction tuning,
+which led to failure in following task-specific guidelines, or the generation of hallucinated
+responses and outputs in incorrect formats. These issues were particularly pronounced in
+information extraction tasks, including named entity recognition, causal detection, numeric
+labeling, and textual analogy parsing.
+We have provided a comparison of all these models against popular LLMs like ChatGPT,
+GPT 4, Gemini and LLaMA on FinBen benchmark in Table 10 in Appendix C. Clearly
+GPT-4 is the best performer among all LLMs. Though the number of model parameters in
+GPT-4 is officially unknown, it is estimated to have more than a trillion model parameters.
+Appendix C provides further details on the procedure that we used to evaluate the models
+across the datasets in FinBen.
+5. Financial Agent for Data Retrieval and Context Generation
+This section describes the Financial Agent’s structure and function, explaining how it works
+with the Data Module to provide relevant context for an LLM to answer user queries. The
+Financial Agent was developed by fine-tuning the FinBloom 7B model on the the custom
+dataset detailed in Section 3. The entire development process for the Financial Agent has
+been represented through blocks in Figure 5. For comparison purposes, we also fine-tuned
+the Bloom 7B model directly on Financial Context Dataset and compared it’s performance
+with FinBloom 7B model fine-tuned on the same dataset. The fine-tuning process employed
+the parameter-efficient Prompt Tuning methodology as proposed by (Lester et al., 2021).
+We split our dataset in a 4 to 1 ratio for training and evaluation sets. We trained the
+modelsfor 5 epochs. The scores achieved for the training and evaluation sets are reported
+in Table 6. Clearly, the performance of fine-tuned FinBloom 7B is better than fine-tuned
+Bloom 7B on all metrics.
+16
+
+
+[Page 17]
+Dataset T ask Metrics FinMA 7B FinGPT
+7B-lora
+CFGPT
+sft-7B-F ull FinBloom 7B
+NER named entity recognition EntityF10.690.00 0.00 0.00
+FINER-ORD named entity recognition EntityF1 0.00 0.00 0.00 0.00
+FinRED relation extraction F1 0.00 0.00 0.00 0.00
+SC causal classification F1 0.19 0.00 0.150.84
+CD causal detection F1 0.00 0.00 0.00 0.00
+FNXL numeric labeling EntityF1 0.00 0.00 0.00 0.00
+FSRL textual analogy parsing EntityF1 0.00 0.00 0.00 0.00
+FPB sentiment analysis F10.880.00 0.35 0.32
+FiQA-SA sentiment analysis F10.790.00 0.42 0.47
+Headlines news headline classification AvgF10.970.60 0.61 0.45
+FOMC hawkish-dovish classification F10.490.00 0.16 0.20
+FinArg-AUC argument unit classification MicroF1 0.27 0.00 0.050.81
+FinArg-ARC argument relation classification MicroF1 0.08 0.00 0.050.20
+MultiFin multi-class classification MicroF1 0.14 0.00 0.050.25
+MA deal completeness classification MicroF1 0.45 0.00 0.250.48
+MLESG ESG Issue Identification MicroF1 0.00 0.00 0.010.07
+German credit scoring F1 0.17 0.52 0.530.53
+Australian credit scoring F1 0.41 0.38 0.290.51
+LendingClub credit scoring F10.610.00 0.05 0.53
+ccf fraud detection F1 0.001.000.00 0.70
+ccfraud fraud detection F1 0.01 0.00 0.030.77
+polish financial distress classification F10.920.30 0.40 0.30
+taiwan financial distress classification F10.950.60 0.70 0.32
+portoseguro claim analysis F1 0.040.960.00 0.41
+travelinsurance claim analysis F1 0.000.980.03 0.50
+A verage F1 Score0.3224 0.2136 0.16520.3464
+Standard Deviation0.3529 0.3444 0.2122 0.2669
+Table 5: Table showing performance of different financial LLMs on datasets from the
+FinBen benchmark. All the results reported in the table are without supervised
+fine-tuning.
+Figure 5: Development process for Financial Agent.
+Training Set Evaluation Set
+Model Loss Perplexity Loss Perplexity
+Bloom 7B 0.0487 1.0499 0.0450 1.0460
+FinBloom 7B 0.0375 1.0382 0.0076 1.0076
+Table 6: Loss and perplexity scores for training and evaluation data for models fine-tuned
+on Financial Context Dataset.
+To further assess the accuracy of the fine-tuned modelson our custom dataset, we gener-
+ated an additional 10,000 natural queries and their corresponding labels to create a test set.
+We then passed the same queries to the modelsas inputs and recorded the outputs. Consid-
+ering these recorded outputs from the model as the generated text and the original labels
+in the test set as the reference text, we calculated the similarity between the two sets using
+the BLEU (Bigram Language Evaluation Understudy) (Papineni et al. (2002)) and ROUGE
+17
+
+
+[Page 18]
+(Recall-Oriented Understudy for Gisting Evaluation) (Lin (2004)) metrics. These metrics
+provide a numerical score reflecting the degree of overlap between the model-generated text
+and the expected response, which are reported in Table 7. As we can see from these scores,
+the fine-tuned FinBloom 7B model is excellent in identifying the required data to answer
+the queries. The domain-specific FinBloom 7B model significantly outperforms the gen-
+eral Bloom 7B model after both are fine-tuned on Financial Context Dataset, showing the
+impact of financial domain pre-training.
+Model BLEU ROUGE-1 (F1) ROUGE-2 (F1) ROUGE-L (F1)
+Bloom 7B 0.8752 0.8947 0.8863 0.8943
+FinBloom 7B 0.9614 0.9774 0.9693 0.9771
+Table 7: BLUE and ROUGE scores for 10,000 test samples corresponding to Financial
+Context Dataset.
+6. Work Flow of Various Modules
+In this section, we describe in detail the functionality of different modules in our framework
+and the process of how they interact with each other. Our multi-module system is designed
+to process and respond to financial queries efficiently and accurately, leveraging a specialized
+Financial Agent and a robust Data Repository. The core of this system is the seamless
+communication and collaboration between these modules, ensuring a cohesive and dynamic
+flow of information from the initial user query to the final response generated by the LLM.
+When a user query is received, it is first handled by the Financial Agent that extracts
+relevant information from the Data Module to handle the user query appropriately. The
+Data Module serves as the repository for financial data, encompassing tabular financial
+information as well as real-time news data pertaining to diverse companies, sectors, and
+industries. It operates in a dynamic fashion, regularly ingesting and incorporating fresh
+data to ensure that the information it provides remains current and up-to-date. Upon re-
+ceiving a data request from the Financial Agent, the Data Module constructs a dataframe
+containing pertinent financial data, conforming to the specifications of the data request.
+The Data Module provides the relevant news data based on semantic matching of news
+items with the user query. We use RoBERTa-based (Liu, 2019) semantic search to detect
+similarity between the requested query and the news headlines. We develop FinRoBERTa 5
+by adapting the RoBERTa-large transformer model (about 400M parameters) to the finan-
+cial domain through fine-tuning. RoBERTa-large is fine-tuned for 2 epochs on a mixture of
+financial text sources, namely Reuters, DPA, and SEC data, to strengthen domain-specific
+language understanding and also on financial sentiment datasets (Malo et al. (2014); Sinha
+et al. (2022)) For evaluation, we compare three models: (i) the base RoBERTa-large, (ii)
+FinBERT, and (iii) our domain-adapted FinRoBERTa. All models are tested on the FOMC
+dataset (part of FinBen) for three-way stance classification (hawkish,dovish,neutral). Ta-
+ble 8 reports the results, demonstrating that FinRoBERTa substantially outperforms both
+5. FinRoBERTa-A transformer model for finance:https://huggingface.co/Chaitanya14/finroberta
+18
+
+
+[Page 19]
+Table 8: Performance comparison on FOMC stance classification (hawkish/dovish/neutral).
+Model F1 Score Accuracy
+FinRoBERTa (RoBERTa-large, domain-adapted) 0.7674 0.7661
+FinBERT 0.5098 0.4960
+RoBERTa-large 0.4258 0.4136
+FinBERT and the vanilla RoBERTa-large baseline in terms of F1 score and accuracy. It
+is noteworthy that FinRoBERTa and FinBERT have been fine-tuned on financial senti-
+ments but RoBERTA-large is not fine-tuned on any sentiment data. However, none of
+these models have been exposed to the FOMC dataset (and other datasets in FinBen) dur-
+ing the training/fine-tuning phases. The Data Module also provides further details, like
+company/industry specific financial details for the requested date ranges. For example, net
+income is reported quarterly, so the module presents the quarterly net incomes for the clos-
+est available date range to the one in the request. Share price, on the other hand, is reported
+at a higher frequency, so the module presents the share price data for the exact date range
+as requested in the query. If there are no dates/date ranges present in the request, then the
+latest date range for which the data is available is chosen. Finally, the agent integrates this
+data with the initial user query and supplies the enriched query to the LLM for processing.
+The data flow and the interoperability of the modules are shown through Figure 6 and
+provided in steps below.
+1. The user’s initial query,x, is received by the Financial Agent.
+2. The Financial Agent identifies the required data to answer this query and converts it
+into a structured data request to be passed onto the Data Module.
+3. The Data Module receives this data request and returns the relevant financial and
+news data.
+4. This data is converted into a string formcand appended to the initial queryxto
+come up with an enriched query. The enriched query is sent to the LLM to answer
+the given financial query using the data provided.
+5. The LLM receives the contextualized and enriched query, (c, x), to generate the out-
+put.
+Figure 6: Work flow and interoperability of the modules.
+19
+
+
+[Page 20]
+An illustrative example to demonstrate how the Financial Agent architecture works in
+knowledge-grounding of LLMs and helps to answer financial queries comprehensively has
+been provided in Example 1 in Appendix D. In summary, we chose the architecture shown in
+Figure 6 over alternatives for several key reasons. Although fine-tuning a general-purpose
+LLM like GPT-3.5 with financial data is possible, we opted for a domain-specific model
+to ensure greater control over training, customization, and deployment costs–crucial for
+real-time financial applications–and to enable faster inference. We also deliberately kept
+the Data Module separate from the Financial Agent to allow for a modular system de-
+sign, ensuring flexibility in data updates without needing to retrain the agent frequently.
+Recent updates in general-purpose LLM allow web access. However, it is inadequate for
+high-volume, high-velocity financial contexts. These models often lack access to structured
+financial data (like intraday trading data, earnings call transcripts, real-time market feeds,
+regulatory filings, etc.) and are prone to hallucinations or approximations when precise fig-
+ures are needed (like revenue growth, dividend yield, volume spikes, sectoral indices, etc.).
+These issues of hallucinations and approximations are demonstrated in empirical evalua-
+tions illustrated in Examples 2 and 3 in Appendix D. Finally, Example 4 in Appendix D
+compares the performance of an LLM with web access against the same LLM operating in
+our proposed architecture.
+7. Conclusions
+This study emphasizes the role of knowledge-grounding in LLMs, particularly for interactive
+tasks that require real-time information access. First, we developed the Financial Context
+Dataset, which comprises over 50,000 financial queries paired with the contextual informa-
+tion necessary for their resolution. Building on this foundation, we trained FinBloom 7B, a
+7 billion parameter language model, using a corpus of over 14 million financial news articles
+sourced from Reuters and Deutsche Presse-Agentur (DPA) and 12 million documents from
+SEC filings. Subsequently, we fine-tuned FinBloom 7B on the Financial Context Dataset to
+create a Financial Agent. This agent is capable of generating the required context for user
+queries and efficiently retrieving it from a data module to address financial queries. A key
+challenge in financial decision-making lies in mitigating the high latency associated with
+multiple interactions with large-scale LLMs (e.g., GPT-3.5 or GPT-4). To address this, the
+fine-tuned Financial Agent seamlessly integrates with any large-scale LLM. In our proposed
+framework, the user submits a query, the Financial Agent processes and retrieves the nec-
+essary context, and the LLM subsequently analyzes the query along with the contextual
+information. This design ensures low latency, enabling effective handling of high-velocity
+financial data effectively.
+Future research could expand this framework into a multi-agent system, integrating
+additional agents such as financial video analysis tools to further enhance its capabilities.
+With these advancements, our work holds the potential to transform the delivery of financial
+services, making them more efficient, personalized, and accessible to a broader audience.
+20
+
+
+[Page 21]
+8. Acknowledgements
+The authors gratefully acknowledge the valuable interactions and contributions of Mr.
+Sougata Basu (CEO, CashRich) and Mr. Nayan Agarwal (Founder, Beehive Wealth) to-
+wards this study. The authors also acknowledge Krishnamurthy Tandon School of AI and
+Brij Disa Centre for Data Science and AI at Indian Institute of Management Ahmedabad
+for supporting this study.
+References
+Garima Agrawal, Tharindu Kumarage, Zeyad Alghamdi, and Huan Liu. Mindful-
+RAG: A study of points of failure in retrieval augmented generation.arXiv preprint
+arXiv:2407.12216, 2024.
+Julio Cesar Salinas Alvarado, Karin Verspoor, and Timothy Baldwin. Domain adaption
+of named entity recognition to support credit risk assessment. InProceedings of the
+Australasian Language Technology Association Workshop 2015, pages 84–90, 2015.
+Stefano Baccianella, Andrea Esuli, Fabrizio Sebastiani, et al. Sentiwordnet 3.0: An en-
+hanced lexical resource for sentiment analysis and opinion mining. InLrec, volume 10,
+pages 2200–2204, 2010.
+Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla
+Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, et al. Lan-
+guage models are few-shot learners.Advances in neural information processing systems,
+33:1877–1901, 2020.
+Tilmann Bruckhaus. RAG does not work for enterprises.arXiv preprint arXiv:2406.04369,
+2024.
+Erik Cambria, Catherine Havasi, and Amir Hussain. Senticnet 2: A semantic and affec-
+tive resource for opinion mining and sentiment analysis. InTwenty-Fifth international
+FLAIRS conference, 2012.
+Thomas Carta, Cl´ ement Romac, Thomas Wolf, Sylvain Lamprier, Olivier Sigaud, and
+Pierre-Yves Oudeyer. Grounding large language models in interactive environments with
+online reinforcement learning.arXiv preprint arXiv:2302.02662, 2023.
+Chung-Chi Chen, Yu-Min Tseng, Juyeon Kang, Ana¨ ıs Lhuissier, Min-Yuh Day, Teng-Tsai
+Tu, and Hsin-Hsi Chen. Multi-lingual ESG issue identification. InProceedings of the
+Fifth Workshop on Financial Technology and Natural Language Processing and the Second
+Multimodal AI For Financial Forecasting, pages 111–115, 2023.
+Zhiyu Chen, Wenhu Chen, Charese Smiley, Sameena Shah, Iana Borova, Dylan Langdon,
+Reema Moussa, Matt Beane, Ting-Hao Huang, Bryan Routledge, et al. Finqa: A dataset
+of numerical reasoning over financial data.arXiv preprint arXiv:2109.00122, 2021.
+Zhiyu Chen, Shiyang Li, Charese Smiley, Zhiqiang Ma, Sameena Shah, and William Yang
+Wang. Convfinqa: Exploring the chain of numerical reasoning in conversational finance
+question answering.arXiv preprint arXiv:2210.03849, 2022.
+21
+
+
+[Page 22]
+Keith Cortis, Andr´ e Freitas, Tobias Daudert, Manuela Huerlimann, Manel Zarrouk,
+Siegfried Handschuh, and Brian Davis. SemEval-2017 task 5: Fine-grained sentiment
+analysis on financial microblogs and news. InProceedings of the 11th International
+Workshop on Semantic Evaluation (SemEval-2017), pages 519–535, August 2017. doi:
+10.18653/v1/S17-2089.
+Florin Cuconasu, Giovanni Trappolini, Federico Siciliano, Simone Filice, Cesare Campag-
+nano, Yoelle Maarek, Nicola Tonellotto, and Fabrizio Silvestri. The power of noise: Re-
+defining retrieval for RAG systems. InProceedings of the 47th International ACM SIGIR
+Conference on Research and Development in Information Retrieval, pages 719–729, 2024.
+Tim Dettmers, Artidoro Pagnoni, Ari Holtzman, and Luke Zettlemoyer. Qlora: Efficient
+finetuning of quantized llms.Advances in Neural Information Processing Systems, 36,
+2024.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. BERT: Pre-
+training of deep bidirectional transformers for language understanding.arXiv preprint
+arXiv:1810.04805, 2018.
+Emily Dinan, Stephen Roller, Kurt Shuster, Angela Fan, Michael Auli, and Jason We-
+ston. Wizard of Wikipedia: Knowledge-powered conversational agents.arXiv preprint
+arXiv:1811.01241, 2018.
+Duanyu Feng, Yongfu Dai, Jimin Huang, Yifang Zhang, Qianqian Xie, Weiguang Han,
+Zhengyu Chen, Alejandro Lopez-Lira, and Hao Wang. Empowering many, bias-
+ing a few: Generalist credit scoring through large language models.arXiv preprint
+arXiv:2310.00566, 2023.
+Tianyu Gao, Adam Fisch, and Danqi Chen. Making pre-trained language models better
+few-shot learners.arXiv preprint arXiv:2012.15723, 2020.
+Shailja Gupta, Rajesh Ranjan, and Surya Narayan Singh. A comprehensive survey of
+retrieval-augmented generation (RAG): Evolution, current landscape and future direc-
+tions.arXiv preprint arXiv:2410.12837, 2024.
+Hans Hofmann. Statlog (German Credit Data). UCI Machine Learning Repository, 1994.
+DOI: https://doi.org/10.24432/C5NC77.
+Gautier Izacard, Patrick Lewis, Maria Lomeli, Lucas Hosseini, Fabio Petroni, Timo Schick,
+Jane Dwivedi-Yu, Armand Joulin, Sebastian Riedel, and Edouard Grave. Few-shot learn-
+ing with retrieval augmented language models.arXiv preprint arXiv:2208.03299, 2022.
+Bowen Jin, Jinsung Yoon, Jiawei Han, and Sercan O Arik. Long-context LLMs meet RAG:
+Overcoming challenges for long inputs in RAG.arXiv preprint arXiv:2410.05983, 2024.
+Rasmus Jørgensen, Oliver Brandt, Mareike Hartmann, Xiang Dai, Christian Igel, and
+Desmond Elliott. MultiFin: A dataset for multilingual financial nlp. InFindings of
+the Association for Computational Linguistics: EACL 2023, pages 894–909, 2023.
+22
+
+
+[Page 23]
+Simerjot Kaur, Charese Smiley, Akshat Gupta, Joy Sain, Dongsheng Wang, Suchetha Sid-
+dagangappa, Toyin Aguda, and Sameena Shah. REFinD: Relation extraction financial
+dataset. InProceedings of the 46th International ACM SIGIR Conference on Research
+and Development in Information Retrieval, pages 3054–3063, 2023.
+Matthew Lamm, Arun Tejasvi Chaganty, Christopher D Manning, Dan Jurafsky, and Percy
+Liang. Textual analogy parsing: What’s shared and what’s compared among analogous
+facts.arXiv preprint arXiv:1809.02700, 2018.
+Brian Lester, Rami Al-Rfou, and Noah Constant. The power of scale for parameter-efficient
+prompt tuning.arXiv preprint arXiv:2104.08691, 2021.
+Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman
+Goyal, Heinrich K¨ uttler, Mike Lewis, Wen-tau Yih, Tim Rockt¨ aschel, et al. Retrieval-
+augmented generation for knowledge-intensive NLP tasks.Advances in Neural Informa-
+tion Processing Systems, 33:9459–9474, 2020.
+Jiangtong Li, Yuxuan Bian, Guoxuan Wang, Yang Lei, Dawei Cheng, Zhijun Ding, and
+Changjun Jiang. CFGPT: Chinese financial assistant with large language model.arXiv
+preprint arXiv:2309.10654, 2023.
+Xiang Lisa Li and Percy Liang. Prefix-tuning: Optimizing continuous prompts for genera-
+tion.arXiv preprint arXiv:2101.00190, 2021.
+Yu Li, Baolin Peng, Yelong Shen, Yi Mao, Lars Liden, Zhou Yu, and Jianfeng Gao.
+Knowledge-grounded dialogue generation with a unified knowledge representation.arXiv
+preprint arXiv:2112.07924, 2021.
+Chin-Yew Lin. Rouge: A package for automatic evaluation of summaries. InText summa-
+rization branches out, pages 74–81, 2004.
+Xiao Liu, Yanan Zheng, Zhengxiao Du, Ming Ding, Yujie Qian, Zhilin Yang, and Jie Tang.
+GPT understands, too.arXiv preprint arXiv:2103.10385, 2021.
+Yinhan Liu. RoBERTa: A robustly optimized bert pretraining approach.arXiv preprint
+arXiv:1907.11692, 364, 2019.
+Renqian Luo, Liai Sun, Yingce Xia, Tao Qin, Sheng Zhang, Hoifung Poon, and Tie-Yan Liu.
+BioGPT: Generative pre-trained transformer for biomedical text generation and mining.
+Briefings in Bioinformatics, 23(6), 2022.
+M Maia, S Handschuh, A Freitas, B Davis, R McDermott, and M Zarrouk. Financial opinion
+mining and question answering.Von https://sites. google. com/view/fiqa, 2018.
+Pekka Malo, Ankur Sinha, Pekka Korhonen, Jyrki Wallenius, and Pyry Takala. Good
+debt or bad debt: Detecting semantic orientations in economic texts.Journal of the
+Association for Information Science and Technology, 65(4):782–796, 2014.
+Dominique Mariko, Hanna Abi Akl, Estelle Labidurie, Stephane Durfort, Hugues De Mazan-
+court, and Mahmoud El-Haj. Financial document causality detection shared task (fin-
+causal 2020).arXiv preprint arXiv:2012.02505, 2020.
+23
+
+
+[Page 24]
+Rajdeep Mukherjee, Abhinav Bohra, Akash Banerjee, Soumya Sharma, Manjunath Hegde,
+Afreen Shaikh, Shivani Shrivastava, Koustuv Dasgupta, Niloy Ganguly, Saptarshi Ghosh,
+et al. Ectsum: A new benchmark dataset for bullet point summarization of long earnings
+call transcripts.arXiv preprint arXiv:2210.12467, 2022.
+Kishore Papineni, Salim Roukos, Todd Ward, and Wei-Jing Zhu. Bleu: A method for
+automatic evaluation of machine translation. InProceedings of the 40th annual meeting
+of the Association for Computational Linguistics, pages 311–318, 2002.
+Baolin Peng, Michel Galley, Pengcheng He, Hao Cheng, Yujia Xie, Yu Hu, Qiuyuan Huang,
+Lars Liden, Zhou Yu, Weizhu Chen, et al. Check your facts and try again: Improving
+large language models with external knowledge and automated feedback.arXiv preprint
+arXiv:2302.12813, 2023.
+Ross Quinlan. Statlog (Australian Credit Approval). UCI Machine Learning Repository,
+1987. DOI: https://doi.org/10.24432/C59012.
+Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, Ilya Sutskever, et al.
+Language models are unsupervised multitask learners.OpenAI blog, 1(8):9, 2019.
+Laria Reynolds and Kyle McDonell. Prompt programming for large language models: Be-
+yond the few-shot paradigm. InExtended Abstracts of the 2021 CHI Conference on
+Human Factors in Computing Systems, pages 1–7, 2021.
+Teven Le Scao, Angela Fan, Christopher Akiki, Ellie Pavlick, Suzana Ili´ c, Daniel Hess-
+low, Roman Castagn´ e, Alexandra Sasha Luccioni, Fran¸ cois Yvon, Matthias Gall´ e, et al.
+Bloom: A 176b-parameter open-access multilingual language model.arXiv preprint
+arXiv:2211.05100, 2022.
+Agam Shah, Suvan Paturi, and Sudheer Chava. Trillion dollar words: A new financial
+dataset, task & market analysis.arXiv preprint arXiv:2305.07972, 2023a.
+Agam Shah, Ruchit Vithani, Abhinav Gullapalli, and Sudheer Chava. Finer: Finan-
+cial named entity recognition dataset and weak-supervision model.arXiv preprint
+arXiv:2302.11157, 2023b.
+Soumya Sharma, Tapas Nayak, Arusarka Bose, Ajay Kumar Meena, Koustuv Dasgupta,
+Niloy Ganguly, and Pawan Goyal. FinRED: A dataset for relation extraction in financial
+domain. InCompanion Proceedings of the Web Conference 2022, pages 595–597, 2022.
+Soumya Sharma, Subhendu Khatuya, Manjunath Hegde, Afreen Shaikh, Koustuv Dasgupta,
+Pawan Goyal, and Niloy Ganguly. Financial numeric extreme labelling: A dataset and
+benchmarking. InFindings of the Association for Computational Linguistics: ACL 2023,
+pages 3550–3561, 2023.
+Taylor Shin, Yasaman Razeghi, Robert L Logan IV, Eric Wallace, and Sameer Singh.
+Autoprompt: Eliciting knowledge from language models with automatically generated
+prompts.arXiv preprint arXiv:2010.15980, 2020.
+24
+
+
+[Page 25]
+Ankur Sinha and Tanmay Khandait. Impact of news on the commodity market: Dataset
+and results. InAdvances in Information and Communication: Proceedings of the 2021
+Future of Information and Communication Conference (FICC), Volume 2, pages 589–601.
+Springer, 2021.
+Ankur Sinha, Satishwar Kedas, Rishu Kumar, and Pekka Malo. SEntFiN 1.0: Entity-aware
+sentiment analysis for financial news.Journal of the Association for Information Science
+and Technology, 73(9):1314–1335, 2022.
+Yejun Soun, Jaemin Yoo, Minyong Cho, Jihyeong Jeon, and U Kang. Accurate stock
+movement prediction with self-supervised learning from sparse noisy tweets. In2022
+IEEE International Conference on Big Data (Big Data), pages 1691–1700. IEEE, 2022.
+Eugene Sy, Tzu-Cheng Peng, Shih-Hsuan Huang, Heng-Yu Lin, and Yung-Chun Chang.
+Fine-grained argument understanding with BERT ensemble techniques: A deep dive into
+financial sentiment analysis. InProceedings of the 35th Conference on Computational
+Linguistics and Speech Processing (ROCLING 2023), pages 242–249, 2023.
+Ross Taylor, Marcin Kardas, Guillem Cucurull, Thomas Scialom, Anthony Hartshorn, Elvis
+Saravia, Andrew Poulton, Viktor Kerkez, and Robert Stojnic. Galactica: A large language
+model for science.arXiv preprint arXiv:2211.09085, 2022.
+Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V
+Le, Denny Zhou, et al. Chain-of-thought prompting elicits reasoning in large language
+models.Advances in Neural Information Processing Systems, 35:24824–24837, 2022.
+Huizhe Wu, Wei Zhang, Weiwei Shen, and Jun Wang. Hybrid deep sequential modeling
+for social text-driven stock prediction. InProceedings of the 27th ACM international
+conference on information and knowledge management, pages 1627–1630, 2018.
+Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski, Mark Dredze, Sebastian Gehrmann,
+Prabhanjan Kambadur, David Rosenberg, and Gideon Mann. BloombergGPT: A large
+language model for finance.arXiv preprint arXiv:2303.17564, 2023.
+Qianqian Xie, Weiguang Han, Xiao Zhang, Yanzhao Lai, Min Peng, Alejandro Lopez-Lira,
+and Jimin Huang. PIXIU: A large language model, instruction data and evaluation
+benchmark for finance.arXiv preprint arXiv:2306.05443, 2023.
+Qianqian Xie, Weiguang Han, Zhengyu Chen, Ruoyu Xiang, Xiao Zhang, Yueru He, Mengxi
+Xiao, Dong Li, Yongfu Dai, Duanyu Feng, et al. The FinBen: An holistic financial
+benchmark for large language models.arXiv e-prints, pages arXiv–2402, 2024.
+Yumo Xu and Shay B Cohen. Stock movement prediction from tweets and historical prices.
+InProceedings of the 56th Annual Meeting of the Association for Computational Linguis-
+tics (Volume 1: Long Papers), pages 1970–1979, 2018.
+Hongyang Yang, Xiao-Yang Liu, and Christina Dan Wang. FinGPT: Open-source financial
+large language models.arXiv preprint arXiv:2306.06031, 2023a.
+25
+
+
+[Page 26]
+Linyi Yang, Eoin M Kenny, Tin Lok James Ng, Yi Yang, Barry Smyth, and Ruihai Dong.
+Generating plausible counterfactual explanations for deep transformers in financial text
+classification.arXiv preprint arXiv:2010.12512, 2020.
+Yi Yang, Yixuan Tang, and Kar Yan Tam. InvestLM: A large language model for investment
+using financial domain instruction tuning, 2023b. URLhttps://arxiv.org/abs/2309.
+13064.
+Susan Zhang, Stephen Roller, Naman Goyal, Mikel Artetxe, Moya Chen, Shuohui Chen,
+Christopher Dewan, Mona Diab, Xian Li, Xi Victoria Lin, et al. Opt: Open pre-trained
+transformer language models.arXiv preprint arXiv:2205.01068, 2022.
+Wentao Zhang, Lingxuan Zhao, Haochong Xia, Shuo Sun, Jiaze Sun, Molei Qin, Xinyi Li,
+Yuqing Zhao, Yilei Zhao, Xinyu Cai, et al. A multimodal foundation agent for financial
+trading: Tool-augmented, diversified, and generalist. InProceedings of the 30th acm
+sigkdd conference on knowledge discovery and data mining, pages 4314–4325, 2024.
+Siyun Zhao, Yuqing Yang, Zilong Wang, Zhiyuan He, Luna K Qiu, and Lili Qiu. Retrieval
+augmented generation (RAG) and beyond: A comprehensive survey on how to make your
+llms use external data more wisely.arXiv preprint arXiv:2409.14924, 2024.
+Fengbin Zhu, Wenqiang Lei, Youcheng Huang, Chao Wang, Shuo Zhang, Jiancheng Lv,
+Fuli Feng, and Tat-Seng Chua. TAT-QA: A question answering benchmark on a hybrid
+of tabular and textual content in finance.arXiv preprint arXiv:2105.07624, 2021.
+26
+
+
+[Page 27]
+Appendix A. Data Module Implementation and Retrieval Details
+The Data Module is implemented as a logical abstraction layer that unifies access to two
+physically distinct backends optimized for different access patterns: (i) a relational store
+for structured/tabular financial information and (ii) a document store with a vector index
+for news. The Financial Agent interacts with the Data Module through a single, structured
+request interface (cf. the “Structured Data Request” format in Table 3). Internally, the
+Data Module routes sub-requests to the appropriate backend, then merges the results into
+(a) a tabular result (as apandasDataFrame) and (b) a ranked list of relevant news items.
+These outputs are subsequently linearized into the textual contextcused by the language
+model (as illustrated in Figure 2).
+A.1 Tabular Data Store
+Structured financial data (e.g., fundamental metrics, prices, and other numeric series) are
+stored in a relational database (PostgreSQL). The schema follows a star design to support
+efficient filtering by company, metric, and date range:
+•companies(company id, ticker, name, sector, ...)
+•metrics(metric id, name, unit, frequency, ...)
+•metric values(company id, metric id, date, value, updated at, ...)
+This organization supports the dominant query pattern induced by the structured request
+representation: retrieving specific metrics for specific companies over a specified date inter-
+val.
+A.2 News Data Store
+News are stored as documents in a single Elasticsearch index that serves as both a document
+store and a vector-search backend. Each document contains structured metadata alongside
+a dense embedding:
+•article id(ID),source(provider),published at(timestamp)
+•headline,body
+•tickersandsectors(entity tags for filtering)
+•embedding: a 768-dimensional dense vector field (stored asdense vector).
+Embeddings are pre-computed using a RoBERTa-based encoder Liu (2019) fine-tuned on
+financial news, and stored directly in the index to enable ANN retrieval with cosine simi-
+larity.
+A.3 Update Cadence by Data Type
+The Data Module supports different update cadences depending on the data source:
+27
+
+
+[Page 28]
+•Market data (prices, volumes).Intraday prices and volumes are ingested in micro-
+batches from the data provider; in our deployment this results in an approximate lag
+of30 minutesfrom exchange publication to availability within the Data Module.
+•Fundamental metrics and statements.Quarterly and annual fundamentals are
+ingested viadaily batch jobs, which is sufficient for the decision-support scenarios
+targeted in this work.
+•News articles.News feeds are polled at short intervals (every 30 minutes); newly
+arrived items are tokenized, embedded, and indexed for vector search. It is ensured
+that duplicate news items do not get stored.
+This describes a research-grade implementation of the logical data layer. An industry de-
+ployment can reduce latency further by adopting higher-frequency ingestion and streaming
+infrastructure.
+For structured metrics, the relational store is treated as append-only, i.e. updates do not
+overwrite existing rows. Instead, new records are inserted with anupdated attimestamp.
+When answering historical queries (i.e. queries specifying an explicit past interval, for
+instance, ‘from Apr 2016 to Jul 2017’ in Query 3, Table 3), the Data Module filters as
+per the requested date range or the recent values in case date range is not specified. For
+news, the system preserves the full history of articles. Retrieval first applies filters on
+published atandtickers/sectors, and only then applies semantic similarity ranking.
+The “Structured Data Request” representation encodes: (i) companies, (ii) metrics (and
+related metrics), (iii) a date range. When the Financial Agent processes a user query, it
+generates the same structured representation. The Data Module then executes the following
+steps:
+1.Normalize company entities.Company strings are matched to internalcompany ids
+using canonical mappings (ticker→company) together with a curated alias list (alter-
+native names and abbreviations).
+2.Normalize metrics.Metric strings are mapped tometric ids in a metrics catalog
+that encodes frequency (daily/quarterly/annual) and the target table. If the request
+includes related metrics, these are expanded into additionalmetric ids.
+3.Parse dates into explicit intervals.Date ranges are converted into explicit start–
+end intervals, enabling consistent filtering of time series. If date range is not provided
+in the query, it is assumed that the query is related to the most recent dates.
+4.Issue parameterized SQL.For each(company id, metric id)pair, the Data
+Module issues parameterized SQL restricted to the requested interval. For quarterly
+metrics, values are aligned to the nearest reporting period as described in Section 6.
+A.4 News Retrieval via RoBERTa-Based Semantic Search (FinRoBERTa)
+News retrieval follows a two-stage pipeline:
+1.Embedding model.A RoBERTa-based encoder Liu (2019) is fine-tuned on finan-
+cial news headlines (we refer to this as FinRoBERTa) and short snippets using a
+28
+
+
+[Page 29]
+contrastive loss objective. The model produces 768-dimensional embeddings for both
+queries and headlines.
+2.Filtered vector search.All headlines are embedded offline and stored in Elas-
+ticsearch as adense vectorfield. At query time, the query is embedded and used
+to retrieve the top-knearest neighbours by cosine similarity using approximate kNN
+search, subject to filters (ticker, sector and date range constraints) derived from the
+structured request.
+We tune the retrieval hyperparameters (k= 20 and a cosine similarity thresholdt= 0.2)
+on a held-out validation set of (query, relevant-article) pairs. Articles with similarity below
+tare discarded to avoid introducing weakly related news into the context. We keep the
+number of headlines per query small to control the context length.
+29
+
+
+[Page 30]
+Appendix B. Query Collection, Templatization and Sampling
+This section details the methodology and key insights gained from interviews with financial
+advisors and retail investors. It outlines the diverse backgrounds of the interviewees and
+how their experiences and priorities informed the structure and content of our comprehen-
+sive Financial Context Dataset. Our interviews with financial advisors and retail investors
+provided valuable insights that were instrumental in constructing a comprehensive dataset
+of financial queries. The advisors we spoke with represented a diverse professional land-
+scape, including those working for the wealth management divisions of banks serving their
+established customer base, and independent private advisors catering to individual clients.
+There were 4 advisors working for banks and 6 were independent advisors. Interestingly,
+most of the independent advisors had transitioned to their current practice from a profes-
+sional setup, where they gained experience as wealth managers typically for more than 5
+years. The educational backgrounds of all advisors were robust, encompassing Masters in
+Business Administration (MBA), Masters in Finance, Chartered Financial Analysts (CFA)
+and Chartered Accountancy (CA), with some even holding engineering and science degrees,
+highlighting a strong analytical foundation. All the advisors interviewed managed more
+than 100 relationships. All of the advisors that we interviewed were registered with the
+regulator (Securities and Exchange Board of India) after passing exams specified by the reg-
+ulatory authority. The eligibility requires individuals to have Bachelor’s/Master’s degrees
+or professional qualifications. The role of advisors, while overlapping in certain functions,
+differs significantly from that of another category of individuals-relationship managers-who
+are often unregistered with the regulatory authority. These interviews shed light on sev-
+eral critical aspects of a financial advisor’s practice, directly informing the types of queries
+included in our dataset. A primary focus for advisors when engaging with new clients is
+to first ascertain if the client has made investments in the past, to what extent they un-
+derstand investments, what is their risk profile, and what are their goals. This is followed
+by understanding their liquidity requirements, investment horizons, preferences for asset
+classes and overall financial situation to tailor a suitable portfolio. The client base itself
+is varied, ranging from “passive investors” who delegate most of the investment decisions
+to advisors due to a lack of technical market knowledge or time, to “active investors” who
+engage in frequent and in-depth technical discussions about company financials and play
+a more hands-on role in decision-making. This distinction is crucial for understanding the
+varying levels of detail and technicality required in responses to client queries. Further-
+more, the advisors consistently emphasized the paramount importance of staying abreast
+of the latest financial news. They highlighted that any significant event, whether micro
+or macroeconomic, could have a direct and immediate impact on their clients’ portfolios,
+necessitating constant monitoring, analysis and update. This underscored the need for the
+dataset to include queries that require real-time financial data and event-driven information
+to provide comprehensive and timely answers. The retail investors whom we interviewed
+primarily represented three classes: 10% large investments (more than USD 250,000 invest-
+ments), 20% medium investments (between USD 50,000 to 250,000 investments), 70% low
+investments (less than USD 50,000 investments). All investments were in Indian Rupees
+(INR) that we have converted approximately into US dollars (USD). There was variability
+30
+
+
+[Page 31]
+T emplate Generated Queries
+Judging by [company]’s
+[metrics][date], is it a good
+investment opportunity?
+•Judging by Tesla’s market capitalization growth in 2023, is it a
+good investment opportunity?
+•Judging by Google’s revenue in Q1 2024, is it a good investment
+opportunity?
+Evaluate the [metrics]
+associated with [com-
+pany][date].
+•Evaluate the customer retention rates associated with Netflix in
+2023.
+•Evaluate the price-to-earnings ratio associated with TCS in
+2022.
+List the top 5 companies
+[date] in terms of [metrics]. •List the top 5 companies in 2024 in terms of annual revenue.
+•List the top 5 companies in Q3 2023 in terms of stock price
+growth.
+Were there any improve-
+ments seen in the [met-
+rics] of [company1][date] as
+compared to [company2]?
+•Were there any improvements seen in the renewable energy
+adoption metrics of Shell in 2023 as compared to ExxonMo-
+bil?
+•Were there any improvements seen in the employee satisfaction
+scores of Microsoft in 2023 as compared to Google?
+Table 9: Templates and Realistic Queries
+in risk profile of the bottom 70% investors in terms of home ownership, family size, and
+income.
+Following this initial collection, 5,000 queries were manually annotated with contextual
+information. These annotated queries were then templatized and expanded to a dataset
+of 50,000 using a systematic sampling methodology. Table 9 provides templates and the
+corresponding queries generated from it. The table shows how 5000 templates have been
+used to synthesize (sample) a dataset with 50000 queries.
+Appendix C. FinBen Benchmark and Comparison Results
+To rigorously evaluate our model’s performance across a wide spectrum of financial tasks,
+we employed the comprehensive FinBen (Xie et al. (2024)) benchmark. This benchmark
+comprises a collection of datasets categorized by the specific large language model (LLM)
+abilities they are designed to evaluate. These categories are as follows:
+1. Information Extraction: This category includes the NER (Alvarado et al. (2015)),
+FINER-ORD (Shah et al. (2023b)), FinRED (Sharma et al. (2022)), SC(Mariko et al.
+(2020)), CD (Mariko et al. (2020)), FNXL (Sharma et al. (2023)), and FSRL (Lamm
+et al. (2018)) datasets, designed to assess the LLM’s capacity for extracting structured
+information from unstructured text.
+2. Textual Analysis: This section focuses on evaluating textual understanding and an-
+alytical capabilities, utilizing the Financial Phrase Bank (FPB) (Malo et al. (2014)),
+FiQA-SA (Maia et al. (2018)), TSA (Cortis et al. (2017)), Headlines (Sinha and
+31
+
+
+[Page 32]
+Khandait (2021)), FOMC (Shah et al. (2023a)), FinArg-AUC (Sy et al. (2023)),
+FinArg-ARC (Sy et al. (2023)), Multifin (Jørgensen et al. (2023)), MA (Yang et al.
+(2020)), and MLESG (Chen et al. (2023)) datasets.
+3. Question Answering: This category assesses the LLM’s ability to comprehend and
+answer questions based on given text, employing the FinQA (Chen et al. (2021)),
+TATQA (Zhu et al. (2021)), Regulations (Xie et al. (2024)), and ConvFinQA (Chen
+et al. (2022)) datasets.
+4. Text Generation: This section evaluates the LLM’s capacity to generate coherent and
+contextually relevant text, utilizing the EDTSUM (Xie et al. (2024)) and ECTSUM
+(Mukherjee et al. (2022)) datasets.
+5. Forecasting: This category tests the LLM’s ability to predict future trends or out-
+comes, using the BigData22 (Soun et al. (2022)), ACL18 (Xu and Cohen (2018)), and
+CIKM18 (Wu et al. (2018)) datasets.
+6. Risk Management: This section evaluates the LLM’s ability to assess and manage risk,
+leveraging datasets such as German (Hofmann (1994)), Australian (Quinlan (1987)),
+LendingClub(Feng et al. (2023)), ccf (Feng et al. (2023)), ccfraud (Feng et al. (2023)),
+Polish (Feng et al. (2023)), Taiwan (Feng et al. (2023)), portoseguro (Feng et al.
+(2023)), and travelinsurance (Feng et al. (2023)).
+Table 10 provides an extensive comparison of multiple LLMs on FinBen benchmark
+that consists of 35 datasets. Please note that the MCC metric can be negative, as it ranges
+from -1 to +1. The evaluation results were extracted and analyzed using a standardized
+procedure. The maximum number of generation tokens was set to 1024, consistent with
+the approach followed in the FinBen paper. For datasets requiring specific output formats,
+such as Named Entity Recognition (NER) or classification tasks, regular expressions were
+employed to extract outputs in the required structure; if extraction was not feasible, the
+response was treated as null. In datasets demanding a single word or numerical answer, the
+text preceding the first whitespace character in the generated output was used. For long-
+form question answering tasks, the entire generated text was taken as the final response.
+Each model was run three times, with equal weightage assigned to each run, and the final
+scores were computed as the average across the runs. All models were evaluated using greedy
+decoding, and decoding settings remained unchanged throughout the evaluation process.
+32
+
+
+[Page 33]
+DatasetTaskMetrics ChatGPT GPT 4 Gemini LLaMA2
+7B-Chat
+LLaMA2
+70B
+LLaMA3
+8B
+FinMA
+7B
+FinGPT
+7B-lora
+InternLM
+7B
+F alcon
+7B
+Mixtral
+7B
+CFGPT
+sft-7B-F ull
+FinBloom
+7B
+NER named entity recognition EntityF1 0.770.830.61 0.18 0.04 0.08 0.69 0.00 0.00 0.00 0.24 0.00 0.00
+FINER-ORD named entity recognition EntityF1 0.280.770.14 0.02 0.07 0.00 0.00 0.00 0.00 0.00 0.05 0.00 0.00
+FinRED relation extraction F1 0.000.020.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+SC causal classification F1 0.80 0.81 0.74 0.85 0.61 0.69 0.19 0.000.880.67 0.83 0.15 0.84
+CD causal detection F1 0.00 0.010.030.00 0.01 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+FNXL numeric labeling EntityF1 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+FSRL textual analogy parsing EntityF1 0.00 0.010.030.00 0.01 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+FPB sentiment analysis F1 0.78 0.78 0.77 0.39 0.73 0.520.880.00 0.69 0.07 0.29 0.35 0.32
+Acc 0.78 0.76 0.77 0.41 0.72 0.520.880.00 0.69 0.05 0.37 0.26 0.31
+FiQA-SA sentiment analysis F1 0.60 0.80 0.81 0.760.830.70 0.79 0.00 0.81 0.77 0.16 0.42 0.47
+TSA sentiment analysis RMSE 0.53 0.50 0.37 0.71 0.57 0.25 0.80 0.000.290.50 0.50 1.05 0.77
+Headlines news headline classification AvgF1 0.77 086 0.78 0.72 0.63 0.600.970.60 0.60 0.45 0.60 0.61 0.45
+FOMC hawkish-dovish classification F1 0.640.710.40 0.35 0.49 0.40 0.49 0.00 0.36 0.30 0.37 0.16 0.20
+Acc 0.600.690.60 0.49 0.47 0.41 0.46 0.00 0.35 0.30 0.35 0.21 0.25
+FinArg-AUC argument unit classification MicroF1 0.50 0.60 0.31 0.46 0.58 0.51 0.27 0.00 0.39 0.23 0.39 0.050.81
+FinArg-ARC argument relation classification MicroF1 0.39 0.400.600.27 0.36 0.28 0.08 0.00 0.33 0.32 0.57 0.05 0.20
+MultiFin multi-class classification MicroF1 0.590.650.62 0.20 0.63 0.39 0.14 0.00 0.34 0.09 0.37 0.05 0.25
+MA deal completeness classification MicroF1 0.85 0.79 0.84 0.700.860.34 0.45 0.00 0.78 0.39 0.34 0.25 0.48
+MLESG ESG Issue Identification MicroF1 0.250.350.34 0.03 0.31 0.12 0.00 0.00 0.14 0.06 0.17 0.01 0.07
+FinQA question answering EmAcc 0.580.630.00 0.00 0.06 0.00 0.04 0.00 0.00 0.00 0.00 0.00 0.00
+TATQA question answering EmAcc 0.00 0.130.180.03 0.01 0.01 0.00 0.00 0.00 0.00 0.01 0.00 0.00
+Regulations long-form question answering Rouge-1 0.12 0.11 - 0.24 - 0.10 0.12 0.01 0.04 0.03 - 0.14 0.21
+BertScore 0.64 0.62 - 0.65 - 0.60 0.59 0.40 0.57 0.14 - 0.57 0.80
+ConvFinQA multi-turn question answering EmAcc 0.600.760.43 0.00 0.25 0.00 0.20 0.00 0.00 0.00 0.31 0.01 0.00
+EDTSUM text summarization Rouge-1 0.17 0.200.390.17 0.25 0.14 0.13 0.00 0.13 0.15 0.12 0.01 0.08
+BertScore 0.66 0.67 0.72 0.62 0.68 0.60 0.38 0.52 0.48 0.57 0.61 0.510.79
+ECTSUM text summarization Rouge-1 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+BertScore 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+BigData22 stock movement prediction Acc 0.53 0.54 0.55 0.54 0.47 0.55 0.51 0.450.560.55 0.46 0.45 0.37
+MCC -0.025 0.03 0.04 0.05 0.00 0.02 0.02 0.000.080.00 0.02 0.03 -0.02
+ACL18 stock movement prediction Acc 0.500.520.52 0.51 0.51 0.52 0.51 0.49 0.51 0.51 0.49 0.48 0.29
+MCC 0.005 0.020.040.01 0.01 0.02 0.03 0.00 0.02 0.00 0.00 -0.03 0.01
+CIKM18 stock movement prediction Acc 0.550.570.54 0.55 0.49 0.57 0.50 0.42 0.57 0.47 0.42 0.41 0.44
+MCC 0.01 0.02 0.02 -0.03 -0.07 0.030.080.00 -0.03 -0.06 -0.05 -0.07 -0.01
+German credit scoring F1 0.20 0.55 0.520.570.17 0.56 0.17 0.52 0.41 0.23 0.53 0.53 0.53
+MCC -0.10 -0.02 0.000.030.00 0.05 0.00 0.00 -0.30 -0.07 0.00 0.00 -0.04
+Australian credit scoring F1 0.410.740.26 0.26 0.41 0.26 0.41 0.38 0.34 0.26 0.26 0.29 0.51
+MCC 0.000.470.00 0.00 0.00 0.00 0.00 0.11 0.13 0.00 0.00 -0.10 0.08
+LendingClub credit scoring F1 0.20 0.55 0.650.720.17 0.10 0.61 0.00 0.59 0.02 0.61 0.05 0.53
+MCC -0.10 -0.020.190.00 0.00 -0.15 0.00 0.00 0.15 -0.01 0.08 0.01 -0.02
+ccf fraud detection F1 0.20 0.55 0.96 0.00 0.17 0.01 0.00 1.001.000.10 0.00 0.00 0.70
+MCC -0.10 -0.02 -0.010.000.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 -0.01
+ccfraud fraud detection F1 0.20 0.550.900.25 0.17 0.36 0.01 0.00 0.57 0.62 0.48 0.03 0.77
+MCC -0.10 -0.02 0.00 -0.16 0.00 -0.03 -0.06 0.00 -0.13 -0.020.160.01 -0.01
+polish financial distress identification F1 0.20 0.55 0.86 0.92 0.17 0.83 0.92 0.30 0.92 0.760.920.40 0.30
+MCC -0.10 -0.020.140.00 0.00 -0.06 -0.01 0.00 0.07 0.05 0.00 -0.02 0.00
+taiwan financial distress identification F1 0.20 0.550.950.95 0.17 0.26 0.95 0.60 0.95 0.00 0.95 0.70 0.32
+MCC -0.10 -0.020.00-0.01 0.00 -0.07 0.00 -0.02 -0.01 0.00 0.00 0.00 0.02
+portoseguro claim analysis F1 0.20 0.55 0.95 0.01 0.17 0.94 0.040.960.96 0.95 0.72 0.00 0.41
+MCC -0.10 -0.02 0.00 -0.05 0.00 -0.010.010.00 0.00 0.00 0.01 0.00 0.00
+travelinsurance claim analysis F1 0.20 0.55 0.00 0.00 0.17 0.00 0.000.980.89 0.77 0.00 0.03 0.50
+MCC -0.10 -0.02 0.00 0.00 0.00 0.00 0.00 0.000.12-0.03 0.00 0.01 0.01
+Table 10: Performance of LLMs on the FinBen benchmark as average of three runs.
+33
+
+
+[Page 34]
+Appendix D. Knowledge-Grounding an LLM using Financial Agent
+We present multiple examples in this section where financial queries are posed to LLMs
+with different settings. To begin with, we present an illustrative example showcasing the
+Financial Agent Framework processing a user’s query, building the relevant context, con-
+structing the modified query and then interacting with an LLM (ChatGPT), which does
+not interact with the web. The query was posed in September 2023.
+Example Query 1:Based on their net income in the last quarter, should I invest in
+Pepsi or Coca Cola?
+Financial Agent Formatted Data Request:(PepsiCo, Inc.; Coca-Cola Co)
+(Net Income; Total Revenue; Cost of Revenue; Operating Expense; De-
+preciation and Amortization; Interest Expense)
+(31/3/2023 - 30/6/2023)
+Data Module Response:Retrieved tabular and news data
+Table: 31/3/2023 - 30/6/2023
+Entity Net Income
+(in
+thousands)
+(30/3/2023-
+29/6/2023)
+(Quarterly)
+T otal
+Revenue
+(in
+thousands)
+(30/3/2023-
+29/6/2023)
+(Quarterly)
+Cost
+of Revenue
+(in
+thousands)
+(30/3/2023-
+29/6/2023)
+(Quarterly)
+Operating
+Expense
+(in
+thousands)
+(30/3/2023-
+29/6/2023)
+(Quarterly)
+Depreciation
+and
+Amortization
+(in thousands)
+(30/3/2023-
+29/6/2023)
+(Quarterly)
+Interest
+Expense
+(in
+thousands)
+(30/3/2023-
+29/6/2023)
+(Quarterly)
+PepsiCo,
+Inc.
+[1932000,
+2748000]
+[17846000,
+22322000]
+[7988000,
+10121000]
+[7229000,
+8542000]
+[706000,
+810000]
+[200000,
+201000]
+Coca-
+Cola Co
+[3107000,
+2547000]
+[10980000,
+11972000]
+[4317000,
+4912000]
+[3296000,
+4659000]
+[286000,
+281000]
+[372000,
+374000]
+[News: While PepsiCo’s current performance is strong, some analysts expressed concern
+about the potential impact of inflation on consumer spending habits in the coming. . .]
+Enriched query provided to ChatGPT
+You are an expert financial advisor. You will be provided with financial data and a fi-
+nancial query, and you have to answer the query based on the analysis of the data.
+Financial Data:
+Net Income (in thousands) (30/3/2023 - 29/6/2023) (Quarterly):
+PepsiCo, Inc. : 1932000, 2748000
+Coca-Cola Co : 3107000, 2547000
+. . .
+Interest Expense (in thousands) (30/3/2023 - 29/6/2023) (Quarterly):
+PepsiCo, Inc. : 200000, 201000
+Coca-Cola Co : 372000, 374000
+34
+
+
+[Page 35]
+News: While PepsiCo’s current performance is strong, some analysts expressed concern
+about the potential impact of inflation on consumer spending habits in the coming. . .
+Financial Query: Based on their net income in the last quarter, should I invest in Pepsi or
+Coca Cola?
+ChatGPT response:
+To determine whether you should invest in PepsiCo or Coca-Cola based on their net
+income in the last quarter, let’s analyze the financial data:
+Net Income (in thousands) for the last quarter (30/3/2023 - 29/6/2023):
+- PepsiCo, Inc.: 2,748,000
+- Coca-Cola Co: 2,547,000
+Now, let’s calculate some key financial ratios and provide additional insights:
+1. **Profit Margin**: This ratio measures the percentage of revenue that turns into
+profit.
+- PepsiCo, Inc. Profit Margin = (Net Income / Total Revenue) * 100
+- PepsiCo, Inc. Profit Margin = (2,748,000 / 22,322,000) * 100 = 12.31%
+- Coca-Cola Co Profit Margin = (Net Income / Total Revenue) * 100
+- Coca-Cola Co Profit Margin = (2,547,000 / 11,972,000) * 100 = 21.27%
+2. **Comparison**: Coca-Cola Co has a higher profit margin (21.27%) compared
+to PepsiCo, Inc (12.31%) for the last quarter. This indicates that Coca-Cola is more
+efficient at converting its revenue into profit during this period.
+3. **Considerations**: While profit margin is an important metric, it’s essential to
+consider other factors like the company’s growth prospects, competitive positioning,
+dividend yield, and long-term financial stability when making investment decisions.
+You should also consider your investment goals, risk tolerance, and portfolio diversifi-
+cation strategy.
+4. **Conclusion**: Based solely on the net income in the last quarter, Coca-Cola
+Co appears to have a stronger performance in terms of profit margin. However, this
+is just one aspect of the investment decision. It’s recommended to conduct a more
+comprehensive analysis and consider the broader financial health and strategic outlook
+of both companies before making an investment decision. Remember that investing in-
+volves risks, and it’s advisable to consult with a financial advisor and conduct thorough
+research before making any investment decisions. Additionally, past performance may
+not guarantee future results, so it’s essential to consider a company’s overall financial
+health and long-term prospects.
+35
+
+
+[Page 36]
+Next we look at examples, where knowledge-grounding is not done and ChatGPT is
+used directly without the Financial Agent. The queries were posed on June 2025, with
+ChatGPT having access to the web. It tries to retrieve the best available information to
+answer the query. However, in the context of Finance, the best available online information
+may not be current or relevant. In the absence of reliable information, the platform will be
+of limited value to experts.
+Example Query 2:Please provide quarterly net sales for Reliance Industries Ltd for
+the last 12 quarters.
+ChatGPT with web access:
+Here is a summary of the quarterly revenue for Reliance Industries Limited (RIL) over
+the last 12 quarters:
+Quarter Ending Revenue (|Crores)
+Mar 2025|2,61,388
+Dec 2024|2,43,865
+Sep 2024|2,35,481
+Jun 2024|2,36,217
+Mar 2024|2,40,715
+Dec 2023|2,27,970
+Sep 2023|2,34,956
+Jun 2023|2,10,831
+Mar 2023|2,16,265
+Dec 2022|2,28,955
+Sep 2022|2,40,000
+Jun 2022|2,30,000
+Note: The revenue figures for Dec 2022, Sep 2022, and Jun 2022 are approximate, as
+specific data for these quarters was not available in the provided sources.
+The data indicates a general upward trend in RIL’s revenue over the past three years,
+with notable growth in the most recent quarters. For instance, the revenue increased
+from|2,16,265 crore in Mar 2023 to|2,61,388 crore in Mar 2025, reflecting a year-on-
+year growth.
+If you require more detailed financial metrics such as EBITDA, net profit, or segment-
+wise performance, feel free to ask!
+Comment:Apart from March 2025, most of the numbers are wrong. Additionally, the
+model claims, it has provided approximate numbers for June, September and December
+2022 as it was unable to find information online.
+36
+
+
+[Page 37]
+Example Query 3:Please provide quarterly revenue figures for General Motors for the
+last 12 quarters.
+ChatGPT with web access:
+Here are General Motors’ quarterlytotal revenuefigures (automotive + GM Finan-
+cial) for the last 12 reported quarters:
+Quarter Revenue (USD billions)
+Q1 2025 (ended Mar 31) **44.0**
+Q4 2024 (ended Dec 31) **47.7**
+Q3 2024 (ended Sep 30)∼**43.0**
+Q2 2024 (ended Jun 30) (not in press release; implies∼44)
+Q1 2024 (ended Mar 31) (not explicitly published; similar to∼43)
+Q4 2023 (ended Dec 31)∼**43.0**
+Q3 2023 (ended Sep 30) (likely around **40-41**)
+Q2 2023 (ended Jun 30) (approximately **38-39)
+Q1 2023 (ended Mar 31) (approx. **35-36**)
+Q4 2022 (ended Dec 31) (approx. **37-38**)
+Q3 2022 (ended Sep 30) (approx. **37**)
+Q2 2022 (ended Jun 30) (approx. **36**)
+To get precise numbers for Q2 2024-Q2 2022, more detailed quarterly reports are
+needed. The figures above are estimated based on publicly available sources. If you’d
+like, I can look up each of those specific quarters via GM’s SEC filings.
+Please look up in the SEC filings and provide accurate numbers.
+I wasn’t able to find a single table listing all past 12 quarterly revenues directly from
+SEC filings online. To provide accurate numbers, we’ll need to manually pull them
+from each quarterly 10-Q report. I can guide you through a step-by-step approach to
+retrieve and compile this data, unless you prefer an alternative:
+Option 1: I walk you through how to download each quarterly 10-Q from
+GM’s Investor Relations website and extract the ”Total revenue” or ”Net
+sales and revenue” figure for each quarter.
+Option 2: I summarize what I can find publicly online (e.g. in GM’s press
+releases or in quarterly earnings summaries) and flag where exact figures
+from 10-Qs are still missing.
+Let me know which approach you’d prefer—or if you’d like me to proceed directly
+and list out each quarter by accessing the PDFs one-by-one.
+37
+
+
+[Page 38]
+Comment:It is clear that the model is unable to handle this query because of the absence
+of a module which can provide relevant data. Further interactions with ChatGPT are also
+not helpful in this context. Our proposed approach exploits it with the help of Financial
+Agent.
+Next, we compare the performance of ChatGPT with web access enabled and ChatGPT
+with data access through Financial Agent and Data Module. We use the same query to
+demonstrate the performance.
+Example Query 4:Based on Magnus Retail Limited’s EBITDA for last 4 quarters,
+is it a suitable investment?
+ChatGPT with web access:
+To assess whetherMagnus Retail Limitedis a suitable investment based on its
+EBITDA (Earnings Before Interest, Taxes, Depreciation, and Amortiza-
+tion)over thelast 4 quarters, I need the actualquarter-wise EBITDA figures
+or a chart/image containing them.
+Could you please provide:
+•TheEBITDA values for each of the last 4 quarters, or
+•A screenshot or table containing that information?
+Once I have that, I’ll:
+1. Analyze the trend (growth/decline/stability).
+2. Check EBITDA margins if revenue is available.
+3. Offer a conclusion on investment suitability based on operating performance.
+Let me know if you also want to consider other financials like net income, debt, or
+valuation ratios.
+Enriched Query provided to ChatGPT:
+You are an expert financial advisor. You will be provided with financial data and a fi-
+nancial query, and you have to answer the query based on the analysis of the data.
+Financial Data: EBITDA (in thousands) (INR) (Quarterly):
+Magnus Retail Limited:
+31/3/2025: 3092
+31/12/2024: -1003
+30/9/2024: -195
+30/6/2024: -569
+Financial News: None
+Financial Query: Based on Magnus Retail Limited’s EBITDA for last 4 quarters, is it a
+suitable investment?
+38
+
+
+[Page 39]
+ChatGPT Response to Enriched Query:
+To assess whetherMagnus Retail Limitedis a suitable investment based solely on its
+EBITDA (Earnings Before Interest, Taxes, Depreciation, and Amortization)for
+the last four quarters, we need to examine the trend and evaluate its financial implications.
+EBITDA Trend (in INR ’000):
+Quarter Ending EBITDA Change (QoQ)
+31/3/2025 3.092 +4,095
+31/12/2024 -1,003 -808
+30/9/2024 -195 +374
+30/6/2024 -569 —
+Key Observations:
+1. Sustained Negative EBITDA Prior to Q4 FY25:
+The company reported negative EBITDA for three consecutive quarters, reflecting operational
+challenges and possibly inefficient cost structures or declining revenues.
+2. Strong Recovery in Q4 FY25:
+The EBITDA rose sharply to 3,092 thousand INR from -1,003 thousand INR the previous
+quarter. This turnaround may signal improvements such as increased sales, better cost man-
+agement, or other operational efficiencies. However, without financial disclosures, it’s difficult
+to assess whether this change is structural or temporary.
+3. Volatile Performance:
+The pattern suggests instability in core operations. A single quarter of positive EBITDA follow-
+ing a period of losses should be interpreted cautiously, especially in the absence of accompanying
+financial news or context.
+Assessment of Investment Suitability (Based on EBITDA):
+Positives:
+•Evidence of operational improvement in the most recent quarter.
+•Potential early signs of turnaround.
+Negatives:
+•Prior negative EBITDA indicates weak recent performance.
+•Lack of transparency or supporting financial details makes it difficult to determine if the
+recent improvement is sustainable.
+•High volatility in EBITDA suggests ongoing business risks.
+Conclusion:
+Magnus Retail Limited is not yet a suitable investment based solely on EBITDA.
+•Multiple consecutive quarters of positive EBITDA
+•More detailed financial disclosures (e.g., revenue, net income, cash flow)
+•Clarification on what drove the Q4 improvement
+Recommendation:Add Magnus Retail Limited to a watchlist and monitor its performance in
+upcoming quarters. Avoid investing based solely on a single quarter of positive results following
+a series of losses.
+39

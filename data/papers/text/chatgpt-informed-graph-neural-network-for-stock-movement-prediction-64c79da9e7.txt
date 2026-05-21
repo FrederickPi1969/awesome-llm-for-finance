@@ -1,0 +1,499 @@
+[Page 1]
+CHATGPT I NFORMED GRAPH NEURAL NETWORK FOR STOCK
+MOVEMENT PREDICTION
+Zihan Chen
+Stevens Institute of Technology
+Hoboken, New Jersey, USA
+zchen61@stevens.edu
+Lei (Nico) Zheng
+Stevens Institute of Technology
+Hoboken, New Jersey, USA
+lzheng9@stevens.edu
+Cheng Lu
+Stevens Institute of Technology
+Hoboken, New Jersey, USA
+clu12@stevens.edu
+Jialu Yuan
+University of California, Los Angeles
+Los Angeles, California, USA
+jialuy@ucla.edu
+Di Zhu ∗
+Stevens Institute of Technology
+Hoboken, New Jersey, USA
+dzhu1@stevens.edu
+ABSTRACT
+ChatGPT has demonstrated remarkable capabilities across various natural language processing (NLP)
+tasks. However, its potential for inferring dynamic network structures from temporal textual data,
+specifically financial news, remains an unexplored frontier. In this research, we introduce a novel
+framework that leverages ChatGPT’s graph inference capabilities to enhance Graph Neural Networks
+(GNN). Our framework adeptly extracts evolving network structures from textual data, and incorpo-
+rates these networks into graph neural networks for subsequent predictive tasks. The experimental
+results from stock movement forecasting indicate our model has consistently outperformed the state-
+of-the-art Deep Learning-based benchmarks. Furthermore, the portfolios constructed based on our
+model’s outputs demonstrate higher annualized cumulative returns, alongside reduced volatility and
+maximum drawdown. This superior performance highlights the potential of ChatGPT for text-based
+network inferences and underscores its promising implications for the financial sector.
+Keywords Large language models · Graph neural networks · Quantitative finance · Stock market
+1 Introduction
+The task of predicting stock price movements stands as one of the most intricate and elusive challenges in modern times.
+The potential for substantial investment gains underscores the urgent necessity of achieving accurate predictions [1].
+Owing to the efficient market hypothesis, stock prices are assumed to encapsulate all relevant market information [2, 3].
+This makes the process of distinguishing genuine signals from noise an intricate endeavor that can severely impact
+forecasting efficacy. The academic community has responded to this challenge by formulating a wide array of statistical
+and machine learning models that exploit diverse features such as historical prices, news items, and market events for
+forecasting purposes [4, 5, 6, 7]. However, these approaches often fail to fully recognize and incorporate the latent
+inter-dependencies among different equities, thus curtailing their potential for generating accurate predictions.
+The complexity of forecasting stock price movements is further compounded when considering these latent inter-
+dependencies among equities. Two primary challenges are: 1) identifying the companies that have relevance, and
+2), modeling how information permeates through them. The stock price of a company can be viewed as a synergy
+of the stock prices of related companies that share certain relationships with the focal company (e.g., competitors,
+substitutes, suppliers, etc.) [ 8, 9]. Moreover, the propagation of external events can have varying impact speeds on
+different relevant companies, giving rise to a phenomenon called "lead-lag effect" [10]. Despite efficient identification
+∗Corresponding author.
+1The dataset can be accessed at our Github Repo or https://github.com/ZihanChen1995/ChatGPT-GNN-StockPredict
+arXiv:2306.03763v4  [q-fin.ST]  18 Sep 2023
+
+
+[Page 2]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+and modeling being critical, existing methods pose many limitations in capturing dynamic relationships and modeling
+market evolution (details will be discussed in the Related Work section).
+Large Language Models (LLMs), such as ChatGPT, have garnered considerable scholarly attention since their intro-
+duction. While their applications in the expansive financial economics domain are still in a nascent stage, LLMs have
+demonstrated remarkable performance across a wide range of Natural Language Processing (NLP) tasks [11, 12]. One
+key factor contributing to ChatGPT’s success is its extensive knowledge of entities (e.g., companies, people, events)
+and their relationships, which are acquired through training on massive datasets. Therefore, leveraging LLMs to
+automatically extract latent relationships between companies may be more efficient than manual extraction or extraction
+with handcrafted features [9].
+In the study, we present a novel approach that exploits large language models, specifically ChatGPT, to predict stock
+price movement. Our approach begins with employing ChatGPT to identify and extract latent inter-dependencies among
+equities, the results of which yield a dynamic, evolving graph that undergoes daily updates. Following this, a Graph
+Neural Network (GNN) is employed to generate embeddings for the target companies. The resultant embeddings are
+then integrated with a Long Short-Term Memory (LSTM) model to forecast stock movements for the upcoming trading
+day.
+We evaluate the proposed model’s performance using a real-world dataset, setting the DOW 30 companies as our targets.
+Given the last update to the DOW 30 composition in August 2020, we choose the period from September 1, 2020, to
+December 30, 2022, as our target period in order to capture contemporary market trends. To prevent potential data
+leakage issues, considering that the ChatGPT model was trained on data available only up to September 2021, we
+designate the test period to begin from October 1, 2021. In the task of stock movement forecasting, the experimental
+results demonstrate that our model consistently surpasses all baseline models in weighted F1, Micro, and Macro F1
+metrics with a minimum improvement of 1.8%. Moreover, we leverage the output of our model to construct portfolios
+using both long-only and long-short strategies. The evaluation of portfolio performance indicates that our model
+consistently exceeds benchmarks in terms of cumulative returns during the out-of-sample period. Our model also
+manifests a lower annualized volatility and a reduced maximum drawdown. Both results in stock movement forecasting
+and portfolio performance evaluation underscore the effectiveness of our ChatGPT-informed GNN model, highlighting
+the promising implications of LLMs for financial data processing.
+This paper offers two salient contributions. First, to the best of our knowledge, this is the first study of ChatGPT’s
+capacity to infer network structures from textual data in the financial economics area. While ChatGPT’s robust
+proficiency across various NLP tasks has been well established in the existing literature [13, 11], our work distinguishes
+itself by pioneering the connection between time-series textual data and dynamic network structures. The subsequent
+integration of the ChatGPT-informed network structures with GNNs also harnesses the power of deep learning models
+when processing large-scale, streaming datasets. Second, our experimentation with a real-world dataset provides
+compelling evidence of our model’s superior performance in stock movement forecasting. By constructing a portfolio
+based on our model’s outputs, the back-testing results consistently exhibit a higher annualized return, coupled with
+lower volatility and drawdown. The complexity of the stock market arises from the intricate interplay of numerous
+interconnected factors, such as economic indicators, the financial standing of corporations, and investor sentiment.
+Such intertwined dynamics render stock movement prediction a formidable task. Given that previous research has
+showcased how marginal advancements in predictive accuracy can translate into significant profit increments [1, 14], the
+heightened performance of our model underscores its substantial practical implications in the broader financial arena.
+The remainder of this paper is organized as follows. The next section provides an overview of related work on stock
+movement prediction, large language models, and graph neural networks. We then delve into the details of our proposed
+model, discussing the network structure inference using ChatGPT and the process of incorporating ChatGPT’s network
+outputs with GNN. Subsequently, we present our experimental setup and results. We conclude the paper by highlighting
+potential limitations and suggesting directions for future research.
+2 Related Work
+The forecasting of financial time series, especially in relation to stock movement prediction, has emerged as a major
+challenge nowadays. The ability to accurately predict stock movement is of paramount importance in shaping investment
+decisions, controlling financial risks, devising effective trading strategies, and comprehending the intricacies of the
+overall market. Despite its criticality, this forecasting task presents substantial difficulties for both researchers and
+practitioners. As per the Efficient Market Hypothesis [2], stock prices reflect all accessible information pertaining to the
+equity, encapsulating its historical prices, corporate events, and relevant news. Conversely, the theory of random walks
+postulates that future prices are as unpredictable as a series of accumulated random fluctuations [3]. Consequently, the
+2
+
+
+[Page 3]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+Figure 1: Framework Overview: Combining Graph Neural Network and ChatGPT to predict stock movements.
+abundance of intricate data coupled with the inherent unpredictability introduces a substantial difficulty in distinguishing
+meaningful signals from random noises for effective predictions.
+Over the years, scholars have utilized a wide variety of methods and data sources to model stock movement. Traditional
+statistical approaches, including linear regression, auto-regression (AR), moving average (MA), ARIMA, and GARCH,
+have been extensively employed for financial time series forecasting [7]. Beyond these conventional statistical methods,
+machine learning techniques such as k-nearest neighbors (KNN), support vector machine (SVM), random forest, and
+deep learning-based methods are gaining significant traction owing to their superior predictive capacities [ 4, 5, 6].
+In addition to modeling the relationship between historical and future prices, researchers have integrated alternate
+data sources like news articles, social media data, and financial reports for enhanced prediction [15]. However, these
+techniques fall short of capturing the latent inter-dependencies of stocks, thereby limiting their predictive potential.
+Accurately predicting stock price movement becomes more intricate when considering the latent inter-dependencies
+of equities. The fluctuation of one stock can significantly impact the movement of other related stocks [ 8]. These
+relationships between stocks may manifest themselves in various ways. For instance, companies could be competitors or
+substitutes. For example, the bankruptcy of Silicon Valley Bank instigated a downward spiral in many bank stocks due to
+investor apprehension about systemic risks in the financial sector [16]. Alternatively, these connections between equities
+could stem from companies sharing supply chains. For example, the rise of ChatGPT and Microsoft’s investment in
+OpenAI led to a surge not only in Microsoft’s stock price but also in associated upstream and downstream companies
+like NVIDIA and Intel [17]. Furthermore, given the varying degrees of inter-dependency between companies, an event
+may influence a set of stocks at different speeds, a phenomenon known as the lead-lag effect [10]. For example, an event
+like "Developers file a lawsuit against Microsoft over intellectual property" would immediately impact Microsoft’s
+stock price and gradually affect other IT companies utilizing user-generated data to train for-profit machine learning
+algorithms [18].
+In an effort to capture the intricate interconnections among equities, researchers have proposed the use of Graph Neural
+Networks (GNN) to consolidate market information across stocks. GNN represents a novel branch of deep learning
+methods grounded in graph theory, wherein companies serve as nodes, and links are established between two companies
+sharing certain relationships [19]. By propagating information across the network, GNN enables each node in the graph
+to be aware of its context, encompassing neighboring nodes and their properties [ 20]. This leads to more effective
+learning and representation of the market data. For instance, Cheng et al. [ 14] developed a multi-modality GNN
+for predicting stock price movements, demonstrating superior performance compared to other non-graph-based deep
+learning methods.
+Given that GNN relies on well-defined graph structures for information propagation, accurately capturing the latent
+inter-dependencies among equities is crucial. Currently, two approaches are predominantly in use. The first approach
+3
+
+
+[Page 4]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+involves extracting structural event tuples or leveraging text similarity from companies’ business descriptions [9] to
+identify company resemblances. The rationale is that companies offering similar products or services or frequently
+mentioned together in social media news are likely to share related stock behaviors. However, this approach may fall
+short of encompassing relevant domain knowledge. For instance, while both events, "David Peter leaves Starbucks" and
+"Steve Jobs quits Apple," pertain to employee departures, the latter would have a more profound impact on the stock
+market, given Steve Jobs’ pivotal role in Apple. To counter this limitation, recent studies propose the integration of
+GNN with Financial Knowledge Graphs (FinKG) [21, 22], in which financial domain knowledge is predefined [23, 24].
+You et al. have established the efficacy and scalability of GNNs when grappling with dynamic graph structures in
+real-world scenarios [25]. Nevertheless, the use of predefined knowledge graphs introduces new challenges. Firstly,
+manually created knowledge graphs or knowledge graphs built with man-made features often fail to cover all relevant
+information. Secondly, as the knowledge graph is predefined, it struggles to update in a timely manner and capture
+emergent relationships as the market evolves.
+In our study, we propose to use Large Language Models (LLMs), such as ChatGPT, to address previously noted
+limitations. Although LLMs are still nascent in their application to financial economics, they have already garnered
+considerable scholarly interest in other areas. While not initially designed for financial data processing, LLMs have
+demonstrated their capability to excel in a broad spectrum of Natural Language Processing (NLP) tasks, ranging from
+language translation to text summarization, question answering, sentiment analysis, and text generation [12]. Recent
+research has illuminated the value of these models in the financial realm. For example, Yang and Menczer [26] reveal
+the utility of ChatGPT in distinguishing credible news sources. Similarly, Lopez-Lira and Tang [27] indicate a robust
+correlation between the sentiment ChatGPT generated for news headlines and the ensuing daily stock market returns.
+A key element in ChatGPT’s success is it has learned extensive knowledge concerning entities (such as companies,
+individuals, and events) and their relationships from massive training datasets. Additionally, by utilizing an attention
+mechanism and undergoing fine-tuning via Reinforcement Learning from Human Feedback (RLHF) [28], ChatGPT can
+better comprehend the context of textual input and identify relationships among targeted entities. These distinctive
+characteristics render ChatGPT an ideal tool for automatically identifying latent inter-dependencies among equities and
+constructing stock networks/graphs.
+The utilization of ChatGPT to construct these graphs offers several advantages over previous methods [9, 21, 22] for
+network construction :
+1 ChatGPT can deduce relationships between target entities from any textual input, which facilitates the use
+of more comprehensive and up-to-date data sources such as financial news, social media data, and corporate
+reports.
+2 As the relationships of interest are not confined to a predefined set of keywords, ChatGPT can recognize
+a broader range of relationships among companies, extending beyond shared business services and supply
+chains.
+3 While fine-tuning is not available for ChatGPT or later versions, the method we propose can be generalized to
+other released versions of LLMs such as InstructGPT, Large Language Model Meta AI (LLaMA), Low-rank
+Adaptation (LoRA), among others. This adaptability enables more accurate applications and domain-specific
+customization.
+3 Method
+Our objective is to predict the stock movement (up, down, or neutral) for a set of target companies on the next trading
+day. Suppose we have a total of N target companies, where i denotes a specific company, t represents a timestamp, and
+L corresponds to the lookback length. Accordingly, our predictive task uses features from time t to t + L to forecast
+stock movement at time t + L + 1. To achieve this, we propose a novel framework that integrates ChatGPT and Graph
+Neural Network (GNN) for stock movement prediction. This framework consists of three main components: network
+structure inference from financial news using ChatGPT, company embedding through GNN, and stock movement
+prediction using sequential models and fully-connected neural networks. A comprehensive overview of our proposed
+framework is presented in Figure 1. We further elaborate on each component in the subsequent sections.
+3.1 Network Structure Inference via ChatGPT
+Our framework necessitates two types of time-series input features: news headlines and stock market data. The stock
+market data encompasses daily market information for each company, including price details (e.g., open, close, high,
+low), daily ask and bid, volume, and ordinary dividend amount. We use St to denote market data at time t, where si,t
+4
+
+
+[Page 5]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+denotes the associated data of a specific company. On the other hand, news headlines, sourced daily from reputable
+media outlets, are not company-specific and could cover various public companies. We thus exploit the inferential
+capabilities of ChatGPT to discern: 1) Which target companies could be affected by the day’s news, and 2) How will
+these companies be affected: positively, negatively, or neutrally? To operationalize this, we design the following prompt
+for daily news headline input to ChatGPT:
+Forget all your previous instructions. I want you to act as an experienced financial engineer. I will offer you
+financial news headlines in one day. Your task is to:
+1. Identify which target companies will be impacted by these news headlines. Please list at least five of
+them.
+2. Only consider companies from the target list.
+3. Determine the sentiments of the affected companies: positive, negative, or neutral.
+4. Only provide responses in JSON format, using the key "Affected Companies".
+5. Example output: {"Affected Companies": {Company 1: “positive”, Company 2: “negative”}}
+6. News Headlines are separated by "\n"
+News Headlines: ...
+The ChatGPT response provides two insightful elements: the companies being affected by the news and their corre-
+sponding sentiment. Because prior research has demonstrated a strong association between ChatGPT’s sentiment on
+next day’s stock return [27], we primarily focus on the "Affected Companies" output to construct a ChatGPT-Informed
+graph structure to feed GNN at the current stage. We build the graph Gt = (V, Et) at each timestamp by representing
+each target company as a node and building an edge between two companies if they were considered as "being affected
+together" by ChatGPT. For instance, if the "Affected Companies" output at t is [’BA’, ’AMGN’, ’MSFT’], we construct
+edges Et among these ticker pairs: ’BA’ – ’AMGN’, ’BA’ – ’MSFT’, and ’AMGN’ – ’MSFT’.
+After gleaning these inferred relationships from news using ChatGPT, we input these graphs sequentially into a Graph
+Neural Network (GNN) to generate company embeddings. The GNN operation method is discussed in the next section.
+3.2 Company Embedding through GNN
+At this stage, we leverage the Graph Neural Network (GNN) to transform the nodes (companies) into vector representa-
+tions. As a cutting-edge model for deep learning, GNN is adept at handling complex graph structures and embedding
+nodes into lower-dimensional vectors that encapsulate both nodes’ attributes and network topology [19]. In our context
+of predicting stock movement, the GNN integrates the features of a company and its closely interconnected companies
+at a given timestamp to generate embeddings. Consequently, each company’s embedding through the GNN incorporates
+its unique features as well as the features of relevant companies which ChatGPT considered are affected together by
+the news headline. Taking company i and associated features at time t as an example, we formally describe the GNN
+embeddings process as follows:
+hGNN
+i,t = GNN (hi,t; mi,t; ΘGN N) (1)
+where ΘGN N symbolizes the trainable parameters in each layer of GNN, hi,t denotes the original feature of company i,
+and mi,t represents the aggregated information from its neighbors at time t. The final GNN embedding of company i is
+denoted as hGNN
+i,t .
+3.3 Sequential Models and Output Layers
+Retaining the information of the company and its neighbors, the output of the GNN is subsequently concatenated with
+the corresponding company’s stock market data. We utilize a Long Short-Term Memory (LSTM) model as the sequential
+model in our framework. These combined data vectors are sequentially input into the LSTM, generating aggregated
+embeddings specific to each company over the lookback period. Concurrently, the stock market data undergoes a
+separate LSTM model to generate another set of embeddings. These two sets of embeddings are concatenated again
+and fed through a fully connected neural network layer to generate the final prediction for the stock movement. The
+process can be formalized as follows:
+5
+
+
+[Page 6]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+hCOMB
+i,t = CONCAT
+ 
+hGNN
+i,t , si,t
+
+(2)
+hCOMB
+i = LSTM
+ 
+hCOMB
+i,t , · · · hCOMB
+i,t+L
+
+; ΘLST M1
+
+(3)
+hSTOCK
+i = LSTM ([si,t, · · · si,t+L] ; ΘLST M2) (4)
+ˆyi = M LP
+ 
+CONCAT
+ 
+hCOMB
+i , hSTOCK
+i
+
+; ΘM LP
+
+(5)
+where ΘM LP, ΘLST M1, and ΘLST M2 are the trainable parameters. Furthermore, given that we predict stock movement
+at t + L + 1, this is a classification task with three categories: up, down, and neutral. Following previous literature [14],
+we generate the category for the ground truth based on the return (Ri = pi,t/pi,t−1 − 1, where pi is the stock price)
+and defined thresholds (rup = 0.01, rdown = −0.01) as follows:
+yi =
+
+
+
+up Ri ≥ rup ,
+neutral rdown < R i < rup ,
+down Ri ≤ rdown
+(6)
+Finally, we employ cross entropy to generate the loss by comparing the predicted value with the ground truth. This
+loss value is then backpropagated through the model, allowing for the adjustment of trainable parameters during the
+iterative learning process. In the following section, we apply our proposed model to a real-world dataset to assess its
+performance.
+4 Experiment
+We evaluate the effectiveness of our proposed framework using a real-world dataset comprising the Dow Industrial
+Average 30 Companies (DOW 30) as the main subjects. Since the DOW 30 composition was last updated on August
+31, 2020, we opt for the period from September 1, 2020, to December 30, 2022, as our target interval to capture the
+contemporary market trends. The training period extends from September 1, 2020, to September 30, 2021, consistent
+with the final data point integrated into ChatGPT’s model training. Accordingly, the test period spans from October
+1, 2021, to December 30, 2022. To gather input features for both periods, we acquire daily numerical variables of
+each DOW 30 company from the CRSP Databases as stock market data. For the financial news headlines, we collect
+2,713,233 and 3,717,666 unique headlines for the training and test periods respectively, gleaned from 5,489 unique
+providers. We then extract news that not only originates from reputable media outlets but also explicitly mentions at
+least one DOW 30 company. This filtration process yields a refined total of 115,549 news headlines, partitioned into
+50,941 for training and 64,608 for testing.
+In recognition of the temporal sensitivity of news and its lag effect on the stock market, we meticulously align the news
+timestamp with the subsequent market period. For instance, a news headline recorded before 16:00 on Day t is linked
+with the same day’s market data, and employed to predict stock movements on Dayt + 1. Conversely, if a headline
+is logged after 16:00, it is assigned to the succeeding day (Day t + 1) and used to forecast stock movement on the
+following day (Day t + 2). This stratagem ensures the purity of out-of-sample test results, further precluding potential
+data leakage.
+Our benchmark selection is rooted in the two types of input features we utilize. For stock market data, we deploy Long
+Short-Term Memory (LSTM) method [29], renowned for its effectiveness in large scale time-series data analysis, and
+ARIMA model that are lauded for its skill in managing univariate time-series forecasting. To leverage the financial news
+headlines, we employ state-of-the-art sentence transformers to embed headlines into vectors, which are subsequently
+used as input to a MLP model for classification. Furthermore, corroborating previous research that affirms the predictive
+power of ChatGPT’s sentiment outputs for stock movements [27], we incorporate the sentiment judgment from ChatGPT
+on stocks as a benchmark.
+Table 1: Model Performance of Stock Movement Prediction
+Model Weighted F1 Micro F1 Macro F1
+ChatGPT 0.3970 0.4607 0.3085
+News-Embed 0.4059 0.4318 0.3425
+Stock-LSTM 0.4036 0.4132 0.3455
+Our Model 0.4133 0.4423 0.3529
+6
+
+
+[Page 7]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+We assess our proposed model on two tasks: First, we scrutinize its performance in financial forecasting, specifically
+targeting stock movement classification. The evaluation metrics included weighted F1, Macro F1, and Micro F1 scores.
+Second, we construct a portfolio based on the model outputs, and evaluate its performance in terms of accumulated
+return, volatility, Sharpe ratio, and maximum drawdown. Detailed results from these experiments will be elucidated in
+the subsequent section.
+4.1 Financial Forecasting of Stock Movement
+The experimental results of stock movement forecasting are presented in Table 1, with two primary observations being
+made clear. First, our proposed model persistently outshines both the stock-LSTM and News-DL models in all three
+metrics, recording a minimum enhancement of 1.8%. Notably, our model distinguishes itself from stock-LSTM by
+employing dynamic graph structures that ChatGPT generates from daily financial news. This suggests the potency of
+ChatGPT’s zero-shot learning capability in inferring networks from text, thus advancing the predictive performance.
+Also, it is important to emphasize the inherent difficulty of accurately predicting stock movements, where marginal
+improvements can bring about significant additional profits. Earlier research has demonstrated a 0.005 increase in the
+Micro F1 score can result in a profit increase of 12%, and a 1% enhancement can lead to a 30% profit surge [1, 14].
+Consequently, our model offers considerable practical implications within the financial field.
+Second, though past studies have emphasized the strong correlation between the sentiment outputs from ChatGPT and
+stock movements [27], our findings indicate that amalgamating these outputs with graph neural networks amplifies
+performance. Despite ChatGPT delivering commendable Micro F1 scores, this is largely due to an inherent data
+imbalance during the testing phase, as the 58.5% of stock movements were neutral. ChatGPT’s predictive prowess
+falters when forecasting stock downtrends, with a score of 10.88%, compared to our model’s 19.46% in this category.
+This pattern echoes in time-series models like ARIMA, which predominantly predict all movements as neutral. The
+enhanced ability of our model to forecast both upward and downward movements is instrumental in aiding investors to
+limit losses and maintain portfolio stability. In the following section, we will construct portfolios based on the outputs
+of the models and evaluate their economic performance.
+Figure 2: Comparison of Portfolio Performance During the Test Period
+7
+
+
+[Page 8]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+4.2 Evaluation of Portfolio Performance
+We also evaluate the economic implications of our model by constructing a portfolio grounded in the model’s outputs.
+Given that each stock’s predicted outcome by our model is either upward, neutral, or downward for the next trading day,
+we first construct the portfolio with a long-only strategy, which lessens the exposure to risks such as short squeezes
+and funding liquidity. Specifically, we distribute equal investments across the stocks forecasted to rise by our model,
+while the remaining stocks in the portfolio are not invested in. We apply the same strategy to our proposed model and
+benchmarks, and conduct a backtest on these long portfolios during the out-of-sample period (October 1, 2021, to
+December 30, 2022). The cumulative returns for the Long Portfolio are depicted in Figure 2. As seen from the figure,
+our proposed model consistently outperforms both the LSTM and ChatGPT model in terms of cumulative returns. This
+persistent superiority signifies the effectiveness of our model in predicting positive stock returns.
+Moreover, we implement a long-short strategy that forecasts both negative and positive stock returns in order to construct
+a self-financing portfolio. The outcomes reveal that our proposed model persistently surpasses baselines. Notably, the
+portfolio derived from ChatGPT outputs exhibits significantly higher annualized volatility (23.61%) compared to our
+model (14.06%). The maximum drawdown of the ChatGPT model (0.2112) also substantially exceeds that of our model
+(0.1242). As previously noted, this discrepancy is primarily due to ChatGPT’s limitations in predicting negative returns,
+thereby rendering it prone to higher volatility.
+In summary, our proposed model surpasses the baseline models in the task of predicting stock movements. The results
+provide compelling evidence that coupling GNN with ChatGPT’s capabilities of inferring network structures from
+financial news can notably augment the predictive capacity of a model. Additionally, portfolio construction guided by
+our model’s output consistently delivers superior performance compared to the benchmarks. This outperformance is
+exhibited through increased cumulative returns, along with lower annualized volatility and maximum drawdown. The
+robust performance across these two areas underscores the potential real-world applicability of our model in the finance
+industry.
+5 Discussion
+This study introduces a novel framework that capitalizes on the graph inference capabilities of ChatGPT to augment
+GNN forecasting performance. In our approach, ChatGPT initially distills evolving network structures from daily
+financial news. These inferred networks are subsequently incorporated into the GNN to produce vector embeddings,
+which are subsequently used in downstream prediction tasks. We assess the efficacy of our model using real-world data
+from the DOW 30 companies spanning from October 2021 to December 2022. The empirical findings demonstrate
+that our model surpasses all benchmarks in forecasting stock movements. Moreover, when portfolios are constructed
+based on our model’s outputs, they showcase superior cumulative returns while simultaneously exhibiting reduced
+volatility and drawdowns. Our research contributes to the literature by assessing the capacity of modern Language
+Learning Models (LLMs) to infer network structures from text. Further, it pioneers the implementation of networks
+inferred by ChatGPT to enhance the capabilities of GNNs. The outperformance of our model in practical scenarios
+emphasizes its potential implications for the financial sector, offering new perspectives and strategies in the realm of
+financial engineering.
+Despite, to the best of our knowledge, this is the first study that integrates ChatGPT-inferred networks with GNNs, the
+paper is not without its limitations. First, our model leverages stock market data and time-stamped news headlines as
+input features. Given that stock market dynamics are influenced by a complex web of interconnected factors (including
+economic indicators, corporate financial health, and investor sentiment), enhancing our model with additional input
+features could further boost its predictive accuracy. Similarly, our study solely utilizes the network structure inferred by
+ChatGPT as input for GNN. Future research could consider incorporating sentiment scores as edge attributes to further
+improve the model’s performance.
+Second, our study only utilizes basic network structures in the model. However, these structures could be upgraded to
+more sophisticated architectures, such as replacing LSTM with transformer-based models, or employing more advanced
+GNN models. It is worth noting that, due to the limited scope of our sample - the DOW 30 companies - more complex
+GNN structures could potentially lead to oversmoothing issues [30]. To avoid this, future research should consider
+expanding the dataset to include more companies, which would synergize well with deep learning’s strength in handling
+large datasets.
+Lastly, the dataset utilized in our experiment, which ends in October 2021, was the final data point input into ChatGPT.
+Recent advancements in ChatGPT include browsing ability and Plugins, allowing it to interact with the most recent
+news and information. We posit that enriching our model with the latest financial news and market information will
+8
+
+
+[Page 9]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+enhance its performance, leading to more accurate forecasts and facilitating improved informed decision-making for
+both researchers and practitioners.
+References
+[1] Marcos Lopez De Prado. Advances in financial machine learning. John Wiley & Sons, 2018.
+[2] Eugene F Fama. The behavior of stock-market prices. The journal of Business, 38(1):34–105, 1965.
+[3] Eugene F Fama. Random walks in stock market prices. Financial analysts journal, 51(1):75–80, 1995.
+[4] Kyoung-jae Kim and Ingoo Han. Genetic algorithms approach to feature discretization in artificial neural networks
+for the prediction of stock price index. Expert systems with Applications, 19(2):125–132, 2000.
+[5] Xiao Ding, Yue Zhang, Ting Liu, and Junwen Duan. Deep learning for event-driven stock prediction. In
+Twenty-fourth international joint conference on artificial intelligence, 2015.
+[6] Hakan Gunduz, Yusuf Yaslan, and Zehra Cataltepe. Intraday prediction of borsa istanbul using convolutional
+neural networks and feature correlations. Knowledge-Based Systems, 137:138–148, 2017.
+[7] Oscar Bustos and Alexandra Pomares-Quimbaya. Stock market movement forecast: A systematic review. Expert
+Systems with Applications, 156:113464, 2020.
+[8] Wesley S Chan. Stock price reaction to news and no-news: drift and reversal after headlines. Journal of Financial
+Economics, 70(2):223–260, 2003.
+[9] Gerard Hoberg and Gordon Phillips. Text-based network industries and endogenous product differentiation.
+Journal of Political Economy, 124(5):1423–1465, 2016.
+[10] Matthew L O’Connor. The cross-sectional relationship between trading costs and lead/lag effects in stock &
+option markets. Financial Review, 34(4):95–117, 1999.
+[11] Wayne Xin Zhao, Kun Zhou, Junyi Li, Tianyi Tang, Xiaolei Wang, Yupeng Hou, Yingqian Min, Beichen Zhang,
+Junjie Zhang, Zican Dong, Yifan Du, Chen Yang, Yushuo Chen, Zhipeng Chen, Jinhao Jiang, Ruiyang Ren, Yifan
+Li, Xinyu Tang, Zikang Liu, Peiyu Liu, Jian-Yun Nie, and Ji-Rong Wen. A survey of large language models, 2023.
+[12] Yejin Bang, Samuel Cahyawijaya, Nayeon Lee, Wenliang Dai, Dan Su, Bryan Wilie, Holy Lovenia, Ziwei Ji,
+Tiezheng Yu, Willy Chung, et al. A multitask, multilingual, multimodal evaluation of chatgpt on reasoning,
+hallucination, and interactivity. arXiv preprint arXiv:2302.04023, 2023.
+[13] Daniel Martin Katz, Michael James Bommarito, Shang Gao, and Pablo Arredondo. Gpt-4 passes the bar exam.
+Available at SSRN 4389233, 2023.
+[14] Dawei Cheng, Fangzhou Yang, Sheng Xiang, and Jin Liu. Financial time series forecasting with multi-modality
+graph neural network. Pattern Recognition, 121:108218, 2022.
+[15] Michael Hagenau, Michael Liebmann, and Dirk Neumann. Automated news reading: Stock price prediction based
+on financial news using context-capturing features. Decision support systems, 55(3):685–697, 2013.
+[16] Imran Yousaf and John W Goodell. Responses of us equity market sectors to the silicon valley bank implosion.
+Finance Research Letters, page 103934, 2023.
+[17] Nvidia shares surge amid AI-driven boom, earnings report.
+[18] Preston Gralla. This lawsuit against microsoft could change the future of AI.
+[19] Si Zhang, Hanghang Tong, Jiejun Xu, and Ross Maciejewski. Graph convolutional networks: a comprehensive
+review. Computational Social Networks, 6(1):1–23, 2019.
+[20] Zonghan Wu, Shirui Pan, Fengwen Chen, Guodong Long, Chengqi Zhang, and S Yu Philip. A comprehensive
+survey on graph neural networks. IEEE transactions on neural networks and learning systems, 32(1):4–24, 2020.
+[21] Shumin Deng, Ningyu Zhang, Wen Zhang, Jiaoyan Chen, Jeff Z Pan, and Huajun Chen. Knowledge-driven stock
+trend prediction and explanation via temporal convolutional network. In Companion Proceedings of The 2019
+World Wide Web Conference, pages 678–685, 2019.
+[22] Thomas Fischer and Christopher Krauss. Deep learning with long short-term memory networks for financial
+market predictions. European journal of operational research, 270(2):654–669, 2018.
+[23] Xu Han, Tianyu Gao, Yuan Yao, Deming Ye, Zhiyuan Liu, and Maosong Sun. OpenNRE: An open and extensible
+toolkit for neural relation extraction. In Proceedings of EMNLP-IJCNLP: System Demonstrations, pages 169–174,
+2019.
+9
+
+
+[Page 10]
+Accepted for the SIGKDD 2023 Workshop on Robust NLP for Finance, CA, US
+[24] Zhe Chen, Yuehan Wang, Bin Zhao, Jing Cheng, Xin Zhao, and Zongtao Duan. Knowledge graph completion: A
+review. Ieee Access, 8:192435–192456, 2020.
+[25] Jiaxuan You, Tianyu Du, and Jure Leskovec. Roland: Graph learning framework for dynamic graphs, 2022.
+[26] Kai-Cheng Yang and Filippo Menczer. Large language models can rate news outlet credibility. arXiv preprint
+arXiv:2304.00228, 2023.
+[27] Alejandro Lopez-Lira and Yuehua Tang. Can chatgpt forecast stock price movements. Return Predictability and
+Large Language Models, 2023.
+[28] Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll Wainwright, Pamela Mishkin, Chong Zhang,
+Sandhini Agarwal, Katarina Slama, Alex Ray, et al. Training language models to follow instructions with human
+feedback. Advances in Neural Information Processing Systems, 35:27730–27744, 2022.
+[29] Sepp Hochreiter and Jürgen Schmidhuber. Long short-term memory. Neural computation, 9(8):1735–1780, 1997.
+[30] Deli Chen, Yankai Lin, Wei Li, Peng Li, Jie Zhou, and Xu Sun. Measuring and relieving the over-smoothing
+problem for graph neural networks from the topological view. In Proceedings of the AAAI conference on artificial
+intelligence, volume 34, pages 3438–3445, 2020.
+10

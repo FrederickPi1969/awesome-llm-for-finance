@@ -1,0 +1,2178 @@
+[Page 1]
+arXiv:2505.23826v1  [cs.SI]  28 May 2025
+FinRipple: Aligning Large Language Models with Financial Market for
+Event Ripple Effect Awareness
+Yuanjian Xu1, Jianing Hao1, Kunsheng Tang2*, Jingnan Chen1,
+Anxian Liu1, Peng Liu1, Guang Zhang1†
+1The Hong Kong University of Science and Technology (Guangzhou)
+2University of Science and Technology of China
+Abstract
+Financial markets exhibit complex dynamics
+where localized events trigger ripple effects
+across entities. Previous event studies, con-
+strained by static single-company analyses and
+simplistic assumptions, fail to capture these
+ripple effects. While large language models
+(LLMs) offer emergent reasoning capabilities,
+their direct application falters due to structural
+market unawareness and limited capacity to an-
+alyze ripple effects. We propose FinRipple, an
+elegant framework that empowers LLMs with
+the ability to analyze ripple effects through
+financial theory-guided large-scale reinforce-
+ment learning. We begin by relaxing the as-
+sumptions of previous methods, incorporating
+a time-varying knowledge graph to accurately
+represent market structure. By seamlessly inte-
+grating classical asset pricing theory, we align
+the LLM with the market, enabling it to predict
+ripple effects. To the best of our knowledge,
+we are the first to provide a standardized defi-
+nition of ripple effect prediction, a task that is
+extremely important yet unexplored in the fi-
+nancial domain. Extensive experiments demon-
+strate that FinRipple provides a promising so-
+lution to this task.
+1 Introduction
+Financial markets are naturally complex, and sud-
+den events can often impact the value of compa-
+nies. (Sorescu et al., 2017). A recent example un-
+derscores the impact of market reactions: On Au-
+gust 13, 2024, Starbucks announced Chipotle CEO
+Brian Niccol as its new CEO, triggering a 24.5%
+surge in Starbucks’ stock—the largest single-day
+gain in its history—while Chipotle’s stock dropped
+over 10%. The ripple effect extended to Starbucks’
+supply chain, with Jones Soda Co. rising 9.52%,
+BRC Inc. gaining 6.25%, and Celsius Holdings
+*This work was done while Kunsheng Tang was a research
+assistant at HKUST(GZ).
+†Corresponding author: guangzhang@hkust-gz.edu.cn
+Inc. up 3.81%. This example demonstrates the
+ripple effect that a single market event can have,
+not just on the company involved, but on other rel-
+evant companies (Ma et al., 2023). Understanding
+and predicting these market ripple effects is crucial
+for informed financial decision-making, risk man-
+agement, and strategic portfolio optimization. In-
+vestors and risk managers rely on such insights into
+how company announcements (Boyd et al., 2010;
+Wu et al., 2015), external news (Xiong and Bharad-
+waj, 2013; Gao et al., 2015), or macroeconomic
+shocks (Chen et al., 2012) may cascade through
+the market to anticipate broader impacts, enabling
+proactive strategies in volatile conditions (Ding
+et al., 2015, 2014). However, capturing these ripple
+effects remains a complex and underexplored chal-
+lenge due to intricate, evolving, and interconnected
+factors at play.
+Event studies have followed two main directions:
+case-by-case analysis and unified modeling based
+on learning theory. The former focuses on how
+specific market events affect the stock performance
+of a company or industry, which is a rather sim-
+plified assumption. For example, Austin (1993)
+analyzed patent innovations in biotechnology, Lep-
+etit et al. (2004) studied M&As in banking, and
+Ramiah et al. (2013) assessed stock reactions to
+green policies. While useful for direct impact as-
+sessment, these studies struggle to capture ripple
+effects across industries or the broader market. On
+the other hand, learning-based approaches primar-
+ily use news sentiment to predict stock movements,
+acknowledging that a company’s stock price is in-
+fluenced by its related entities (Ashtiani and Raa-
+hemi, 2023). Recent innovations integrate multi-
+source information (Ma et al., 2023) to enhance
+the prediction of emotions. Mishev et al. (2020)
+demonstrated that transformer-based models out-
+perform lexicon-based and statistical approaches
+in event-driven word representation. However, re-
+lying solely on text sentiment can overlook critical
+1
+
+
+[Page 2]
+R e l a t e d  C o f f e e  C o m p a n y
+S o f t  
+D r i n k s
+H e a l t h  D r i n k s
+N o n - a l c o h o l i c  
+D r i n k s
+H i r e d  F o r m e r  C E O
+B e v e r a g e  s e c t o r
+C a t e r i n g  s e c t o r
+A uguest
+ST ARB UCKS
+S tarbucks has  CE O Lax am 
+N ar asimhan and  Chipo tl e ’ s 
+f ormer CE O B rian N ic c ol.
+f ir ed
+hir ed
++ 24.5%
+J ul y A uguest
+.  .  .
+Figure 1: An example of market ripple effects. The announcement of Starbucks’s CEO change not only boosted its
+stock but also positively impacted other related companies in the beverage sector.
+dynamics—for instance, positive news for one com-
+pany may negatively impact its associates. Thus, a
+more comprehensive framework is needed to model
+ever-changing market dynamics and explain com-
+plex intercompany relationships.
+Recently, large language models (LLMs) have
+been widely used across various domains due
+to their advanced reasoning abilities (Huang and
+Chang, 2023). They excel in structured informa-
+tion extraction (Hao et al., 2024), analogical rea-
+soning (Creswell et al., 2023; Wei et al., 2022b),
+and question answering, making them promising
+candidates for analyzing event-driven ripple ef-
+fects. Given their ability to model complex in-
+teractions, leveraging LLMs for financial market
+predictions is a natural step. However, financial
+markets, characterized by interconnected compa-
+nies and dynamic relationships, evolve in response
+to various events, making the direct application of
+LLMs insufficient and potentially misleading (Tang
+et al., 2022; Cheng and Li, 2021). To accurately
+model ripple effects, LLMs must be complemented
+with the latest market state.
+A viable solution to address this challenge lies
+in integrating a time-varying financial knowledge
+graph (KG), which provides a structured view of
+the market by capturing up-to-date company rela-
+tionships. Continuously updating the KG ensures
+a reliable snapshot of the evolving market (Yang
+et al., 2023b), enabling the modeling of dynamic
+corporate interactions (Cheng et al., 2020). To ef-
+fectively incorporate this knowledge into the LLM,
+we employ an adapter-based approach, injecting
+structured information without retraining the model
+from scratch. This method avoids potential infor-
+mation loss from retrieval-based methods and of-
+fers an extendable framework. By aligning LLMs
+with the financial market’s unique characteristics,
+our approach significantly enhances their ability
+to analyze event-driven ripple effects. We vali-
+date its effectiveness in asset pricing and portfolio
+management through extensive experiments. The
+contributions of this work can be summarized as
+follows:
+• FinRipple integrates classic asset pricing
+theory with advanced LLMs demonstrating
+strong performance in predicting excess re-
+turns while maintaining high interpretability.
+• We rigorously validate our training framework
+and showcase its strong potential for real-
+world applications, such as asset pricing and
+portfolio management. Furthermore, detailed
+analyses illustrate the model’s reasoning path-
+ways, confirming its ability to provide reliable
+insights into the causal relationships driving
+ripple effects.
+• We first formulate the under-explored “ripple
+effect prediction” task and provide an open-
+source benchmark, offering a unified evalua-
+tion standard for academia and industry.
+2 Related Work
+2.1 Event studies in finance
+Event studies have been extensively employed to
+assess the impact of significant events on asset
+prices (Sorescu et al., 2017). An event can be a
+firm announcement (e.g., the appointment of a new
+CMO) or an announcement made by competitors or
+regulatory bodies (Acquisti et al., 2006). For exam-
+ple, Austin (1993) measured the innovative output
+of patents within the biotechnology industry; Lep-
+etit et al. (2004) discussed the effects of M&As
+in the banking industry; and Ramiah et al. (2013)
+analyzed the stock market reaction to green pol-
+icy announcements. Due to simplistic assumptions,
+these methods often fail to capture the complexity
+and dynamics of modern financial markets.
+2
+
+
+[Page 3]
+Recognizing these limitations, researchers have
+explored unified modeling approaches based on
+learning theory, typically utilizing news sentiment
+analysis to predict stock price movements (Zhang
+and Skiena, 2010; Pagolu et al., 2016). Recent ad-
+vancements include the integration of multi-source
+information (Ma et al., 2023), the employment of
+more advanced embedding models (Kilimci and
+Akyoku¸ s, 2019; Mishev et al., 2020), and the us-
+age of large language models (LLMs) (Wu et al.,
+2023; Yang et al., 2023a). Despite these promising
+developments, existing learning-based approaches
+struggle to fully capture the dynamic, time-varying
+relationships between companies and the evolving
+financial market. Recent efforts on LLMs for finan-
+cial tasks have aimed to overcome these challenges
+through multi-agent systems (Yu et al., 2024b,a;
+Zhang et al., 2024a) and by infusing financial trad-
+ing knowledge(Zhang et al., 2024b). Considering
+the structured, dynamic representations provided
+by knowledge graphs (KGs) (Zhang et al., 2023),
+FinRipple takes an alternative approach by com-
+bining LLMs with financial KGs to capture ever-
+changing market dynamics and explain complex
+intercompany relationships.
+2.2 KG Augmented LLM
+Through the augmentation of knowledge graphs
+(KGs), existing methodologies strive to mitigate
+hallucinations, enhance reasoning capabilities, and
+facilitate the recall of specific facts (Chen et al.,
+2024; Agrawal et al., 2024). Research on leverag-
+ing KGs to enhance LLMs can be broadly catego-
+rized into two main directions (Wen et al., 2024;
+Agrawal et al., 2024): 1) integrating KGs during the
+pre-training phase, and 2) injecting KGs during the
+inference stage. For methods that integrate KGs
+into LLM pre-training, the common practice in-
+volves designing knowledge-aware training objec-
+tives by either incorporating KG entities and rela-
+tions into the training data (Zhang et al., 2019; Sun
+et al., 2021) or applying KG prediction tasks, such
+as link prediction, as additional supervision (Ya-
+sunaga et al., 2022). These methods directly com-
+press KG knowledge into the parameters of LLMs
+through supervision. However, constructing KGs
+containing trillions of words is challenging, and
+these approaches do not address the fundamental
+limitations of LLMs in terms of flexibility, reliabil-
+ity, and transparency.
+Injecting structured symbolic knowledge from
+KGs into LLM inference aims to enhance contex-
+tual understanding, primarily by integrating knowl-
+edge at the input level. Early efforts focused on
+fusing KG triples into the inputs of LLMs through
+attention mechanisms (Liu et al., 2020; Sun et al.,
+2020) or by attaching graph encoders to LLM en-
+coders to process KG information (Wang et al.,
+2019). Subsequent work further adopted graph
+neural networks (GNNs) in parallel with LLMs
+for joint reasoning (Yasunaga et al., 2021), as
+well as introducing interactions between text to-
+kens and KG entities in the intermediate layers of
+LLMs (Zhang et al., 2022; Yao et al., 2023).
+3 Methodology
+In this section, we commence by formalizing the
+mathematical framework for the ripple prediction
+task. We initially delineate the necessary inputs
+and outputs for the task, as well as the evaluation
+metrics. Subsequently, in Section 3.2, we present
+the overall architecture of FinRipple. This architec-
+ture primarily comprises two pivotal components:
+knowledge injection and market alignment. The
+theoretical underpinnings of the optimization ob-
+jectives can be found in Appendix A.
+3.1 Problem Formulation
+The financial ecosystem evolves through the struc-
+tured triad Mt = ( Ct, Et, µt), where Ct captures
+the universe of public firms, Et the event space,
+and µt the signed interaction measure. This mea-
+sure’s duality – magnitude|µt(ci, cj)| for connec-
+tion strength and polarity sign(µt(ci, cj)) for co-
+operation/competition – synthesizes cross-channel
+dependencies spanning operational, financial, and
+strategic linkages.
+Central to our framework is the propagatorΦet,θ,
+a parametric operator that maps event-context pairs
+to forward shock distributions:
+Φet,θ : Et × Mt| {z }
+Event-Context
+→ RCt+∆t
+| {z }
+Shock Magnitudes
+,
+where θ parameterizes network diffusion dynam-
+ics. Its validation requires grounding in asset pric-
+ing fundamentals: given stochastic discount factor
+Dt+∆t, the pricing error ϵj = Et[Dt+∆tRex
+j ] quan-
+tifies deviations from no-arbitrage equilibrium for
+firm j.
+The core specification standardizes pricing er-
+rors by their cross-sectional volatility σϵ =p
+Var(ϵj) to ensure scale invariance, yielding the
+3
+
+
+[Page 4]
+Stage 1.  KG Construction Stage 3.  Market Alignment
+Knowledge
+mining PPO
+T raining
+Injection
+Filter
+...
+Original layer
+Stage 2.  KG Injection
+Instruction
+T uning
+Instruction Dataset LLM with KG
+Instruction-Response Pair
+T ype 1: 
+retrieval questions
+Instruction-Response Pair
+T ype 2: 
+factual judgments
+Instruction-Response Pair
+T ype 3: 
+factual questions
+......
+...
+...
+Adapter for t
+Original layer
+Original layer
+Adapter for t
+Adapter for t
+Real Market Data
+News stream Instructed news
+Adapter for t
+Original layer
+Adapter for t
+LLM with KG
+Unstructured Data
+S tructured Knowledge T ime-varying KGs
+{ 。 ···   ···   ···   ···   }
+{ 。 ···   ···   ···   ···   }
+·  ·  ·
+{ 。 ···   ···   ···   ···   }
+Announcements
+Patents
+T ransactions
+...
+companies
+...
+S tock prices
+C APM residuals:
+Reward: 
+Figure 2: Overview of FinRipple. The framework comprises three stages: (1) KG Construction: transforming
+unstructured data, such as announcements, patents, and transactions, into time-varying KGs that capture company
+relationships; (2) KG Injection: creating instruction datasets based on these KGs and using them to inject structured
+knowledge into adapters of an LLM without retraining the original layers; (3) Market Alignment: aligning predictions
+with real market reaction by using the correlation between the predicted event impact and CAPM residuals as the
+reward for PPO to optimize model performance. The adapter is frozen, and the analysis ability is parameterized into
+the original layers of the LLM.
+propagator-constrained regression:
+ϵj
+σϵ
+= γ0 + γ1Φj
+et,θ +
+KX
+k=1
+ΓkXk,j + νj,
+Here γ0 captures baseline pricing anomalies, γ1
+quantifies the risk premium attributed to network-
+propagated shocks via the propagator component
+Φj
+et,θ, and Γk controls for K standard risk factors
+Xk,j. The residual νj represents unexplained pric-
+ing noise with variance σ2
+ν.
+Explanatory power is measured through normal-
+ized variance absorption:
+R2
+Φ = 1 − E
+
+(ϵj/σϵ − ˆγ1Φj)2
+Var(ϵj/σϵ) ,
+where the expectation operator E[·] averages over
+the cross-section of firms Ct+∆t. Values R2
+Φ >
+0.15 indicate economically meaningful improve-
+ments over benchmark factor models. Statisti-
+cal significance is evaluated through the robust
+t-statistic. A threshold |tγ1| > 2.58 (p < 0.01)
+establishes inference reliability. More evaluation
+details can be found in Appendix F
+3.2 The pipeline of FinRipple
+As shown in Figure 2, FinRipple starts with the
+construction of time-varying KGs that incorporate
+four relationships supported by prior research: lead-
+ership networks, mutual fund holdings, patent re-
+lationships, and supply chains. The specific data
+sources and construction process for the KG can
+be found in Appendix B.2. The next two key steps
+are KG injection and market alignment, which we
+will introduce in the following subsections.
+3.2.1 Knowledge Graph Injection
+FinRipple implements time varying KG integra-
+tion through structured instruction generation and
+parameter-efficient adaptation. Each dynamic KG
+snapshot Gt = ( Ct, Rt) contains the set of pub-
+lic firms Ct and time-sensitive relations Rt, en-
+coding four validated interaction types: leadership
+overlaps (CEO/board linkages), mutual fund cross-
+holdings, patent co-development relationships, and
+supply chain dependencies. These relations are
+projected into instructional text via templated trans-
+formations.
+For each relational triple (ci, rk, cj) ∈ Gt, the
+mapping operator Tk generates question-answer
+pairs that capture both qualitative and quantitative
+aspects of the relationship. A supply chain example
+produces:
+Instruction: “Identify primary suppliers for
+ci in 2023Q2”
+Response: “cj provided $2.3M semiconduc-
+tor components with 98% on-time delivery”
+The instruction set Dt = {(xt
+i, yt
+i)} integrates
+three query modalities: entity retrieval probes (e.g.,
+“List firms sharing board members withcj”), factual
+verification tasks (“Did ci acquire ck in 2021?”),
+and quantitative inference questions (“What per-
+centage of cj’s R&D budget funds joint patents
+with ci?”). Ablation studies confirm the necessity
+of this multimodal design (Table 7 in Appendix E).
+We use lightweight adapter modules to parame-
+terize time-varying KGs in which ϕt as additional
+parameters – distinct from and operating in paral-
+lel to the frozen base LLM parameters ψ. These
+adapters constitute only 3.2% of the total parame-
+4
+
+
+[Page 5]
+ter count while enabling temporal adaptation. To
+maintain temporal coherence, high-impact instruc-
+tional pairs from prior periods are retained in a
+rotating buffer, ensuring persistent interdependen-
+cies remain accessible. The complete implementa-
+tion – including temporal alignment protocols and
+adapter initialization – is detailed in Appendix C.
+3.2.2 Market Alignment
+Before the training process, for each news item, we
+retrieve the corresponding KG for the relevant time
+and inject it into the adapter, enabling the model to
+adapt to the time-varying market structure. Impor-
+tantly, each time we fine-tune the backbone of the
+LLM, the adapter, which stores the information of
+the KG, is reinitialized and then kept frozen, ensur-
+ing compatibility between the updated backbone
+parameters and the dynamically injected knowl-
+edge. The adapter, once frozen, functions as a static
+feature extractor that represents market features at
+specific times. Meanwhile, the LLM backbone
+learns to make predictions consistent with the cur-
+rent market context. During the market alignment
+phase, FinRipple is primarily based on large-scale
+reinforcement learning. By carefully designing
+the feedback mechanism, we integrate the classic
+CAPM theory with alignment technologies, endow-
+ing the LLMs with the ability to analyze the rip-
+ple effect. The propagator Φet,θ’s predictions are
+validated through CAPM residual analysis. For
+company cj ∈ C t+∆t, define:
+(
+E[Rt+∆t
+j ] = Rf + βj(Rt+∆t
+m − Rf)
+ϵt+∆t
+j = Rt+∆t
+j − E[Rt+∆t
+j ]
+where βj = Cov(Rj ,Rm)
+Var(Rm) is estimated via OLS over
+rolling windows. The propagator’s outputY t+∆t ∈
+R|Ct|×d is aggregated to shock magnitudes:
+Zt+∆t
+j =
+|Ct|X
+i=1
+µt(ci, cj) · Y t+∆t
+ij
+The alignment between predicted shocks Zt+∆t
+and observed residuals ϵt+∆t is quantified through:
+R(Z, ϵ) = Z · ϵ
+∥Z∥∥ϵ∥| {z }
+direction match
++λ
+P|Ct+∆t|
+j=1 min(|Zj|, |ϵj|)
+∥ϵ∥1| {z }
+magnitude coverage
+The first term of the above reward function mea-
+sures how precisely the predicted impacts can ex-
+plain the CAPM residuals, ensuring the model ac-
+curately learns the influence magnitude of specific
+events. At the same time, the regularization con-
+trolled by the hyperparameter λ maximizes the
+recall rate to cover as many relevant impacts as
+possible. The role of the regularization term is to
+evaluate the extent to whichZt+∆t covers ϵt+∆t by
+comparing their values element by element (during
+training, ∆t is set to 1). More training details can
+be found in Appendix C.
+3.2.3 FinRipple
+We collect the reward Rt to fine-tune the LLM
+backbone using Proximal Policy Optimization
+(PPO), while keeping the adapter layers frozen.
+The fine-tuning process follows the pipeline de-
+scribed below. First, we iterate through all avail-
+able news articles. For each news item, we inject
+the KG corresponding to the specific month into the
+adapter. This allows the model to adapt to the time-
+varying market structure encoded within the KG.
+Importantly, every time we fine-tune the model, we
+utilize a newly initialized adapter to ensure that the
+updated LLM backbone parameters are compatible
+with the dynamic knowledge injected from the KG.
+Once the KG is injected, we proceed with PPO
+fine-tuning for the LLM backbone. The frozen
+adapter serves as a static market feature at a certain
+time, while the LLM backbone learns to make pre-
+dictions that align with the current market context
+reflected in the news and KG data.
+4 Experiment
+4.1 Baselines and Evaluation Metrics
+In this subsection, we provide a brief introduction
+to the benchmarks and metrics for the asset pricing
+task only. For further details and information on
+downstream tasks related to portfolio management,
+please refer to Appendix F.
+Datasets We selected 10,000 news articles about
+S&P 500 companies from January 1, 2020, to
+June 30, 2022, as the test set, while approximately
+110,000 articles from other years were used for
+training. Detailed statistics on the dataset about
+news and KGs can be found in Appendix B.
+Baselines We adopt several mainstream meth-
+ods to demonstrate that FinRipple offers a pow-
+erful solution for this task. The baselines are
+primarily divided into two categories. The first
+category tests the analogical reasoning capabili-
+ties of foundational LLMs, showing that untrained
+LLMs lack the ability to analyze event impact effec-
+5
+
+
+[Page 6]
+tively. The basic Retrieval-Augmented Generation
+(RAG) (Lewis et al., 2020) approach utilizes an
+embedding model to retrieve relevant subgraph in-
+formation from the KG, enabling LLMs to assess
+impacts based on this data. Zero-Shot Inference
+provides instructions to the model along with news
+and concatenated graph information. However, due
+to the limited window size of LLMs, some graph
+data may be incomplete. For companies specifi-
+cally mentioned in the news, a two-hop subgraph
+is concatenated; otherwise, random graph infor-
+mation fills the LLM’s input window. In-Context
+Learning (ICL) (Brown et al., 2020) builds upon
+the Zero-Shot approach by adding an example to
+aid the LLM in reasoning. The second category
+primarily includes fine-tuned variations of FinRip-
+ple, both with and without market alignment. It
+emphasizes that even if the LLM effectively ab-
+sorbs the graph information, without aligning with
+market dynamics, the model still lacks the ability
+to effectively analyze the impact of events.
+Evaluation metrics To evaluate the effectiveness
+of FinRipple in analyzing financial market shocks,
+we designed an evaluation framework focusing on
+three metrics: (1) explanatory power on the mean
+of the residuals, (2) explanatory power on the vari-
+ance of the residuals, and (3) the refusal-to-answer
+rate. The residuals, derived from a CAPM regres-
+sion of stock returns against market returns, repre-
+sent the portion of returns unexplained by market
+factors. We use these residuals to assess whether
+predicted event impacts significantly explain return
+variance through regression analysis and ANOV A,
+with p-values indicating statistical significance. Ad-
+ditionally, the refusal-to-answer rate evaluates the
+robustness of LLMs in generating meaningful re-
+sponses in complex, event-driven contexts.
+4.2 Main Results Analysis
+As shown in Table 1, both open-source and closed-
+source LLMs face significant challenges in ana-
+lyzing the impact of financial market events with-
+out domain-specific training. The results establish
+three critical insights into LLMs’ capabilities for
+financial ripple effect prediction. General-purpose
+architectures demonstrate systematic limitations in
+event-driven scenarios, with RAG methods show-
+ing performance instability due to deficient event-
+context extraction and ICL providing negligible
+improvements over zero-shot baselines. The ob-
+served R2 values below 0.25 across multiple model
+families confirm these fundamental constraints.
+A hierarchical pattern emerges in knowledge-
+enhanced approaches. Basic market information
+infusion yields marginal gains, while domain-
+adapted implementations exhibit transformative im-
+provements. The performance differential between
+baseline and fine-tuned configurations reveals that
+market dynamics internalization, not mere data in-
+jection, drives meaningful capability enhancement.
+Notably, model scale proves secondary to domain
+alignment, as evidenced by smaller architectures
+outperforming larger counterparts post-adaptation.
+The demonstrated success of targeted domain
+adaptation over architectural size or general capa-
+bilities suggests that isomorphic mapping between
+knowledge systems and market mechanisms en-
+ables causal reasoning beyond native model capac-
+ities. This repositions domain-specific alignment
+as the critical pathway for developing professional-
+grade financial analytics systems.
+4.3 Portofolio Management
+To further demonstrate the effectiveness of Fin-
+Ripple, we implement a simple intraday trading
+strategy based on the event impact prediction. The
+strategy selects stocks that exhibit the highest pos-
+itive predicted event-driven impacts and creates a
+daily portfolio that rebalances at the end of each
+trading day. Specifically, the steps are as follows:
+1. Each morning, based on the predicted impact
+results, we rank all stocks in our universe by
+the magnitude of their predicted impact.
+2. The top 10% of stocks with the highest pre-
+dicted positive impact are selected for a long
+position, while the bottom 10% with the high-
+est predicted negative impact are shorted.
+3. At the end of the day, the portfolio is rebal-
+anced, and the next day’s selection is based
+on new predictions.
+In accordance with previous portfolio management
+studies (Xu et al., 2024), we selected benchmarks
+including Equal Weighting, V olatility Weighting,
+the Markowitz Model, and Min-Variance Weight-
+ing. Furthermore, we employed multiple evaluation
+metrics, such as daily return (Rd), sharpe ratio (Sa),
+and maximum drawdown (MDD), as presented in
+Table 3. To prevent data contamination, the back-
+test period was set from January 2020 to June 2022,
+6
+
+
+[Page 7]
+Model RAG Zero-Shot ICL FinRipple/w-o alignment FinRipple
+Coef. p-value R2 Coef. p-value R2 Coef. p-value R2 Coef. p-value R2 Coef. p-value R2
+llama2-7b-chat 0.012 0.452 0.009 0.031 0.601 0.012 0.042 0.503 0.018 0.047 0.510 0.019 0.150* 0.030 0.083llama2-13b-chat 0.103 0.305 0.054 0.079 0.349 0.039 0.098 0.281 0.061 0.102 0.287 0.058 0.242** 0.009 0.193llama3-8b-instruct 0.091 0.318 0.047 0.072 0.402 0.037 0.107 0.254 0.058 0.110 0.249 0.060 0.278** 0.004 0.251vicuna-7b-chat 0.118 0.247 0.063 0.102 0.298 0.052 0.129 0.198 0.081 0.125 0.205 0.074 0.330*** 0.001 0.310vicuna-13b-chat 0.248* 0.032 0.248 0.148 0.149 0.082 0.176 0.098 0.102 0.171* 0.040 0.108 0.395*** 0.000 0.340Phi-3.5-mini-instruct 0.082 0.395 0.032 0.065 0.498 0.019 0.094 0.347 0.052 0.096 0.340 0.045 0.245** 0.006 0.155gemma-2-9b-it 0.097 0.298 0.048 0.083 0.354 0.038 0.112 0.245 0.063 0.109 0.252 0.061 0.290*** 0.001 0.215
+GPT 3.5 0.083 0.398 0.028 0.062 0.051 0.075 0.056** 0.004 0.112 / / / / / /GPT o1-preview 0.152 0.342 0.047 0.119 0.392 0.056 0.192 0.229 0.082 / / / / / /GPT 4o-mini 0.124 0.312 0.042 0.312* 0.013 0.035 0.104 0.879 0.103 / / / / / /
+Table 1: Comparison of baselines and FinRipple on LLMs. This table focuses on the explanatory power on the value
+of the CAPM residuals. The significance levels are indicated as follows: * p < 0.05, ** p < 0.01, *** p < 0.001.
+Note that cells containing a slash (/) indicate that the model does not have open-sourced weights available.
+Model RAG Zero-Shot ICL FinRipple/w-o alignment FinRipple
+ANOV A-F ANOV A-p ES ANOV A-F ANOV A-p ES ANOV A-F ANOV A-p ES ANOV A-F ANOV A-p ES ANOV A-F ANOV A-p ES
+llama2-7b-chat 1.624 0.231 0.089 1.304 0.274 0.068 2.392 0.097 0.108 2.565 0.082 0.092 3.123* 0.033 0.142llama2-13b-chat 2.175 0.139 0.102 1.782 0.188 0.082 2.634 0.075 0.117 3.052* 0.051 0.105 4.103** 0.012 0.198llama3-8b-instruct 1.210 0.324 0.085 2.221 0.141 0.099 2.452 0.088 0.112 2.835 0.069 0.101 4.110** 0.010 0.203vicuna-7b-chat 0.910 0.452 0.071 1.512 0.248 0.074 2.731 0.060 0.115 2.672 0.074 0.097 3.832* 0.019 0.341vicuna-13b-chat 2.703 0.112 0.115 2.910* 0.058 0.110 3.001* 0.052 0.125 3.932** 0.031 0.119 5.231*** 0.003 0.287Phi-3.5-mini-instruct 1.563 0.257 0.097 2.334 0.126 0.104 2.815 0.062 0.118 3.014* 0.048 0.110 4.315** 0.009 0.215gemma-2-9b-it 2.443 0.128 0.109 1.905 0.172 0.091 2.447 0.089 0.095 3.122* 0.039 0.108 4.012** 0.014 0.159
+GPT 3.5 1.375 0.301 0.090 1.645 0.223 0.088 2.087 0.129 0.105 / / / / / /GPT 4.0-preview 0.812 0.443 0.067 2.112 0.145 0.100 2.372 0.098 0.117 / / / / / /GPT 4o-mini 2.153 0.144 0.099 2.875* 0.059 0.108 3.245 0.061 0.145 / / / / / /
+Table 2: Comparison of baselines and FinRipple on various models using ANOV A analysis. ANOV A-F represents
+the F-value from the ANOV A test, indicating the ratio of systematic to error variance. ANOV A-p represents the
+p-value for statistical significance, with * for p < 0.05, ** for p < 0.01, and *** for p < 0.001. Eta Squared (ES)
+represents the correlation ratio, which indicates the proportion of variance explained by the model. Cells with a
+slash (/) indicate that the model cannot be fine-tuned using FinRipple due to unavailable open-source weights.
+ensuring the result reliability. A detailed introduc-
+tion to portfolio strategies and their evaluation can
+be obtained in Appendix F.
+The results show that accurately predicting the
+range of impacts from financial market events can
+significantly mitigate portfolio risks. The strat-
+egy based on FinRipple outperforms benchmarks
+in key metrics, including daily return, Sharpe ra-
+tio, and maximum drawdown, achieving a daily
+return of 0.052, a Sharpe ratio of 1.153, and a max-
+imum drawdown of −0.283. In contrast, strategies
+like Equal Weighting and Min-Variance Weighting
+exhibit higher maximum drawdowns, indicating
+greater vulnerability to market shocks without pre-
+cise impact predictions. Overall, accurate event
+impact forecasting is crucial for enhancing risk
+control and improving investment outcomes.
+4.4 Other Analysis
+Knowledge Inject Analysis When effectively in-
+jecting KGs into LLMs, optimizing the model’s
+understanding of market structures is paramount.
+One strategy involves using a preprocessing mod-
+ule to filter potential subgraphs as inputs. The sim-
+plest approach is to traverse one-hop and two-hop
+subgraphs related to a target company. While this
+method may be applicable in some contexts, it fails
+to capture the market’s dynamic complexity, partic-
+ularly in scenarios where events do not specifically
+target individual companies, such as those affecting
+entire supply chains.
+Another strategy is to leverage RAG, which heav-
+ily relies on the performance of embedding models
+designed to recall companies that are “semantically
+similar” to specific queries. However, these em-
+bedding models often overlook the deeper market
+relationships associated with specific events when
+filtering for potentially impacted companies. This
+dependency can lead to significant misjudgments
+or biases in the model’s event impact predictions.
+In contrast, the parameterization approach,
+which transforms KGs into adjustable parameters,
+provides a more comprehensive reflection of mar-
+ket trends and their complex interrelationships.
+This method enables dynamic adjustment and op-
+timization of parameters during training, allowing
+the model to better capture the nonlinear dynamics
+of the market. By employing time-varying adapters,
+the model’s adaptability to changes in market struc-
+ture is enhanced, improving its responsiveness and
+predictive accuracy regarding market dynamic. For
+news events that focus on a specific central com-
+pany, as Figure 4 shows, RAG primarily retrieves
+7
+
+
+[Page 8]
+Benchmark Daily Return ( Rd ×10−1) Sharpe Ratio (Sa) Maximum Drawdown (MDD) Win Rate
+Equal Weighting 0.034 0.882 -0.351 0.582
+V olatility Weighting 0.041 1.021 -0.312 0.643
+Markowitz Model 0.029 0.954 -0.292 0.613
+Min-Variance Weighting 0.028 0.821 -0.401 0.552
+FinRipple 0.052 1.153 -0.283 0.685
+Table 3: Summary of backtest results for different portfolio management strategies on S&P 500 constituent stocks
+(January 2020 to June 2022). Note that the daily return is presented with a factor of 10−1 for better readability.
+         In August 2021, the Biden administration announced a plan to invest $7.3 billion in the construction of 
+electric vehicle (EV) charging infrastructure. This initiative aims to establish 50,000 public charging stations 
+across the United States by 2030, supporting the widespread adoption of electric vehicles. This effort is part of a 
+broader strategy to promote clean energy and reduce carbon emissions, ultimately creating a more environmentally 
+friendly transportation system. 
+Example of a news event not targeting a specific company:
+Figure 3: An example where subgraph search is not applicable. As shown in the figure, this news event impacts the
+entire electric vehicle charging infrastructure industry rather than targeting a specific company.
+Figure 4: This diagram compares candidate companies
+identified by FinRipple and other methods. Due to the
+network’s complexity, only selected nodes in the exam-
+ples are shown for illustration purposes.
+based on semantic similarity, which often leads to
+a low recall rate when dealing with larger graphs.
+This limitation also affects first- and second-degree
+nodes, reducing the effectiveness of the retrieval
+process. Subgraph retrieval without alignment may
+select a larger number of relevant companies, but it
+often lacks the necessary logical structure to make
+meaningful predictions. FinRipple, by contrast, ef-
+fectively captures not only the relationships among
+entities but also the logical pathways of impact
+from the central company, offering a more coherent
+and precise prediction of event impact. The clear
+propagation routes observed in FinRipple highlight
+its ability to model the cascading effects of an event
+through the network, accurately representing both
+direct and indirect influences.
+Model Zero-Shot ICL FinRipple
+llama2-7b-chat 0.41 ±0.16 0.25±0.09 0.21±0.11
+llama2-13b-chat 0.36±0.18 0.13±0.08 0.15±0.09
+llama3-8b-instruct 0.45±0.19 0.11±0.07 0.14±0.08
+vicuna-7b-chat 0.39 ±0.14 0.22±0.10 0.23±0.05
+vicuna-13b-chat 0.34±0.15 0.13±0.02 0.10±0.04
+Phi-3.5-mini-instruct 0.48±0.21 0.31±0.12 0.26±0.09
+gemma-2-9b-it 0.38 ±0.17 0.23±0.08 0.18±0.06
+GPT 3.5 0.32 0.18 /
+GPT 4.0-preview 0.14 0.10 /
+GPT 4o-mini 0.12 0.09 /
+Table 4: Refusal-to-Answer Rate Comparison. The
+fluctuating values indicate variation under different tem-
+perature settings. This experiment is conducted on our
+benchmark, where refusal-to-answer samples are those
+that could not be post-processed into valid outputs.
+Refusal-to-Answer Rate Analysis: In line with
+our experience, the refusal-to-answer rate largely
+depends on the model’s instruction-following capa-
+bility. As shown in Table 4, zero-shot approaches
+exhibit systematically higher refusal rates with
+greater volatility across model architectures, reflect-
+ing fundamental limitations in interpreting complex
+domain-specific instructions. This pattern holds
+particularly for smaller open-source models, where
+instruction misinterpretation manifests as high vari-
+ance in refusal behavior.
+Closed-source architectures demonstrate supe-
+rior instruction grounding, achieving sub-0.15 re-
+fusal rates through advanced comprehension capa-
+8
+
+
+[Page 9]
+Recollection
+Analysis
+In January 2020, MGM Resorts International sold the MGM Grand and Mandalay Bay to a joint venture including Blackstone 
+Group Inc. as part of MGM’ s "asset-light" strategy to divest real estate and focus on sports betting and entertainment.
+In 2017, Hilton W orldwide (HL T) spun of f its real estate assets into Park Hotels & Resorts (PK) REIT  to focus on hotel 
+management and brand services, simplifying its structure and reducing heavy assets.
+V anguard Group holds shares in MGM. If MGM divests its real estate 
+assets, V anguard may adjust investments in similar sectors, potentially 
+af fecting Simon Property Group holding comparable real estate assets.
+Inference
+MGM
+V anguard Group
+V anguard Group
+V anguard Group
+Simon Property Group
+Cisco Systems
+United T echnologies
+V anguard Group holds shares in U nited T e ch nologies. MGM ' s asset 
+divestiture may af fect U nited T e ch nologies’  performance and 
+V anguard ' s investment returns.
+V anguard Group holds shares in both MGM and C is c o Systems. MGM ' s 
+asset divestiture may reduce demand for net w or k  e q uipment, impacting 
+C is c o Systems '  revenue and V anguard ' s returns on its Cisco holdings.
+...
+...
+...
+Figure 5: Using CoT to analyze the reasoning process of vicuna-13b-chat. The model is aligned by FinRipple.
+bilities. The FinRipple framework bridges this ca-
+pability gap by transforming instruction semantics
+into market-dynamics-aware representations. Its ef-
+fectiveness correlates with base model competency
+- stronger initial instruction following enables more
+precise financial alignment, as evidenced by order-
+of-magnitude improvements in compliant models.
+Case study We believe that the logical reasoning
+capability of LLMs lies in their ability to establish
+connections with previously acquired knowledge
+or patterns. Therefore, in the inference process,
+we employ a straightforward Chain-of-Thought
+(CoT) (Wei et al., 2022a) approach to capture the
+intricate reasoning pathways, leading to the refined
+outcomes of FinRipple, as shown in Figure 5. We
+can clearly observe that the inference process of the
+LLM, after being aligned with the financial market,
+is divided into three distinct steps: the first step
+involves establishing connections with past news,
+the second step focuses on analysis, and the third
+step derives the impact pathways. It is worth not-
+ing that not all news articles can directly establish
+connections with past knowledge. News that has
+undergone pre-training or supervised fine-tuning
+(SFT) is often more likely to be fully recalled and
+integrated into reasoning processes.
+5 Conclusion
+In conclusion, we present FinRipple, a novel train-
+ing framework that empowers LLMs to analyze
+and predict the ripple effects of sudden events in
+financial markets. By constructing a time-varying
+financial KG and integrating it into the LLM using
+adapters, we align the model with the dynamic mar-
+ket structure without retraining from scratch. Our
+rigorous validation showcases FinRipple’s strong
+potential in real-world applications like asset pric-
+ing and portfolio construction.
+6 Limitations
+FinRipple also faces several limitations that war-
+rant further attention. First, it relies heavily on high-
+quality, explicit KGs for effective performance.
+Without timely and high-quality data, the system’s
+capabilities may degrade over time, resulting in
+outdated knowledge and less relevant reasoning
+processes. At the same time, any delay in updating
+the KG may affect the relevance and accuracy of
+the generated outputs, especially during periods
+of rapid market fluctuations. Lastly, the scalabil-
+ity of LLMs when integrated with large-scale KGs
+remains a major concern (Ibrahim et al., 2024).
+As KGs grow in size, the computational burden
+of incorporating all relevant entities and relation-
+ships into LLMs increases substantially. Moving
+forward, efficient data management strategies and
+techniques such as model pruning will be essen-
+tial to balance performance and computational cost
+effectively.
+7 Acknowledgements
+This work is supported by the Guangzhou-
+HKUST(GZ) Joint Funding Program (No.
+2024A03J0630).
+References
+Alessandro Acquisti, Allan Friedman, and Rahul Telang.
+2006. Is there a cost to privacy breaches? an event
+study. ICIS 2006 proceedings, page 94.
+9
+
+
+[Page 10]
+Garima Agrawal, Tharindu Kumarage, Zeyad Alghamdi,
+and Huan Liu. 2024. Can knowledge graphs reduce
+hallucinations in llms? : A survey. In Proceedings
+of the 2024 Conference of the North American Chap-
+ter of the Association for Computational Linguistics:
+Human Language Technologies (Volume 1: Long
+Papers), NAACL 2024, Mexico City, Mexico, June
+16-21, 2024, pages 3947–3960. Association for Com-
+putational Linguistics.
+Matin N Ashtiani and Bijan Raahemi. 2023. News-
+based intelligent prediction of financial markets us-
+ing text mining and machine learning: A systematic
+literature review. Expert Systems with Applications,
+217:119509.
+David H Austin. 1993. An event-study approach to mea-
+suring innovative output: The case of biotechnology.
+The American economic review, 83(2):253–258.
+D Eric Boyd, Rajesh K Chandy, and Marcus Cunha Jr.
+2010. When do chief marketing officers affect firm
+value? a customer power explanation. Journal of
+Marketing Research, 47(6):1162–1176.
+Tom B Brown, Benjamin Mann, Nick Ryder, Melanie
+Subbiah, Jared Kaplan, Prafulla Dhariwal, Arvind
+Neelakantan, Pranav Shyam, Girish Sastry, Amanda
+Askell, et al. 2020. Language models are few-shot
+learners. Advances in Neural Information Processing
+Systems, 33:1877–1901.
+Yubo Chen, Yong Liu, and Jurui Zhang. 2012. When
+do third-party product reviews affect firm value and
+what can firms do? the case of media critics and
+professional movie reviews. Journal of Marketing,
+76(2):116–134.
+Zhuo Chen, Yichi Zhang, Yin Fang, Yuxia Geng, Ling-
+bing Guo, Xiang Chen, Qian Li, Wen Zhang, Jiaoyan
+Chen, Yushan Zhu, et al. 2024. Knowledge graphs
+meet multi-modal learning: A comprehensive survey.
+arXiv preprint arXiv:2402.05391.
+Dawei Cheng, Fangzhou Yang, Xiaoyang Wang, Ying
+Zhang, and Liqing Zhang. 2020. Knowledge graph-
+based event embedding framework for financial quan-
+titative investments. In Proceedings of the 43rd In-
+ternational ACM SIGIR Conference on Research and
+Development in Information Retrieval, pages 2221–
+2230.
+Rui Cheng and Qing Li. 2021. Modeling the momen-
+tum spillover effect for stock prediction via attribute-
+driven graph attention networks. In Proceedings of
+the AAAI Conference on artificial intelligence, vol-
+ume 35, pages 55–62.
+Antonia Creswell, Murray Shanahan, and Irina Higgins.
+2023. Selection-inference: Exploiting large language
+models for interpretable logical reasoning. In The
+Eleventh International Conference on Learning Rep-
+resentations, ICLR 2023, Kigali, Rwanda, May 1-5,
+2023. OpenReview.net.
+Xiao Ding, Yue Zhang, Ting Liu, and Junwen Duan.
+2014. Using structured events to predict stock price
+movement: An empirical investigation. In Proceed-
+ings of the 2014 conference on empirical methods in
+natural language processing (EMNLP), pages 1415–
+1425.
+Xiao Ding, Yue Zhang, Ting Liu, and Junwen Duan.
+2015. Deep learning for event-driven stock predic-
+tion. In Twenty-fourth international joint conference
+on artificial intelligence.
+Haibing Gao, Jinhong Xie, Qi Wang, and Kenneth C
+Wilbur. 2015. Should ad spending increase or de-
+crease before a recall announcement? the marketing–
+finance interface in product-harm crisis management.
+Journal of Marketing, 79(5):80–99.
+Jianing Hao, Zhuowen Liang, Chunting Li, Yuyu Luo,
+Jie Li, and Wei Zeng. 2024. Vistr: Visualizations as
+representations for time-series table reasoning. arXiv
+preprint arXiv:2406.03753.
+Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan
+Allen-Zhu, Yuanzhi Li, Shean Wang, and Weizhu
+Chen. 2021. Lora: Low-rank adaptation of large
+language models. In International Conference on
+Learning Representations.
+Jie Huang and Kevin Chen-Chuan Chang. 2023. To-
+wards reasoning in large language models: A survey.
+In Findings of the Association for Computational
+Linguistics: ACL 2023, Toronto, Canada, July 9-14,
+2023, pages 1049–1065. Association for Computa-
+tional Linguistics.
+Nourhan Ibrahim, Samar Aboulela, Ahmed Ibrahim,
+and Rasha Kashef. 2024. A survey on augmenting
+knowledge graphs (kgs) with large language models
+(llms): models, evaluation metrics, benchmarks, and
+challenges. Discover Artificial Intelligence, 4(1):76.
+Zeynep Hilal Kilimci and Selim Akyoku¸ s. 2019. The
+analysis of text categorization represented with word
+embeddings using homogeneous classifiers. In 2019
+IEEE International Symposium on INnovations in
+Intelligent SysTems and Applications (INISTA), pages
+1–6. IEEE.
+Charles MC Lee, Stephen Teng Sun, Rongfei Wang,
+and Ran Zhang. 2019. Technological links and pre-
+dictable returns. Journal of Financial Economics ,
+132(3):76–96.
+Laetitia Lepetit, Stephanie Patry, and Philippe Rous.
+2004. Diversification versus specialization: an event
+study of m&as in the european banking industry. Ap-
+plied Financial Economics, 14(9):663–669.
+Patrick Lewis, Aleksandra Piktus, Vladimir Karpukhin,
+Barlas Oguz, Sewon Min, Wen-tau Yih, Ledell
+Wu, Harm de Vries, Yonatan Bisk, Marie-Francine
+Moens, and Sebastian Riedel. 2020. Retrieval-
+augmented generation for knowledge-intensive nlp
+tasks. In Advances in Neural Information Processing
+Systems, volume 33, pages 9459–9474.
+10
+
+
+[Page 11]
+Weijie Liu, Peng Zhou, Zhe Zhao, Zhiruo Wang, Qi Ju,
+Haotang Deng, and Ping Wang. 2020. K-bert: En-
+abling language representation with knowledge graph.
+In Proceedings of the AAAI Conference on Artificial
+Intelligence, volume 34, pages 2901–2908.
+Yu Ma, Rui Mao, Qika Lin, Peng Wu, and Erik Cam-
+bria. 2023. Multi-source aggregated classification
+for stock price movement prediction. Information
+Fusion, 91:515–528.
+Kostadin Mishev, Ana Gjorgjevikj, Irena V odenska,
+Lubomir T Chitkushev, and Dimitar Trajanov. 2020.
+Evaluation of sentiment analysis in finance: from
+lexicons to transformers. IEEE access, 8:131662–
+131682.
+Mehryar Mohri and Afshin Rostamizadeh. 2008.
+Rademacher complexity bounds for non-iid pro-
+cesses. Advances in neural information processing
+systems, 21.
+Venkata Sasank Pagolu, Kamal Nayan Reddy, Ganapati
+Panda, and Babita Majhi. 2016. Sentiment analysis
+of twitter data for predicting stock market movements.
+In 2016 international conference on signal process-
+ing, communication, power and embedded system
+(SCOPES), pages 1345–1350. IEEE.
+Vikash Ramiah, Belinda Martin, and Imad Moosa. 2013.
+How does the stock market react to the announcement
+of green policies? Journal of Banking & Finance,
+37(5):1747–1758.
+Alina Sorescu, Nooshin L Warren, and Larisa Ertekin.
+2017. Event study methodology in the marketing
+literature: an overview. Journal of the Academy of
+Marketing Science, 45:186–207.
+Tianxiang Sun, Yunfan Shao, Xipeng Qiu, Qipeng Guo,
+Yaru Hu, Xuanjing Huang, and Zheng Zhang. 2020.
+Colake: Contextualized language and knowledge em-
+bedding. In Proceedings of the 28th International
+Conference on Computational Linguistics, COLING
+2020, Barcelona, Spain (Online), December 8-13,
+2020, pages 3660–3670. International Committee on
+Computational Linguistics.
+Yu Sun, Shuohuan Wang, Shikun Feng, Siyu Ding,
+Chao Pang, Junyuan Shang, Jiaxiang Liu, Xuyi Chen,
+Yanbin Zhao, Yuxiang Lu, et al. 2021. ERNIE 3.0:
+Large-scale knowledge enhanced pre-training for lan-
+guage understanding and generation. arXiv preprint
+arXiv:2107.02137.
+Yajiao Tang, Zhenyu Song, Yulin Zhu, Huaiyu Yuan,
+Maozhang Hou, Junkai Ji, Cheng Tang, and Jianqiang
+Li. 2022. A survey on machine learning models for
+financial time series forecasting. Neurocomputing,
+512:363–380.
+Xiaoyan Wang, Pavan Kapanipathi, Ryan Musa, Mo Yu,
+Kartik Talamadupula, Ibrahim Abdelaziz, Maria
+Chang, Achille Fokoue, Bassem Makni, Nicholas
+Mattei, et al. 2019. Improving natural language
+inference using external knowledge in the science
+questions domain. In Proceedings of the AAAI con-
+ference on artificial intelligence, volume 33, pages
+7208–7215.
+Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten
+Bosma, Brian Ichter, Fei Xia, Ed H. Chi, Quoc V . Le,
+and Denny Zhou. 2022a. Chain-of-thought prompt-
+ing elicits reasoning in large language models. In
+Advances in Neural Information Processing Systems
+35: Annual Conference on Neural Information Pro-
+cessing Systems 2022, NeurIPS 2022, New Orleans,
+LA, USA, November 28 - December 9, 2022.
+Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten
+Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou,
+et al. 2022b. Chain-of-thought prompting elicits rea-
+soning in large language models. Advances in neural
+information processing systems, 35:24824–24837.
+Yilin Wen, Zifeng Wang, and Jimeng Sun. 2024.
+Mindmap: Knowledge graph prompting sparks graph
+of thoughts in large language models. In Proceedings
+of the 62nd Annual Meeting of the Association for
+Computational Linguistics (Volume 1: Long Papers),
+ACL 2024, Bangkok, Thailand, August 11-16, 2024,
+pages 10370–10388. Association for Computational
+Linguistics.
+Qingsheng Wu, Xueming Luo, Rebecca J Slotegraaf,
+and Jaakko Aspara. 2015. Sleeping with competitors:
+the impact of npd phases on stock market reactions
+to horizontal collaboration. Journal of the Academy
+of Marketing Science, 43:490–511.
+Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski,
+Mark Dredze, Sebastian Gehrmann, Prabhanjan Kam-
+badur, David Rosenberg, and Gideon Mann. 2023.
+Bloomberggpt: A large language model for finance.
+arXiv preprint arXiv:2303.17564.
+Guiyang Xiong and Sundar Bharadwaj. 2013. Asym-
+metric roles of advertising and marketing capability
+in financial returns to news: Turning bad into good
+and good into great. Journal of Marketing Research,
+50(6):706–724.
+Yuanjian Xu, Anxian Liu, Jianing Hao, Zhenzhuo Li,
+Shichang Meng, and Guang Zhang. 2024. Plutus:
+A well pre-trained large unified transformer can un-
+veil financial time series regularities. arXiv preprint
+arXiv:2408.10111.
+Hongyang Yang, Xiao-Yang Liu, and Christina Dan
+Wang. 2023a. Fingpt: Open-source financial large
+language models. arXiv preprint arXiv:2306.06031.
+Linyao Yang, Hongyang Chen, Zhao Li, Xiao Ding, and
+Xindong Wu. 2023b. Chatgpt is not enough: Enhanc-
+ing large language models with knowledge graphs
+for fact-aware language modeling. arXiv preprint
+arXiv:2306.11489.
+Yao Yao, Zuchao Li, and Hai Zhao. 2023. Beyond chain-
+of-thought, effective graph-of-thought reasoning in
+language models. arXiv preprint arXiv:2305.16582.
+11
+
+
+[Page 12]
+Michihiro Yasunaga, Antoine Bosselut, Hongyu Ren,
+Xikun Zhang, Christopher D Manning, Percy S
+Liang, and Jure Leskovec. 2022. Deep bidirectional
+language-knowledge graph pretraining. Advances in
+Neural Information Processing Systems, 35:37309–
+37323.
+Michihiro Yasunaga, Hongyu Ren, Antoine Bosselut,
+Percy Liang, and Jure Leskovec. 2021. QA-GNN:
+reasoning with language models and knowledge
+graphs for question answering. In Proceedings of
+the 2021 Conference of the North American Chap-
+ter of the Association for Computational Linguistics:
+Human Language Technologies, NAACL-HLT 2021,
+Online, June 6-11, 2021, pages 535–546. Association
+for Computational Linguistics.
+Dong Yin, Ramchandran Kannan, and Peter Bartlett.
+2019. Rademacher complexity for adversarially ro-
+bust generalization. In International conference on
+machine learning, pages 7085–7094. PMLR.
+Yangyang Yu, Haohang Li, Zhi Chen, Yuechen Jiang,
+Yang Li, Denghui Zhang, Rong Liu, Jordan W Su-
+chow, and Khaldoun Khashanah. 2024a. Finmem: A
+performance-enhanced llm trading agent with layered
+memory and character design. In Proceedings of the
+AAAI Symposium Series, volume 3, pages 595–597.
+Yangyang Yu, Zhiyuan Yao, Haohang Li, Zhiyang Deng,
+Yupeng Cao, Zhi Chen, Jordan W Suchow, Rong Liu,
+Zhenyu Cui, Zhaozhuo Xu, et al. 2024b. Fincon: A
+synthesized llm multi-agent system with conceptual
+verbal reinforcement for enhanced financial decision
+making. arXiv preprint arXiv:2407.06567.
+Chong Zhang, Xinyi Liu, Zhongmou Zhang, Mingyu
+Jin, Lingyao Li, Zhenting Wang, Wenyue Hua, Dong
+Shu, Suiyuan Zhu, Xiaobo Jin, et al. 2024a. When ai
+meets finance (stockagent): Large language model-
+based stock trading in simulated real-world environ-
+ments. arXiv preprint arXiv:2407.18957.
+Wenbin Zhang and Steven Skiena. 2010. Trading strate-
+gies to exploit blog and news sentiment. In Proceed-
+ings of the international AAAI conference on web and
+social media, volume 4, pages 375–378.
+Wentao Zhang, Lingxuan Zhao, Haochong Xia, Shuo
+Sun, Jiaze Sun, Molei Qin, Xinyi Li, Yuqing Zhao,
+Yilei Zhao, Xinyu Cai, et al. 2024b. A multi-
+modal foundation agent for financial trading: Tool-
+augmented, diversified, and generalist. In Proceed-
+ings of the 30th ACM SIGKDD Conference on Knowl-
+edge Discovery and Data Mining, pages 4314–4325.
+Xikun Zhang, Antoine Bosselut, Michihiro Yasunaga,
+Hongyu Ren, Percy Liang, Christopher D Manning,
+and Jure Leskovec. 2022. Greaselm: Graph reason-
+ing enhanced language models for question answer-
+ing. arXiv preprint arXiv:2201.08860.
+Xin Zhang, Chunxia Zhang, Jingtao Guo, Cheng Peng,
+Zhendong Niu, and Xindong Wu. 2023. Graph atten-
+tion network with dynamic representation of relations
+for knowledge graph completion. Expert Systems
+with Applications, 219:119616.
+Zhengyan Zhang, Xu Han, Zhiyuan Liu, Xin Jiang,
+Maosong Sun, and Qun Liu. 2019. ERNIE: enhanced
+language representation with informative entities. In
+Proceedings of the 57th Conference of the Associa-
+tion for Computational Linguistics, ACL 2019, Flo-
+rence, Italy, July 28- August 2, 2019, Volume 1: Long
+Papers, pages 1441–1451. Association for Computa-
+tional Linguistics.
+12
+
+
+[Page 13]
+A Theoretical Analysis
+A.1 Problem Setting
+Let C = {c1, . . . , cn} be a set of companies and
+Et = {et
+1, . . . , et
+m} a set of events at timet. Given:
+True impact function: f(ci, et
+j) for company ci
+and event et
+j. Learnable model: fθ(ci, et
+j) with
+parameters θ. We aim to minimize the empirical
+risk:
+ˆR(θ) = 1
+n
+nX
+i=1
+ mX
+j=1
+
+f(ci, et
+j) − fθ(ci, et
+j)
+2
+,
+and bound the expected risk:
+R(θ) = Ee∼D
+ 1
+n
+nX
+i=1
+ 
+f(ci, e) − fθ(ci, e)
+2
+
+.
+Assumption 1 (Sparsity). For all j ∈ [m] and
+i ∈ [n]:
+(Event Sparsity)
+{i | f(ci, et
+j) ̸= 0}
+ ≤ k,
+(Company Sparsity)
+{j | f(ci, et
+j) ̸= 0}
+ ≤ l.
+Assumption 2 (IID Sampling) . The events
+{et
+j}m
+j=1 are i.i.d. samples from the distribution
+D.
+Assumption 3 (Non Dominant Error). For all i =
+1, . . . , nand j = 1, . . . , m, we have
+aij ≤ H
+
+
+mX
+j=1
+aij
+
+ ,
+where H > 0 is a given constant.
+A.2 Generalization Bound
+Theorem 1 (Generalization Bound) . Under As-
+sumptions 1-3, if ˆR(θ) ≤ B
+n for some B > 0, then
+R(θ) ≤ B
+n + C kl√m ,
+where C > 0 is a universal constant independent
+of n, m, k, l.
+Proof. Define the per-instance error aij :=
+f(ci, et
+j) − fθ(ci, et
+j). The empirical risk becomes:
+ˆR(θ) = 1
+n
+nX
+i=1
+ mX
+j=1
+aij
+2
+≤ B
+n .
+Combining Assumption 3 and the above inequality,
+we have:
+nX
+i=1
+mX
+j=1
+a2
+ij ≤ H
+nX
+i=1
+mX
+j=1
+ 
+aij
+mX
+k=1
+aik
+!
+= H
+nX
+i=1
+
+
+mX
+j=1
+aij
+
+
+2
+≤ HB.
+Define the loss class L = {(e, ci) 7→ a2
+ij | θ ∈
+Θ}. By the Rademacher complexity bound (Mohri
+and Rostamizadeh, 2008; Yin et al., 2019):
+Rm(L) ≤
+r
+kl log n
+m .
+Applying standard generalization bounds with
+probability 1 − δ, we obtain:
+R(θ) ≤ ˆR(θ) + 2Rm(L) +
+r
+log(1/δ)
+2m
+≤ B
+n + 2
+r
+kl log n
+m +
+r
+log(1/δ)
+2m
+≤ B
+n + C kl√m ,
+where constant C absorbs all logarithmic factors
+and numerical constants.
+B Datasets Details
+Data preparation is critical in ensuring the qual-
+ity and relevance of the input information for our
+model. This phase is bifurcated into two primary
+components: the collection of news events and the
+construction of the time-varying financial KG.
+B.1 News Collection and Processing:
+The original 792,684 news articles are sourced
+from Dow Jones News Services and the Wall
+Street Journal, and stored as structured XML
+files. The structured dataset comprises eight
+variables, including {Publication_datetime, Pub-
+lisher_name, Region_code, Company_code, Title,
+Body, Word_count, Action}. Detailed descriptions
+of these variables are provided in Table 5. Us-
+ing the ‘Company_code’ variable, we filtered out
+129,753 news articles about individual S&P 500
+firms, covering the period from March 8, 2001,
+to October 30, 2023. After removing the irrele-
+vant variables, the remaining eight variables and
+their descriptions are detailed in Table 5. Figure 6
+(A) illustrates the distribution of news articles over
+13
+
+
+[Page 14]
+time. Notably, only 2 articles were recorded in
+2001, while the highest number of articles, 16,103,
+was collected in 2012. The analysis of word counts
+reveals that the average number of words per news
+article is 5,443.85, with the maximum word count
+reaching 77,086 and the minimum at 23 words.
+This variation indicates a wide range of article
+lengths, from brief news briefs to extensive, in-
+depth reports. Figure 6 (B) presents the top ten
+companies with the highest number of news ar-
+ticles in the dataset. This ranking highlights the
+companies that receive the most media attention,
+which may be attributed to their market influence,
+recent activities, or significant corporate actions.
+We further analyzed the properties of daily news
+based on the ‘Action’ variable, as shown in Figure
+6 (C). 63.94% of the news articles pertain to orga-
+nizational adjustments, which include changes in
+the company’s business strategy, personnel, or de-
+partmental structures. 36.06% of the news articles
+involve new initiatives, such as the establishment
+of new companies, launching new projects or ser-
+vices, hiring new executives, and introducing new
+product lines, etc.
+B.2 Knowledge Graph Construction:
+We constructed comprehensive financial KGs
+aimed at capturing the multifaceted interrelation-
+ships between companies and their potential im-
+pacts on profitability. Each company is represented
+as a node, while the interrelationships between
+companies constitute the edges of the KGs. To
+achieve this, we integrate various types of relation-
+ships derived from multiple data sources, ensuring
+a rich and nuanced representation of corporate in-
+teractions.
+• Technical Relevance Relationships. We col-
+lect detailed and comprehensive information
+on firms’ patents, including their correspond-
+ing Cooperative Patent Classification (CPC)
+codes, from the USPTO (United States Patent
+and Trademark Office) database to ensure a
+robust foundation for analyzing technical rel-
+evance and relationships between companies.
+Following the methodology outlined in (Lee
+et al., 2019), we calculate pairwise technical
+closeness between two firms by measuring the
+correlation of CPC code distribution across
+their portfolios. An edge between two compa-
+nies reflects their patent-based technical simi-
+larity. The strength of the edge is proportional
+to the degree of technical similarity, capturing
+the depth of their technological connections.
+• Supply Chain Relationships. Information
+on firms’ supply chains is extracted from the
+Compustat-Capital IQ database. Nodes rep-
+resent companies, and edges indicate input-
+output relationships between companies. The
+strength of an edge is determined by the finan-
+cial value of transactions between companies,
+providing a weighted representation of the in-
+tensity of their supply chain interactions.
+• Shared Leadership Relationships. We ob-
+tain detailed information on firms’ top leaders
+from the Boardex database. This data high-
+lights interconnections between companies
+through shared executive affiliations. Edges
+denote the number of directors who simulta-
+neously serve on the boards of two companies.
+This construction approach quantifies the de-
+gree of overlap in leadership structures, cap-
+turing the corporate governance ties between
+firms.
+• Mutual Fund Holding Relationships. Data
+on mutual fund holdings of the listed U.S.
+firms is sourced from the Thomson/Refintiv
+database. Utilizing this information, we con-
+struct the holding-based relationships where
+an edge between two companies signifies that
+they are held by the same mutual fund. This re-
+lationship reflects the shared ownership struc-
+tures and potential investment linkages among
+firms.
+By extracting different types of relationships from
+these diverse data sources, we are able to construct
+a KG reflecting various dimensions of corporate
+interactions. In the KG, each company and event is
+represented as a node, while the interrelationships
+between companies (such as collaborations or com-
+petitions) and the impact of events on companies
+constitute the edges of the graph.
+In the process of constructing the KG, we pay
+special attention to associations supported by em-
+pirical financial research, such as future technology
+linkages evidenced by patent data and upstream-
+downstream enterprise relationships. This focus
+ensures that the KG not only documents the static
+relationships but also delves deeply into how these
+relationships influence company performance un-
+der varying market conditions and in response to
+14
+
+
+[Page 15]
+Variable Description
+Publication_datetimeDate and time of news article publication. It records the exact date
+and time when the news article was officially published.
+Publisher_name Name of the news publisher. It indicates the media outlet or
+organization that published the news article.
+Region_code Geographical region code. It specifies the geographic location
+relevant to the company’s operational area.
+Company_code Unique identifier or code for the relevant company. A unique code
+that identifies the company mentioned in the news.
+Title Title of news article. A brief headline that summarizes the main
+topic or event described in the news article.
+Body The detailed news content.
+Word_count Number of total word count in the body of the news article.
+Action Type of corporate action mentioned in the news. Its value can be
+‘rep’ or ‘add’.
+Table 5: The variables in the collected news articles dataset.
+2012: 16,103
+2003: 16
+(A) Number of news articles per year (C) Proportions ‘Action’  types(B) Companies with top 10 news count
+2023
+7020
+6355
+6188
+6004
+5052
+5027
+4434
+3632
+0 70003000
+Goldman Sachs Group Inc.
+JPMorgan Chase & Co.
+W almart Inc.
+Morgan Stanley
+W ells Fargo&Co.
+T extron Inc.
+Citigroup Inc.
+Southern California Edison
+Bank of America Corporation
+2001 2006 20182012
+Addition
+36.06%
+Replacement
+63.94%
+Merrill L ynch
+T est Set
+Figure 6: The statistics results of our collected news articles. (A) demonstrates the temporal distribution of news
+articles, (B) displays the company rankings with the top ten news counts, and (C) shows the properties of different
+corporate actions.
+specific events. The resulting KG provides a com-
+prehensive understanding of the interactions among
+S&P 500 companies and offers the framework a ro-
+bust and comprehensive understanding foundation.
+Our KG dataset is divided into training and test-
+ing sets. The training set covers the period from
+March 2001 to December 2019 (226 months), and
+the testing set encompasses the period from January
+2020 to June 2022 (30 months). Table 6 presents
+detailed statistics for both the training and testing
+KGs. It includes the number of contained graphs,
+the average number of nodes per graph, the average
+number of edges per graph, and the distribution of
+relationship multiplicities between nodes.
+C FinRipple Details
+C.1 The detailed pipeline of FinRipple
+The training pipeline of FinRipple is detailed in
+Algorithm 1.
+C.2 The Prompts used in FinRipple
+The following is a detailed prompt designed in Fin-
+Ripple to guide the LLM for financial event analy-
+sis. The LLM is instructed to evaluate the impact of
+news on companies and provide a structured output.
+The news report will be placed in the “[INSERT
+MARKET NEWS REPORT]” section. The LLM
+is expected to determine the affected companies,
+classify the impact type, and assign an impact score
+from -10 to +10. A high positive or negative score
+indicates the strength of the potential market ef-
+fect. The output should include specific company
+names, detailed descriptions and adhere strictly to
+the given format for consistency and clarity. An
+example is provided within the prompt to illustrate
+the expected response.
+Instruction:
+You are a financial event analyst focused on
+analyzing the potential impacts of news reports
+on the market. Based on the given news content
+and current market structure, evaluate and
+output the affected companies, the type of
+impact (positive, negative, or neutral), and a
+15
+
+
+[Page 16]
+Graphs Avg. Nodes
+per Graph
+Avg. Edges
+per Graph
+Single
+Relationship (%)
+Dual
+Relationships (%)
+Triple
+Relationships (%)
+Training set 226 6621.6018 13,844,186 92.7923 7.1956 0.0104
+Testing set 30 6452.1667 14,228,088 95.0923 4.9007 0.0053
+Table 6: KG Data Statistics
+score representing the strength of the impact (
+ranging from -10 to +10, where -10 indicates a
+very negative impact, and +10 indicates a very
+positive impact). Provide specific company names
+and event descriptions for clarity and utility.
+Here is an example.
+Input Example:
+"Company A announces a partnership with Company
+B to jointly develop new technology, expected to
+significantly enhance production efficiency and
+increase market share."
+Output Format Example:
+{
+"impact_analysis": {
+"affected_companies": [
+{
+"name": "Company A",
+"impact_type": "positive",
+"impact_score": 8
+},
+{
+"name": "Company B",
+"impact_type": "positive",
+"impact_score": 6
+}
+],
+"analysis": "The partnership between Company
+A and Company B is expected to enhance their
+technological capabilities and market
+competitiveness, likely increasing their
+revenues and stock prices.
+}
+}
+Input (you need to analyze):
+[INSERT MARKET NEWS REPORT]
+Provide your result, strictly following the output
+format in the Example, without any additional
+output.
+D Asset Pricing Models
+Asset pricing models are essential tools in finance
+for understanding the relationship between risk and
+expected return. This appendix briefly introduces
+three prominent models: CAPM, Fama-French
+Three-Factor Model (Fama3), and Fama-French
+Five-Factor Model (Fama5).
+D.1 Capital Asset Pricing Model
+The CAPM describes the relationship between sys-
+tematic risk and expected return. The expected
+return of an asset is proportional to its beta, which
+measures the sensitivity of the asset’s returns to
+market returns. The formula for CAPM is:
+E(Ri) = Rf + βi (E(Rm) − Rf) ,
+where E(Ri) represents the asset’s expected return,
+Rf is the risk-free rate, βi is the asset’s beta that
+measures its sensitivity to market movements, and
+E(Rm) is the expected return of the market.
+D.2 Fama-French Three-Factor Model
+The Fama3 expands upon CAPM by including two
+additional factors: size and value. The size pre-
+mium, denoted as Small Minus Big (SMB), cap-
+tures the excess return of small-cap stocks over
+large-cap stocks, while the value premium, denoted
+as High Minus Low (HML), captures the excess re-
+turn of high book-to-market stocks over low book-
+to-market stocks. The model is represented as:
+E(Ri) = Rf + βi (E(Rm) − Rf)
++ s × SMB + h × HML,
+where s and h represent the sensitivities of the
+asset’s returns to the SMB and HML factors, re-
+spectively.
+D.3 Fama-French Five-Factor Model
+The Fama5 extends Fama3 by adding two more
+factors: profitability and investment. The prof-
+itability premium, denoted as Robust Minus Weak
+(RMW), captures the excess return of firms with
+high profitability over those with low profitability.
+The investment premium, denoted as Conservative
+Minus Aggressive (CMA), captures the excess re-
+turn of firms with conservative investment policies
+over those with aggressive policies. The updated
+model is:
+E(Ri) = Rf + βi (E(Rm) − Rf)
++ s × SMB + h × HML
++ r × RMW + c × CMA,
+where r and c represent the sensitivities to the
+RMW and CMA factors, respectively.
+16
+
+
+[Page 17]
+D.4 Residuals and Market Anomalies
+Residuals of these models represent the portion
+of an asset’s return not captured by the included
+risk factors. By analyzing residuals, investors can
+identify abnormal returns that the models fail to
+explain. These anomalies often arise due to market
+inefficiencies, information asymmetries, or other
+idiosyncratic risks not accounted for by the system-
+atic factors in the models. Understanding residuals
+helps investors gain insights into potential mispric-
+ing and hidden variables in the market, revealing
+opportunities or risks that standard models over-
+look.
+Model All w/o RQ w/o FJ w/o FQ
+Gemma-2b-it 84.6% 38.5% 15.4% 30.8%
+Gemma-7b-it 69.2% 30.8% 46.2% 46.2%
+Llama-13b-chat61.5% 7.7% 15.4% 23.1%
+Table 7: Ablation study results for the three classes of
+questions: Retrieval Questions (RQ), Factual Judgments
+(FJ) and Factual Questions (FQ). The above results are
+averaged over five shuffles of the subgraph.
+E Other Experimental Results
+E.1 The Accuracy of KG injection
+We used a random subgraph of 100 nodes for train-
+ing, with an 8:2 split between the training and test-
+ing datasets. The results indicate that all three types
+of questions are beneficial. Note that some ques-
+tions may not be answered correctly if the informa-
+tion needed is not fully covered by the training set.
+If all information is covered, our tests show that the
+adapter’s memory accuracy reaches approximately
+90%. We constructed three types of questions by
+traversing the KG, as shown in Table 8. The first
+category, Retrieval Questions, focuses on identify-
+ing specific relationships between companies, such
+as shared CEOs or upstream-downstream connec-
+tions. The second category, Factual Judgments,
+is used to determine whether certain relationships
+exist, such as common fund holdings or supply
+chain transactions. Finally, the third category, Fac-
+tual Questions, aims to explore the details of re-
+lationships between entities, such as the nature of
+technical similarities or similarity scores.
+E.2 Evalidation on Other Asset Pricing
+Models
+In this subsection, we also evaluate FinRipple’s
+ability to explain the residuals of other models in-
+cluding Fama3 and Fama5. Based on our experi-
+mental findings, as shown in Table 9 and Table 10,
+we observe that the explanatory difficulty of Fama3
+and Fama5 residuals gradually decreases. This re-
+duction is primarily due to the stepwise exclusion
+of interfering factors from the residuals. The contri-
+butions of different variables were compared using
+standardized regression coefficients, as shown in
+Figure 7. The results reveal that these factors ex-
+hibit distinct cyclical patterns. To account for these
+dynamics, we constructed training objectives based
+on the more challenging CAPM model. Although
+this approach increases the optimization difficulty,
+it ensures stable performance even when certain
+factors become less effective.
+E.3 Ablation Study on Graph Relationships
+We examined how different types of relationships
+in the graph affect prediction results. Removing
+any of the three relationship types—technical rele-
+vance, supply chain, or shared leadership—led to a
+drop in performance. As shown in Table 11, among
+them, removing supply chain relationships caused
+the largest decline in explanatory power. The full
+model performed best and showed a statistically
+significant effect. This suggests that all three types
+of relationships are useful, with supply chain links
+being especially important.
+F Baselines Details
+F.1 Asset Pricing
+F.1.1 Zero Shot
+Zero-shot inference enables the model to analyze
+a wider range of market scenarios without relying
+on specific examples. The prompt used is shown
+as follows: Instruction:
+You are a financial event analyst focused on
+analyzing the potential impacts of news reports
+on the market. Based on the given news content
+and current market structure, evaluate and
+output the affected companies (TICKER in SP500),
+the type of impact (positive, negative, or
+neutral), and a score representing the strength
+of the impact (ranging from -10 to +10, where
+-10 indicates a very negative impact and +10
+indicates a very positive impact). Provide
+specific company names and event descriptions
+for clarity and utility. A market news report,
+company's knowledge graph information, specific
+requirements and output format will be provided
+below.
+Market news report:
+[INSERT MARKET NEWS REPORT]
+17
+
+
+[Page 18]
+Problem ClassificationTypical Questions
+Retrieval
+Questions
+“Which companies have a common CEO relationship with {}?”
+“Which companies have an upstream-downstream relationship with {}?”
+“Which companies have multiple relationships with {}?”
+“Which companies have one relationship with {}?”
+“Which companies have one relationship with {}?”
+Factual
+Judgments
+“Are there supply chain upstream and downstream transactions between {} and {}?”
+“Are the companies {} and {} held by the same fund?”
+“Are the companies {} and {} held by the same fund?”
+Factual
+Questions
+“What is the relationship between {} and {}?”
+“What is the technical similarity between {} and {}?”
+“What is the technical similarity score between {} and {}?”
+Table 8: The three classes of instruction questions generated from KGs.
+Knowledge Graph (current market structure
+you can refer to):
+[INSERT KNOWLEDGE GRAPH]
+Requirement:
+"Provide your result, strictly following the
+output format below, without any additional
+output."
+Output Format:
+"Please provide your response in a structured
+JSON format. The JSON should have a top-level
+object with a single key 'impact_analysis'. The
+value of 'impact_analysis' should be an object
+containing two keys: 'affected_companies': An
+array of objects: 'name': The company 's name (
+string) 'impact_type': The type of impact, e.g.
+'positive' or 'negative' (string) 'impact_score':
+A numerical score representing the impact (
+integer) 'analysis': A string containing a brief
+analysis of the overall impact. Please ensure
+that the JSON is properly formatted and uses
+double quotes for strings.
+Here's an example of how the structure should
+look:
+{
+'impact_analysis': {
+'affected_companies': [
+{
+'name': 'Company Name ',
+'impact_type': 'impact type ',
+'impact_score': score
+},
+...
+],
+'analysis': 'Your analysis text here. '
+}
+}"
+F.1.2 RAG and ICL
+To effectively analyze financial events and their
+market impact, we employ an ICL baseline. This
+method provides the model with a concrete exam-
+ple, demonstrating the expected input format, anal-
+ysis process, and output structure. By presenting a
+sample scenario and its corresponding analysis, we
+establish a clear framework for the model to follow.
+For the RAG method, we use text-embedding-ada-
+002 as our embedding model, with the same prompt
+template as used in ICL. The following prompt il-
+lustrates this few-shot learning technique:
+Instruction:
+You are a financial event analyst focused on
+analyzing the potential impacts of news reports
+on the market. Based on the given news content
+and current market structure, evaluate and
+output the affected companies (TICKER in SP500),
+the type of impact (positive, negative, or
+neutral), and a score representing the strength
+of the impact (ranging from -10 to +10, where
+-10 indicates a very negative impact, and +10
+indicates a very positive impact). Provide
+specific company names and event descriptions
+for clarity and utility. Here is an example.
+Input Example:
+"Company A announces a partnership with Company
+B to jointly develop new technology, expected to
+significantly enhance production efficiency and
+increase market share."
+Output Format Example:
+{
+"impact_analysis": {
+"affected_companies": [
+{
+"name": "Company A",
+"impact_type": "positive",
+"impact_score": 8
+},
+{
+"name": "Company B",
+"impact_type": "positive",
+"impact_score": 6
+}
+],
+"analysis": "The partnership between Company
+A and Company B is
+expected to enhance their technological
+capabilities and market
+competitiveness, likely increasing their
+revenues and stock prices.
+}
+}
+Input (you need to analyze):
+18
+
+
+[Page 19]
+Model RAG Zero-Shot ICL FinRipple/w-o alignment FinRipple
+Coef. p-value R2 Coef. p-value R2 Coef. p-value R2 Coef. p-value R2 Coef. p-value R2
+Llama2-7b-chat 0.021 0.482 0.013 0.040 0.657 0.021 0.058 0.287 0.145 0.090 0.520 0.152 0.310* 0.021 0.275Llama2-13b-chat 0.132 0.405 0.074 0.095 0.445 0.065 0.158 0.245 0.138 0.182 0.314 0.195 0.445* 0.013 0.390Llama3-8b-instruct 0.102 0.365 0.051 0.067 0.380 0.030 0.088 0.370 0.099 0.211 0.402 0.178 0.370 0.007 0.400vicuna-7b-chat 0.158 0.235 0.095 0.112 0.400 0.078 0.215 0.142 0.134 0.250 0.188 0.256 0.515*** 0.001 0.485vicuna-13b-chat 0.505** 0.028* 0.145 0.172 0.210 0.123 0.290* 0.031 0.255 0.365 0.175 0.342 0.610*** 0.001 0.550Phi-3.5-mini-instruct 0.097 0.512 0.032 0.056 0.670 0.026 0.075 0.470 0.086 0.153 0.395 0.202 0.285** 0.005 0.335Gemma-2-9b-it 0.112 0.298 0.061 0.089 0.423 0.047 0.178 0.285 0.144 0.265 0.305 0.330 0.395*** 0.001 0.445
+GPT 3.5 0.060 0.455 0.018 0.045 0.550 0.039 0.069* 0.018 0.106 / / / / / /GPT 4.0-preview 0.165 0.328 0.045 0.119 0.389 0.063 0.195 0.512 0.138 / / / / / /GPT 4o-mini 0.198 0.215 0.051 0.145 0.312 0.055 0.155 0.209 0.121 / / / / / /
+Table 9: Differences in the explanatory power of Fama3 residuals by baselines and FinRipple applied to LLMs.
+Significance levels: * p < 0.05, ** p < 0.01, *** p < 0.001. Cells with ‘/‘ indicate unavailable model parameters.
+Model RAG Zero-Shot ICL FinRipple/w-o alignment FinRipple
+Coef. p-value R2 Coef. p-value R2 Coef. p-value R2 Coef. p-value R2 Coef. p-value R2
+Llama2-7b-chat 0.018 0.489 0.014 0.042 0.670 0.025 0.078 0.260 0.152 0.127 0.445 0.185 0.345** 0.007 0.300Llama2-13b-chat 0.155* 0.039 0.082 0.091 0.435 0.068 0.180 0.428 0.150 0.225 0.309 0.220 0.500*** 0.001 0.420Llama3-8b-instruct 0.112 0.368 0.059 0.075 0.385 0.034 0.103 0.330 0.109 0.265 0.306 0.205 0.405*** 0.001 0.440vicuna-7b-chat 0.170* 0.021 0.101 0.125 0.370 0.087 0.250 0.303 0.145 0.288 0.107 0.280 0.565*** 0.001 0.525vicuna-13b-chat 0.540** 0.010 0.160 0.190* 0.042 0.148 0.320 0.315 0.260 0.420 0.111 0.375 0.655*** 0.000 0.590Phi-3.5-mini-instruct 0.105 0.495 0.038 0.050 0.690 0.032 0.090 0.460 0.095 0.185 0.422 0.230 0.330** 0.004 0.360Gemma-2-9b-it 0.140* 0.028 0.068 0.087 0.425 0.048 0.205 0.727 0.155 0.305 0.267 0.360 0.430*** 0.001 0.485
+GPT 3.5 0.070 0.435 0.023 0.038 0.585 0.039 0.085 0.322 0.120 / / / / / /GPT 4.0-preview 0.180* 0.031 0.050 0.125 0.390 0.062 0.220 0.606 0.150 / / / / / /GPT 4o-mini 0.205 0.629 0.058 0.145 0.315 0.061 0.175 0.703 0.135 / / / / / /
+Table 10: Differences in the explanatory power of Fama5 residuals by baselines and FinRipple applied to LLMs.
+Significance levels: * p < 0.05, ** p < 0.01, *** p < 0.001. Cells with ‘/‘ indicate unavailable model parameters.
+Model Variant Coef. p-value R2
+Llama2-7b-chat 0.150∗ 0.030 0.083
+w/o Technical Relevance 0.111 0.120 0.067
+w/o Supply Chain 0.084 0.261 0.052
+w/o Shared Leadership 0.095 0.058 0.071
+Table 11: Impact of Removing Graph Relationship
+Types on Prediction
+"Company A announces a partnership with Company
+B to jointly develop new technology, expected to
+significantly enhance production efficiency and
+increase market share."
+Knowledge Graph (current market structure
+you can refer to):
+(Company A, Company B, supplier)
+(Company C, Company D, subsidiary)
+(Company E, Company F, competitor)
+(Company G, Company H, partner)
+(Company I, Company J, investor)
+(Company Q, Company R, technology provider) ...
+Provide your result, strictly following the output
+format in the example, without any additional
+output.
+F.2 Statistical Metrics
+This subsection introduces key statistical metrics
+used to evaluate the explanatory power of indepen-
+dent variables on the dependent variable, including
+Coefficient (Coef.), p-value, Coefficient of Deter-
+mination ( R2), ANOV A F-statistic (ANOV A-F),
+ANOV A p-value (ANOV A-p), and Effect Size (η2).
+Coefficient (Coef.) The coefficient ( βi) repre-
+sents the estimated effect of an independent vari-
+able Xi on the dependent variable Y , holding all
+other variables constant. The regression equation is
+given by Y = β0+β1X1+β2X2+· · ·+βnXn+ϵ,
+where ϵ is the error term.
+p-value The p-value indicates the statistical sig-
+nificance of each coefficient, measuring the prob-
+ability of observing the estimated effect under the
+null hypothesis that the coefficient is zero. A
+smaller p-value suggests stronger evidence against
+the null hypothesis.
+Coefficient of Determination (R2) The Coeffi-
+cient of Determination (R2) measures the propor-
+tion of variance in the dependent variable that is
+explained by the independent variables. It is cal-
+culated as R2 = 1 −
+Pn
+i=1(yi−ˆyi)2
+Pn
+i=1(yi−¯y)2 , where yi is the
+observed value, ˆyi is the predicted value, and ¯y is
+the mean of the observed values.
+ANOV A F-statistic (ANOV A-F) The ANOV A
+F-statistic tests whether the regression model ex-
+plains a significant proportion of variance in the
+19
+
+
+[Page 20]
+Figure 7: Variable importance of Fama-French 5 factors on 2018 returns.
+dependent variable compared to a model with no
+predictors. It is calculated as F = MSregression
+MSresidual
+, where
+MSregression is the mean square due to regression,
+and MSresidual is the mean square due to residual
+error. Higher values of F suggest a better fit forr
+the model.
+ANOV A p-value (ANOV A-p) The ANOV A p-
+value indicates the statistical significance of the
+F-statistic, reflecting the probability of obtaining
+the computed F-statistic under the null hypothesis
+that the regression model has no explanatory power.
+Effect Size (η2) Effect Size (η2) represents the
+proportion of the total variance in the dependent
+variable that is attributable to an independent vari-
+able or a set of independent variables. It is calcu-
+lated as η2 = SSbetween
+SStotal
+, where SSbetween is the sum
+of squares between groups, and SStotal is the total
+sum of squares. This metric helps determine the
+magnitude of the effect of the independent vari-
+ables.
+F.3 Portfolio Management
+Portfolio management involves the selection and
+optimization of asset allocation to maximize the
+return within a given investment process (Hu and
+Lin, 2019). In this section, we describe the im-
+plementation details of five benchmark portfolio
+strategies: Equal Weighting, V olatility Weighting,
+Markowitz Model, Min-Variance Weighting, and
+FinRipple. These benchmarks are evaluated using
+metrics such as Daily Return ( Rd), Sharpe Ratio
+(Sa), Maximum Drawdown (MDD), and Win Rate.
+In our experiments, we use historical data from the
+past 30 days as input. To simplify the comparison
+and ensure fairness, tax rates are set to zero across
+all scenarios.
+F.3.1 Equal Weighting
+The Equal Weighting strategy assigns an equal
+weight to each asset in the portfolio:
+wi = 1
+N , i = 1, 2, . . . , N
+where wi represents the weight of asset i, and N is
+the total number of assets.
+F.3.2 Volatility Weighting
+The V olatility Weighting strategy allocates weights
+inversely proportional to the historical volatility of
+each asset:
+20
+
+
+[Page 21]
+wi =
+1
+σi
+PN
+j=1
+1
+σj
+, i = 1, 2, . . . , N (1)
+where σi is the historical volatility (standard de-
+viation) of asset i.
+F.3.3 Markowitz Model
+The Markowitz Model, also known as the Mean-
+Variance Optimization Model, aims to maximize
+expected return for a given level of risk or minimize
+risk for a given expected return:
+max
+w
+wT µ − λ
+2wTΣw
+s.t. 1Tw = 1, w ≥ 0
+where w is the vector of portfolio weights, µ is the
+expected return vector, Σ is the covariance matrix
+of asset returns, and λ = 1 is the risk aversion pa-
+rameter, representing a moderate balance between
+risk and return.
+F.3.4 Min-Variance Weighting
+The Min-Variance Weighting strategy seeks to con-
+struct a portfolio with the lowest overall risk:
+min
+w
+wTΣw
+s.t. 1Tw = 1, w ≥ 0
+where Σ is the covariance matrix of asset returns.
+F.4 Metrics of Portofolio Management
+The benchmarks are evaluated using the following
+metrics:
+Daily Return ( Rd) The daily return measures
+the return of an asset over one day, calculated as
+Rd = Pt−Pt−1
+Pt−1
+, where Pt is the asset price at time
+t, and Pt−1 is the price on the previous trading day.
+Sharpe Ratio ( Sa) The Sharpe ratio measures
+investment performance compared to a risk-free
+asset, adjusted for risk, using the formula Sa =
+¯Ra−Rf
+σa , where ¯Ra is the average annual return, Rf
+is the risk-free rate, andσa is the standard deviation
+of the return.
+Maximum Drawdown (MDD) Maximum Draw-
+down represents the maximum observed loss from
+a peak to a trough of an asset’s price, given by
+MDD = max t∈[1,T ]
+ maxj∈[1,t] Pj −Pt
+maxj∈[1,t] Pj
+
+, where Pt
+is the price at time t, and T is the total time period
+considered.
+Win Rate (Wr) Win Rate represents the percent-
+age of time periods in which the portfolio achieves
+a positive return, defined as Wr =
+PT
+t=1 I(Rt>0)
+T ×
+100%, where Rt is the return at timet, T is the total
+number of time periods considered, and I(Rt > 0)
+is an indicator function that equals 1 ifRt > 0, and
+0 otherwise.
+G Reproducibility Statement
+G.1 Hyperparameter Selection
+We conducted hyperparameter tuning on a small-
+scale dataset to determine the optimal settings for
+minimizing the refusal-to-answer rate. The re-
+sulting hyperparameter settings are shown in Ta-
+ble 12, aiming to reduce the likelihood of model
+refusal while maintaining high response quality.
+In the reward function, λ is set to 0.1. We used
+LoRA (Low-Rank Adaptation) (Hu et al., 2021)
+to fine-tune the model, with key settings including
+lora_alpha = 16 , lora_dropout = 0 .1, and rank
+r = 64.
+Model Temperature Top-k Top-p
+Llama2-7b-chat 0.8 40 0.85
+Llama2-13b-chat 0.7 50 0.90
+Llama3-8b-instruct 0.7 30 0.80
+vicuna-7b-chat 0.8 45 0.88
+vicuna-13b-chat 0.7 50 0.92
+Phi-3.5-mini-instruct 0.9 35 0.86
+Gemma-2-9b-it 0.9 25 0.83
+GPT 3.5 0.8 - 0.80
+GPT 4.0-preview 0.8 - 0.85
+GPT 4o-mini 0.7 - 0.87
+Table 12: Hyperparameter experiments.
+G.2 Computational Resources and Code
+Availability
+The training and inference results required a total of
+over 9000 GPU hours using 25 A800 (80G) GPUs.
+We will release a user-friendly training framework
+along with the complete benchmark dataset in the
+future.
+21
+
+
+[Page 22]
+Algorithm 1 Training Pipeline of FinRipple
+Training Process:
+Input: KG s Gt = {G1, . . . , Gn}, News data N t = {N 1, . . . , Nm}, Pretrained LLM backbone fθ,
+Adapters gϕ
+Output: Updated LLM backbone parameters θ∗
+1: for each time step t do
+2: Initialize an empty set I = {}, collect the KG Gt = {Ct, Rt} and news data N t = {nt
+1, . . . , nt
+m}.
+3: for each article nt
+j ∈ N t do
+4: Inject the corresponding KG Gt into the adapter gϕ:
+gt
+ϕ ← gϕ(Gt), f ϕ
+θ = gt
+ϕ + fθ
+5: Inference the impact Y t+∆t
+ij based on nt
+j:
+Y t+∆t
+ij ← f ϕ
+θ (nt
+j), I ← I ∪ Y t
+ij
+6: Compute the CAPM residuals:
+ϵt+∆t
+i = Rt+∆t
+i − E(Rt+∆t
+i ), E(Rt+∆t
+i ) = Rf + βi(Rt+∆t
+m − Rf)
+7: Calculate the reward at time t:
+R(Zt+∆t, ϵt+∆t) = Zt+∆t · ϵt+∆t
+∥Zt+∆t∥∥ϵt+∆t∥ + λ
+P
+i min(Zt+∆t
+i , ϵt+∆t
+i )
+∥ϵt+∆t∥1
+where Zt+∆t
+j =
+nX
+i=1
+Y t+∆t
+ij
+8: end for
+9: Update θ based on accumulated rewards.
+θ ← θ + αEt
+"
+∇θ log f ϕ
+θ (at|nt
+j)
+f ϕ
+θ (at|nt
+j)
+f ϕ
+θold
+(at|nt
+j)
+ˆAt
+#
+where ˆAt = Rt − V (nt
+j)
+10: end for
+Inference Process:
+Input: new event enew and the corresponding KG Gtnew.
+1: Inject Gtnew into the frozen adapter gϕ:
+gϕ ← gϕ(Gtnew)
+2: Use the fine-tuned LLM backbone fθ∗ to predict the impact of the new event:
+Y t = fθ∗(Gtnew , enew) where Y t represents the predicted impact of enew on the companies Ct.
+3: Output the predicted impact matrix Y t.
+22

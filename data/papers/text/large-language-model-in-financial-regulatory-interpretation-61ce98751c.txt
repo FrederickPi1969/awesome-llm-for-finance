@@ -1,0 +1,552 @@
+[Page 1]
+Large Language Model in Financial Regulatory
+Interpretation
+Zhiyu Cao∗ Zachary Feinstein†
+July 11, 2024
+Abstract
+This study explores the innovative use of Large Language Models (LLMs) as analytical
+tools for interpreting complex financial regulations. The primary objective is to design ef-
+fective prompts that guide LLMs in distilling verbose and intricate regulatory texts, such
+as the Basel III capital requirement regulations, into a concise mathematical framework
+that can be subsequently translated into actionable code. This novel approach aims to
+streamline the implementation of regulatory mandates within the financial reporting and
+risk management systems of global banking institutions. A case study was conducted to
+assess the performance of various LLMs, demonstrating that GPT-4 outperforms other
+models in processing and collecting necessary information, as well as executing mathe-
+matical calculations. The case study utilized numerical simulations with asset holdings –
+including fixed income, equities, currency pairs, and commodities – to demonstrate how
+LLMs can effectively implement the Basel III capital adequacy requirements.
+∗Stevens Institute of Technology, School of Business, Hoboken, NJ 07030, USA
+†Stevens Institute of Technology, School of Business, Hoboken, NJ 07030, USA, zfeinste@stevens.edu
+1
+arXiv:2405.06808v2  [q-fin.RM]  10 Jul 2024
+
+
+[Page 2]
+1 Introduction
+Over the last decade, Artificial Intelligence (AI) and Natural Language Processing (NLP) mod-
+els have been developed to process massive amounts of financial text, providing professional
+investment suggestions and aiding in financial decision-making. Research highlights that ma-
+chine learning algorithms, including Long Short-Term Memory (LSTM) [14], Convolutional
+Neural Networks (CNN) [4], Support Vector Machines (SVM) [6], Random Forest (RF) [13],
+and the Bidirectional Encoder Representations from Transformers (BERT) [1, 3], exhibit strong
+performance in handling financial texts. Moreover, several financial service firms also focus on
+developing AI tools to provide powerful support for participants in the financial markets by
+offering deep market insights and predictive analysis. A prime example is Bloomberg’s AI plat-
+form, which analyzes data from global stock markets, news reports, and social media trends to
+predict the future trajectory of specific stocks or sectors.
+Large Language Models (LLMs), epitomized by tools like ChatGPT, have marked a rev-
+olutionary shift in artificial intelligence. Recently, LLMs such as GPT-3.5 and GPT-4 have
+demonstrated a remarkable ability to comprehend and generate human-like text. FinBERT,
+an NLP tool adapted to the finance domain, has been shown to outperform other NLP mod-
+els in identifying discussions related to environmental, social, and governance (ESG) texts [8].
+Meanwhile, a retrieval-augmented LLM framework for financial sentiment analysis has been
+introduced [20]. The efficacy of LLM-based chatbots for personal finance advisement has also
+been assessed [10]. BloombergGPT, a model that leverages Bloomberg’s vast domain-specific
+dataset, demonstrates that it outperforms existing models on general financial tasks [15]. Given
+the impressive performance of LLMs, there is a natural impetus to explore the application of
+LLMs in financial regulatory interpretation.
+Despite their groundbreaking advancements, Large Language Models (LLMs) also exhibit
+several limitations, primarily due to their nascent stage of development. First, preliminary
+models such as GPT-3.5, LLaMA-7B, and text-focused LLMs like Claude-3, are constrained by
+their inability to perform complex mathematical calculations or code analysis. Second, LLMs
+are highly sensitive to variations in prompts and document loading methods, which may result
+in significantly divergent outcomes for the same topic. If prompts are overly simplistic or lack
+precise direction, LLMs frequently generate inaccurate results. Third, the considerable number
+2
+
+
+[Page 3]
+of parameters within these models makes pre-training and application both challenging and
+costly, necessitating extensive datasets and significant computational resources.
+In response to these challenges, this study introduces the potential of LLMs in the interpre-
+tation of financial regulations. Our approach includes several key strategies:
+First, we conduct a performance comparison among LLMs by manually examining a dataset
+to assess the capabilities of GPT-3.5, GPT-4, Gemini-1.5, and Claude-3. This assessment fo-
+cuses on their ability to collect and analyze contextual information within financial regulatory
+documents. Through accuracy comparisons, we identify the most effective model. Second,
+our comparative analysis of document loading methods examines the efficacy of GPT-4 when
+analyzing financial regulatory documents uploaded as PDF files versus images. Our findings
+indicate that GPT-4 demonstrates greater precision in interpreting images than PDFs, par-
+ticularly when documents contain a mix of mathematical equations, textual explanations, and
+footnotes, which typically present challenges for LLMs. Third, we develop an engineering
+method for prompt design. By incorporating key elements into prompts, we guide LLMs to
+analyze documents more accurately. Contrasting the performance of naive prompts with those
+crafted using our engineering method underscores the critical role of deliberate prompt design
+in the accuracy of information collection. Finally, through comprehensive case studies, we val-
+idate the application of LLMs in financial regulation. By employing proper prompt design and
+document loading methods, alongside selecting an appropriate LLM, we demonstrate accurate
+computation of the minimum capital requirements from the ’Minimum Capital Requirements
+for Market Risk’ section of the Basel III framework.
+The remainder of this paper is organized as follows: Section 2 provides an overview of related
+work concerning the application of LLMs in the finance field. Section 3 details a comprehensive
+framework for applying LLMs to financial regulation documents, including algorithms, prompt
+design, and document loading methods. Section 4 presents our dataset, comparative analy-
+sis across different LLMs, and a comprehensive case study. Section 5 examines the ethical
+considerations surrounding the application of LLMs in financial regulation, addressing critical
+aspects such as data privacy, transparency, and fairness. Finally, Section 6 concludes the paper
+by highlighting potential limitations and proposing avenues for future research.
+3
+
+
+[Page 4]
+2 Literature Review: Large Language Models in Finance
+The integration of LLMs into the financial sector represents a significant and emerging area of
+research. Numerous studies have focused on developing and applying domain-specific LLMs to
+enhance financial tasks such as sentiment analysis, textual analysis, and stock market predic-
+tions. Notably, FinBERT [8], which adapts the BERT framework specifically for the finance
+domain, has been shown to outperform other NLP models in identifying discussions related to
+financial texts. Additionally, PIXIU [16] proposes a comprehensive framework that represents
+the first financial LLM based on fine-tuning LLaMA with instructional data, enabling the model
+to execute various financial tasks effectively. InvestLM [18] and FinGPT [17] have each con-
+tributed uniquely to areas such as market analytics and predictive accuracy. BloombergGPT
+[15] leverages Bloomberg’s vast domain-specific dataset, including news, market forecasts, and
+regulatory information. Furthermore, a retrieval-augmented LLM framework for financial senti-
+ment analysis was introduced [20], and the efficacy of LLM-based chatbots for personal finance
+advisement was assessed [10]. A decision framework that aids financial professionals in selecting
+the most suitable LLM solutions based on their specific needs around data, computing power,
+and performance objectives was provided [11]. Additionally, insights into Natural Language
+Processing techniques within the framework of financial regulation were offered [1].
+Despite the substantial focus on the development and application of domain-specific LLMs
+to enhance various financial tasks, their use in interpreting financial regulation documents
+remains relatively unexplored. This research addresses this gap and contributes to the existing
+literature in two distinct ways.
+First, we investigate the innovative application of Large Language Models as analytical tools
+for interpreting complex financial regulations. By designing appropriate prompts and employing
+the correct document loading methods, we guide LLMs to distill verbose and intricate regula-
+tory texts, such as the Basel III capital requirements, into a concise mathematical framework
+that is then translated into actionable code. Experimental results, discussed in subsequent sec-
+tions, demonstrate the feasibility and accuracy of our method. This approach has the potential
+to streamline the implementation of regulatory mandates within the financial reporting and risk
+management systems of global banking institutions. Second, the Basel III standards necessitate
+advanced internal systems for risk assessment and management, substantial reporting obliga-
+4
+
+
+[Page 5]
+tions, and rigorous compliance protocols. These standards pose significant challenges for banks
+in maintaining higher operational and administrative capacities, particularly in identifying and
+interpreting regulatory requirements and integrating compliance workflows. Considering the
+limited resources available to small and medium-sized financial firms, our approach offers a
+potential solution by improving the identification of essential information and enhancing the
+efficiency of regulatory compliance processes.
+3 Framework
+Financial regulation documents are inherently complex, containing dense legal terminology,
+textual descriptions, mathematical formulations, and numerous footnotes. The high sensitiv-
+ity of large language models presents challenges in achieving perfect accuracy in information
+retrieval from such documents.
+This section describes a systematic algorithm designed for the analysis of financial regulation
+documents. The process begins with the efficient loading of relevant documents, followed by
+prompt engineering to define the overall problem-solving process. For complex financial tasks,
+achieving accuracy typically requires multiple iterative steps. Each task is broken down into
+smaller, manageable objectives, with each being addressed through carefully crafted prompts
+designed to secure accurate outcomes.
+Although LLMs provide preliminary insights and help identify specific data locations, initial
+results may not always be accurate. We manually verify all key information. If the retrieved
+information is incorrect or unavailable, we activate an additional mechanism to locate accurate
+data sources. Following this, we manually upload relevant documents, aiding the LLMs in
+refining their analysis. Finally, we use the LLM for mathematical calculations to determine the
+correct outputs.
+Figures 1 and 2 present a high-level illustration of the proposed architecture. We will
+elucidate prompt engineering, document loading methods, and the detailed process in the rest
+of this section.
+5
+
+
+[Page 6]
+Figure 1: Visual representation of the process for interpreting financial regulation documents.
+Figure 2: Detailed schematic of the Large Language Model used for financial document analysis.
+6
+
+
+[Page 7]
+3.1 Document Loading Methods
+Initially, we utilized the plug-in feature within GPT-4 to process PDF files from the Basel III
+framework. While this method proved adequate for simple tasks, it faltered when handling
+more complex content, resulting in errors in LLM outputs.
+Recognizing the limitations inherent to the PDF format—which primarily prioritizes pre-
+sentation over content extraction—we sought alternative document loading techniques. Our
+exploration led to a significant finding: converting PDFs to images before uploading markedly
+improves GPT-4’s analytical capabilities. Unlike PDFs, images circumvent the complexities
+tied to parsing diverse formats and layouts. This simplification allows the LLM to focus more
+on visual data extraction, which is inherently less prone to the errors typically introduced by
+the varied and intricate structures of PDFs. By adopting an image-based analysis approach,
+GPT-4 achieves a more reliable interpretation of mathematical formulas, charts, and tables,
+which often present challenges in PDFs due to their layered configurations.
+In Section IV, we will compare the efficacy of PDF and image loading methods in enabling
+LLMs to accurately identify correlations between sensitivities.
+3.2 Prompt Design
+Research by [5, 12, 7] highlights that prompt engineering is a relatively new discipline that
+focuses on developing and optimizing prompts to effectively utilize Large Language Models
+(LLMs), particularly in natural language processing tasks. This practice has emerged as an
+essential skill for effective communication and interaction with LLMs. The design of prompts
+significantly influences the performance of these models. Our study articulates key principles
+of prompt design to guide LLMs in the interpretation of financial regulation documents.
+First, the prompt must incorporate the following key elements:
+1. Clear Role Definition : Provides specific instructions that guide the model’s behavior
+and outline a macro-level approach to problem-solving. For us, the role is for an LLM to
+act as a specialized financial regulations interpreter.
+2. Input: Describes the document or question that we want the model to process and provide
+a response for. For us, the input is the Minimum Capital Requirements for Market Risk”
+from Basel III issued by the Basel Committee on Banking Supervision.
+7
+
+
+[Page 8]
+3. Goal: Specifies the details of the desired output. For us, the goal is to transform com-
+plex financial regulations into clear mathematical representations while maintaining the
+integrity of the regulation’s core principles.
+4. Method: Outlines a general strategy for addressing the problem, wherein the model
+reads the document and enriches its response based on the contained information. For
+us, the method is to understand legal terminology, offer straightforward explanations, and
+summarize the key elements to complete tasks.
+5. Significance: Highlights the overarching concept and importance of the task, analogous
+to providing tips” within the prompt to guide effective outcomes. For us, the signifi-
+cance is to bridge the gap between dense regulatory texts and practitioners with no legal
+background.
+In our prompt design, it is crucial to avoid ambiguity, bias reinforcement, overfitting, lack
+of context, and unrealistic dependency on model limitations [7]. These considerations ensure
+the effectiveness of our prompts in applications related to financial tasks.
+In Section IV, we will compare the efficacy of naive prompts with detailed prompts devel-
+oped using our method to enable LLMs to accurately identify risk buckets, risk weights, and
+correlations.
+4 Case Studies
+4.1 Dataset
+In accordance with the Basel III framework, we conducted simulations on over 40 different as-
+set holdings to evaluate the capability of LLMs in interpreting financial regulation documents.
+The document used for this analysis includes a comprehensive section on ‘Minimum Capital
+Requirements for Market Risk’, 1 which outlines the required capital reserves that banks must
+maintain to mitigate potential losses from market fluctuations. The document comprises ap-
+proximately 184,000 tokens and includes legal terms, intricate calculations, and case analyses
+1Bank for International Settlements, Minimum Capital Requirements for Market Risk , https://www.bis.
+org/bcbs/publ/d352.pdf
+8
+
+
+[Page 9]
+pertinent to diverse market risks, such as interest rate, equity, foreign exchange (FX), and
+commodity risks. To illustrate our methodology, Table 1 presents a typical simulated case,
+outlining a variety of bank asset holdings, ranging from treasury bonds and futures contracts
+to equities and currency pairs.
+T able 1: Bank Asset Holdings
+Asset Type Description Quantity / Value
+U.S. Treasury Bond 5-year $10,000
+U.S. Treasury Bond 10-year $10,000
+Futures Contracts Gold 600 ounces
+Futures Contracts Crude Oil 2,000 barrels
+Equity Exxon Mobil 10,000 shares
+Equity AT&T 10,000 shares
+Currency Pair Long EUR/USD 100,000 EUR
+Currency Pair Short USD/JPY 10,000,000 JPY
+4.2 Minimal Capital Requirement Calculation
+In this case study, we provide a comprehensive analysis of the application of LLMs as analytical
+tools for interpreting the ”Minimal Capital Requirement” section of the Basel III framework.
+This includes a detailed demonstration of how minimal capital requirements are calculated
+based on bank asset holdings, as illustrated in Table 1.
+We begin by uploading images of the relevant sections of the Basel III document, focusing
+on minimal capital requirements, into GPT-4. A custom-designed prompt is used to guide
+GPT-4 in extracting methodologies for calculating these requirements. The response from
+GPT-4 breaks down the task of calculating the Minimal Capital Requirement into the following
+manageable objectives:
+1. Risk Classification: Identify and categorize various types of risks associated with asset
+holdings, including equity risk, FX risk, general interest rate risk, and commodity risk.
+2. Sensitivity Calculation: Determine the sensitivity of each asset holding to different
+risk factors, such as changes in market prices, interest rates, and foreign exchange rates.
+9
+
+
+[Page 10]
+3. Aggregation of Risk Positions: Combine individual risk positions to compile an over-
+all risk profile.
+4. Capital Requirement Calculation: Compute the minimal capital requirement based
+on the aggregated risk profile, applying the specific risk weights and methodologies pre-
+scribed by the Basel III framework.
+In this report, we particularly focus on the Delta Equity Risk calculation. The same method
+is applied to other sections, repeating the process as necessary. Regarding the Sensitivity Cal-
+culation, through a carefully designed prompt, GPT-4 is capable of identifying relevant sources
+based on the context, specifically locating information regarding Delta Equity Sensitivities in
+Paragraph 67. We summarize GPT-4’s findings as follows:
+Delta Sensitivity Calculation: For an equity k, the sensitivity sk is defined as the change
+in the market value of instrument i (Vi) with respect to a 1 % change in the market value of
+equity k (EQk). Mathematically, it is expressed as:
+sk = Vi(1.01 · EQk) − Vi(EQk)
+0.01
+where:
+• k is a given equity.
+• EQk is the market value of equity k.
+• Vi is the market value of instrument i as a function of the price of equity k.
+In this case study, GPT-4 can calculate the sensitivity of each equity:
+• Delta Sensitivity for “Exxon Mobil”: $1,100,000.
+• Delta Sensitivity for “AT&T”: $170,000.
+In the Aggregation of Risk Positions step, GPT-4 is utilized to collect and analyze targeted
+information firstly.
+• Exxon Mobil is classified under the category Energy, Oil and Gas within an advanced
+economy, and is placed in Bucket 7.
+10
+
+
+[Page 11]
+• AT&T is classified under Telecommunicationswithin an advanced economy, and is placed
+in Bucket 6.
+Risk Weights and Correlations:
+• The risk weight assigned to Bucket 7 (Exxon Mobil) is 40%.
+• The risk weight assigned to Bucket 6 (AT&T) is 35%.
+• The prescribed correlation between Exxon Mobil and AT&T is set at 15%.
+This outcome is the result of GPT-4’s comprehensive capabilities, which include the iden-
+tification of each equity and a thorough understanding of the Basel III framework. GPT-4
+efficiently processes tables, textual descriptions, and mathematical formulas to produce these
+results.
+GPT-4 successfully located information regarding Delta Equity risk calculation in Paragraph
+51. Here is the response:
+Calculation Within Delta Buckets
+• Weighted Sensitivity (W Sk):
+W Sk = RWk · Sk
+where RWk is the risk weight for equity k and Sk is the sensitivity of equity k.
+• Risk Position (Kb) for Delta Bucket b:
+Kb =
+sX
+k
+W S2
+k +
+X
+k
+X
+k̸=l
+ρklW SkW Sl
+where ρkl represents the correlation between equities k and l within the same bucket.
+Aggregating Delta Risk Positions Across Buckets
+• Delta Risk Charge Calculation:
+Delta =
+sX
+b
+K 2
+b +
+X
+b
+X
+c̸=b
+γbcSbSc
+where Sb = P
+k W Sk for all risk factors in bucket b, and Sc = P
+k W Sk in bucket c, and
+γbc is the correlation between buckets b and c.
+11
+
+
+[Page 12]
+The calculated delta equity risk capital requirement, as shown in Table 1, is approximately
+$461,262.67. This result matches the outcome from our manually simulated dataset.
+4.3 Comparative Analysis across Different LLMs
+In this case study, we investigate the capabilities of large language models (LLMs) in interpret-
+ing and applying complex financial regulations, based on the ‘Minimum Capital Requirements
+for Market Risk’ document from Basel III. To conduct a comprehensive assessment, we divided
+the document into several sections based on its table of contents, focusing on general interest
+rate risk, equity risk, foreign exchange (FX) risk, and commodity risks. For each sector, we
+designed detailed prompts to guide the LLMs in identifying key elements necessary for calcu-
+lating the Minimum Capital Requirements from provided asset holding cases, aiming to assess
+the models’ ability to identify buckets, risk weights, and correlations. We evaluated the per-
+formance of four prominent LLMs: GPT-4, GPT-3.5, Claude-3, and Gemini-1.5-pro, on our
+manually simulated dataset including 40 different asset holdings. Their accuracy was measured
+by the number of cases correctly identified, scaled by the total number of cases in the testing
+sample. The results of this evaluation are presented in Table 2.
+T able 2: Comparison of LLMs in Identifying Key Elements
+Model Buckets (%) Risk W eights (%) Correlation (%)
+GPT-4 85 100 96.5
+GPT-3.5 10 30 0
+Claude-3-Opus 82.5 100 97.5
+Gemini-1.5-Pro 27.5 75 80
+As indicated in Table 2, GPT-4 and Claude-3-Opus achieve the highest overall performance
+among the models evaluated. Both models demonstrate near-perfect accuracies in identifying
+risk weights and correlations, with scores of 100% and 96.5% for GPT-4, and 100% and 97.5%
+for Claude-3-Opus, respectively. Additionally, GPT-4 slightly outperforms Claude-3-Opus in
+identifying buckets, with an accuracy of 85% compared to 82.5%. This suggests that these
+two models have a strong capability to comprehend and apply the complex rules and guide-
+lines outlined in the ‘Minimum Capital Requirements for Market Risk’ document. In contrast,
+GPT-3.5 and Gemini-1.5-Pro show lower performance across all three aspects. GPT-3.5 strug-
+gles to identify buckets (10% accuracy) and fails to identify any correlations (0% accuracy).
+12
+
+
+[Page 13]
+Gemini-1.5-Pro, on the other hand, also struggles with identifying buckets (27.5% accuracy)
+but performs moderately well in identifying risk weights (75%) and correlations (80%).
+Recent research by [19, 9, 2] suggests that mathematical reasoning poses significant chal-
+lenges for large language models. In this work, we evaluated the mathematical computation
+capabilities of GPT-4, GPT-3.5, Claude-3, and Gemini-1.5-pro within the context of complex
+calculations related to the Minimum Capital Requirements (MCR) sector. We designed five
+distinct scenarios corresponding to key risk categories outlined in the regulatory document:
+general interest rate risk, equity risk, foreign exchange (FX) risk, and commodity risks.
+T able 3: Accuracy of LLMs in Complex Mathematical Calculations
+Model Accuracy in MCR Calculations (%)
+GPT-4 95
+GPT-3.5 0
+Claude-3-Opus 38
+Gemini-1.5-Pro 58
+Table 3 reveals a notable disparity in the accuracy of large language models when performing
+complex mathematical calculations for Minimum Capital Requirements (MCR). GPT-4 stands
+out as the most capable model, achieving an impressive accuracy score of 95% across all tested
+scenarios. In contrast, GPT-3.5, while capable of providing a mathematical framework for the
+calculations, fails to execute the required complex operations, resulting in an accuracy score of
+0%. Claude-3-Opus and Gemini-1.5-Pro demonstrated moderate performance, with accuracy
+scores of 38% and 58%, respectively. Despite their ability to locate relevant information within
+the document, these models show significant room for improvement in performing complex
+mathematical calculations.
+4.4 Document Loading Method
+We selected Claude-3-Opus and GPT-4, which have performed well in identifying and interpret-
+ing regulatory requirements, to compare the performance of PDF loading and image loading.
+We conducted tests on these models using our manually simulated dataset to evaluate their
+ability to discern correlations between sensitivities. This task is inherently complex, as it typi-
+13
+
+
+[Page 14]
+cally involves intricate elements of Basel III such as mathematical formulas, legal terms, tables,
+and footnote analysis.
+T able 4: Accuracy of Identifying Correlation from Different Document Loading Methods in
+Claude-3-Opus and GPT-4
+Model / Document Type PDF (%) IMAGE (%)
+Claude-3-Opus 76.5 97.5
+GPT-4 68 96.5
+Table 4 displays the accuracy of Claude-3-Opus and GPT-4 in identifying correlations from
+documents loaded as PDFs and images. For documents loaded as PDFs, the accuracies recorded
+were 76.5% for Claude-3-Opus and 68% for GPT-4. Remarkably, when analyzing documents
+loaded as images, both models achieved impressive accuracies of 97.5% and 96.5%, respectively.
+Our troubleshooting process, outlined in Section III, revealed issues when PDF-loaded docu-
+ments included mathematical formulas, legal terms, tables, and footnotes. This observation
+suggests that image-based document loading may be particularly effective for LLMs. This
+could be potentially due to the visual processing capabilities inherent in their architectures,
+which might better handle layouts and embedded information such as mathematical formulas
+that are typically difficult to parse in text-based PDF files.
+4.5 Naive Prompt vs Detailed Prompt
+We compare the efficacy of naive prompts with detailed prompts developed using our method,
+in enabling LLMs to accurately identify risk buckets, weights, and correlations in the GPT-4
+Model.
+T able 5: Comparison of Naive Prompt and Detailed Prompt in Identifying Key Elements with
+GPT-4
+Model Buckets (%) Risk W eights (%) Correlation (%)
+Naive Prompt 65.5 100 30
+Our Detailed Prompt 85 100 96.5
+Table 5 illustrates the effectiveness of naive and detailed prompts in the GPT-4 model.
+While the naive prompt achieves high accuracy (100%) in simpler tasks such as identifying
+14
+
+
+[Page 15]
+risk weights, it exhibits considerable limitations in more complex tasks. For example, it only
+achieves a 65.5% accuracy in bucket identification and 30% accuracy in correlation determina-
+tion. In contrast, the detailed prompt significantly enhances performance across more complex
+areas, maintaining 100% accuracy in risk weights and notably improving to 85% and 96.5%
+in identifying buckets and correlations, respectively. This data underscores the importance of
+using detailed prompts when addressing tasks of higher complexity to avoid errors.
+5 LLM Ethical Considerations
+The integration of Large Language Models (LLMs) into financial regulatory frameworks neces-
+sitates a comprehensive examination of multifaceted ethical dimensions [jiao2024navigating],
+with particular emphasis on data privacy, transparency, and fairness. These critical considera-
+tions are expected to become central to the discourse on deploying LLMs within the financial
+regulatory sphere in the near future.
+Firstly, data privacy emerges as a paramount concern, considering the highly sensitive nature
+of financial information. LLMs trained on financial regulation documents must strictly adhere
+to robust privacy protection measures, such as differential privacy techniques, to safeguard
+the confidential information of both individuals and institutions. For instance, the data used
+to compute market risks for financial institutions often encompasses proprietary information
+regarding their asset and liability levels. Implementing these rigorous privacy protocols can
+effectively prevent data breaches that could erode public trust in financial institutions, thereby
+undermining their credibility and potentially catalyzing widespread economic repercussions.
+Secondly, transparency in the application of LLMs within the domain of financial regu-
+lation is a critical ethical consideration that warrants careful attention. To maintain public
+trust and ensure accountability, the development and deployment of LLMs in this context must
+be characterized by a high degree of transparency. This necessitates clear and comprehensive
+documentation of the data origins, training methodologies, and decision-making processes em-
+ployed by these models. Regular publication of evaluation results and performance metrics
+is essential to facilitate external scrutiny and validate the integrity of LLM-driven financial
+regulatory systems.
+Thirdly, ensuring fairness in LLM-driven financial decision-making is paramount to prevent
+15
+
+
+[Page 16]
+discriminatory outcomes based on factors such as the geographic location and size of financial
+institutions. Bias mitigation strategies, including dataset enhancement and adversarial learn-
+ing, should be employed to promote equitable treatment of all financial institutions, regardless
+of their regional context or operational scale, in regulatory processes. LLMs must be designed
+to account for the unique challenges faced by smaller, regional financial institutions, ensur-
+ing that they are not unfairly disadvantaged compared to larger, multinational corporations.
+This may involve incorporating diverse datasets that adequately represent the full spectrum
+of financial institutions, from local credit unions to global banking conglomerates. Moreover,
+adversarial learning techniques can help identify and mitigate potential biases that could skew
+regulatory decisions in favor of certain types of institutions.
+6 Conclusion
+In this study, we have demonstrated the innovative application of Large Language Models such
+as GPT-4, Gemini-1.5-pro and Claude 3 in interpreting complex financial regulation documents.
+While achieving 100% accuracy in extracting information from texts that include legal terms,
+textual descriptions, mathematical formulations, and extensive footnotes remains a formidable
+challenge, we have developed a troubleshooting process and we deconstruct a complex financial
+task into smaller, manageable objectives. This approach has enabled us to achieve precise
+results through detailed prompting. Additionally, we conducted a comparative analysis of
+document loading methods and the performance of LLMs in interpreting financial documents.
+We have also devised a systematic approach to prompt design, which enhances the LLMs’
+capability to analyze and summarize financial texts effectively.
+Our work further highlights a pair of promising avenues for future research. Although
+our framework effectively performs well on our manually simulated dataset, our investigation
+focused on scenarios involving a limited number of cases. Real-world cases, however, may
+encompass a more extensive range of assets holding. Thus, future research can integrate more
+comprehensive, interconnected datasets to derive profound insights. Furthermore, incorporating
+stress testing by generating synthetic datasets and designing stress tests using LLMs could
+further enhance the robustness and regulatory applicability of our framework.
+16
+
+
+[Page 17]
+References
+[1] Ixandra Achitouv, Dragos Gorduza, and Antoine Jacquier. “Natural Language Processing
+for Financial Regulation”. In: arXiv preprint arXiv:2311.08533 (2023).
+[2] Janice Ahn et al. “Large language models for mathematical reasoning: Progresses and
+challenges”. In: arXiv preprint arXiv:2402.00157 (2024).
+[3] Khrystyna Bochkay et al. “Textual analysis in accounting: What’s next?” In: Contempo-
+rary accounting research 40.2 (2023), pp. 765–805.
+[4] Sanjiv Ranjan Das et al. “Text and context: Language analytics in finance”. In: Founda-
+tions and Trends® in Finance 8.3 (2014), pp. 145–261.
+[5] Yuqing Du et al. “Guiding pretraining in reinforcement learning with large language
+models”. In: International Conference on Machine Learning . PMLR. 2023, pp. 8657–
+8677.
+[6] Matthew Gentzkow, Bryan Kelly, and Matt Taddy. “Text as data”. In: Journal of Eco-
+nomic Literature 57.3 (2019), pp. 535–574.
+[7] Louie Giray. “Prompt engineering with ChatGPT: a guide for academic writers”. In:
+Annals of biomedical engineering 51.12 (2023), pp. 2629–2633.
+[8] Allen H Huang, Hui Wang, and Yi Yang. “FinBERT: A large language model for extract-
+ing information from financial text”. In: Contemporary Accounting Research40.2 (2023),
+pp. 806–841.
+[9] Shima Imani, Liang Du, and Harsh Shrivastava. “Mathprompter: Mathematical reasoning
+using large language models”. In: arXiv preprint arXiv:2303.05398 (2023).
+[10] Kausik Lakkaraju et al. “LLMs for Financial Advisement: A Fairness and Efficacy Study
+in Personal Decision Making”. In: 4th ACM International Conference on AI in Finance .
+2023, pp. 100–107.
+[11] Zhenyu Li et al. “Flexkbqa: A flexible llm-powered framework for few-shot knowledge base
+question answering”. In: Proceedings of the AAAI Conference on Artificial Intelligence .
+Vol. 38. 17. 2024, pp. 18608–18616.
+17
+
+
+[Page 18]
+[12] Ggaliwango Marvin et al. “Prompt Engineering in Large Language Models”. In: In-
+ternational Conference on Data Intelligence and Cognitive Informatics . Springer. 2023,
+pp. 387–402.
+[13] Akib Mashrur et al. “Machine learning for financial risk management: a survey”. In: Ieee
+Access 8 (2020), pp. 203203–203223.
+[14] Tomas Mikolov. “Advances in neural information processing systems”. In: (No Title)
+(2013), p. 3111.
+[15] Shijie Wu et al. “Bloomberggpt: A large language model for finance”. In: arXiv preprint
+arXiv:2303.17564 (2023).
+[16] Qianqian Xie et al. “Pixiu: A large language model, instruction data and evaluation
+benchmark for finance”. In: arXiv preprint arXiv:2306.05443 (2023).
+[17] Hongyang Yang, Xiao-Yang Liu, and Christina Dan Wang. “Fingpt: Open-source financial
+large language models”. In: arXiv preprint arXiv:2306.06031 (2023).
+[18] Yi Yang, Yixuan Tang, and Kar Yan Tam. “Investlm: A large language model for invest-
+ment using financial domain instruction tuning”. In: arXiv preprint arXiv:2309.13064
+(2023).
+[19] Zheng Yuan et al. “Scaling relationship on learning mathematical reasoning with large
+language models”. In: arXiv preprint arXiv:2308.01825 (2023).
+[20] Boyu Zhang et al. “Enhancing financial sentiment analysis via retrieval augmented large
+language models”. In: Proceedings of the Fourth ACM International Conference on AI in
+Finance. 2023, pp. 349–356.
+18

@@ -1,0 +1,1556 @@
+[Page 1]
+DISC-FinLLM: A Chinese Financial Large Language Model
+based on Multiple Experts Fine-tuning
+Wei Chen1,2∗, Qiushi Wang1, Zefei Long1, Xianyin Zhang1,
+Zhongtian Lu1, Bingxuan Li1, Siyuan Wang1,
+Jiarong Xu3, Xiang Bai2, Xuanjing Huang4, Zhongyu Wei1,5†
+1School of Data Science, Fudan University, China
+2School of Software Engineering, Huazhong University of Science and Technology, China
+3School of Management, Fudan University, China
+4School of Computer Science, Fudan University, China
+5Research Institute of Intelligent Complex Systems, Fudan University, China
+{lemuria_chen,xbai}@hust.edu.cn
+{qswang23,zflong23,xianyinzhang22,ztlu22,bxli16}@m.fudan.edu.cn
+{sywang18,jiarongxu,xjhuang,zywei}@fudan.edu.cn
+Abstract
+We propose Multiple Experts Fine-tuning
+Framework to build a financial large language
+model (LLM), DISC-FinLLM. Our methodol-
+ogy improves general LLMs by endowing them
+with multi-turn question answering abilities,
+domain text processing capabilities, mathemat-
+ical computation skills, and retrieval-enhanced
+generation capabilities. We build a financial
+instruction-tuning dataset named DISC-FIN-
+SFT, including instruction samples of four cat-
+egories (consulting, NLP tasks, computing and
+retrieval-augmented generation). Evaluations
+conducted on multiple benchmarks demon-
+strate that our model performs better than
+baseline models in various financial scenar-
+ios. Further resources can be found at https:
+//github.com/FudanDISC/DISC-FinLLM.
+1 Introduction
+The financial industry presents unique chal-
+lenges and opportunities for Natural Language Pro-
+cessing (NLP) models (Huang et al., 2020). Tradi-
+tional financial NLP models have made progress
+in various tasks such as news sentiment analy-
+sis (Araci, 2019), financial event extraction (Zheng
+et al., 2019; Yang et al., 2019), financial report
+generation (Chapman et al., 2022), stock price pre-
+diction (Chen et al., 2018) and financial text sum-
+marization (La Quatra and Cagliero, 2020). How-
+ever, as the quantity and complexity of financial
+data continue to increase, traditional financial NLP
+models face several limitations. These limitations
+include scarcity of human labeled data, insufficient
+∗ Wei Chen, Qiushi Wang, Zefei Long, Xianyin Zhang
+contribute equally to this work.
+†Corresponding Author.
+financial specific knowledge, lack of multitasking
+capabilities, lack of ability in numerical compu-
+tation, inability to handle real-time information,
+etc (Gupta et al., 2020). Therefore, a comprehen-
+sive intelligent solution to effectively handle vari-
+ous tasks in the financial domain is still demanding.
+Recently, the emergence of powerful com-
+mercial large language models (LLMs), like
+ChatGPT (OpenAI, 2023a) and GPT-4 (OpenAI,
+2023b), has unlocked the potential for innovation
+in financial artificial intelligence (Zaremba and
+Demir, 2023). These models have impressed with
+their robust language understanding, dialogue skills
+and ability to follow instructions (Ouyang et al.,
+2022). However, LLMs in general domain usu-
+ally lack comprehensive knowledge of financial
+domain, especially in Chinese market. Thus, it be-
+comes imperative to develop an open-source Chi-
+nese financial LLM that can support various user
+groups in different scenarios.
+In this paper, we propose a comprehensive ap-
+proach to build Chinese financial LLMs and present
+DISC-FinLLM. Our method aims to enhance gen-
+eral LLMs by equipping them with the skills to
+address typical needs for financial text generation
+and understanding, meaningful multi-turn conver-
+sations on financial topics, and plugin functional-
+ity to support financial modeling and knowledge-
+enhanced system. To achieve these objectives, we
+create a rich supervised instruction dataset called
+DISC-FIN-SFT from various financial data sources.
+These instructions encompass the following main
+categories:
+• Financial Consulting Instructions con-
+structed from financial Q&A datasets and on-
+arXiv:2310.15205v2  [cs.CL]  25 Oct 2023
+
+
+[Page 2]
+Figure 1: Overview of DISC-FinLLM serving different user groups in various financial scenarios.
+
+
+[Page 3]
+line financial forums;
+• Financial Task Instructions derived from
+existing and self-constructed NLP datasets;
+• Financial Computing Instructions based on
+a variety of financial statistical, computational
+and modeling problems;
+• Retrieval-enhanced Instructions built from
+financial texts with generated questions, re-
+trieved references, and generated answers;
+Considering financial consultation, financial
+documents processing, financial computation prob-
+lems resolving and financial knowledge retrieval
+are four entangled abilities, we utilize a Multi-
+ple Experts Fine-tuning Framework (MEFF) to
+build the intelligent financial system, named DISC-
+FinLLM, based on the constructed DISC-FIN-SFT
+instruction dataset. In specific, we train four in-
+dividual Low-rank adaptation (LoRA) (Hu et al.,
+2021) modules of our model on four parts of dataset
+respectively, which are designed to adopt multi-
+ple financial scenarios: financial multi-round dia-
+logues, financial NLP tasks, financial calculation,
+and retrieval question answering. Therefore, these
+modules in our system can provide different ser-
+vices to corresponding user groups such as finan-
+cial professionals, developers, and students to meet
+their specific needs, as shown in Figure. 1. In
+this version, we use Baichuan-13B (Baichuan-inc,
+2023), a general domain LLM for Chinese lan-
+guage, as the backbone.
+In order to evaluate the effectiveness DISC-
+FinLLM, we utilize multiple evaluation bench-
+marks and experimental results show that DISC-
+FinLLM outperforms significantly better than the
+base foundation model in all downstream tasks.
+Further analysis demonstrates the advantage of our
+MEFF framework.
+2 Related Work
+2.1 Financial NLP Models and Limitations
+Traditional financial NLP models have made
+progress in various financial scenarios such as
+named entity recognition (Nakayama and Wan,
+2017), news sentiment analysis (Souma et al., 2019;
+Araci, 2019), event extraction (Yang et al., 2018;
+Zheng et al., 2019), report generation (Chapman
+et al., 2022), and text summarization (La Quatra
+and Cagliero, 2020).
+The application of NLP models to the finan-
+cial sector presents a unique set of challenges. First,
+the intricate landscape of finance, which replete
+with complex terminology and rules, causes a short-
+fall in specialized knowledge (Mik, 2017). Second,
+the dearth of annotated data, coupled with costly
+annotation processes, impedes progress. Third,
+current NLP models exhibit limited inferential ca-
+pacity, struggling with tasks like risk assessment
+and investment decision-making (Liu et al., 2023).
+Fourth, the rapid evolution of financial data de-
+mands real-time responsiveness, which these mod-
+els often lack. Moreover, handling numerical com-
+putations within financial texts, abundant with num-
+bers and symbols, presents another challenge. Fi-
+nally, many NLP models show poor adaptability,
+being designed for single-task performance and
+lacking cross-task generalization (Mishra et al.,
+2021). These challenges underscore the need for
+future research to develop more robust and adapt-
+able NLP models for the ever-evolving financial
+sector.
+2.2 Large Language Models for Finance
+The proposal of LLM-based dialogue systems
+like ChatGPT (OpenAI, 2023a), GPT-4 (OpenAI,
+2023b), Alpaca (Taori et al., 2023) have subverted
+previous dialogue systems (Zhang et al., 2019;
+Chen et al., 2022b,a). These systems are famous for
+their zero-shot generalization ability (Zhao et al.,
+2023). One of the key technologies is instruction-
+tuning (Wei et al., 2021). Fine-tuning pre-trained
+LLM through diverse instruction data to obtain
+the desired behavior pattern has become a common
+way to domainize LLM (Bao et al., 2023; Yue et al.,
+2023).
+In financial field, the first notable example
+of domain-adapted LLM is BloombergGPT (Wu
+et al., 2023) based on BLOOM-176B (Scao et al.,
+2022). It incorporates financial corpus during con-
+tinue pre-training and exhibits promise in tasks
+such as financial forecasting and risk assessment.
+XuanYuan 2.0 (Zhang et al., 2023b), on the other
+hand, is the first Chinese financial LLM with
+hundreds of billions of parameters. It undergoes
+targeted pre-training and fine-tuning also using
+BLOOM-176B (Scao et al., 2022) for both the
+Chinese general field and the financial domain,
+showcasing exceptional performance in tasks like
+analysis and news comprehension. Nevertheless,
+the closed-source nature of the datasets used by
+
+
+[Page 4]
+Source DISC-Fin-SFT DatasetMethod
+Financial Consulting Instructions
+Question 
+Answering
+Multi-turn
+ Conversation
+Sentiment 
+Analysis
+Information 
+Extraction
+Text 
+Generation
+Accounting
+Statistics
+Industry 
+Analysis
+Text 
+Classification
+Reading 
+Comprehension
+Policy 
+Analysis
+Investment 
+Advice
+FPB
+Financial NLP Datasets
+…
+FIQA
+CCKSSmoothNLP OpenKG
+Minds14 
+Unlabeled Financial Texts
+Financial News
+Online Financial  
+Forum
+Inquiry Letter
+Financial  
+Research Report
+Open-source Datasets
+C3 Alpaca-gpt4Moss
+Financial Task Instructions
+Financial Computing Instructions
+Retrieval-enhanced Instructions
+…
+…
+      Equation Solver
+      Expression Calculator
+      Probability Table
+      Counter 
+      Retrieval Model
+External Tools
+      Manually Prompting
+      Few-shot (CoT) Prompting
+      Self-Chat Promoting
+      Chain-of-Retrieval (CoR) 
+Prompting
+Prompting Strategies
+Black-Scholes
+Model
+Expected Default 
+Frequency Model
+Figure 2: Construction of DISC-Fin-SFT Dataset.
+DATASET #SAMPLES INPUT
+LENGTH
+OUTPUT
+LENGTH
+Consulting 63k 26 369
+Task 110k 676 35
+Computing 57k 73 190
+Retrieval 20k 1031 521
+Total 246k 351 198
+Table 1: Data statistics of the DISC-Fin-SFT dataset.
+The input and output lengths are the average number of
+words after performing whitespace tokenization.
+BloombergGPT (Wu et al., 2023) and XuanYuan
+2.0 (Zhang et al., 2023b) poses challenges in de-
+veloping financial LLMs. Additionally, their enor-
+mous parameter sizes result in high training costs.
+To address these limitations, FinGPT (Liu et al.,
+2023) takes a data-centric approach, employing
+low-rank adaptation techniques while providing
+resources to researchers and practitioners for devel-
+oping their own financial LLMs. However, FinGPT
+still necessitates fine-tuning on downstream tasks
+and is essentially similar to previous dedicated fi-
+nancial NLP models. PIXIU (Xie et al., 2023) is
+a recent financial LLM closest to our work, while
+the training data of PIXIU only includes financial
+NLP datasets with human written prompts, which
+limits its wider application.
+3 DISC-Fin-SFT Datasets
+We construct DISC-Fin-SFT with approx-
+imately 250k examples derived from various
+sources, which mainly consist of 4 parts: fi-
+nancial consulting instructions, financial task in-
+structions, financial computing instructions and
+retrieval-enhanced instructions, as shown in Figure.
+2. Table. 1 provides details of the dataset.
+3.1 Financial Consulting Instructs
+To construct instructions for financial consult-
+ing, we start with FiQA (Maia et al., 2018) dataset,
+which is the only existing financial question an-
+swering (QA) dataset we are able to find. However,
+FiQA dataset is in English and the quality of the an-
+swers is not high enough. To leverage this dataset,
+we translate all questions in FiQA to Chinese and
+regenerate the corresponding answers using Chat-
+GPT (OpenAI, 2023a).
+To enhance the LLM’s understanding of fi-
+nancial terms, we collect over 200 finance-specific
+terms (e.g., Leveraged Buyout/LBO) from online
+sources and employ ChatGPT to generate corre-
+sponding QA pairs for these terms.
+In addition, we crawl posts from economic
+forum and financial investment forum on Jing-
+Guan1, an active Chinese financial forum. Self-
+chat prompting (Xu et al., 2023) method is then
+utilized to guide ChatGPT to generate multi-turn
+QA centered around forum posting topic.
+1https://bbs.pinggu.org/
+
+
+[Page 5]
+The above prompts for answer generation are
+all carefully designed to ensure that the responses
+are consistent with Chinese national conditions,
+stance, attitude, language style, and other relevant
+aspects. For specific prompt templates, please refer
+to Appendix A.
+3.2 Financial Task Instructions
+In the financial field, there is a wide range
+of text-based financial tasks. We build financial
+task instructions mainly from two types of sources:
+existing financial NLP datasets and unlabeled fi-
+nancial texts.
+Financial NLP Datasets We leverage existing
+financial NLP datasets with human-written prompts
+to build task instructions, following FLAN (Wei
+et al., 2021). We collect over 10 publicly available
+Chinese financial NLP datasets. These datasets
+can be categorized by task types as follows: 1)
+Sentiment Analysis, including FPB (Malo et al.,
+2014), FiQA-SA (Maia et al., 2018) and FNSC2; 2)
+Information Extraction, including FR-NER (Jia
+et al., 2020), OpenKG (Ren et al., 2022), CCKS-
+NEC-2022 (Biendata, 2022) and SmoothNLP3; 3)
+Text Classification, including Minds14 (Gerz et al.,
+2021) and CCKS-2022 (Tianchi, 2022); 4) Text
+Generation, including SmoothNLP and Finance-
+alpaca-KG4. In addition, we include C3 (Sun et al.,
+2020), a general domain Chinese multiple-choice
+QA dataset, to adapt to the subsequent evaluation
+mechanism. We summarize the details of each
+dataset in Appendix B. We hand-code more than
+20 prompt templates for each dataset and manu-
+ally write prompts for both zero-shot and few-shot
+scenarios for all non-generative tasks. One of the
+prompt templates can be seen in Figure. 9. This
+ensures the LLM to retain the in-context learning
+ability while enhancing the zero-shot ability.
+Unlabeled Financial Texts To enhance the un-
+derstanding of financial texts in real scenarios, we
+construct a reading comprehension dataset using
+unlabeled financial texts. We first collect a total of
+87k passages consisting of 69k financial news and
+18k industry research report summaries from East
+Money 5, a reputable internet financial media, span-
+2https://github.com/wwwxmu/
+Dataset-of-financial-news-sentiment-classification
+3https://github.com/smoothnlp/
+FinancialDatasets
+4https://huggingface.co/datasets/gbharti/
+finance-alpaca
+5https://www.eastmoney.com/
+TOOL DETAIL
+Expression calculator Input: expression
+Output: result
+Equation solver Input: equation system
+Output: solution
+Counter Input: array of samples
+Output: sample size
+Probability table Input: number
+Output: cumulative standard
+normal distribution function
+value at this number
+Table 2: Definition of calculation tools
+ning from January 1 to August 16, 2023. These
+financial passages encompass a range of topics, in-
+cluding company disclosures, coverage of events,
+macroeconomic analysis, and industry research, etc.
+Since the passages are generally long, we further
+use the sentence segmentation algorithm to divide
+each passage into multiple paragraphs, and finally
+generate a total of 1.8 million paragraphs as the
+basic units. Furthermore, for a given paragraph,
+we utilize ChatGPT (OpenAI, 2023a) to generate
+QA pairs by the prompt in Figure. 5 and 7 to ob-
+tain (paragraph, question, answer) triplets, which
+are then utilized to build instructions using diverse
+reading comprehension task templates.
+3.3 Financial Computing Instructions
+Financial texts, especially financial reports,
+are filled with a large amount of numerical infor-
+mation. In the process of digital analysis, we in-
+evitably need to perform some calculations, such
+as growth rate, expected earnings, etc. In order to
+support this function in large language models, we
+construct calculation plugin instruction data.
+In the financial field, the four tools shown in
+Table. 2 can meet most computing tasks, and their
+calling commands, inputs and outputs are differ-
+ent. For example, the command of the calculator is
+[Calculator(expression)→result].
+We first constructed a seed task pool, which
+consists of three parts: handwritten financial cal-
+culation questions based on the financial exams,
+arithmetic questions with contexts of financial re-
+search reports, and general mathematical questions
+in Belle School Math (Ji et al., 2023). In partic-
+ular, the answers to these questions are inserted
+
+
+[Page 6]
+Knowledge Base Source
+: Based on the article provided,
+generate financial questions:
+< Article >：{Article}
+: <Answer >
+Raw Docs
+Candidate Docs
+：<Financial Question >
+: Based on the references 
+provided, answer the following 
+question. Notice that there may be
+irrelevant references.
+< Reference >：{ Reference }
+< Quesion>：{ Question}
+Step 1. 
+Question Generation
+Randomly select a complete 
+document and use ChatGPT to 
+generate questions about it.
+Step 2. 
+Reference Retrieval 
+Step 3.
+Answer Generation
+For the generated question, retrieve 
+the top-k documents from knowledge 
+base and merge ‘real document’         
+into the references. 
+Optionally, add irrelevant doc         .
+generate answers based on retrieved 
+references.
+Retrieval System
+document for 
+question generation :
+question-related 
+retrieved document:
+random document:
+splitprocess
+Retrieve model
+query
+Top-k docs
+Input:
+Output:
+Figure 3: Process diagram for constructing retrieval instructions.
+into calling commands of the above four tools that
+represent when the tool should be called and how
+the tool should be used, according to the method of
+Toolformer (Schick et al., 2023). Subsequently, for
+increasing the data amount and diversity, we utilize
+ChatGPT (OpenAI, 2023a) to generate more than
+50,000 new calculation question-answer pairs by
+self-instruction (Wang et al., 2022) and few-shot
+Chain-of-Thought (CoT) prompting based on the
+seed tasks, of which the answers also come with
+plugin commands. Figure. 10 illustrates the prompt
+template for ChatGPT when generating financial
+computing instructions.
+Through training on this dataset, the model
+can learn to comprehensively apply the above four
+tools at the appropriate time to assist it in complet-
+ing computing tasks.
+3.4 Retrieval-enhanced Instructions
+In order to further improve retrieval-enhanced
+generation capabilities, particularly in the context
+of finance, encompassing aspects such as profes-
+sionalism, adept utilization of reference materials,
+critical reasoning, and creative expression, we have
+employed a 3-step methodology for constructing
+retrieval-enhanced instructional data. This instruc-
+tional data comprises financial domain inquiries,
+pertinent reference documents, and their respective
+responses. As shown in Figure. 3, the three main
+steps of the methodology are as follows:
+1) Question Generation. Formulate financial
+analysis questions derived from financial ma-
+terials such as news articles and research re-
+ports.
+2) Reference Retrieval. Retrieve documents
+from our knowledge base that are germane
+to the questions with a predefined threshold.
+3) Answer Generation. Merge the generated
+questions with the retrieved reference materi-
+als to produce suggestions.
+Both questions and answers are generated
+by ChatGPT through Chain-of-Retrieval (CoR)
+prompting. The reference documents mentioned
+in step 2 are sourced from our proprietary finan-
+cial knowledge base, comprising 18,000 abstracts
+of research reports and 69,000 financial news arti-
+cles spanning from January 1, 2023, to August 16,
+2023. To bolster the model’s capacity to discern
+and filter out irrelevant text, we randomly intro-
+duce non-relevant documents alongside retrieved
+materials, as discussed in (Huang et al., 2023). To
+
+
+[Page 7]
+Financial 
+Task 
+Instructions
+Financial 
+Computing 
+Instructions
+Financial 
+Consulting 
+Instructions
+Retrieval-
+enhanced
+Instructions
+Document 
+Analyzer
+Financial 
+Accountant
+Financial 
+Consultant
+Current
+Affair 
+Analyzer
+LoRA 
+Expert 1
+LoRA 
+Expert 2
+LoRA 
+Expert 3
+LoRA 
+Expert 4
+Large Language Model (LLM)
+Figure 4: Multiple experts fine-tuning framework of
+DISC-FinLLM.
+mitigate the shortcomings of external retrieval mod-
+els, we randomly incorporate the documents used
+for question generation when they are not retrieved
+by the system.
+Ultimately, we develop a corpus of 20k
+Retrieval-enhanced Instructions, covering preva-
+lent analysis categories within the realm of finance,
+namely industry analysis (53%), policy analysis
+(13%), investment guidance (8%) and other finan-
+cial scenarios such as corporate strategic planning,
+Technical Analysis (26%).Our instructional data
+plays a crucial role in guiding the language model
+to effectively harness reference documents, encom-
+passing aspects like enhancing its comprehension,
+summarization capabilities, and the identification
+of irrelevant documents. It is worth noting that
+when we actually use CoR prompting, the Prompt
+used is more complicated. Please refer to Figures.
+11, 12, and 13 for details.
+4 Multiple Experts Fine-tuning
+Framework
+In this section, we present the methodology
+employed in the construction of financial large lan-
+guage models, as shown in Figure. 4.
+4.1 Overall Architecture
+To ensure the specialized and task-oriented
+functionality in our system, we propose a Multiple
+Experts Fine-tuning strategy. This strategy is tai-
+lored to address distinct functionalities within the fi-
+nancial domain. We train individual components of
+our model on specialized datasets, allowing them to
+operate autonomously without interfering with one
+another. To accomplish this, we leverage the Low-
+rank adaptation (LoRA) (Hu et al., 2021) mecha-
+nism for efficient parameter fine-tuning.
+Specifically, we train 4 LoRA modules by fine-
+tuning base model on the four parts of instructions.
+During the deployment, switching between differ-
+ent features simply involves replacing the LoRA
+parameters loaded on the current base model. This
+enables us to activate/deactivate different function-
+alities of the model based on the task requirements
+without retraining the entire model. Moreover, this
+approach enhances the model’s efficiency and leads
+to improved performance.
+4.2 Multiple Experts Setup
+Given the multifaceted nature of the finan-
+cial domain, we have primarily curated four dis-
+tinct categories of financial datasets, including fi-
+nancial consulting instructions, financial task in-
+structions, financial computing instructions, and
+retrieval-enhanced instructions. Consequently, we
+train LoRA models tailored to each of these four
+directions.
+Financial Consultation This first LoRA model
+aims to address conversational challenges, with a
+particular focus on question-answering tasks within
+the financial domain. The strength of this model in
+responding to queries, especially those related to
+finance, can be attributed to the abundance of data
+encompassing financial questions and consultations
+tailored to the Chinese financial context.
+Financial Document Processing The second
+LoRA model is primarily engineered to tackle vari-
+ous tasks within the realm of financial natural lan-
+guage processing. These tasks include, but are
+not limited to, financial information extraction and
+sentiment analysis in financial texts.
+Financial Computing The third LoRA training
+is to acquire calculation plug-in. DISC-FinLLM
+supports four tools, namely expression calcula-
+tor, equation solver, counter, and probability table.
+These tools support our model to complete major
+calculation tasks in the financial field, such as finan-
+cial mathematical modeling, statistical analysis, etc.
+When the model needs to use tools, it can generate
+tool call commands, then interrupt decoding, and
+add the tool call results to the generated text. In
+this way, DISC-FinLLM can accurately solve arith-
+metic problems in finance based on the calculation
+results provided by the tools.
+Financial Knowledge Retrieval The fourth
+LoRA training process aims to inject retrieval plug-
+in. DISC-FinLLM improves retrieval-enhanced
+
+
+[Page 8]
+generation capabilities mainly in three financial do-
+mains: news, report and policy. When asked about
+common financial topics such as current affairs, in-
+dustry trends or financial policies, our model can
+retrieve relevant documents and analyzing them
+like a financial expert, and ultimately providing
+suggestions.
+5 Experiments
+5.1 Evaluation Setup
+We establish a comprehensive evaluation
+framework to assess our financial large language
+model from various perspectives. It comprises four
+components, namely: financial NLP tasks, human
+tests, data analysis, and current affairs analysis.
+Financial NLP Tasks To assess model’s NLP
+ability, we utilize the FinCUGE evaluation bench-
+mark (Lu et al., 2023). We evaluate six of these
+tasks, which include sentiment analysis, relation ex-
+traction, summarization, text classification, event
+extraction, and other tasks. These six tasks cor-
+respond to six datasets, namely FinFE, FinQA,
+FinCQA, FinNA, FinRE and FinESE. You can find
+detailed information about these datasets in the Ap-
+pendix C. To create a few-shot evaluation setting,
+we transform the test set by providing prompts. We
+measure the performance using accuracy, F1 score,
+and rouge score.
+Human Tests To evaluate our model’s perfor-
+mance on human-generated financial questions,
+we employ the FinEval benchmark (Zhang et al.,
+2023a). It is a collection of high-quality multiple-
+choice questions covering finance, economy, ac-
+counting, and certificate. We employ a few-shot
+approach to measure the performance of various
+models using the accuracy metric.
+Data Analysis For evaluating our model’s capa-
+bilities in computational tasks, we manually create
+a dataset consisting of over 100 financial calcula-
+tion problems, which are adapted from material
+analysis computational questions in Chinese Ad-
+ministrative Aptitude Test. The dataset is created
+entirely through manual efforts to ensure the qual-
+ity. We assess the model’s performance by the met-
+ric of accuracy in terms of formula construction
+and results calculation respectively.
+Current Affairs Analysis To evaluate our
+model’s performance in retrieval-based tasks, we
+design a dataset of financial questions to require the
+use of up-to-date information for accurate answers.
+Reference documents are collected manually based
+on search engine. This dataset enables us to eval-
+uate the model’s ability to retrieve relevant and
+precise information when presented with specific
+financial queries. We use GPT-3.5 to evaluate the
+generated results according to four metrics, namely,
+accuracy, usefulness, linguistic quality and reflec-
+tiveness.
+• Accuracy: The provided recommendations or
+analysis are accurate, with no factual errors,
+and conclusions are not arbitrary
+• Usefulness: It can provide clear and practical
+analysis and opinions on issues in the finan-
+cial domain, in conjunction with the reference
+text.
+• Linguistic Quality: It can correctly understand
+the questions and generate concise, profes-
+sional answers within the financial domain.
+• Reflectiveness: It can analyze and reflect on
+reference documents, summarize and derive
+conclusions rather than simply copying from
+the original text.
+5.2 Main Results
+In this section, we present evaluation results of
+our model on various tasks in the financial domain.
+Financial NLP Tasks Table. 3 shows results on
+the set of financial NLP tasks. We conduct LoRA
+training on financial task instructions separately for
+Baichuan-13B-Chat, ChatGLM, and ChatGLM2
+models. We compare the evaluation results be-
+tween the models before and after training. The
+experimental results show that our average perfor-
+mance on the six unseen tasks is 2 to 9 points higher
+than that of the untrained base model. Furthermore,
+it is important to note that certain NLP tasks in-
+cluded in the evaluation datasets were not covered
+by our own dataset. In such instances, these find-
+ings underscore the effectiveness of the specific
+task instruction data we have constructed in en-
+hancing the model’s generalization performance in
+financial domain.
+Human Tests Table. 4 presents the evaluation
+results of our model on human-generated finan-
+cial questions. We conduct separate tests on the
+
+
+[Page 9]
+EVAL ON→
+MODEL ↓
+FINFE
+(ACC)
+FINQA
+(F1)
+FINCQA
+(F1)
+FINNA
+(ROUGE)
+FINRE
+(F1)
+FINESE
+(F1) AVG
+Baichuan-13B-Chat 64.8 38.1 33.6 31.0 9.1 18.6 31.0
+(LoRA) 69.3 42.4 42.0 30.9 10.1 45.3 40.0
+ChatGLM 56.7 31.8 35.1 32.5 13.0 48.7 36.3
+(LoRA) 60.7 41.4 36.4 34.7 10.7 46.2 38.4
+ChatGLM2 61.3 28.8 35.9 28.9 11.7 42.1 34.8
+(LoRA) 65.3 37.6 36.4 33.4 11.8 39.5 37.3
+Table 3: Experimental results on the BBT-FIN benchmark.
+MODEL FINANCE ECONOMY ACCOUNTING CERTIFICATE AVG
+GPT-4 71.0 74.5 59.3 70.4 68.6
+ChatGPT 59.3 61.6 45.2 55.1 55.0
+Baichuan-13B-Base 52.6 50.2 43.4 53.5 50.1
+Baichuan-13B-Chat 51.6 51.1 41.7 52.8 49.4
+ChatGLM2-6B 46.5 46.4 44.5 51.5 47.4
+InternLM-7B 49.0 49.2 40.5 49.4 47.1
+InternLM-Chat-7B 48.4 49.1 40.8 49.5 47.0
+LLaMA-2-Chat-70B 47.1 46.7 41.5 45.7 45.2
+FinGPT-v3-6B 50.5 42.5 50.8 52.1 49.6
+DISC-FinLLM (Consulting) 54.4 45.4 52.8 51.8 51.6
+DISC-FinLLM (Task) 57.4 48.8 49.5 49.7 51.5
+DISC-FinLLM (Retrieval) 56.1 44.0 49.5 50.6 50.6
+DISC-FinLLM (Computing) 54.8 50.2 46.9 50.6 50.9
+Ablation Study
+DISC-FinLLM (full) 53.8 47.9 42.0 49.1 48.7
+Table 4: Experimental results on the FIN-Eval benchmark.
+MODEL FORMULA FORMULA & R ESULT
+GPT-3.5-turbo 0.28 0.26
+Baichuan-13B-Chat 0.20 0.12
+DISC-FinLLM (Computing) 0.35 0.35
+Table 5: Evaluation results of calculation plugin.
+MODEL ACCURACY USEFULNESS LINGUISTIC REFLECTIVENESS
+Baichuan-13B-Chat 4.08 4.15 4.21 3.88
+DISC-FinLLM (Retrieval) 4.13 4.29 4.33 3.95
+Table 6: Evaluation results of retrieval plugin.
+
+
+[Page 10]
+four LoRA-trained models and the model fine-
+tuned with complete data. The compared mod-
+els include ChatGPT, GPT-4, Baichuan-13B, Chat-
+GLM2, FinGPT-v3 and others. We present eval-
+uation results on four LoRA-trained models (con-
+sulting, task, retrieval and computing). Our model
+achieves the best performance among all evalu-
+ated models in terms of average results, except for
+ChatGPT and GPT-4. our evaluation of FinGPT’s
+results reveals that, in comparison to existing fi-
+nancial large language models, our model exhibits
+superior performance. We also use all the data to
+perform full-parameter training on the Baichuan-
+13B-Chat base model and conduct ablation study.
+The notable decrease in the evaluation results ob-
+tained after fine-tuning on the base model empha-
+sizes the necessity of our task-specific LoRA fine-
+tuning approach for each task.
+Data Analysis Table. 5 showcases the exper-
+iment results on financial computing tasks. We
+compare the evaluation results of the model that
+undergo LoRA training using financial computing
+instructions with those of the untrained Baichuan-
+13B model. The addition of computational plugins
+to our model generates a notable performance boost
+compared to the baseline models, surpassing Chat-
+GPT by 0.09 points. These results highlight the
+efficacy of our approach in addressing computa-
+tional challenges within the financial domain.
+Current Affairs Analysis Table. 6 demonstrates
+the experiment results on retrieval-based test sets.
+Based on the evaluation results given by GPT-3.5,
+our model shows significantly higher results in all
+four metrics, whether accuracy, usefulness, linguis-
+tic quality or reflectiveness. These results prove the
+effectiveness of retrieval-enhanced instructions.
+6 Conclusion
+In this paper, we propose a multiple expert
+fine-tuning framework for building a powerful Chi-
+nese intelligent system in financial domain. We
+fine-tune our model on task-specific instruction
+data using LoRA and incorporate system prompts
+to enhance its performance in financial NLP tasks,
+human test evaluation, computational tasks, and
+retrieval tasks. Our evaluation results demonstrate
+the effectiveness of our model across these domains.
+Our model’s strong performance opens up possibil-
+ities for applications in financial customer support,
+investment analysis, and risk assessment.
+References
+Rania Abdelghani, Yen-Hsiang Wang, Xingdi Yuan,
+Tong Wang, Pauline Lucas, Hélène Sauzéon, and
+Pierre-Yves Oudeyer. 2023. Gpt-3-driven peda-
+gogical agents to train children’s curious question-
+asking skills. International Journal of Artificial
+Intelligence in Education, pages 1–36.
+Dogu Araci. 2019. Finbert: Financial sentiment anal-
+ysis with pre-trained language models. arXiv
+preprint arXiv:1908.10063.
+Baichuan-inc. 2023. Baichuan-13b. https://github.
+com/baichuan-inc/Baichuan-13B.
+Zhijie Bao, Wei Chen, Shengze Xiao, Kuang Ren,
+Jiaao Wu, Cheng Zhong, Jiajie Peng, Xuan-
+jing Huang, and Zhongyu Wei. 2023. Disc-
+medllm: Bridging general large language mod-
+els and real-world medical consultation. arXiv
+preprint arXiv:2308.14346.
+Biendata. 2022. ccksnec2022.
+Clayton Leroy Chapman, Lars Hillebrand, Marc Robin
+Stenzel, Tobias Deußer, David Biesner, Christian
+Bauckhage, and Rafet Sifa. 2022. Towards gen-
+erating financial reports from tabular data using
+transformers. In International Cross-Domain Con-
+ference for Machine Learning and Knowledge Ex-
+traction, pages 221–232. Springer.
+Wei Chen, Yeyun Gong, Song Wang, Bolun Yao,
+Weizhen Qi, Zhongyu Wei, Xiaowu Hu, Bartuer
+Zhou, Yi Mao, Weizhu Chen, et al. 2022a. Di-
+alogved: A pre-trained latent variable encoder-
+decoder model for dialog response generation. In
+Proceedings of the 60th Annual Meeting of the As-
+sociation for Computational Linguistics (Volume
+1: Long Papers), pages 4852–4864.
+Wei Chen, Yeyun Gong, Can Xu, Huang Hu, Bolun Yao,
+Zhongyu Wei, Zhihao Fan, Xiaowu Hu, Bartuer
+Zhou, Biao Cheng, et al. 2022b. Contextual fine-
+to-coarse distillation for coarse-grained response
+selection in open-domain conversations. In Pro-
+ceedings of the 60th Annual Meeting of the Asso-
+ciation for Computational Linguistics (Volume 1:
+Long Papers), pages 4865–4877.
+Yingmei Chen, Zhongyu Wei, and Xuanjing Huang.
+2018. Incorporating corporation relationship via
+graph convolutional neural networks for stock
+price prediction. In Proceedings of the 27th
+ACM International Conference on Information and
+Knowledge Management, pages 1655–1658.
+Daniela Gerz, Pei-Hao Su, Razvan Kusztos, Avishek
+Mondal, Michał Lis, Eshan Singhal, Nikola
+Mrkši´c, Tsung-Hsien Wen, and Ivan Vuli´c. 2021.
+Multilingual and cross-lingual intent detection
+from spoken data. In Proceedings of the 2021
+Conference on Empirical Methods in Natural Lan-
+guage Processing, pages 7468–7475.
+
+
+[Page 11]
+Aaryan Gupta, Vinya Dengre, Hamza Abubakar
+Kheruwala, and Manan Shah. 2020. Comprehen-
+sive review of text-mining applications in finance.
+Financial Innovation, 6(1):1–25.
+Cuiyun Han, Jinchuan Zhang, Xinyu Li, Guojin Xu,
+Weihua Peng, and Zengfeng Zeng. 2022. Duee-
+fin: A large-scale dataset for document-level event
+extraction. In Natural Language Processing and
+Chinese Computing: 11th CCF International Con-
+ference, NLPCC 2022, Guilin, China, September
+24–25, 2022, Proceedings, Part I, page 172–183,
+Berlin, Heidelberg. Springer-Verlag.
+Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan
+Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang,
+and Weizhu Chen. 2021. Lora: Low-rank adap-
+tation of large language models. arXiv preprint
+arXiv:2106.09685.
+Jian Huang, Junyi Chai, and Stella Cho. 2020. Deep
+learning in finance and banking: A literature re-
+view and classification. Frontiers of Business Re-
+search in China, 14(1):1–24.
+Quzhe Huang, Mingxu Tao, Zhenwei An, Chen Zhang,
+Cong Jiang, Zhibin Chen, Zirui Wu, and Yansong
+Feng. 2023. Lawyer llama technical report. ArXiv,
+abs/2305.15062.
+Yunjie Ji, Yong Deng, Yan Gong, Yiping Peng, Qiang
+Niu, Lei Zhang, Baochang Ma, and Xiangang Li.
+2023. Exploring the impact of instruction data
+scaling on large language models: An empirical
+study on real-world use cases. arXiv preprint
+arXiv:2303.14742.
+Chen Jia, Yuefeng Shi, Qinrong Yang, and Yue Zhang.
+2020. Entity enhanced bert pre-training for chi-
+nese ner. In Proceedings of the 2020 Conference
+on Empirical Methods in Natural Language Pro-
+cessing (EMNLP), pages 6384–6396.
+Moreno La Quatra and Luca Cagliero. 2020. End-to-
+end training for financial report summarization. In
+Proceedings of the 1st Joint Workshop on Finan-
+cial Narrative Processing and MultiLing Financial
+Summarisation, pages 118–123.
+Xiao-Yang Liu, Guoxuan Wang, and Daochen Zha.
+2023. Fingpt: Democratizing internet-scale
+data for financial large language models. arXiv
+preprint arXiv:2307.10485.
+Dakuan Lu, Hengkui Wu, Jiaqing Liang, Yipei
+Xu, Qianyu He, Yipeng Geng, Mengkun Han,
+Yingsi Xin, and Yanghua Xiao. 2023. BBT-
+Fin: Comprehensive Construction of Chinese
+Financial Domain Pre-trained Language Model,
+Corpus and Benchmark. arXiv e-prints , page
+arXiv:2302.09432.
+Macedo Maia, Siegfried Handschuh, André Freitas,
+Brian Davis, Ross McDermott, Manel Zarrouk,
+and Alexandra Balahur. 2018. Www’18 open
+challenge: financial opinion mining and question
+answering. In Companion proceedings of the the
+web conference 2018, pages 1941–1942.
+Pekka Malo, Ankur Sinha, Pekka Korhonen, Jyrki Wal-
+lenius, and Pyry Takala. 2014. Good debt or bad
+debt: Detecting semantic orientations in economic
+texts. Journal of the Association for Information
+Science and Technology, 65(4):782–796.
+Eliza Mik. 2017. Smart contracts: terminology, tech-
+nical limitations and real world complexity. Law,
+innovation and technology, 9(2):269–300.
+Swaroop Mishra, Daniel Khashabi, Chitta Baral, and
+Hannaneh Hajishirzi. 2021. Cross-task generaliza-
+tion via natural language crowdsourcing instruc-
+tions. arXiv preprint arXiv:2104.08773.
+Makoto Nakayama and Yun Wan. 2017. Exploratory
+study on anchoring: fake vote counts in consumer
+reviews affect judgments of information quality.
+Journal of theoretical and applied electronic com-
+merce research, 12(1):1–20.
+OpenAI. 2023a. Chatgpt. https://openai.com/
+blog/chatgpt.
+OpenAI. 2023b. Gpt-4 technical report.
+Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida,
+Carroll Wainwright, Pamela Mishkin, Chong
+Zhang, Sandhini Agarwal, Katarina Slama, Alex
+Ray, et al. 2022. Training language models to
+follow instructions with human feedback. Ad-
+vances in Neural Information Processing Systems,
+35:27730–27744.
+Junxiang Ren, Sibo Wang, Ruilin Song, Yuejiao Wu,
+Yizhou Gao, Borong An, Zhen Cheng, and Guo-
+qiang Xu. 2022. Iree: A fine-grained dataset for
+chinese event extraction in investment research.
+In China Conference on Knowledge Graph and
+Semantic Computing, pages 205–210. Springer.
+Jaromir Savelka, Arav Agarwal, Christopher Bogart,
+and Majd Sakr. 2023. Large language models
+(gpt) struggle to answer multiple-choice questions
+about code. arXiv preprint arXiv:2303.08033.
+Teven Le Scao, Angela Fan, Christopher Akiki, El-
+lie Pavlick, Suzana Ili´c, Daniel Hesslow, Roman
+Castagné, Alexandra Sasha Luccioni, François
+Yvon, Matthias Gallé, et al. 2022. Bloom:
+A 176b-parameter open-access multilingual lan-
+guage model. arXiv preprint arXiv:2211.05100.
+Timo Schick, Jane Dwivedi-Yu, Roberto Dessi, Roberta
+Raileanu, Maria Lomeli, Luke Zettlemoyer,
+Nicola Cancedda, and Thomas Scialom. 2023.
+Toolformer: Language models can teach them-
+selves to use tools.
+Wataru Souma, Irena V odenska, and Hideaki Aoyama.
+2019. Enhanced news sentiment analysis using
+deep learning methods. Journal of Computational
+Social Science, 2(1):33–46.
+
+
+[Page 12]
+Kai Sun, Dian Yu, Dong Yu, and Claire Cardie. 2020.
+Investigating prior knowledge for challenging chi-
+nese machine reading comprehension. Transac-
+tions of the Association for Computational Lin-
+guistics, 8:141–155.
+Rohan Taori, Ishaan Gulrajani, Tianyi Zhang,
+Yann Dubois, Xuechen Li, Carlos Guestrin,
+Percy Liang, and Tatsunori B. Hashimoto.
+2023. Stanford alpaca: An instruction-
+following llama model. https://github.com/
+tatsu-lab/stanford_alpaca.
+Tianchi. 2022. ccks2022event.
+Yizhong Wang, Yeganeh Kordi, Swaroop Mishra, Alisa
+Liu, Noah A. Smith, Daniel Khashabi, and Han-
+naneh Hajishirzi. 2022. Self-instruct: Aligning
+language model with self generated instructions.
+Jason Wei, Maarten Bosma, Vincent Y Zhao, Kelvin
+Guu, Adams Wei Yu, Brian Lester, Nan Du, An-
+drew M Dai, and Quoc V Le. 2021. Finetuned
+language models are zero-shot learners. arXiv
+preprint arXiv:2109.01652.
+Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski,
+Mark Dredze, Sebastian Gehrmann, Prabhanjan
+Kambadur, David Rosenberg, and Gideon Mann.
+2023. Bloomberggpt: A large language model for
+finance. arXiv preprint arXiv:2303.17564.
+Qianqian Xie, Weiguang Han, Xiao Zhang, Yanzhao
+Lai, Min Peng, Alejandro Lopez-Lira, and Jimin
+Huang. 2023. Pixiu: A large language model,
+instruction data and evaluation benchmark for fi-
+nance. arXiv preprint arXiv:2306.05443.
+Canwen Xu, Daya Guo, Nan Duan, and Julian McAuley.
+2023. Baize: An open-source chat model with
+parameter-efficient tuning on self-chat data. arXiv
+preprint arXiv:2304.01196.
+Hang Yang, Yubo Chen, Kang Liu, Yang Xiao, and Jun
+Zhao. 2018. Dcfee: A document-level chinese
+financial event extraction system based on auto-
+matically labeled training data. In Proceedings of
+ACL 2018, System Demonstrations, pages 50–55.
+Yiying Yang, Zhongyu Wei, Qin Chen, and Libo Wu.
+2019. Using external knowledge for financial
+event prediction based on graph neural networks.
+In Proceedings of the 28th ACM International Con-
+ference on Information and Knowledge Manage-
+ment, pages 2161–2164.
+Bolun Yao, Wei Chen, Yeyun Gong, Bartuer Zhou, Jin
+Xie, Zhongyu Wei, Biao Cheng, and Nan Duan.
+2021. Question generation from code snippets
+and programming error messages. In Natural
+Language Processing and Chinese Computing:
+10th CCF International Conference, NLPCC 2021,
+Qingdao, China, October 13–17, 2021, Proceed-
+ings, Part I 10, pages 401–412. Springer.
+Shengbin Yue, Wei Chen, Siyuan Wang, Bingxuan Li,
+Chenchen Shen, Shujun Liu, Yuxuan Zhou, Yao
+Xiao, Song Yun, Wei Lin, et al. 2023. Disc-lawllm:
+Fine-tuning large language models for intelligent
+legal services. arXiv preprint arXiv:2309.11325.
+Adam Zaremba and Ender Demir. 2023. Chatgpt: Un-
+locking the future of nlp in finance. Available at
+SSRN 4323643.
+Liwen Zhang, Weige Cai, Zhaowei Liu, Zhi Yang, Wei
+Dai, Yujie Liao, Qianru Qin, Yifei Li, Xingyu Liu,
+Zhiqiang Liu, et al. 2023a. Fineval: A chinese
+financial domain knowledge evaluation bench-
+mark for large language models. arXiv preprint
+arXiv:2308.09975.
+Xuanyu Zhang, Qing Yang, and Dongliang Xu. 2023b.
+Xuanyuan 2.0: A large chinese financial chat
+model with hundreds of billions parameters. arXiv
+preprint arXiv:2305.12002.
+Yizhe Zhang, Siqi Sun, Michel Galley, Yen-Chun Chen,
+Chris Brockett, Xiang Gao, Jianfeng Gao, Jingjing
+Liu, and Bill Dolan. 2019. Dialogpt: Large-scale
+generative pre-training for conversational response
+generation. arXiv preprint arXiv:1911.00536.
+Wayne Xin Zhao, Kun Zhou, Junyi Li, Tianyi Tang, Xi-
+aolei Wang, Yupeng Hou, Yingqian Min, Beichen
+Zhang, Junjie Zhang, Zican Dong, et al. 2023. A
+survey of large language models. arXiv preprint
+arXiv:2303.18223.
+Shun Zheng, Wei Cao, Wei Xu, and Jiang Bian. 2019.
+Doc2edag: An end-to-end document-level frame-
+work for chinese financial event extraction. arXiv
+preprint arXiv:1904.07535.
+A Prompt Engineering
+In this section, we summarize the prompts to
+generate the proposed financial instruction-tuning
+dataset DISC-FinLLM-SFT.
+There are two main functions of our templates,
+one is question generation (Yao et al., 2021; Ab-
+delghani et al., 2023) and the other is answer gen-
+eration (Savelka et al., 2023). In Figure 5, the
+template is utilized to produce answers when pro-
+vided with a question and optional context, without
+any demonstration examples (zero-shot).
+The prompts in Figures 6 and 7 are employed
+to generate questions from unlabeled financial text
+and given financial terminologies, respectively, in
+a few-shot manner. The process of constructing in-
+structions for terminology Q&A involves initially
+generating questions based on the given terms and
+subsequently generating answers. Similarly, our ap-
+proach to constructing the reading comprehension
+dataset entails generating questions from unlabeled
+financial texts and then further generating answers.
+
+
+[Page 13]
+As a Chinese financial expert, please answer the following question 
+based on China‘s national conditions, China’s standpoint, and Chinese 
+habits, attitudes and language styles, and the given context. (optional)
+Context：{context} (optional)
+Question: {question}
+Answer: 
+Figure 5: Zero-shot prompt template for generating
+answer to given financial question and optional context
+in financial consulting instructions.
+AsaCh inesefinancialexpert,pleaseconsidertheconceptof{no un} 
+anddesignsomeissuesinChina'sfinancialscenariobasedonChina's
+nationalconditions.
+Pleasenotethattheoutputneedstomeetthefollowingrequirements:
+1.Atleastonequestionisaboutthenounexplanationof{noun};
+2.Thequestionsmusthaveacertaindepthandinvolveoneormore
+commonsenseorfinancialexpertise;
+3.Theproblemmustbeofacertaindegreeofdifficultyandneedsto
+beanalyzedfrommultipleaspects.
+4.Haveasmanyquestionsaspossible,ensuretheyarediverse,and
+coveraswidearangeaspossible.
+Anexampleisgivenbelow:
+PleasecombineChina'snationalconditionsanddesignsomeissuesin
+financialscenariosfortheconceptofsecuritiesinvestmentfunds.
+Question:Whatdoessecuritiesinvestmentfundmean?Whatisthe
+differenceandconnectionbetweenitandotherfinancialproducts?
+Question:Whataretheinv estmentstrategiesofsecuritiesinvestment
+fundsinChina?Whatimpactdodifferentstrategieshav eoninvestors’
+risksandreturns?
+Question:WhataretherisksinCh ina’ssecuritiesinvestmentfund
+industry?Howaregovernmentsandregulatorsrespondingtothese
+risks?
+Question:HowtocalculatetheincomeofChinasecurities
+investmentfunds?Howshouldinvestorsevaluateandcomparethe
+performanceofdifferentfunds?
+Pleasedesignsomequestionsinfinancialscenariosbasedonthe
+conceptof{noun} basedonChina'snationalconditions.
+Question:
+Question:
+Question:
+Figure 6: Few-shot prompt template for generating ques-
+tions related to a financial terminology in financial con-
+sulting instructions.
+Youareafinan cialexp ertwithexpertiseinthefinan cialfieldandthe
+analyticalskillsandacumenofaneconomist.Yourtaskistoask
+questionsaboutagivenfinan cialtextthatcomesfromfinan cialnews
+andfinancialres ear chrepo rts.Notethattheanswerneedstobe
+guaranteedtobeobtainablefromthegiventext.
+Pleaseusethefollowingexamplestoask3questionsaboutthegiven
+financialtext.
+Context:"SecuritiesTimesfrontpage:Easefinancialpressureand
+giverealestatecompani esmorepri cingspace"Recently,somereal
+estatecompanieshaveexperiencedoperatingdifficultiesanddebt
+riskshavebeenexposed.Underthenewsituationofmajorchangesin
+thesupplyanddemandrelationshipintherealestatemarket,forreal
+estatecompani es,especiallythosesmallandmedium-sizedre a lestat e
+companieswithlimitedfinancingchann elsandca nonlyrelyonsal es
+collectionstorevitalizecashflow,morepricingspaceisneededto
+savethemselves……
+Question:Duetohinderedsalesandlimitedfinancingchannels,are
+smallandmedium-sizedrealestatecompaniesatriskofincreasing
+debtrisks?Howshouldtheyrespondtothisrisk?
+Question:Forthosesm al landmedium-sizedrealestatecompanies
+thatcanonlyre lyonsalescollectionstorevitalizecashflow,what
+doesmorepricingautonomymean?Wh atpotentialimpactsand
+challengeswillitbring?
+Question:Forinvestors,facedwiththeoperatingdifficultiesofreal
+estatecompaniesandrisingdebtrisks,howshou ldtheyevaluatethe
+risksandreturnsofinvestingintherealestateindustry?
+Context:{financial_text}
+Question:
+Figure 7: Few-shot prompt template for generating ques-
+tions from unlabeled financial text in financial consult-
+ing instructions.
+
+
+[Page 14]
+Your task is to generate a conversation. Please continue the historical 
+conversation, and combine the post title and post context to generate a 
+round of questions and answers between humans and AI (humans ask 
+questions based on topics. AI only responds to humans, no questions 
+required). Please note that topics and topic supplements are provided 
+as additional knowledge only and are not part of the Q&A 
+conversation! 
+Human questions: Please continue to ask relevant economic and 
+financial questions directly and concisely based on the post title and 
+historical dialogue. There is no need to be polite, courteous, 
+complimentary, etc. 
+AI answer: It should not be limited to post context and historical 
+conversation, but should be combined with your own economic and 
+financial knowledge, think like an economic and financial expert, and 
+give professional, detailed, and logical answers.
+* Human questions start with [Human], and AI answers start with 
+[AI]. Please only generate single-turn conversations. [AI] answers 
+need to be logical and detailed. 
+* Please generate a complete round of [Human] questions and [AI] 
+answers.
+* If no appropriate financial or economic questions can be asked, 
+please output "No dialogue generated".
+Title:< post_title>
+Context:< post_context>
+History: <history> (optional)
+[Human]: 
+[AI]: 
+Figure 8: Zero-shot prompt template for generating
+multi-turn question answering instructions.
+Regarding multi-turn question answering, we
+adopt a method similar to Baize (Xu et al., 2023).
+However, we observe that directly applying this
+method results in generated responses that are too
+short and lack detail. Therefore, we employ an iter-
+ative generation approach, generating one turn of
+human-AI dialogue at a time, as shown in Figure. 8.
+Human questions are required to be as direct and
+concise as possible, incorporating the given topic
+(from the post title) and the historical dialogue,
+without the need for politeness, compliments, or
+flattery. AI responses are expected to integrate con-
+textual knowledge (from the post context) and the
+historical dialogue to provide professional, detailed,
+and logically consistent answers.
+In Figure. 9, For each financial NLP dataset
+for non-generative tasks, we construct both zero-
+shot and few-shot prompt templates. Figure. 10
+shows a few-shot chain-of-thought (CoT) prompt
+for invoking computational tools. Figure . 11
+and . 12 show the few-shot prompt templates for
+generating questions from financial news and re-
+search reports respectively when building retrieval-
+enhanced instructions. Figure . 13 shows the
+Zero-Shot:
+Input: Please find the entity below and return the entity type. Return 
+it in the format of entity-entity type. There are the following types of 
+entity types: person name, place name, identity, political system, 
+organization, book title, game, company, scene and Movies, if there 
+are multiple entities, separated by commas, if there are no entities, 
+return no entities in the sentence\nJustnamed the Player of the Year 
+and Rookie of the Year for the North East region by the England 
+Regional Sports Writers Association, followed by Downing and Jones 
+at Sunderland.
+Assistant: England area -place name, Sports Writers Association -
+organization, North East -place name, Downing -person name, 
+Sunderland -organization, Jones -person name
+Few-Shot:
+Input: Please find the entity below and return the entity type. Output 
+according to the example format. Entity type options: 'Person's name', 
+'Place name', 'Identity', 'Government', 'Organization', 'Book title', ' 
+Game', 'Company', 'Scene', 'Movie', if no entity is found, please return: 
+There is no entity in the sentence.
+Text: It vividly depicts the e-sports dream in the hearts of all War3ers, 
+and those who participate in it are dream chasers who dare to 
+challenge themselves.
+Output: War3: Game
+Text: It can almost be said that the Chinese people have become 
+familiar with "Harry Potter" in the past 10 years.
+Output: Harry Potter: Movie
+Text: However, profits will also be quickly eaten up during economic 
+downturns, and commercial banks must remain cautious about this. 
+Among domestic card-issuing banks, currently only China 
+Construction Bank...
+Output:
+Assistant: Commercial Bank: Company; China Construction Bank: 
+Company
+Figure 9: Zero-shot and few-shot prompt templates for
+constructing financial NLP task instructions.
+prompt template for generating answer given the
+retrieved documents and question.
+B Details of Financial NLP Task
+Instructions
+In this section, we go into more detail about
+the financial NLP datasets used to construct our
+instructions. These datasets cover various tasks, in-
+cluding information extraction, sentiment analysis,
+text generation, and question answering, as shown
+in Figure . 7.
+Information Extraction Information extrac-
+tion is an important task of financial NLP, which
+is a key technology for constructing structured in-
+formation from unstructured financial texts. We
+use the following dataset: 1) Financial Report (Jia
+et al., 2020), a dataset for named entity recognition
+(NER), which requires identifying 10 predefined
+entity categories from bank financial reporting; 2)
+SmoothNLP; 3) CCKS; 4) OpenKG; 5) minds14.
+The Financial Report dataset is designed for the
+task of selecting the most appropriate event type
+
+
+[Page 15]
+Figure 10: Prompt template for constructing financial
+computing instructions.
+You are a Chinese financial expert with professional knowledge in the 
+financial field and the analytical skills and acumen of an economist. 
+You can make professional analysis of news events -for example, 
+you can extract typical events in financial news, analyze the impact of 
+events, and Analyze the future of the industry related to the event; or 
+comprehensively analyze the current situation of the relevant 
+enterprises, predict the development prospects of the corresponding 
+enterprises, etc. Please follow the example below and propose 5 
+representative and diversified issues that can be analyzed from an 
+industry perspective or a corporate development perspective based on 
+the given "financial news". (Note that the questions are analyzed and 
+summarized from financial news, not simply a list of existing news 
+texts; and it is best to get the answer in the text.)
+News: "Securities Times front page: Ease financial pressure and give 
+real estate companies more pricing space" Recently, some real estate 
+companies have experienced operating difficulties and debt risks have 
+been exposed. In the new situation where the supply and demand 
+relationship in the real estate market has undergone major changes, 
+for real estate companies, especially those small and medium-sized 
+real estate companies with limited financing channels and can only 
+rely on sales collections to revitalize cash flow, they need more 
+pricing space to save themselves……
+Questions: 
+1. Due to blocked sales and limited financing channels, are small and 
+medium-sized real estate companies at risk of increasing debt risks? 
+How should they respond to this risk?
+2. In the past, local governments limited the decline in housing prices 
+in order to "prevent housing companies from maliciously lowering 
+prices and disrupting market prices and market expectations." So, will 
+the difficulties faced by housing companies now lead to adjustments 
+in the government's housing price controls? What is the impact of this 
+on the market?
+3. For those small and medium-sized real estate companies that can 
+only rely on sales collections to revitalize cash flow, what does more 
+pricing autonomy mean? What potential impacts and challenges will 
+it bring?
+4. Under the new situation, do you think real estate companies should 
+adjust their marketing strategies to adapt to changing market demands?
+5. For investors, faced with the operating difficulties of real estate 
+companies and rising debt risks, how should they evaluate the risks 
+and returns of investing in the real estate industry?
+News: {news}
+Questions:
+Figure 11: Few-shot prompt template for generating
+questions from financial news in retrieval-enhanced in-
+structions.
+
+
+[Page 16]
+You are a Chinese financial expert with professional knowledge in the 
+financial field and the analytical ability and acumen of an economist. 
+You can make professional analysis of financial research reports -for 
+example, you can extract typical events in the research report and 
+combine the research report information. Analyze the impact of 
+events and analyze the future of related industries; or 
+comprehensively analyze the current situation of related companies 
+and predict the development prospects of corresponding companies, 
+etc. Please follow the example below and propose five representative 
+and diversified issues that can be analyzed from an industry 
+perspective or a corporate development perspective based on the 
+given financial research report. (Note that the questions are analyzed 
+and summarized from financial research reports, not simply a list of 
+existing texts; and it is best to deduce the answer from the text.)
+Report: "Commentary Report on the Construction Machinery 
+Industry: Exports increased by 26% in the first half of the year, 
+market share increased, and the domestic cycle bottomed out"... \nOn
+July 21, the Standing Committee of the State Council reviewed and 
+approved the "Regulations on Actively and Steadily Promoting the 
+Transformation of Urban Villages in Super Large and Mega-Cities" 
+Guiding Opinions", which pointed out that "increasing policy support 
+for the transformation of urban villages".……
+Questions: 
+1. What impact will the adjustment of urban village reconstruction 
+policy have on the development of the construction machinery 
+industry? Will it increase the demand for construction machinery?
+2. The supply and demand relationship in the real estate market has 
+changed, and real estate policies are also expected to be adjusted and 
+optimized. Will this affect sales in the construction machinery 
+industry? What kind of chain reaction do you think it might trigger?
+3. The export growth rate of the construction machinery industry 
+remains at a high level. Do you think this trend will continue and what 
+factors will affect it?
+4. How should companies formulate appropriate development 
+strategies when market performance at home and abroad is uncertain?
+5. The downstream demand for construction machinery is expected 
+to improve marginally. Can you explain the reasons for this 
+improvement from a macroeconomic perspective? Is this 
+improvement related to factors such as domestic infrastructure 
+construction?
+Report : {reports}
+Questions:
+Figure 12: Few-shot prompt template for generating
+questions from financial research report in retrieval-
+enhanced instructions.
+You are a Chinese financial expert with professional knowledge in the 
+financial field and the analytical skills and acumen of an economist. 
+Your task is to answer the questions with reference to the given 
+material. 
+Note: 
+1. The material may have nothing to do with the question. Please 
+ignore the irrelevant material and answer the question based on your 
+existing knowledge.
+2. Try not to directly copy the material content as an answer, but use 
+the material content as a supplement and potential analysis of the 
+event to inspire thinking.
+3. Please provide analysis and answers directly without giving 
+specific reference to which document.
+Context: {context}
+Question: {question}
+Figure 13: Zero-shot prompt template for generating
+answer to given financial question in retrieval-enhanced
+instructions.
+from a given set of event types based on provided
+financial texts. The SmoothNLP dataset includes
+subsets focused on investment event extraction,
+which has been structured into instructional data
+formats. These datasets primarily serve the purpose
+of information extraction. The CCKS dataset not
+only pertains to the analysis of event types within
+financial texts, but also involves causal relation-
+ship extraction. The OpenKG dataset involves the
+extraction of entities such as event types, time, sub-
+jects, and numerical values. Lastly, the minds14
+dataset leverages speech data to accomplish the
+task of intent detection.
+Sentiment Analysis Sentiment analysis helps
+to understand people’s attitudes and sentiment to-
+wards financial products and services. We collect 3
+datasets including FPB (Malo et al., 2014), FiQA-
+SA (Maia et al., 2018) and FNSC. Among them,
+FPB and FiQA-SA are English datasets, which we
+translated into Chinese using ChatGPT. FPB en-
+compasses English sentences from financial and
+economic news articles, along with expert anno-
+tations providing sentiment labels categorized as
+positive, negative, or neutral. The goal of FiQA-
+SA dataset is to predict the sentiment of English
+financial and economic news articles and microblog
+posts. For this dataset, we have chosen two types
+of sentiment labels: discrete positive and negative
+categories, as well as continuous values within the
+range of (-1, 1). In this range, a label of 1 indicates
+the most positive sentiment, while -1 represents the
+most negative sentiment. This approach is tailored
+to facilitate enhanced sentiment analysis by models
+in the financial domain, enabling a finer-grained
+understanding of emotional nuances. Additionally,
+the FNSC dataset focuses on sentiment classifica-
+tion within financial news, featuring two labels:
+positive and negative.
+Text Classification We select the CCKS-
+2022 (Tianchi, 2022) dataset for topic classification
+to identify the specific professional fields to which
+the text content belongs, and the Minds14 (Gerz
+et al., 2021) dataset for intent identification to iden-
+tify the intent of bank users’ spoken words.
+Text Generation Our text generation task types
+include news headline generation and keyword gen-
+eration. The datasets utilized in our study encom-
+pass SmoothNLP and Wealth-alpaca (Maia et al.,
+2018) dataset. SmoothNLP dataset is tailored for
+the task of news headline generation, focusing pri-
+
+
+[Page 17]
+marily on generating appropriate titles based on
+financial news content. As for the Wealth-alpaca
+dataset, we extract questions from it and subse-
+quently task ChatGPT with generating 2-3 key
+terms as output for our instruction data construc-
+tion.
+Question Answering We use Wealth-
+alpaca (Maia et al., 2018) dataset, which is a
+combination of Stanford’s Alpaca 6 and FiQA 7
+with another 1.3k pairs custom generated using
+GPT3.5.
+C Details of FinCUGE evaluation
+benchmark
+In this section, we introduce the six financial
+NLP datasets involved in the FinCUGE evaluation
+benchmark in detail. These datasets are strictly non-
+overlapping with the financial NLP dataset used to
+build DISC-FinLLM-SFT in the previous section,
+while their task types are partially the same, such
+as financial sentiment analysis.
+FinFE A financial social media text sentiment
+classification dataset. Given financial social media
+text, the model needs to classify the sentiment of
+the text into negative-neutral-positive categories,
+with evaluation measured by accuracy. The train-
+ing set contains 8,000 articles, the validation set
+contains 1,000 articles, and the test set contains
+1,000 articles.
+FinQA A financial news announcement event
+question-answering dataset, derived from the
+DuEE-fin (Han et al., 2022) dataset. Given finan-
+cial news or announcement text and a question
+related to an event mentioned in the text, the model
+needs to generate an answer to the question based
+on the text, with evaluation measured by F1-Score.
+The training set contains 16,000 articles, the vali-
+dation set contains 2,000 articles, and the test set
+contains 2,000 articles.
+FinCQA A financial causal event extraction
+dataset. Given financial news articles and a ques-
+tion related to a causal event mentioned in the text,
+the model needs to generate an answer to the ques-
+tion based on the text, with evaluation measured by
+F1-Score. The training set contains 21,965 articles,
+the validation set contains 2,741 articles, and the
+test set contains 2,745 articles.
+6https://github.com/tatsu-lab/stanford_alpaca
+7https://sites.google.com/view/fiqa/
+FinNA A financial news summarization dataset.
+Given financial news articles, the model needs to
+generate a summary, with evaluation measured by
+Rouge. The training set contains 24,000 articles,
+the validation set contains 3,000 articles, and the
+test set contains 3,000 articles.
+FinRE A financial news relation extraction
+dataset. Given financial news articles and head-tail
+entity pairs, the model needs to classify the relation
+between entity pairs into up to 44 categories, in-
+cluding the null relation, with evaluation measured
+by F1-Score. The training set contains 7,454 arti-
+cles, the validation set contains 1,489 articles, and
+the test set contains 3,727 articles.
+FinESE A financial news dataset. Given finan-
+cial news articles, the model needs to extract the
+subjects of a specific event type, with evaluation
+measured by F1-Score. The training set contains
+14,252 articles, the validation set contains 1,781
+articles, and the test set contains 1,782 articles.
+It is actually difficult for us to be completely
+consistent with standard instruction tuning (Wei
+et al., 2021), that is, to evaluate on completely
+unseen task types. This is because the number of fi-
+nancial NLP datasets is relatively small, especially
+the high-quality Chinese financial NLP datasets,
+which to some extent hinders us from testing the
+zero-shot generalization ability of financial LLM
+on NLP tasks.
+
+
+[Page 18]
+Dataset Major Task Type Minor Task Type # Samples
+FPB Sentiment Analysis Sentiment Analysis 18690
+FIQA-SA Sentiment Analysis Sentiment Analysis -
+FNSC Sentiment Analysis Sentiment Analysis -
+CCKS-NEC-2022 Imformation Extraction Causality Extraction 7499
+SmoothNLP IEE Imformation Extraction Event Extraction 3256
+SmoothNLP NHG Text Generation Text Generation 4642
+CCKS2022-event Text Classification Event Type Classification 3578
+Minds14 Text Classification Intent Prediction 59143
+Financial Report Imformation Extraction Entity Extraction 61705
+OpenKG Imformation Extraction Entity Extraction 7672
+OpenKG Imformation Extraction Entity Extraction 67921
+FDDC2018 Translation Terminology Translation 333
+Wealth-alpaca-lora Text Generation Keyword Generation 41825
+Table 7: Data statistics of our financial NLP datasets.

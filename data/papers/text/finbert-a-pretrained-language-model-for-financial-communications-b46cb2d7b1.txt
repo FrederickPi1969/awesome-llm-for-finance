@@ -1,0 +1,472 @@
+[Page 1]
+arXiv:2006.08097v2  [cs.CL]  9 Jul 2020
+FinBERT: A Pretrained Language Model for Financial Communi cations
+Yi Yang Mark Christopher Siy UY Allen Huang
+School of Business and Management, Hong Kong University of S cience and Technology
+{imyiyang,acahuang}@ust.hk, mcsuy@connect.ust.hk
+Abstract
+Contextual pretrained language models, such
+as BERT (
+Devlin et al., 2019), have made
+signiﬁcant breakthrough in various NLP tasks
+by training on large scale of unlabeled text
+resources. Financial sector also accumulates
+large amount of ﬁnancial communication
+text. However, there is no pretrained ﬁnance
+speciﬁc language models available. In this
+work, we address the need by pretraining
+a ﬁnancial domain speciﬁc BERT models,
+FinBERT, using a large scale of ﬁnancial
+communication corpora. Experiments on
+three ﬁnancial sentiment classiﬁcation
+tasks conﬁrm the advantage of FinBERT
+over generic domain BERT model. The
+code and pretrained models are available at
+https://github.com/yya518/FinBERT.
+We hope this will be useful for practitioners
+and researchers working on ﬁnancial NLP
+tasks.
+1 Introduction
+The growing maturity of NLP techniques and re-
+sources is drastically changing the landscape of ﬁ-
+nanical domain. Capital market practitioners and
+researchers have keen interests in using NLP tech-
+niques to monitor market sentiment in real time
+from online news articles or social media posts,
+since sentiment can be used as a directional sig-
+nal for trading purposes. Intuitively, if there is
+positive information about a particular company,
+we expect that company’s stock price to increase,
+and vice versa. For example, Bloomberg, the ﬁ-
+nancial media company, reports that trading sen-
+timent portfolios outperform the benchmark in-
+dex signiﬁcantly (
+Cui et al. , 2016). Prior ﬁnancial
+economics research also reports that news article
+and social media sentiment could be used to pre-
+dict market return and ﬁrm performance (
+Tetlock,
+2007; Tetlock et al., 2008).
+Recently, unsupervised pre-training of language
+models on large corpora has signiﬁcantly im-
+proved the performance of many NLP tasks. The
+language models are pretained on generic corpora
+such as Wikipedia. However, sentiment analysis
+is a strongly domain dependent task. Financial
+sector has accumulated large scale of text of ﬁ-
+nancial and business communications. Therefore,
+leveraging the success of unsupervised pretrain-
+ing and large amount of ﬁnancial text could poten-
+tially beneﬁt wide range of ﬁnancial applications.
+To ﬁll the gap, we pretrain FinBERT, a ﬁnance
+domain speciﬁc BERT model on a large ﬁnancial
+communication corpora of 4.9 billion tokens, in-
+cluding corporate reports, earnings conference call
+transcripts and analyst reports. We document the
+ﬁnancial corpora and the FinBERT pretraining de-
+tails. Experiments on three ﬁnancial sentiment
+classiﬁcation tasks shows that FinBERT outper-
+forms the generic BERT models. Our contribu-
+tion is straightforward: we compile a large scale
+of text corpora that are the most representative in
+ﬁnancial and business communications. We pre-
+train and release FinBERT, a new resource demon-
+strated to improve performance on ﬁnancial senti-
+ment analysis.
+2 Related Work
+Recently, unsupervised pre-training of lan-
+guage models on large corpora, such as BERT
+(
+Devlin et al., 2019), ELMo ( Peters et al. , 2018),
+ULM-Fit ( Howard and Ruder, 2018), XLNet,
+and GPT ( Radford et al., 2019) has signiﬁcantly
+improved performance on many natural language
+processing tasks, from sentence classiﬁcation to
+question answering. Unlike traditional word em-
+bedding (
+Mikolov et al., 2013; Pennington et al. ,
+2014) where word is represented as a single vector
+representation, these language model returns
+
+
+[Page 2]
+contextualized embeddings for each word token
+which can be fed into downstream tasks.
+The released language models are trained on
+general domain corpora such as news articles and
+Wikipedia. Even though it is easy to ﬁne tune
+the language model using downstream task, it has
+been shown that pre-training a language model
+using large-scale domain corpora can further im-
+prove the task performance than ﬁne-tuning the
+generic language model. To this end, several
+domain-speciﬁc BERT models are trained and re-
+leased. BioBERT (
+Lee et al. , 2019) pretrains a
+biomedical domain-speciﬁc language representa-
+tion model using large-scale biomedical corpora.
+Similarly, ClinicalBERT (
+Huang et al. , 2019) ap-
+plies BERT model to clinical notes for hospital
+readmission prediction task, and (
+Alsentzer et al. ,
+2019) applies BERT on clinical notes and dis-
+charge summaries. SciBERT ( Beltagy et al.,
+2019) trains a scientiﬁc domain-speciﬁc BERT
+model using a large multi-domain corpus of sci-
+entiﬁc publications to improve performance on
+downstream scientiﬁc NLP tasks. We are the ﬁrst
+to pre-train and release a ﬁnance domain speciﬁc
+BERT model.
+3 Financial Corpora
+We compile a large ﬁnancial domain corpora that
+are most representative in ﬁnance and business
+communications.
+Corporate Reports 10-K & 10-Q The most im-
+portant text data in ﬁnance and business commu-
+nication is corporate report. In the United States,
+the Securities Exchange Commission (SEC) man-
+dates all publicly traded companies to ﬁle annual
+reports, known as Form 10-K, and quarterly re-
+ports, known as Form 10-Q. This document pro-
+vides a comprehensive overview of the company’s
+business and ﬁnancial condition. Laws and regula-
+tions prohibit companies from making materially
+false or misleading statements in the 10-Ks. The
+Form 10-Ks and 10-Qs are publicly available and
+can be accesses from SEC website.
+1
+We obtain 60,490 Form 10-Ks and 142,622
+Form 10-Qs of Russell 3000 ﬁrms during 1994 and
+2019 from SEC website. We only include sections
+that are textual components, such as Item 1 (Busi-
+ness) in 10-Ks, Item 1A (Risk Factors) in both 10-
+Ks and 10-Qs and Item 7 (Managements Discus-
+sion and Analysis) in 10-Ks.
+1http://www.sec.gov/edgar.shtml
+Earnings Call Transcripts Earnings calls are
+quarterly conference calls that company execu-
+tives hold with investors and analysts to discuss
+ﬁrm overall performance. During an earnings call,
+executives such as CEOs and CFOs read forward-
+looking statements and provide their information
+and interpretation of their ﬁrms performance dur-
+ing the quarter. Analysts also have the opportunity
+to request managers to clarify information. Insti-
+tutional and individual investors listen to the earn-
+ings call and spot the tones of executives that por-
+tend good or bad news for the company. We ob-
+tain 136,578 earnings conference call transcripts
+of 7,740 public ﬁrms between 2004 and 2019.
+The earnings call transcripts are obtained from the
+website Seeking Alpha
+2.
+Analyst Reports Analyst reports are another use-
+ful source of information for institutional and in-
+dividual investors (
+sri International, 1987). An
+analyst report typically provides several quantita-
+tive summary measures, including a stock recom-
+mendation, an earnings forecast, and sometimes
+a target price. It also provides a detailed, mostly
+textual analysis of the company. Institutional in-
+vestors spend millions of dollars annually to pur-
+chase the full content of analyst reports to read the
+written textual analysis. We obtain analyst reports
+in the Investext database issued for S&P ﬁrms dur-
+ing the 1995-2008 period, which yields a set of
+488,494 reports.
+Overall Corpora Statistics The total size of all 4
+corpora is approximately 4.9 billion tokens. We
+present the pretraining ﬁnancial corpora statistics
+in Table
+1. As a comparison, BERT’s pre-training
+corpora consists of two textual corpora with a total
+of 3.3 billion tokens.
+Corpus # of tokens
+Corporate Reports 10-K & 10-Q 2.5B
+Earnings Call Transcripts 1.3B
+Analyst Reports 1.1B
+Table 1: Size of pretraining ﬁnancial corpora.
+4 FinBERT Training
+V ocabularyWe construct FinV ocab, a new Word-
+Piece vocabulary on our ﬁnancial corpora using
+the SentencePiece library. We produce both cased
+and uncased versions of FinV ocab, with sizes of
+2https://seekingalpha.com/
+
+
+[Page 3]
+28,573 and 30,873 tokens respectively. This is
+very similar to the 28,996 and 30,522 token sizes
+of the original BERT cased and uncased BaseV o-
+cab. The resulting overlap between between the
+original BERT BaseV ocab, and FinV ocab is 41%
+for both the cased and uncased versions.
+FinBERT-Variants We use the original BERT
+code
+3 to train FinBERT on our ﬁnancial corpora
+with the same conﬁguration as BERT-Base. Fol-
+lowing the original BERT training, we set a max-
+imum sentence length of 128 tokens, and train the
+model until the training loss starts to converge.
+We then continue training the model allowing sen-
+tence lengths up to 512 tokens. In particular, we
+train four different versions of FinBERT: cased or
+uncased; BaseV ocab or FinV ocab.
+FinBERT-BaseVocab, uncased/cased: Model
+is initialized from the original BERT-Base un-
+cased/cased model, and is further pretrained on the
+ﬁnancial corpora for 250K iterations at a smaller
+learning rate of 2e−5, which is recommended by
+BERT code.
+FinBERT-FinVocab, uncased/cased: Model
+is trained from scratch using a new uncased/cased
+ﬁnancial vocabulary FinV ocab for 1M iterations.
+Training The entire training is done using a
+NVIDIA DGX-1 machine. The server has 4 Tesla
+P100 GPUs, providing a total of 128 GB of GPU
+memory. This machine enables us to train the
+BERT models using a batch size of 128. We uti-
+lize Horovord framework (
+Sergeev and Del Balso ,
+2018) for multi-GPU training. Overall, the total
+time taken to perform pretraining for one model
+is approximately 2 days. With the release of
+FinBERT, we hope ﬁnancial practitioners and re-
+searchers can beneﬁt from FinBERT model with-
+out the necessity of the signiﬁcant computational
+resources required to train the model.
+5 Financial Sentiment Experiments
+Given the importance of sentiment analysis in ﬁ-
+nancial NLP tasks, we conduct experiments on ﬁ-
+nancial sentiment classiﬁcation datasets.
+5.1 Dataset
+Financial Phrase Bank is a public dataset
+for ﬁnancial sentiment classiﬁcation (
+Malo et al.,
+2014). The dataset contains 4,840 sentences se-
+lected from ﬁnancial news. The dataset is manu-
+ally labeled by 16 researchers with adequate back-
+3https://github.com/google-research/bert
+ground knowledge on ﬁnancial markets. The sen-
+timent label is either positive, neutral or negative.
+AnalystTone Dataset is a dataset to gauge
+the opinions in analyst reports, which is com-
+monly used in Accounting and Finance literature
+(
+Huang et al. , 2014). The dataset contains ran-
+domly selected 10,000 sentences from analyst re-
+ports in the Investext database. Each sentence is
+manually annotated into one of three categories:
+positive, negative and neutral. This classiﬁcation
+yields a total of 3,580 positive, 1,830 negative, and
+4,590 neutral sentences in the dataset.
+FiQA Dataset is an open challenge dataset for ﬁ-
+nancial sentiment analysis, containing 1,111 text
+sentences
+4. Given an English text sentence in the
+ﬁnancial domain (microblog message, news state-
+ment), the task of this challenge is to predict the
+associated numeric sentiment score, ranged from -
+1 to 1. We convert the original regression task into
+a binary classiﬁcation task for consistent compar-
+ison with the above two datasets.
+We randomly split each dataset into 90% train-
+ing and 10% testing 10 times and report the aver-
+age. Since all dataset are used for sentiment clas-
+siﬁcation, we report the accuracy metrics in the
+experiments.
+5.2 Fine-tune Strategy
+We follow the same ﬁne-tune architecture and op-
+timization choices used in (
+Devlin et al., 2019).
+We use a simple linear layer, as our classiﬁcation
+layer, with a softmax activation function. We also
+use cross-entropy loss as the loss function. Note
+that an alternative is to feed the contextualized
+word embeddings of each token into a deep ar-
+chitectures, such as Bi-LSTM, atop frozen BERT
+embeddings. We choose not to use this strategy as
+it has shown to perform signiﬁcantly worse than
+ﬁne-tune BERT model (
+Beltagy et al. , 2019).
+5.3 Experiment Results
+We compare FinBERT with original BERT-Base
+model (
+Devlin et al., 2019), and we evaluate both
+cased and uncased versions of this model. The
+main results of ﬁnancial sentiment analysis tasks
+are present in Table
+2.
+FinBERT vs. BERT The results show substantial
+improvement of FinBERT models over the generic
+BERT models. On PhraseBank dataset, the best
+model uncased FinBERT-FinV ocab achieves the
+4https://sites.google.com/view/fiqa/home
+
+
+[Page 4]
+BERT FinBERT-BaseV ocab FinBERT-FinV ocab
+cased uncased cased uncased cased uncased
+PhraseBank 0.755 0.835 0.856 0.870 0.864 0.872
+FiQA 0.653 0.730 0.767 0.796 0.814 0.844
+AnalystTone 0.840 0.850 0.872 0.880 0.876 0.887
+Table 2: Performance of different BERT models on three ﬁnanc ial sentiment analysis tasks.
+10-Ks/10-Qs Earnings Call Analyst Reports All
+PhraseBank 0.835 0.843 0.845 0.856
+BaseV ocab FiQA 0.707 0.731 0.744 0.767
+AnalystTone 0.845 0.862 0.871 0.872
+PhraseBank 0.847 0.860 0.861 0.864
+FinV ocab FiQA 0.766 0.778 0.796 0.814
+AnalystTone 0.858 0.870 0.872 0.876
+Table 3: Performance of pretraining on different ﬁnancial c orpus.
+accuracy of 0.872, a 4.4% improvement over un-
+cased BERT model and 15.4% improvement over
+cased BERT model. On FiQA dataset, the best
+model uncased FinBERT-FinV ocab achieves the
+accuracy of 0.844, a 15.6% improvement over
+uncased BERT model and a 29.2% improvement
+over cased BERT model. Lastly, on the Analyst-
+Tone dataset, the best model uncased FinBERT-
+FinV ocab improves the uncased and cased BERT
+model by 4.3% and 5.5% respectively. Overall
+speaking, pretraining on ﬁnancial corpora, as ex-
+pected, is effective and enhances the downstream
+ﬁnancial sentiment classiﬁcation tasks. In ﬁnan-
+cial markets where capturing the accurate senti-
+ment signal is of utmost importance, we believe
+the overall FinBERT improvement demonstrates
+its practical utility.
+FinVocab vs. BaseVocab We assess the impor-
+tance of an in-domain ﬁnancial vocabulary by pre-
+training different FinBERT models using BaseV o-
+cab and FinV ocab. For both uncased and cased
+model, we see that FinBERT-FinV ocab outper-
+forms its BaseV ocab counterpart. However, the
+performance improvement is quite marginal on
+PhraseBank and AnalystTone task. Only do we
+see substantial improvement on FiQA task (0.844
+vs. 0.796). Given the magnitude of improvement,
+we suspect that while an in-domain vocabulary is
+helpful, FinBERT beneﬁts most from the ﬁnancial
+communication corpora pretraining.
+Cased vs. Uncased We follow (
+Devlin et al.,
+2019) in using both the cased model and the un-
+cased model for all tasks. Experiments result sug-
+gest that uncased models perform better than cased
+models in all tasks. This result is consistent with
+prior work of Scientiﬁc domain and Biomedical
+domain BERT models.
+Corpus Contribution We also train different Fin-
+BERT models on three ﬁnancial corpus separately.
+The performance of different FinBERT models
+(cased version) on different tasks are present in
+Table
+3. It shows that FinBERT trained on all
+corpora achieves the overall best performance in-
+dicating that combining additional ﬁnancial com-
+munication corpus could improve the language
+model quality. Among three datasets, Analyst
+Reports dataset appears to perform well in three
+different tasks, even though it only has 1.1 bil-
+lion word tokens. Prior research ﬁnds that cor-
+porate report such as 10-Ks and 10-Qs contains
+redundant content, and that a substantial amount
+of textual volume contained in 10-K reports is at-
+tributable to managerial discretion in how ﬁrms
+respond to mandatory disclosure requirements
+(
+Cazier and Pfeiffer, 2016). Does it suggest that
+Analyst Reports data contains more information
+content than corporate reports and earnings call
+transcripts? We leave it for future research.
+6 Conclusion
+In this work, we pre-train a ﬁnancial-task oriented
+BERT model, FinBERT. The FinBERT model
+is trained on a large ﬁnancial corpora that are
+representative of English ﬁnancial communica-
+tions. We show that FinBERT outperforms generic
+BERT models on three ﬁnancial sentiment classi-
+ﬁcation tasks. With the release of FinBERT, we
+hope practitioners and researchers can utilize Fin-
+BERT for a wider range of applications where the
+prediction target goes beyond sentiment, such as
+
+
+[Page 5]
+ﬁnancial-related outcomes including stock returns,
+stock volatilities, corporate fraud, etc.
+Acknowledgments
+This work was supported by Theme-based Re-
+search Scheme (No. T31-604/18-N) from Re-
+search Grants Council in Hong Kong.
+References
+Emily Alsentzer, John Murphy, William Boag, Wei-
+Hung Weng, Di Jindi, Tristan Naumann, and
+Matthew McDermott. 2019. Publicly available clin-
+ical bert embeddings. In Proceedings of the 2nd
+Clinical Natural Language Processing W orkshop ,
+pages 72–78.
+Iz Beltagy, Kyle Lo, and Arman Cohan. 2019. Scib-
+ert: Pretrained language model for scientiﬁc text. In
+Proceedings of EMNLP.
+Richard A Cazier and Ray J Pfeiffer. 2016. Why are
+10-k ﬁlings so long? Accounting Horizons, 30(1):1–
+21.
+X Cui, D Lam, and A V erma. 2016. Embedded
+value in bloomberg news and social sentiment data.
+Bloomberg LP.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and
+Kristina Toutanova. 2019. Bert: Pre-training of deep
+bidirectional transformers for language understand-
+ing. In Proceedings of NAACL, pages 4171–4186.
+Jeremy Howard and Sebastian Ruder. 2018. Universal
+language model ﬁne-tuning for text classiﬁcation. In
+Proceedings ACL, pages 328–339.
+Allen H Huang, Amy Y Zang, and Rong Zheng. 2014.
+Evidence on the information content of text in an-
+alyst reports. The Accounting Review , 89(6):2151–
+2180.
+Kexin Huang, Jaan Altosaar, and Rajesh Ranganath.
+2019. Clinicalbert: Modeling clinical notes and pre-
+dicting hospital readmission. arXiv:1904.05342.
+sri International. 1987. Investor information needs and
+the annual report . Financial Executives Research
+Foundation.
+Jinhyuk Lee, Wonjin Y oon, Sungdong Kim,
+Donghyeon Kim, Sunkyu Kim, Chan Ho So,
+and Jaewoo Kang. 2019. BioBERT: a pre-trained
+biomedical language representation model for
+biomedical text mining. Bioinformatics.
+Pekka Malo, Ankur Sinha, Pekka Korhonen, Jyrki Wal-
+lenius, and Pyry Takala. 2014. Good debt or bad
+debt: Detecting semantic orientations in economic
+texts. Journal of the Association for Information
+Science and T echnology, 65(4):782–796.
+Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg Cor-
+rado, and Jeffrey Dean. 2013. Distributed represen-
+tations of words and phrases and their composition-
+ality. In Proceedings of NIPS, pages 3111–3119.
+Jeffrey Pennington, Richard Socher, and Christopher D
+Manning. 2014. Glove: Global vectors for word
+representation. In Proceedings of EMNLP , pages
+1532–1543.
+Matthew E. Peters, Mark Neumann, Mohit Iyyer, Matt
+Gardner, Christopher Clark, Kenton Lee, and Luke
+Zettlemoyer. 2018. Deep contextualized word rep-
+resentations. In Proc. of NAACL.
+Alec Radford, Jeff Wu, Rewon Child, David Luan,
+Dario Amodei, and Ilya Sutskever. 2019. Language
+models are unsupervised multitask learners.
+Alexander Sergeev and Mike Del Balso. 2018.
+Horovod: fast and easy distributed deep learning in
+tensorﬂow. arXiv preprint arXiv:1802.05799 .
+Paul C Tetlock. 2007. Giving content to investor sen-
+timent: The role of media in the stock market. The
+Journal of ﬁnance, 62(3):1139–1168.
+Paul C Tetlock, Maytal Saar-Tsechansky, and Sofus
+Macskassy. 2008. More than words: Quantifying
+language to measure ﬁrms’ fundamentals. The Jour-
+nal of Finance, 63(3):1437–1467.

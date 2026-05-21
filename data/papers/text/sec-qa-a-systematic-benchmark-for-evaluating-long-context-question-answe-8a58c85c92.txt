@@ -1,0 +1,1315 @@
+[Page 1]
+SEC-QA: A Systematic Evaluation Corpus for Financial QA
+Viet Dac Lai, Michael Krumdick, Charles Lovering
+Varshini Reddy, Craig Schmidt, Chris Tanner
+Kensho Technologies
+{viet.lai,michael.krumdick,charles.lovering,chris.tanner}@kensho.com
+Abstract
+The financial domain frequently deals with
+large numbers of long documents that are es-
+sential for daily operations. Significant ef-
+fort is put towards automating financial data
+analysis. However, a persistent challenge, not
+limited to the finance domain, is the scarcity
+of datasets that accurately reflect real-world
+tasks for model evaluation. Existing datasets
+are often constrained by size, context, or rel-
+evance to practical applications. Moreover,
+LLMs are currently trained on trillions of to-
+kens of text, limiting access to novel data or
+documents that models have not encountered
+during training for unbiased evaluation. We
+propose SEC-QA, a continuous dataset gen-
+eration framework with two key features: 1)
+the semi-automatic generation of Question-
+Answer (QA) pairs spanning multiple long
+context financial documents, which better rep-
+resent real-world financial scenarios; 2) the
+ability to continually refresh the dataset using
+the most recent public document collections,
+not yet ingested by LLMs. Our experiments
+show that current retrieval augmented gener-
+ation methods systematically fail to answer
+these challenging multi-document questions.
+In response, we introduce a QA system based
+on program-of-thought that improves the abil-
+ity to perform complex information retrieval
+and quantitative reasoning pipelines, thereby
+increasing QA accuracy.
+1 Introduction
+Large Language Models (LLMs) have demon-
+strated impressive capabilities in a wide range of
+natural language processing (NLP) applications
+(Brown et al., 2020). Even though LLMs were
+scaled to an unprecedentedly large number of pa-
+rameters, they still face many issues with halluci-
+nations (Ji et al., 2023), poor reading comprehen-
+sion (Liu et al., 2024), and private data leakage
+(Balloccu et al., 2024). To address these issues,
+Retrieval Augmented Generation (RAG) produces
+responses by using a few retrieved documents from
+reliable sources. As a result, it offers more de-
+pendable answers with fewer hallucinations, even
+when employing much smaller language models
+(Borgeaud et al., 2022). Evaluating RAG-based
+systems is challenging due to the added complex-
+ity of the retrieval step (Chen et al., 2024), and
+the cascading effect of the upstream retrieval task
+on the downstream QA task. Early benchmarks
+for RAG-based systems mainly focus on simple
+common-sense questions that can be answered by
+retrieving a single piece of text from a single knowl-
+edge source (Joshi et al., 2017; Dunn et al., 2017).
+Often these knowledge sources were open textual
+knowledge bases such as Wikipedia (Yang et al.,
+2018) and WikiHow (Deng et al., 2020).
+These benchmarks face two data leakage is-
+sues. First, they were created from open Internet
+sources (Xue et al., 2021; Penedo et al., 2023),
+e.g., Wikipedia, which is heavily used in LLM pre-
+training (Touvron et al., 2023). Second, the static
+benchmarks themselves are leaked to the Internet
+(Balloccu et al., 2024). LLM training datasets sub-
+sequently include these benchmarks, leading to in-
+flation and unreliable results on these benchmarks.
+To combat these problems, there have been pro-
+posals to keep benchmarks private (Mialon et al.,
+2023) or updated regularly (Fan et al., 2023).
+More importantly, in many financial applica-
+tions, evaluation based on common-sense knowl-
+edge and open knowledge sources may not reflect
+the system’s true capabilities (Zhang et al., 2024).
+The questions in professional use are far more com-
+plex, requiring some combination of multi-hop rea-
+soning (Yang et al., 2018), multi-source reference
+(Tang and Yang, 2024), document-structure ref-
+erence (Saad-Falcon et al., 2023), and collection
+structure reference. Additionally, knowledge bases
+in a specific domain may be less diverse than open
+knowledge bases, e.g., Wikipedia, leading to poor
+retrieval performance which in turn has a severe
+arXiv:2406.14394v1  [cs.CL]  20 Jun 2024
+
+
+[Page 2]
+impact on the LLM’s response. Retrieval in some
+domain-specific areas may instead require domain
+knowledge to achieve effective retrieval that has
+not been captured in open-domain evaluation.
+To overcome these issues, this work introduces
+a framework for designing practical quantitative
+questions. These questions are much more chal-
+lenging than existing financial QA tasks such as
+FinQA(Chen et al., 2021) or TAT-QA (Zhu et al.,
+2021). The framework allows us to customize ques-
+tions at the needed complexity for the target ap-
+plications with potential variety in question com-
+plexity including multiple entities/financial peri-
+ods, multi-hop reasoning, document structure, col-
+lection structure, and multiple outputs. We lever-
+age Internet-accessible document collections, and
+open tabular databases to create real-world com-
+plex quantitative questions in finance. We evaluate
+four RAG-based systems and show that RAG sys-
+tems systematically fail on these carefully designed
+real-world questions. Moreover, we show that re-
+cent LLMs can use code to effectively navigate
+the structure of the document collections; e.g., that
+earnings per share information is within 10-Ks,
+and that there are 10-Ks for each company and
+fiscal year. This leads to drastically improved lev-
+els of performance. Additionally, this framework
+can be used to dynamically refresh the benchmarks
+regularly to prevent training data leakage.
+The contributions of this paper are:
+• A framework (SEC-QA) for dynamically gen-
+erating quantitative multi-hop QA tasks for
+the financial domain from publicly accessible
+documents and databases.
+• A set of practical and challenging questions
+for Quantitative Reasoning in the financial do-
+main that vanilla RAG models systematically
+fail to answer.
+• A system that utilizes program-of-thought and
+the rich structure of the document collection
+to improve QA performance.
+2 Related Work
+Reasoning Capabilities of LLM has been found
+in natural language processing and other fields.
+Some LLMs exhibit emergent capabilities if they
+are large enough. A simple prompt “ Let’s think
+step by step ” causes a model to generate solu-
+tions with reasoning steps in a chain-of-thought
+(Wei et al., 2022). More advanced prompting
+techniques have been discovered which are sim-
+ilar to human reasoning processes such as tree-of-
+thoughts (Yao et al., 2024) and self-verification
+(Weng et al., 2023). However, the numerical rea-
+soning of LLMs is still limited, motivating the
+adoption of programming languages to offload nu-
+merical tasks in program-of-thought (Chen et al.,
+2023) and program-synthesis (Austin et al., 2021).
+Reasoning capability is enhanced in additional
+training on reasoning through human feedback
+(Ouyang et al., 2022). However, LLMs still strug-
+gle with many domain-specific tasks such as fi-
+nance (Koncel-Kedziorski et al., 2023). Recent
+studies have pointed out that many popular bench-
+marks are contained in LLM pre-training data (Rid-
+dell et al., 2024), which causes the inflation of
+model performance. As such, benchmarks are kept
+private (Mialon et al., 2023), or updated regularly
+(Fan et al., 2023) to mitigate data contamination.
+Document Grounded Quantitative Reasoning
+involves numerical extraction and numerical rea-
+soning. Previous work in NLP has explored numer-
+ical extraction from scientific documents (Harper
+et al., 2021; Elazar et al., 2019) and financial docu-
+ments (Loukas et al., 2022). Existing datasets for
+the financial domain that require quantity extrac-
+tion include HybridQA (Chen et al., 2020), TAT-
+QA (Zhu et al., 2021), MultiHierTT (Zhao et al.,
+2022), FinQA (Chen et al., 2021), and ConvFinQA
+(Chen et al., 2022). However, these works only
+involve a small amount of grounding context (e.g.,
+a single page, a single document).
+Multi-Document QA: TriviaQA (Joshi et al.,
+2017) and SearchQA (Dunn et al., 2017) require
+the model to search over a large collection of doc-
+uments. However, the question itself can be an-
+swered by reading a few sentences extracted from
+a single document. Some multi-document QA
+datasets were created for open-ended QA such as
+summarization (MultiNews (Fabbri et al., 2019),
+WikiHowQA (Bolotova-Baranova et al., 2023))
+where skimming over given documents and extract-
+ing evidential cues from these documents are es-
+sential. The HotpotQA (Yang et al., 2018) dataset
+specifically targets multi-hop questions to resolve
+hidden cross-document reference entities in the
+questions. However, these datasets were collected
+from open knowledge bases (e.g., Wikipedia), so
+they have most likely been leaked in LLM pre-
+training data (Touvron et al., 2023).
+Multihop-RAG (Tang and Yang, 2024) propose
+
+
+[Page 3]
+Dataset Multi-Doc Multi-Hop Refreshable#Test Context #Docs Data
+General
+HybridQA ✓ ✓ - 3,463 2,326 44 Hybrid
+TriviaQA ✓ - - 17,210 3,760 486,956 Text
+SearchQA - - - 27,248 38 - Text
+HotPotQA ✓ ✓ - 7,405 928 15,519 Text
+Finance
+TAT-QA - - - 1,669 47 - Hybrid
+MultiHiertt - - - 1,566 1,646 - Hybrid
+FinQA - - - 1,147 628 - Hybrid
+ConvFinQA - - - 434 628 - Hybrid
+Multihop-RAG ✓ - - 2,556 1,574 609 Text
+SEC-QA ✓ ✓ ✓ Flexible 123,000 1,315 Hybrid
+Table 1: Comparison of QA benchmarks in the quantitative and finance domain. Refreshable indicates that the
+dataset can be automatically renewed/generated with a different document set. Hybrid indicates that the context
+contains both tabular and textual data.
+a multi-hop dataset for financial documents that
+differs from our work in the following ways: (i)
+their work studies multi-hop reasoning only with
+regards to parallel retrieval queries, while we con-
+sider both parallel and sequential reasoning steps;
+(ii) the news documents used to create their dataset
+do not reflect the real-world sources such as official
+filings used by financial professionals, that often
+span hundreds of pages.
+Financial NLP has explored non-quantitative
+tasks such as named entity recognition (Salinas Al-
+varado et al., 2015), sentiment analysis (Malo et al.,
+2014), classification (Sinha and Khandait, 2021),
+question answering (Maia et al., 2018), boundary
+detection (Au et al., 2021), and entity/event extrac-
+tion Lu et al. (2023).
+3 Framework Construction
+We propose Systematic Evaluation Corpus for Fi-
+nancial QA (SEC-QA), a framework for generating
+financial Multi Document Questions and Answers
+(MDQA). We also refer to the questions generated
+by this framework with the same name, SEC-QA.
+3.1 Task Definition
+MDQA is defined as follows: A system S is
+asked a question q with answer a. q can be an-
+swered by looking in at the document collection
+C = {Di|1 ≤ i ≤ N }. Each document consists
+of several pages pi = ( tij, cij) where tij, cij are
+the title and the content, respectively.
+3.2 Resources
+SEC-QA, a framework for flexibly creating ques-
+tions for MQDA, requires: 1) Database T with
+values partitioned by variables of interest (e.g., rev-
+enue partitioned by company and fiscal year). 2)
+Document collection C that contains the informa-
+tion needed to compute the values within T.
+Specifically, we leverage private-sector financial
+data from market-trusted sources, ensuring com-
+prehensive and accurate datasets. We collect key
+financial metrics and their associated documents
+to create a database (key-value-document table)
+T ∈ (c, y, k, v, d), where v represents the value
+of the key metric k for company c in fiscal year
+y as mentioned in document d. Because T tracks
+the documents in C that source each value then
+in addition to question accuracy it is possible to
+report document and page-level retrieval metrics.
+Our collection comprises 10 metrics for 18 pub-
+licly traded companies from the S&P 500 list from
+2010 to 2023. We also collect their annual re-
+ports (Form 10-K), quarterly reports (Form 10-Q),
+and unscheduled event reports (Form 8-K) for the
+same period. Since the documents are published
+in HTML format, we convert the documents into
+PDF(s), and then we parse the PDF(s) into JSON
+format using a public PDF extraction service 1.
+Documents are represented as JSON objects with
+paragraphs, well-structured tables, and machine-
+detected titles.
+3.3 Question Complexity
+Question design is an important step for a suc-
+cessful QA system evaluation. In this work, we
+identify several factors that increase the complexity
+of a question in the financial domain.
+We define anatomic question as a question that
+seeks a single piece of information that can be ex-
+tracted directly from a single document. Such ques-
+tions usually involve a single entity for a particular
+1https://kensho.com/extract
+
+
+[Page 4]
+financial period, e.g., “What is the total revenue of
+Apple Inc. for the fiscal year 2022?”.
+However, in financial analysis, questions tend to
+be much more complex. They require extracting
+multiple pieces of data, transforming the extracted
+data, and presenting the answer in various formats.
+Further, we have observed the following main chal-
+lenges in multiple-document QA for finance:
+• Parallel Reference questions require the
+same kind of information over multiple en-
+tities or time periods, e.g., “What is Intel’s
+revenue growth in the last 5-year period?”.
+This requires extracting information from a
+few documents. The complexity of parallel
+reference can be measured by the number of
+entities/years needed to answer the question.
+• Multi-hop Reference questions require refer-
+ence resolution of a few implicitly defined en-
+tities through some deterministic constraints
+e.g. “Show the 5-year stock price history
+of the top 5 most valuable companies in the
+S&P 500 index” . The complexity of multi-
+hop questions is usually measured by the num-
+ber of hops needed to answer the question and
+the complexity of the constraints.
+• Structural Reference involves document
+structure reference and collection structure
+reference. Document structure reference
+refers to a particular section/table/figure in
+a document (Saad-Falcon et al., 2023). Col-
+lection structure reference refers to a subset
+of documents in the collection (e.g., “recently
+quarterly filings”, “their earning calls” ), nar-
+rowing the document search space.
+• Multi-Output questions expect multiple val-
+ues (e.g., “Analyze the financial performance
+of the top 3 competitors of Amazon.com,
+Inc. in terms of revenue for the last 4
+quarters, by computing their revenue growth,
+gross margin, and operating margin. ”. To
+our knowledge, this type of question has not
+been addressed in previous work.
+3.4 Question Design
+Question Template: Previous work in QA has
+tackled some challenges in QA such as multi-hop
+(Yang et al., 2018), and document structure (Saad-
+Falcon et al., 2023) to target some specific complex
+question types. Our framework allows many ques-
+tion types including parallel reference, multi-hop
+reference, document structure, collection structure
+reference, and multi-output questions. Moreover,
+due to the rich information in the database, we
+can design questions to require finance domain jar-
+gon (e.g., using a company’s stock symbol to refer
+to the company) and language regularities (e.g.,
+omitting financial periods if asking for the latest
+figures). Using this framework, we can flexibly
+opt for different combinations of complexity (e.g.,
+parallels and multi-hop in the same question).
+Template filling: The question template can be
+filled semi-automatically through a simple rule-
+based system that randomly picks the entities, met-
+rics, and periods from the database. This allows
+control over the complexity, quality, and distribu-
+tion of the generated questions and answers.
+4 Experiment
+This section presents our findings across three use
+cases of the SEC-QA framework.
+4.1 QA Systems
+We evaluate 4 systems with different characteristics
+for a broad understanding of MDQA in finance:
+• Vanilla RAG: To demonstrate the challenge
+of answering complex questions, we em-
+ployed a simple retrieval-based system with
+direct generation.
+• Multi Query RAG : leverages multiple
+queries for a given input question.
+• CodeGen+PageR: We employ an LLM
+to generate code that makes use of two
+helper functions: “retrieve_relevant_pages”
+retrieves k pages from the whole collection;
+“extract_value” calls a prompted LLM to ex-
+tract the value from the given retrieved pages.
+This system allows an LLM to decompose
+a complex question into atomic questions as
+well as make a full plan of how to answer this
+question. In turn, it allows us to examine the
+planning capability of the LLM.
+• CodeGen+DocS+PageR: Financial docu-
+ment collections track meta information for
+each document like company, fiscal year,
+and form type. This can be used to re-
+duce the retrieval search space. Beyond
+the two functions “retrieve_relevant_pages”
+and “extract_value”, we introduce a “se-
+lect_document” function that filters the doc-
+ument collection based on meta information
+such as the company stock symbol and fiscal
+
+
+[Page 5]
+Function Description
+select_document(stock_symbols, form_types, fiscal_years)Select a few documents given some filters
+retrieve_relevant_pages(text_query, documents)Retrieve top-kpages from the given documents
+extract_value(text_query, pages) Extract a value and its corresponding multiplier from the given pages
+Table 2: List of helper functions that the CodeGen systems can use
+year. Critically, a document can be selected
+and then queried for pages.
+We use OpenAI’s Ada as the neural embedding
+for retrieval and GPT4 (gpt-4-1106-preview) as the
+LLM for all our experiments. We use the same
+three questions as the exemplars for the CodeGen
+system, varying only the available helper functions.
+We test different numbers of retrieved pages (k ∈
+[4, 128]) and report the best performance.
+4.2 Evaluation
+Due to the complexity of the pipeline and models
+we used, we evaluate the model’s performance in
+3 stages: document retrieval, page retrieval, and
+question answering. For document retrieval and
+page retrieval, we report the Precision@K, Re-
+call@K, and F1@K. For systems that only involve
+page retrieval, we report their document retrieval
+performance based on the document signature of
+the retrieved pages. Since many numbers in finan-
+cial reports are rounded to various levels (thou-
+sands, millions, billions), using exact matches for
+automatic answer scoring is challenging. There-
+fore, we accept an answer if its value is within a
+1% margin of error from the golden answer.
+4.3 Single Value Extraction Task
+We begin with a simple extraction MDQA task
+that requires a model to retrieve an exact numeric
+span (e.g., 1234.5) and unit value (e.g., millions)
+from a document. For this use case, we use SEC-
+QA to generate questions based on the following
+templates: (1) is usually used for the latest update
+of a metric; (2) is used for the previous financial
+periods (e.g., years and quarters).
+(1) What is {company}’s {metric}?
+(2) What is {company}’s {metric} in {year}?
+Financial analysts use this language regularly, in
+which the year is omitted from the question. As
+such, a model must catch that regularity to identify
+the correct value term to extract. To confirm the
+existence of the metric in the document, we remove
+0 20 40 60 80 100
+Percentage
+CodeGen+
+DocS+PageR
+CodeGen
++PageR
+MultiQuery
+RAG
+Vanilla
+RAG
+Correct Incorrect No Answer
+Figure 1: Performance of the simple value extraction
+the questions whose answers can not be found in
+the document with simple string matching.
+Figure 1 shows the performances of the mod-
+els of this single-document value extraction task.
+CodeGen+DocS+PageR system performs best,
+with 89.5% accuracy. On the other hand, the Code-
+Gen+PageR and Vanilla-RAG systems lag behind
+with 31.6% and 55.8% accuracy. Comparing the
+two CodeGen models, we can see that the Code-
+Gen w/ DocS outperforms the variant w/o DocS.
+This suggests that document selection is important
+for financial questions. This result also shows that
+a general neural-based document retrieval strug-
+gles to cope with the demanding requirements for
+retrieval in finance. Part of the reason the neural-
+based retrieval struggles is because of the structure
+of the public filings in the financial domain. Many
+documents are very similar to each other, espe-
+cially documents for the same company. Long
+identical phrases are often used for multiple years.
+Without document selection, LLMs end up having
+to process irrelevant pages collected from previ-
+ous years. Section 5.2 shows an example of mod-
+els without document selection. This experiment
+shows there is a large performance difference for
+different pipeline settings.
+4.4 Compound Value Extraction Task
+Compound or high-order metrics appear frequently
+in financial analysis. They are usually computed
+based on a few other metrics reported in the public
+filings. As such, being able to answer questions
+with compound metrics is crucial to automating the
+pipeline of financial analysis. Previous work con-
+
+
+[Page 6]
+System Correct (%)
+Vanilla RAG 8.3
+Multi Query RAG 16.7
+CodeGen+PageR 37.5
+CodeGen+DocS+PageR 33.3
+Table 3: Performance on compound value extraction.
+siders these questions as NULL (Tang and Yang,
+2024), skipping the question. In real-world appli-
+cations, a model should provide its best estimation
+based on the provided information, ideally with an
+explanation to justify the estimation.
+To do this, we design a set of questions with
+compound metrics, such as Revenue Per Employee
+(RPE) using the same Templates 1, 2. Some com-
+panies report these metrics in their filings, so we
+only consider metrics that cannot be easily found
+with string matching. Thus, the model must be
+able to understand the formula to calculate to an-
+swer correctly. In total, we generated 24 of these
+questions. Because the value is not explicitly in the
+text, these questions require both a priori knowl-
+edge of the metrics and additional reasoning steps
+to compute the metric. Therefore, we expect these
+questions to be more difficult.
+Table 3 shows the performance of the model on
+this question set. Performance for all tested sys-
+tems on these Compound Value Extraction ques-
+tions is significantly lower than the Single Value
+Extraction questions (as presented in Section 4.3).
+For this task, we are able to investigate the per-
+formance at the sub-metric level thanks to the sub-
+metric data in the database. The Vanilla RAG and
+Multi Query RAG models do not extract value
+at the sub-metric level, so we omit these models
+from this analysis. We find that CodeGen-based
+models systematically query each sub-metric (e.g.,
+Long-Term Debt, and Long-Term Leases). How-
+ever, once the model unrolls the main metric (e.g.,
+total debt) into sub-metrics, many sub-metrics are
+missing from the document due to two reasons:
+(1) the sub-metrics are also compound metrics and
+(2) some sub-metrics do not apply to some compa-
+nies. These lead to a false extraction or duplication
+(Long-Term Debt being extracted twice for Long-
+Term Debt and Long-Term Leases).
+This test highlights the difficulty of the value
+extraction task in the financial domain. This also
+shows how we can easily use our framework to
+customize the test without data annotation.
+0 20 40 60 80 100 120
+Number of Chunks, k
+0
+20
+40
+60
+80
+100Accuracy (%)
+CodeGen+DocS+PageR
+CodeGen+PageR
+MultiQuery RAG
+Vanilla RAG
+Figure 2: Performance of systems on Multi-Doc QA.
+4.5 Multi-Document QA Task
+To measure the performance on more complex
+question, we design a set of question templates
+that refer to metrics of different years and compa-
+nies as follows:
+(3) How much common dividends did {com-
+pany} pay in the last {num_year} years
+in US dollars?
+(4) What is the percentage difference of{com-
+pany1}’s {metric} compared to that of
+{company2}?
+(5) What is {company}’s overall revenue
+growth over the last {num_year}-year pe-
+riod?
+(6) Among {company_names}, what is the
+{metric2} of the company that has the high-
+est {metric1}?
+Figure 2 shows the accuracy for the three mod-
+els on this task with different numbers of retrieved
+pages k. We can see that CodeGen+DocS+PageR
+outperforms the other models with a high mar-
+gin, correctly answering 108 of 135 questions
+(80%, k = 32 ) compared to 71 with Code-
+Gen+PageR ( 52%, k = 48 ) and only 41 with
+Vanilla RAG ( 30%, k = 32 ). Notably, Code-
+Gen+DocS+PageR outperforms the other two mod-
+els with a very low number of retrieved pages
+(k = 4) with 74 correct answers (55%).
+More importantly, CodeGen models are more
+responsive to the number of retrieved pages. Code-
+Gen+DocS+PageR performance improves rapidly
+when the number of retrieved pages k increases
+from 4 to 32, whereas CodeGen+PageR improves
+at a lower rate and Vanilla RAG barely improves.
+This suggests that the Vanilla RAG pipeline is
+bottle-necked at the retrieval step, which we an-
+alyze in depth in Section 5.1.
+
+
+[Page 7]
+Precision Recall F1  Precision  Recall  F1
+Retrieval Metrics
+0.0
+0.2
+0.4
+0.6
+0.8R-Squared
+Documents Pages
+(a) R2 between accuracy and retrieval metrics.
+k=4 16 32 48 4 16 32 48 4 16 32 48 4 16 32 48
+Model
+0
+20
+40
+60
+80
+100Percentage
+Vanilla RAG MultiQuery RAG CodeGen+PageR CodeGen+DocS
++PageR
+Document Recall Page Recall QA Accuracy
+(b) Document-level recall, page-level recall, and QA accuracy
+of all examined systems with varying k values.
+Figure 3: Retrieval Performance
+5 Discussion
+5.1 System Bottlenecks
+Previous sections highlight how additional retrieval
+capabilities improve LLM performance on MDQA.
+In this section, we perform further analysis to iden-
+tify the main performance bottleneck across the
+different systems. We reuse the Template 6 which
+has both parallel and multi-hop references. Beyond
+document/page retrieval and task performance, we
+also compute the coefficient of determination R2
+between these performances.
+Figure 3a shows the R2 values between the sys-
+tem accuracy and retrieval metrics at both docu-
+ment and page levels. Recall has the highestR2 val-
+ues, with 0.94 and 0.76 for page and document lev-
+els respectively, suggesting that recall performance
+is crucial to the accuracy of the multi-document
+QA performance. On the other hand, page-level
+precision has a low R2 value of 0.12, indicating a
+weak correlation with overall performance.
+From Figure 3b, we observe that the QA accu-
+racy of a system is directly proportional to docu-
+ment and page-level recall scores, supporting our
+previous claim about the correlation between recall
+and accuracy. Specifically, we note that a model’s
+accuracy aligns more closely with the page-level
+recall score. The Vanilla RAG model lags behind
+the CodeGen-based models in terms of accuracy.
+However, when it is allowed to use multiple re-
+trieval queries (Multi Query RAG), we observe
+an improvement in retrieval performance, which
+consequently leads to an increase in QA accuracy.
+CodeGen+PageR has a higher recall and QA
+performance compared to Multi Query and Vanilla
+RAG. This is due ability of the CodeGen mod-
+els to break down complex questions into atomic
+ones and systematically retrieve pages based on
+the atomic questions. CodeGen+DocS+PageR is
+observed to be the best model. We attribute this
+to the addition of the rule-based document selec-
+tion step, which effectively retrieves relevant docu-
+ments, thus improving document-level recall.
+Overall this experiment shows that our dataset
+and framework provide us a useful tool to examine
+multi-document QA in detail. This gives us a better
+signal for future improvement of the pipeline.
+5.2 Case study
+Table 4 shows the top 4 retrieved pages across
+QA systems for "What is Adobe’s total number
+of employees reported in 2022?" . Only Code-
+Gen+DocS+PageR successfully retrieves the page
+containing the golden answer. Although Vanilla
+RAG retrieves Adobe’s 10-K pages 3 of 4 times,
+the fiscal year is consistently wrong. Multi Query
+RAG and CodeGen+PageR also retrieve the wrong
+fiscal year. This shows how financial documents
+can easily confuse modern retrieval systems.
+5.3 Stability Tests
+One of the main objectives of this work is to pro-
+vide a robust benchmark that prevents performance
+inflation through data leaks by dynamically gen-
+erating QA pairs using the latest financial docu-
+ments. This raises the question of whether evalua-
+tion scores on a new benchmark version are com-
+parable to those on former versions. To measure
+the benchmarking consistency, we construct five
+distinct versions of the dataset using data from
+different years (2019 to 2023) while keeping the
+question templates and the set of companies con-
+stant to maintain a consistent difficulty level.
+The accuracy of the models on different year-
+based sets varied marginally with small standard
+deviation (1.3% < σ < 2.0%). This shows that we
+
+
+[Page 8]
+Model MatchedQuestion:“What is Adobe’s Total Employees reported in 2022?”
+N Page: 15 Form type: 10-K; Company: adobe; Fiscal year:2015; Period end date: 2015-11-27
+Vanilla N Page: 15 Form type: 10-K; Company: adobe; Fiscal year:2014; Period end date: 2014-11-28
+RAG N Page: 29 Form type:8-K; Company: adobe; Fiscal year:2020; Period end date: 2020-12-07
+N Page: 35 Form type: 10-K; Company: adobe; Fiscal year:2012; Period end date: 2012-11-30
+Multi N Page: 15 Form type: 10-K; Company: adobe; Fiscal year:2015; Period end date: 2015-11-27
+Query N Page: 15 Form type: 10-K; Company: adobe; Fiscal year:2014; Period end date: 2014-11-28
+RAG N Page: 35 Form type: 10-K; Company: adobe; Fiscal year:2012; Period end date: 2012-11-30
+N Page: 18 Form type: 10-K; Company: adobe; Fiscal year:2020; Period end date: 2020-11-27
+N Page: 15; Form type: 10-K; Company: ADBE; Fiscal year:2015; Period end date: 2015-11-27
+CodeGen N Page: 18; Form type: 10-K; Company: ADBE; Fiscal year:2023; Period end date: 2023-12-01
++ PageR N Page: 16; Form type: 10-K; Company: ADBE; Fiscal year:2021; Period end date: 2021-12-03
+N Page: 15; Form type: 10-K; Company: ADBE; Fiscal year:2014; Period end date: 2014-11-28
+CodeGen N Page: 16; Form type: 10-K; Company: ADBE; Fiscal year: 2022; Period end date: 2022-12-02
++ DocS N Page: 2; Form type: 10-K; Company: ADBE; Fiscal year: 2022; Period end date: 2022-12-02
++ PageR Yes Page: 15; Form type: 10-K; Company: ADBE; Fiscal year: 2022; Period end date: 2022-12-02
+N Page: 38; Form type: 10-K; Company: ADBE; Fiscal year: 2022; Period end date: 2022-12-02
+Table 4: Case study on the inclusion of the page containing the golden answer within the top 4 retrieved pages for
+the question, "What is Adobe’s total number of employees reported in 2022?"
+can reliably compare the performance of models
+between different versions of the benchmark. We
+show the detailed result in Figure 5 (Appendix A).
+5.4 Execution Cost
+While code generation-based systems offer supe-
+rior performance, these models have a higher oper-
+ational cost and latency. We compute the average
+number of LLM calls across the four examined
+systems. From Figure 4, CodeGen systems require
+approximately four times more calls than Vanilla
+and Multi Query RAG systems, which can poten-
+tially quadruple operational costs and latency. One
+proposed solution to mitigate latency is to paral-
+lelize LLM calls. However, the iterative nature of
+multi-hop questions poses a challenge to effective
+parallelization strategies.
+5.5 Automatic Question Design
+Thanks to the advancement in code generation,
+in principle an LLM with access to a database
+can generate both questions and code necessary
+to answer the questions. To do that, one can pre-
+pare available resources such as documents and
+functions to access the database and static variable
+names for relevant entities (e.g. company name,
+metric name); next, prompt the LLM to generate
+questions and code that solve the question using
+the provided functions. Once the LLM generates
+questions and answers, the generated code is exe-
+cuted to obtain the answer. After that, one can hire
+a financial expert to verify the question, the code,
+and the answer. Notably, the challenge remains at
+test time as that model will not have access to the
+database T , only the document collection C.
+0 1 2 3 4 5
+Number of Calls
+0
+20
+40
+60
+80Accuracy (%)
+Vanilla RAG
+MultiQuery RAG
+CodeGen+PageR
+CodeGen+DocS+PageR
+Figure 4: Average number of LLM calls used by the
+systems in comparison with accuracy.
+The benefit of using this method is the poten-
+tially higher diversity in question sets. It also pro-
+vides the code that is used to solve the question.
+However, this method still requires manual inspec-
+tion of the question, the code, and the alignment
+between the question and the code, which are not
+trivial. In this work, we did not use this method to
+generate any of the questions used above.
+6 Conclusion
+We introduce SEC-QA which we leverage to cre-
+ate questions that current RAG approaches con-
+sistently fail to answer. This framework can be
+used to dynamically generate complex practical
+questions grounded in the financial domain. Our
+study highlights the challenges posed by retrieval
+models in handling multi-doc long-context ques-
+tions and explores strategies to address these bottle-
+necks. Furthermore, we propose a method based on
+program-of-thought and RAG designed to enhance
+retrieval and downstream performance compared
+to conventional RAG systems.
+
+
+[Page 9]
+Limitation
+This paper assumes the existence of a collectible
+set of documents, a tabular dataset of financial met-
+rics, and a method to map these financial metrics to
+the documents. We currently explore databases in
+the private sector, where public reports are heavily
+regulated, making it relatively straightforward to
+align the documents with the dataset.
+However, in the public sector, reports often vary
+significantly due to inconsistencies in reporting
+standards. As a result, finding a collection of docu-
+ments, a corresponding dataset and their alignment
+is more challenging. For instance, our attempts
+with the US state government’s Annual Compre-
+hensive Financial Report (ACFR) and the US An-
+nual Survey of State Government Tax Collections
+published by the US Census have proven extremely
+difficult to reverse-engineer into a usable dataset.
+Ethical Consideration
+This dataset was generated automatically from an
+existing financial database without any involve-
+ment of human annotators. Although the CodeGen
+systems demonstrate significant performance im-
+provements, we do not recommend using them as a
+replacement for traditional financial analysis tools
+and financial advice.
+References
+Willy Au, Abderrahim Ait-Azzi, and Juyeon Kang.
+2021. Finsbd-2021: the 3rd shared task on struc-
+ture boundary detection in unstructured text in the
+financial domain. In Companion Proceedings of the
+Web Conference 2021, pages 276–279.
+Jacob Austin, Augustus Odena, Maxwell Nye, Maarten
+Bosma, Henryk Michalewski, David Dohan, Ellen
+Jiang, Carrie Cai, Michael Terry, Quoc Le, et al.
+2021. Program synthesis with large language models.
+arXiv preprint arXiv:2108.07732.
+Simone Balloccu, Patrícia Schmidtová, Mateusz Lango,
+and Ondrej Dusek. 2024. Leak, cheat, repeat: Data
+contamination and evaluation malpractices in closed-
+source LLMs. In Proceedings of the 18th Confer-
+ence of the European Chapter of the Association
+for Computational Linguistics (Volume 1: Long Pa-
+pers), pages 67–93, St. Julian’s, Malta. Association
+for Computational Linguistics.
+Valeriia Bolotova-Baranova, Vladislav Blinov, So-
+fya Filippova, Falk Scholer, and Mark Sanderson.
+2023. WikiHowQA: A comprehensive benchmark
+for multi-document non-factoid question answering.
+In Proceedings of the 61st Annual Meeting of the
+Association for Computational Linguistics (Volume
+1: Long Papers), pages 5291–5314, Toronto, Canada.
+Association for Computational Linguistics.
+Sebastian Borgeaud, Arthur Mensch, Jordan Hoff-
+mann, Trevor Cai, Eliza Rutherford, Katie Milli-
+can, George Bm Van Den Driessche, Jean-Baptiste
+Lespiau, Bogdan Damoc, Aidan Clark, et al. 2022.
+Improving language models by retrieving from tril-
+lions of tokens. In International conference on ma-
+chine learning, pages 2206–2240. PMLR.
+Tom Brown, Benjamin Mann, Nick Ryder, Melanie
+Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind
+Neelakantan, Pranav Shyam, Girish Sastry, Amanda
+Askell, et al. 2020. Language models are few-shot
+learners. Advances in Neural Information Processing
+Systems, 33:1877–1901.
+Jiawei Chen, Hongyu Lin, Xianpei Han, and Le Sun.
+2024. Benchmarking large language models in
+retrieval-augmented generation. In Proceedings of
+the AAAI Conference on Artificial Intelligence, vol-
+ume 38, pages 17754–17762.
+Wenhu Chen, Xueguang Ma, Xinyi Wang, and
+William W Cohen. 2023. Program of thoughts
+prompting: Disentangling computation from reason-
+ing for numerical reasoning tasks. Transactions on
+Machine Learning Research.
+Wenhu Chen, Hanwen Zha, Zhiyu Chen, Wenhan
+Xiong, Hong Wang, and William Yang Wang. 2020.
+HybridQA: A dataset of multi-hop question answer-
+ing over tabular and textual data. In Findings of the
+Association for Computational Linguistics: EMNLP
+2020, pages 1026–1036, Online. Association for
+Computational Linguistics.
+Zhiyu Chen, Wenhu Chen, Charese Smiley, Sameena
+Shah, Iana Borova, Dylan Langdon, Reema Moussa,
+Matt Beane, Ting-Hao Huang, Bryan Routledge, and
+William Yang Wang. 2021. FinQA: A dataset of
+numerical reasoning over financial data. In Proceed-
+ings of the 2021 Conference on Empirical Methods
+in Natural Language Processing, pages 3697–3711,
+Online and Punta Cana, Dominican Republic. Asso-
+ciation for Computational Linguistics.
+Zhiyu Chen, Shiyang Li, Charese Smiley, Zhiqiang
+Ma, Sameena Shah, and William Yang Wang. 2022.
+ConvFinQA: Exploring the chain of numerical rea-
+soning in conversational finance question answering.
+In Proceedings of the 2022 Conference on Empiri-
+cal Methods in Natural Language Processing, pages
+6279–6292, Abu Dhabi, United Arab Emirates. As-
+sociation for Computational Linguistics.
+Yang Deng, Wai Lam, Yuexiang Xie, Daoyuan Chen,
+Yaliang Li, Min Yang, and Ying Shen. 2020. Joint
+learning of answer selection and answer summary
+generation in community question answering. In
+Proceedings of the AAAI Conference on Artificial
+Intelligence, volume 34, pages 7651–7658.
+
+
+[Page 10]
+Matthew Dunn, Levent Sagun, Mike Higgins, V Ugur
+Guney, V olkan Cirik, and Kyunghyun Cho. 2017.
+Searchqa: A new q&a dataset augmented with
+context from a search engine. arXiv preprint
+arXiv:1704.05179.
+Yanai Elazar, Abhijit Mahabal, Deepak Ramachandran,
+Tania Bedrax-Weiss, and Dan Roth. 2019. How large
+are lions? inducing distributions over quantitative
+attributes. In Proceedings of the 57th Annual Meet-
+ing of the Association for Computational Linguistics,
+pages 3973–3983, Florence, Italy. Association for
+Computational Linguistics.
+Alexander Fabbri, Irene Li, Tianwei She, Suyi Li, and
+Dragomir Radev. 2019. Multi-news: A large-scale
+multi-document summarization dataset and abstrac-
+tive hierarchical model. In Proceedings of the 57th
+Annual Meeting of the Association for Computational
+Linguistics, pages 1074–1084, Florence, Italy. Asso-
+ciation for Computational Linguistics.
+Lizhou Fan, Wenyue Hua, Lingyao Li, Haoyang
+Ling, Yongfeng Zhang, and Libby Hemphill. 2023.
+Nphardeval: Dynamic benchmark on reasoning abil-
+ity of large language models via complexity classes.
+arXiv preprint arXiv:2312.14890.
+Corey Harper, Jessica Cox, Curt Kohler, Antony Scerri,
+Ron Daniel Jr., and Paul Groth. 2021. SemEval-2021
+task 8: MeasEval – extracting counts and measure-
+ments and their related contexts. In Proceedings of
+the 15th International Workshop on Semantic Evalu-
+ation (SemEval-2021), pages 306–316, Online. As-
+sociation for Computational Linguistics.
+Ziwei Ji, Nayeon Lee, Rita Frieske, Tiezheng Yu, Dan
+Su, Yan Xu, Etsuko Ishii, Ye Jin Bang, Andrea
+Madotto, and Pascale Fung. 2023. Survey of hallu-
+cination in natural language generation. ACM Com-
+puting Surveys, 55(12):1–38.
+Mandar Joshi, Eunsol Choi, Daniel Weld, and Luke
+Zettlemoyer. 2017. TriviaQA: A large scale distantly
+supervised challenge dataset for reading comprehen-
+sion. In Proceedings of the 55th Annual Meeting of
+the Association for Computational Linguistics (Vol-
+ume 1: Long Papers), pages 1601–1611, Vancouver,
+Canada. Association for Computational Linguistics.
+Rik Koncel-Kedziorski, Michael Krumdick, Viet Lai,
+Varshini Reddy, Charles Lovering, and Chris Tan-
+ner. 2023. Bizbench: A quantitative reasoning
+benchmark for business and finance. arXiv preprint
+arXiv:2311.06602.
+Nelson F Liu, Kevin Lin, John Hewitt, Ashwin Paran-
+jape, Michele Bevilacqua, Fabio Petroni, and Percy
+Liang. 2024. Lost in the middle: How language
+models use long contexts. Transactions of the Asso-
+ciation for Computational Linguistics, 12.
+Lefteris Loukas, Manos Fergadiotis, Ilias Chalkidis,
+Eirini Spyropoulou, Prodromos Malakasiotis, Ion
+Androutsopoulos, and Georgios Paliouras. 2022.
+FiNER: Financial numeric entity recognition for
+XBRL tagging. In Proceedings of the 60th Annual
+Meeting of the Association for Computational Lin-
+guistics (Volume 1: Long Papers), pages 4419–4431,
+Dublin, Ireland. Association for Computational Lin-
+guistics.
+Dakuan Lu, Jiaqing Liang, Yipei Xu, Qi He, Yipeng
+Geng, Mengkun Han, Ying Xin, Hengkui Wu, and
+Yanghua Xiao. 2023. Bbt-fin: Comprehensive con-
+struction of chinese financial domain pre-trained
+language model, corpus and benchmark. ArXiv,
+abs/2302.09432.
+Macedo Maia, Siegfried Handschuh, André Freitas,
+Brian Davis, Ross McDermott, Manel Zarrouk, and
+Alexandra Balahur. 2018. Www’18 open challenge:
+financial opinion mining and question answering. In
+Companion proceedings of the the web conference
+2018, pages 1941–1942.
+Pekka Malo, Ankur Sinha, Pekka Korhonen, Jyrki Wal-
+lenius, and Pyry Takala. 2014. Good debt or bad
+debt: Detecting semantic orientations in economic
+texts. Journal of the Association for Information
+Science and Technology, 65(4):782–796.
+Grégoire Mialon, Clémentine Fourrier, Craig Swift,
+Thomas Wolf, Yann LeCun, and Thomas Scialom.
+2023. Gaia: a benchmark for general ai assistants.
+arXiv preprint arXiv:2311.12983.
+Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida,
+Carroll Wainwright, Pamela Mishkin, Chong Zhang,
+Sandhini Agarwal, Katarina Slama, Alex Ray, et al.
+2022. Training language models to follow instruc-
+tions with human feedback. Advances in neural
+information processing systems, 35:27730–27744.
+Guilherme Penedo, Quentin Malartic, Daniel Hesslow,
+Ruxandra Cojocaru, Alessandro Cappelli, Hamza
+Alobeidli, Baptiste Pannier, Ebtesam Almazrouei,
+and Julien Launay. 2023. The refinedweb dataset
+for ccon llm: outperforming curated corpora with
+web data, and web data only. arXiv preprint
+arXiv:2306.01116.
+Martin Riddell, Ansong Ni, and Arman Cohan. 2024.
+Quantifying contamination in evaluating code gener-
+ation capabilities of language models. arXiv preprint
+arXiv:2403.04811.
+Jon Saad-Falcon, Joe Barrow, Alexa Siu, Ani Nenkova,
+Ryan A Rossi, and Franck Dernoncourt. 2023. Pdf-
+triage: Question answering over long, structured doc-
+uments. arXiv preprint arXiv:2309.08872.
+Julio Cesar Salinas Alvarado, Karin Verspoor, and Tim-
+othy Baldwin. 2015. Domain adaption of named
+entity recognition to support credit risk assessment.
+In Proceedings of the Australasian Language Tech-
+nology Association Workshop 2015 , pages 84–90,
+Parramatta, Australia.
+
+
+[Page 11]
+Ankur Sinha and Tanmay Khandait. 2021. Impact of
+news on the commodity market: Dataset and results.
+In Advances in Information and Communication:
+Proceedings of the 2021 Future of Information and
+Communication Conference (FICC), Volume 2, pages
+589–601. Springer.
+Yixuan Tang and Yi Yang. 2024. Multihop-rag: Bench-
+marking retrieval-augmented generation for multi-
+hop queries. arXiv preprint arXiv:2401.15391.
+Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier
+Martinet, Marie-Anne Lachaux, Timothée Lacroix,
+Baptiste Rozière, Naman Goyal, Eric Hambro,
+Faisal Azhar, et al. 2023. Llama: Open and effi-
+cient foundation language models. arXiv preprint
+arXiv:2302.13971.
+Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten
+Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou,
+et al. 2022. Chain-of-thought prompting elicits rea-
+soning in large language models. Advances in neural
+information processing systems, 35:24824–24837.
+Yixuan Weng, Minjun Zhu, Fei Xia, Bin Li, Shizhu He,
+Shengping Liu, Bin Sun, Kang Liu, and Jun Zhao.
+2023. Large language models are better reasoners
+with self-verification. In Findings of the Associa-
+tion for Computational Linguistics: EMNLP 2023 ,
+pages 2550–2575, Singapore. Association for Com-
+putational Linguistics.
+Linting Xue, Noah Constant, Adam Roberts, Mihir
+Kale, Rami Al-Rfou, Aditya Siddhant, Aditya Barua,
+and Colin Raffel. 2021. mT5: A massively multi-
+lingual pre-trained text-to-text transformer. In Pro-
+ceedings of the 2021 Conference of the North Amer-
+ican Chapter of the Association for Computational
+Linguistics: Human Language Technologies, pages
+483–498, Online. Association for Computational Lin-
+guistics.
+Zhilin Yang, Peng Qi, Saizheng Zhang, Yoshua Bengio,
+William Cohen, Ruslan Salakhutdinov, and Christo-
+pher D. Manning. 2018. HotpotQA: A dataset for
+diverse, explainable multi-hop question answering.
+In Proceedings of the 2018 Conference on Empiri-
+cal Methods in Natural Language Processing, pages
+2369–2380, Brussels, Belgium. Association for Com-
+putational Linguistics.
+Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran,
+Tom Griffiths, Yuan Cao, and Karthik Narasimhan.
+2024. Tree of thoughts: Deliberate problem solving
+with large language models. Advances in Neural
+Information Processing Systems, 36.
+Tianjun Zhang, Shishir G Patil, Naman Jain, Sheng
+Shen, Matei Zaharia, Ion Stoica, and Joseph E Gon-
+zalez. 2024. Raft: Adapting language model to do-
+main specific rag. arXiv preprint arXiv:2403.10131.
+Yilun Zhao, Yunxiang Li, Chenying Li, and Rui Zhang.
+2022. MultiHiertt: Numerical reasoning over multi
+hierarchical tabular and textual data. In Proceedings
+of the 60th Annual Meeting of the Association for
+Computational Linguistics (Volume 1: Long Papers),
+pages 6588–6600, Dublin, Ireland. Association for
+Computational Linguistics.
+Fengbin Zhu, Wenqiang Lei, Youcheng Huang, Chao
+Wang, Shuo Zhang, Jiancheng Lv, Fuli Feng, and Tat-
+Seng Chua. 2021. TAT-QA: A question answering
+benchmark on a hybrid of tabular and textual con-
+tent in finance. In Proceedings of the 59th Annual
+Meeting of the Association for Computational Lin-
+guistics and the 11th International Joint Conference
+on Natural Language Processing (Volume 1: Long
+Papers), pages 3277–3287, Online. Association for
+Computational Linguistics.
+
+
+[Page 12]
+A Stability Test
+Figure 5 shows the detailed stability test over the
+year of the same question complexity mentioned
+in Section 5.3.
+2019 2020 2021 2022 2023
+Year
+0
+10
+20
+30
+40
+50Accuracy(%)
+Vanilla RAG
+MultiQuery RAG
+CodeGen+PageR
+CodeGen+DocS+PageR
+Figure 5: Performance of models on different variants
+of the same dataset.
+B Model Details
+Throughout the whole study, we use OpenAI’s Ada
+Embedding to encode texts for retrieval. We use
+the Langchain implementation of vector-based re-
+trievers (i.e., vanilla and multi-query retrievers).
+We use GPT-4 (gpt-4-0125-preview) as the LLM
+for both the question answering in RAG-based sys-
+tems and the code generation and value extraction
+in CodeGen-based systems.
+C Example of code generated by the
+CodeGen
+Figure 6 shows an example of code generated
+by the CodeGen+DocS+PageR system. Figure
+7 and 8 shows the prompt and few-shot demon-
+strations used to generate code for the Code-
+Gen+DocS+PageR systems.
+D Example of question with metric
+description
+What is the Boeing’s Total Debt in 2023?
+Where Total Debt is defined as:
+Total Debt is a supplemental line item
+across all templates with the following
+components:
+Standard template:
+Short-term Borrowings
+Current Portion of Long-Term Debt
+Current Portion of Leases
+Long-Term Debt
+Long Term Leases
+Finance Div. Debt Current
+Finance Div. Debt Non-Curr.
+Banks template:
+Short-Term Borrowings - (Bank Tem-
+plate)
+Current Portion of Long-Term Debt -
+(Bank Template)
+Current Portion of Leases
+Long-Term Debt
+Federal Home Loan Bank Debt - LT
+Long Term Leases
+Trust Pref. Securities
+All other templates:
+Short-Term Borrowings - (Template Spe-
+cific)
+Curr. Port. of LT Debt
+Current Portion of Leases
+Long-Term Debt
+Long Term Leases
+Trust Pref. Securities
+
+
+[Page 13]
+1 # Among Honeywell , C a t e r p i l l a r , P f i z e r , PepsiCo , and Boeing ,
+2 # What i s t h e T o t a l Revenues o f t h e company t h a t has t h e l o w e s t T o t a l Debt ?
+3
+4 from f u n c t i o n s i m p o r t (
+5 s e l e c t _ d o c u m e n t s ,
+6 r e t r i e v e _ r e l e v a n t _ p a g e s ,
+7 e x t r a c t _ v a l u e
+8 )
+9
+10 # S t e p 1 : I d e n t i f y t h e t o t a l d e b t f o r each company
+11 companies = [ " Honeywell " , " C a t e r p i l l a r " , " P f i z e r " , " PepsiCo " , " Boeing " ]
+12 # Assuming t h e s e a r e t h e c o r r e c t s t o c k symbols
+13 s t o c k _ s y m b o l s = [ "HON" , "CAT" , "PFE" , "PEP" , "BA" ]
+14 t o t a l _ d e b t s = {}
+15
+16 f o r company , symbol i n z i p ( companies , s t o c k _ s y m b o l s ) :
+17 q u e s t i o n _ d e b t = f " What i s t h e t o t a l d e b t o f { company } ( { symbol } ) i n 2023 i n US
+d o l l a r s ? "
+18 documents = s e l e c t _ d o c u m e n t s ( s t o c k _ s y m b o l s =[ symbol ] , f o r m _ t y p e s =[ " 10−K" ] ,
+f i s c a l _ y e a r s = [ 2 0 2 3 ] )
+19 p a g e s = r e t r i e v e _ r e l e v a n t _ p a g e s ( q u e s t i o n _ d e b t , documents )
+20 t o t a l _ d e b t = e x t r a c t _ v a l u e ( q u e s t i o n _ d e b t , p a g e s )
+21 t o t a l _ d e b t s [ company ] = t o t a l _ d e b t
+22
+23 # S t e p 2 : Determine which company has t h e l o w e s t t o t a l d e b t
+24 l o w e s t _ d e b t _ c o m p a n y = min ( t o t a l _ d e b t s , key= t o t a l _ d e b t s . g e t )
+25
+26 # S t e p 3 : Find t h e t o t a l r e v e n u e s o f t h a t company
+27 q u e s t i o n _ r e v e n u e = f " What i s t h e t o t a l r e v e n u e s o f { l o w e s t _ d e b t _ c o m p a n y } i n 2023 i n
+US d o l l a r s ? "
+28 symbol = s t o c k _ s y m b o l s [ companies . i n d e x ( l o w e s t _ d e b t _ c o m p a n y ) ]
+29 documents = s e l e c t _ d o c u m e n t s ( s t o c k _ s y m b o l s =[ symbol ] , f o r m _ t y p e s =[ " 10−K" ] ,
+f i s c a l _ y e a r s = [ 2 0 2 3 ] )
+30 p a g e s = r e t r i e v e _ r e l e v a n t _ p a g e s ( q u e s t i o n _ r e v e n u e , documents )
+31 t o t a l _ r e v e n u e s = e x t r a c t _ v a l u e ( q u e s t i o n _ r e v e n u e , p a g e s )
+32
+33 # Save t h e answer t o a f i l e
+34 w i t h open ( " answer . t x t " , "w" ) a s f :
+35 f . w r i t e ( t o t a l _ r e v e n u e s )
+Figure 6: An example of code generated by GPT-4 in the CodeGen+DocS+PageR system. The LLM models
+successfully decompose the question into two main steps: (1) determine the company with the lowest total debt and
+(2) extract the Total Revenues of that company. In the first step, the question is further decomposed into atomic
+questions for the Document Selection task and the Page Retrieval task. This fine-grain process ensures the higher
+accuracy of the system compared to the coarse-grain systems such as Vanilla RAG.
+
+
+[Page 14]
+1 You a r e a f i n a n c i a l e x p e r t .
+2 The most c u r r e n t f i s c a l y e a r i s { c u r r e n t _ y e a r }
+3 You can answer q u a n t i t a t i v e f i n a n c e q u e s t i o n s by w r i t i n g Python code u s i n g h e l p f u l
+f u n c t i o n s .
+4 There a r e two f u n c t i o n s :
+5 − s e l e c t _ d o c u m e n t : r e t u r n a l i s t o f s u p p o r t i n g documents .
+6 − r e t r i e v e _ r e l e v a n t _ p a g e s : r e t u r n a l i s t o f r e l e v a n t p a g e s t h a t c o n t a i n i n f o r m a t i o n
+t o answer t h e q u e s t i o n from t h e l i s t o f documents
+7 − e x t r a c t v a l u e : r e t u r n an e x t r a c t e d v a l u e from t h e g i v e n document
+8 s e l e c t _ d o c u m e n t (
+9 companies : l i s t = None ,
+10 s t o c k _ s y m b o l s : l i s t = None ,
+11 f o r m _ t y p e s : l i s t = None ,
+12 f i s c a l _ y e a r s : l i s t = None ,
+13 f i n a n c i a l _ p e r i o d _ e n d _ d a t e _ r a n g e _ s t a r t : s t r = None ,
+14 f i n a n c i a l _ p e r i o d _ e n d _ d a t e _ r a n g e _ e n d : s t r = None
+15 ) :
+16 " " "
+17 T h i s f u n c t i o n matches documents by a s e r i e s o f c o n d i t i o n s .
+18 I f t h e c o n d i t i o n i s n o t empty , t h e y must match a l l g i v e n c o n d i t i o n
+19 companies and s t o c k _ s y m b o l s a r e n o t m u t u a l l y e x c l u s i v e . A document i s matched i f
+s a t i s f i e s one o f t h e s e c o n d i t i o n s .
+20 The documents must b e l o n g t o one o f t h e companies s p e c i f i e d by t h e companies o r
+s t o c k _ s y m b o l s
+21 The f i n a n c i a l p e r i o d end d a t e t o f i l t e r must be between (
+f i n a n c i a l _ p e r i o d _ e n d _ d a t e _ r a n g e _ s t a r t , f i n a n c i a l _ p e r i o d _ e n d _ d a t e _ r a n g e _ e n d )
+22 : param companies : a l i s t o f a few d e s i r e d company s h o r t names .
+23 : param s t o c k _ s y m b o l s : a l i s t o f t h e c o r r e s p o n d i n g companies ’ s t o c k t i c k e r symbols
+24 : param f o r m _ t y p e s : a l i s t o f t h e form t y p e s such a s "8 −K" f o r t h e c u r r e n t r e p o r t ,
+"10 −K" f o r t h e a n n u a l r e p o r t , "10 −Q" f o r t h e q u a r t e r l y r e p o r t
+25 : param f i s c a l _ y e a r s : a l i s t o f t h e c o r r e s p o n d i n g companies ’ f i s c a l y e a r s
+26 : param f i n a n c i a l _ p e r i o d _ e n d _ d a t e _ r a n g e _ s t a r t : t h e b e g i n n i n g o f a r a n g e used t o
+f i l t e r f i n a n c i a l p e r i o d end d a t e i n " yyyy −mm −dd " f o r m a t
+27 : param f i n a n c i a l _ p e r i o d _ e n d _ d a t e _ r a n g e _ e n d : t h e b e g i n n i n g o f a r a n g e used t o
+f i l t e r f i n a n c i a l p e r i o d end d a t e i n " yyyy −mm −dd " f o r m a t
+28
+29 : r e t u r n : a l i s t o f s u p p o r t e d documents . R e t u r n an empty l i s t [ ] i f no document i s
+matched .
+30 " " "
+31
+32 r e t r i e v e _ r e l e v a n t _ p a g e s ( q u e s t i o n : s t r , documents : l i s t ) :
+33 " " "
+34 : param q u e s t i o n : a f i n a n c i a l q u e s t i o n
+35 : param documents : a l i s t o f documents , each w i t h m u l t i p l e p a g e s
+36 : r e t u r n : ( l i s t o f s t r ) a s h o r t l i s t o f p a g e s
+37 " " "
+38
+39 e x t r a c t _ v a l u e (
+40 q u e s t i o n : s t r ,
+41 p a g e s : l i s t
+42 ) :
+43 " " "
+44 : param qa : a q u e s t i o n
+45 : param p a g e s : a l i s t o f p a g e s
+46 : r e t u r n : an e x t r a c t e d v a l u e from t h e g i v e n l i s t o f p a g e s .
+47 I f t h e v a l u e i s a money amount , t h e r e t u r n e d v a l u e i s a f l o a t number i n US
+d o l l a r s .
+48 I f t h e v a l u e i s a count , t h e r e t u r n e d v a l u e i s a s i m p l e f l o a t number .
+49 I f t h e v a l u e i s a p e r c e n t a g e , t h e r e t u r n e d v a l u e i s a f l o a t number . E . g . , 1%
+would be r e t u r n e d a s 0 . 0 1 .
+50 I f t h e q u e s t i o n i s a yes −no q u e s t i o n , i t would r e t u r n " Yes " o r "No" o n l y .
+51 " " "
+52 F i n a l l y , you must w r i t e t h e s h o r t answer t o a f i l e named " answer . t x t " . The answer
+must be s h o r t , j u s t a Yes / No , o r a number
+Figure 7: The prompt for CodeGen+DocS+PageR
+
+
+[Page 15]
+1 Here a r e some examples :
+2 Q u e s t i o n : Did Coca − Cola pay d i v i d e n d s i n 2017?
+3 Python Code :
+4 from f u n c t i o n s i m p o r t s e l e c t _ d o c u m e n t
+5 from f u n c t i o n s i m p o r t r e t r i e v e _ r e l e v a n t _ p a g e s
+6 from f u n c t i o n s i m p o r t e x t r a c t _ v a l u e
+7 documents = s e l e c t _ d o c u m e n t ( s t o c k _ s y m b o l s =[ "KO" ] , f o r m _ t y p e s =[ " 10−K" ] , f i s c a l _ y e a r s
+= [ 2 0 1 7 ] )
+8 q u e s t i o n = "How much d i d Coca − Cola pay d i v i d e n d s i n USD i n 2017? "
+9 p a g e s = r e t r i e v e _ r e l e v a n t _ p a g e s ( q u e s t i o n , documents )
+10 v a l u e = e x t r a c t _ v a l u e ( q u e s t i o n , p a g e s )
+11 i f i s i n s t a n c e ( v a l u e , s t r ) :
+12 i f v a l u e == " yes " :
+13 answer = " Yes "
+14 e l i f v a l u e == " no " :
+15 answer = "No"
+16 e l s e :
+17 d i v i d e n d s = f l o a t ( v a l u e )
+18 e l s e :
+19 d i v i d e n d s = f l o a t ( v a l u e )
+20 i f d i v i d e n d s > 0 :
+21 answer = " Yes "
+22 e l s e :
+23 answer = "No"
+24 w i t h open ( " answer . t x t " , "w" ) a s f :
+25 f . w r i t e ( answer )
+26
+27 Q u e s t i o n : What i s t h e o v e r a l l r e v e n u e growth o f Abbott o v e r t h e l a s t 2− y e a r p e r i o d ?
+28 Python Code :
+29 from f u n c t i o n s i m p o r t s e l e c t _ d o c u m e n t
+30 from f u n c t i o n s i m p o r t r e t r i e v e _ r e l e v a n t _ p a g e s
+31 from f u n c t i o n s i m p o r t e x t r a c t _ v a l u e
+32 c u r r e n t _ y e a r = { c u r r e n t _ y e a r }
+33 q u e s t i o n = f "How much d i d Coca − Cola pay d i v i d e n d s i n {{ c u r r e n t _ y e a r }} i n USD? "
+34 documents = s e l e c t _ d o c u m e n t ( s t o c k _ s y m b o l s =[ "KO" ] , f o r m _ t y p e s =[ " 10−K" ] , f i s c a l _ y e a r s
+=[ c u r r e n t _ y e a r ] )
+35 p a g e s = r e t r i e v e _ r e l e v a n t _ p a g e s ( q u e s t i o n , documents )
+36 v a l u e _ c u r r e n t = e x t r a c t _ v a l u e ( q u e s t i o n , p a g e s = p a g e s )
+37 b a s e _ y e a r = c u r r e n t _ y e a r − 2
+38 q u e s t i o n = f "How much d i d Coca − Cola pay d i v i d e n d s i n {{ b a s e _ y e a r }} i n USD? "
+39 documents = s e l e c t _ d o c u m e n t ( s t o c k _ s y m b o l s =[ "KO" ] , f o r m _ t y p e s =[ " 10−K" ] , f i s c a l _ y e a r s
+=[ b a s e _ y e a r ] )
+40 p a g e s = r e t r i e v e _ r e l e v a n t _ p a g e s ( q u e s t i o n , documents )
+41 v a l u e _ b a s e = e x t r a c t _ v a l u e ( q u e s t i o n , p a g e s )
+42 g r o w t h _ p e r c e n t a g e = ( v a l u e _ c u r r e n t − v a l u e _ b a s e ) / v a l u e _ b a s e* 1 0 0 . 0
+43 w i t h open ( " answer . t x t " , "w" ) a s f :
+44 f . w r i t e ( s t r ( g r o w t h _ p e r c e n t a g e ) )
+45
+46 Q u e s t i o n : How much d i d NFLX r e t u r n t o t h e i n v e s t o r s i n t h e l a s t 3 y e a r s ?
+47 Python Code :
+48 from f u n c t i o n s i m p o r t s e l e c t _ d o c u m e n t
+49 from f u n c t i o n s i m p o r t r e t r i e v e _ r e l e v a n t _ p a g e s
+50 from f u n c t i o n s i m p o r t e x t r a c t _ v a l u e
+51 c u r r e n t _ y e a r = { c u r r e n t _ y e a r }
+52 r e t u r n e d _ v a l u e s = [ ]
+53 f o r y e a r i n r a n g e ( c u r r e n t _ y e a r , c u r r e n t _ y e a r − 3 , −1) :
+54 q u e s t i o n = f "How much d i d N e t f l i x r e t u r n t o t h e i n v e s t o r s i n {{ y e a r }} i n USD? "
+55 documents = s e l e c t _ d o c u m e n t ( companies =[ " N e t f l i x " ] , s t o c k _ s y m b o l s =[ "NFLX" ] ,
+f o r m _ t y p e s =[ " 10−K" ] , f i s c a l _ y e a r s =[ y e a r ] )
+56 p a g e s = r e t r i e v e _ r e l e v a n t _ p a g e s ( q u e s t i o n , documents )
+57 r e t u r n _ i n _ u s _ d o l l a r s = e x t r a c t _ v a l u e ( q u e s t i o n , p a g e s )
+58 r e t u r n e d _ v a l u e s . append ( f l o a t ( r e t u r n _ i n _ u s _ d o l l a r s ) )
+59 t o t a l _ r e t u r n = sum ( r e t u r n e d _ v a l u e s )
+60 w i t h open ( " answer . t x t " , "w" ) a s f :
+61 f . w r i t e ( s t r ( t o t a l _ r e t u r n ) )
+Figure 8: The few-shot demonstrations used for CodeGen+DocS+PageR system.

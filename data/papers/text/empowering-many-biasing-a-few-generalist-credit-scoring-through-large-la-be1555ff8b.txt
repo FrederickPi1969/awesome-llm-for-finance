@@ -1,0 +1,1240 @@
+[Page 1]
+Empowering Many, Biasing a Few: Generalist Credit Scoring
+through Large Language Models
+Duanyu Feng∗
+Yongfu Dai∗
+fengduanyu@stu.scu.edu.cn
+wal.daishen@gmail.com
+Sichuan University
+China
+Jimin Huang
+jimin@chancefocus.com
+ChanceFocus (Shanghai) AMC.
+China
+Yifang Zhang
+zhangyf_ivy@foxmail.com
+Sichuan University
+China
+Qianqian Xie
+xqq.sincere@gmail.com
+Wuhan University
+China
+Weiguang Han
+han.wei.guang@whu.edu.cn
+Wuhan University
+China
+Zhengyu Chen
+2019302120293@whu.edu.cn
+Wuhan University
+China
+Alejandro Lopez-Lira
+alejandro.lopez-
+lira@warrington.ufl.edu
+University of Florida
+USA
+Hao Wang†
+wangh@scu.edu.cn
+Sichuan University
+China
+ABSTRACT
+In the financial industry, credit scoring is a fundamental element,
+shaping access to credit and determining the terms of loans for in-
+dividuals and businesses alike. Traditional credit scoring methods,
+however, often grapple with challenges such as narrow knowl-
+edge scope and isolated evaluation of credit tasks. Our work posits
+that Large Language Models (LLMs) have great potential for credit
+scoring tasks, with strong generalization ability across multiple
+tasks. To systematically explore LLMs for credit scoring, we pro-
+pose the first open-source comprehensive framework. We curate a
+novel benchmark covering 9 datasets with 14K samples, tailored
+for credit assessment and a critical examination of potential biases
+within LLMs, and the novel instruction tuning data with over 45k
+samples. We then propose the first Credit and Risk Assessment
+Large Language Model (CALM) by instruction tuning, tailored to
+the nuanced demands of various financial risk assessment tasks. We
+evaluate CALM, existing state-of-art (SOTA) methods, open source
+and closed source LLMs on the build benchmark. Our empirical
+results illuminate the capability of LLMs to not only match but sur-
+pass conventional models, pointing towards a future where credit
+scoring can be more inclusive, comprehensive, and unbiased. We
+∗Both authors contributed equally to this research.
+†Corresponding Author.
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for components of this work owned by others than ACM
+must be honored. Abstracting with credit is permitted. To copy otherwise, or republish,
+to post on servers or to redistribute to lists, requires prior specific permission and/or a
+fee. Request permissions from permissions@acm.org.
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+© 2018 Association for Computing Machinery.
+ACM ISBN 978-1-4503-XXXX-X/18/06. . . $15.00
+https://doi.org/XXXXXXX.XXXXXXX
+contribute to the industry’s transformation by sharing our pioneer-
+ing instruction-tuning datasets, credit and risk assessment LLM,
+and benchmarks with the research community and the financial
+industry 1.
+CCS CONCEPTS
+•Social and professional topics → Economic impact; Privacy
+policies; •Computing methodologies → Language resources;
+Natural language generation.
+KEYWORDS
+Credit Scoring, Large Language Models, Bias Analysis
+ACM Reference Format:
+Duanyu Feng, Yongfu Dai, Jimin Huang, Yifang Zhang, Qianqian Xie, Weiguang
+Han, Zhengyu Chen, Alejandro Lopez-Lira, and Hao Wang. 2018. Empower-
+ing Many, Biasing a Few: Generalist Credit Scoring through Large Language
+Models. In Proceedings of Make sure to enter the correct conference title from
+your rights confirmation emai (Conference acronym ’XX). ACM, New York,
+NY, USA, 11 pages. https://doi.org/XXXXXXX.XXXXXXX
+1 INTRODUCTION
+Credit and risk assessment is vital in the financial industry, deter-
+mining the probability of repayment by borrowers, from individuals
+to nations [13, 31]. These evaluations, critical for maintaining fi-
+nancial stability, have increasingly moved online. Companies now
+use online methods for individual assessments like credit scoring
+and claim analysis to predict default risks [19] and ensure equitable
+claim resolutions [52], relying on historical account data and online
+application details. For community-level protection, institutions
+deploy online fraud detection [9] to safeguard against illicit finan-
+cial activities. Similarly, tools for detecting financial distress help
+in preempting economic downturns, influencing wider investment
+1https://github.com/colfeng/CALM
+arXiv:2310.00566v3  [cs.LG]  18 Feb 2024
+
+
+[Page 2]
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Feng and Dai, et al.
+and policy decisions [12]. These varied online assessments are piv-
+otal, shaping not only personal financial outcomes but also global
+economic health.
+Existing methods in financial credit and risk assessment, are
+often rule-based or machine learning based expert systems, which
+show limited flexibility across tasks [33, 37, 54, 60, 66]. These meth-
+ods are designed specifically for a singular task, struggle to general-
+ize or integrate knowledge from different tasks. For example, when
+training a Credit Scoring model, it can only be used for that specific
+task and only utilize relevant features related to a particular task
+[6], making them unsuitable for other tasks. Furthermore, these
+approaches miss out on the advantages of transferring insights be-
+tween financial activities [59, 64]. Skills used in claim analysis, such
+as anti-fraud techniques from insurance in banking, can also be ap-
+plied to various financial activities such as lending and borrowing.
+There is a clear demand for a generalist approach in credit scoring
+that can navigate various financial tasks effectively, drawing from
+a broad knowledge base to enhance predictive accuracy and model
+adaptability [35].
+Recently, the advent of Large Language Models (LLMs) presents
+an opportunity to transcend these limitations through multi-task
+learning and few-shot generalization [56]. The integration of LLMs
+into financial assessments is gaining traction, with research explor-
+ing how these models can identify task correlations and generalize
+across financial tasks [68–70, 74], potentially marking a paradigm
+shift in credit and risk evaluation methodologies.
+Despite their potential, the application of LLMs to credit and risk
+assessment is not without challenges. The process often involves
+analyzing tabular data, which contains symbolic information that
+is markedly different from the natural language typically processed
+by LLMs, and current LLMs’ performance with such data remains
+limited [38]. Moreover, issues such as class imbalance in financial
+datasets and the need to avoid bias in sensitive attributes like age
+or gender present significant hurdles for training LLMs effectively
+[15, 23, 24, 67]. It is unclear how LLMs may navigate the specific
+challenges of the financial industry’s credit and risk assessments.
+To clarify this, we delve into several key hypotheses:
+• H1: Based on LLMs’ broad pretraining, can LLMs overcome
+the limitations of traditional expert systems by applying their
+extensive pretraining to diverse online credit and risk assess-
+ment tasks, effectively utilizing a wider range of financial
+knowledge in the process?
+• H2: Can LLMs, fine-tuned with credit and risk assessment
+datasets, generalize their learning to understand and man-
+age multiple related credit tasks, potentially developing the
+generalization ability?
+• H3: Do the advancements in model capabilities of LLMs
+come at the cost of fairness and equality in financial decision-
+making?
+To assess the potential of LLMs in credit and risk assessment, we
+established a comprehensive benchmark aligned with our research
+hypotheses. Addressing H1, we compiled a diverse collection of
+datasets, amassing over 14K samples that challenge the LLMs to
+process various types of credit and risk-related tasks. The results
+indicate that models like GPT-4 [50] can indeed mitigate the issue of
+narrow expertise found in traditional systems, adapting to different
+tasks through targeted prompting. For H2, we propose the Credit
+and Risk Assessment Language Model (CALM), employing over
+45k instruction tuning data for fine-tuning. CALM’s performance
+suggests that LLMs can transcend the limitations of traditional task-
+specific models, facilitating knowledge transfer across a spectrum
+of financial tasks and potentially revolutionizing credit assessment
+processes. However, as we delved into H3, we discovered that
+despite their analytical prowess, LLMs are not immune to biases,
+highlighting the necessity for vigilant ethical oversight. Ensuring
+that LLMs are deployed responsibly in financial decision-making
+processes is paramount to prevent the perpetuation of existing
+societal biases.
+We highlight our contributions as follows:
+• We have established the first comprehensive framework for
+credit scoring using LLMs, which encompasses a curated
+instruction tuning dataset, specialized LLMs, and a set of
+benchmarks. This framework is not only a research mile-
+stone but also a practical toolset that can be directly applied
+within the financial industry to enhance the accuracy and
+depth of credit analysis.
+• Our research sheds light on the potential of LLMs to enhance
+the field of credit and risk assessment. By demonstrating
+their ability to understand and analyze complex financial
+data, we provide evidence that LLMs could significantly im-
+prove the accuracy and efficiency of credit scoring practices
+in the financial industry.
+• We bring attention to the ethical considerations inherent in
+deploying LLMs, particularly in sensitive applications like
+credit scoring that have far-reaching societal impacts. To
+promote ethical use and continuous innovation, we have
+open-sourced all our resources, encouraging scrutiny, adap-
+tation, and advancement of our work within the research
+community and industry at large.
+2 RELATED WORKS
+Credit and risk assessment. Currently, credit and risk assess-
+ment has a significant impact on finance and society, and online
+credit assessment services have taken over a major part of the tasks
+in this field. To solve these tasks, most of the companies still use
+expert systems [1, 30]. They collect the data and introduce a priori
+knowledge in feature engineering as well as in the modeling phase.
+However, when it comes to modeling, various companies may have
+different focuses. Some companies care more about the final results.
+They design complex neural networks [8, 66] or ensemble methods
+like XGBoost [29, 46, 57], Random-Forest and iForest [ 24, 39] to
+more effectively find the nonlinear connection between features
+and labels and improve models’ performance. Some data sampling
+like SMOTE-based methods [1, 3, 49] are also used in most of the
+works to solve the imbalanced problem. Other companies may more
+care interpretability and transparency of the methods to meet cus-
+tomer and regulatory needs [10]. Therefore, they use the methods
+like classical rule-dependent models [44, 60], logistic regression[54],
+and entropy-based approaches [14]. However, most of these expert
+systems lack generalization and correlation as they are designed
+for specific tasks and datasets, which exacerbates a narrow knowl-
+edge scope and isolated tasks, requiring significant redesign and
+redevelopment [6].
+
+
+[Page 3]
+Empowering Many, Biasing a Few: Generalist Credit Scoring through Large Language Models Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+Table 1: The statistics of the datasets. The "Test/Train/Raw" shows the division of our benchmark, instruction tuning data, and
+raw data quantities. The number of features in these datasets is presented as "Columns". The "Anonymized" indicates whether
+the dataset has been transformed into meaningless symbols.
+Task Dataset Test/Train/Raw Columns Anonymized License
+Credit Scoring
+German 300/700/1,000 20 No CC BY 4.0
+Australia 207/483/690 14 Yes CC BY 4.0
+Lending Club 4,036/ - /1,345,310 21 No CC0 1.0
+Fraud Detection
+Credit Card Fraud 3,418/7,974/284,807 29 Yes (DbCL) v1.0
+ccFraud 3,145/7,340/1,048,575 7 No Public
+Financial Distress Identification
+Polish 2,604/ - /43,405 64 No CC BY 4.0
+Taiwan Economic Journal 2,046/4,773/6,819 95 No CC BY 4.0
+Claim Analysis
+PortoSeguro 3,571/ - /595,212 57 Yes Public
+Travel Insurance 3,800/8,865/63,326 9 No (ODbL) v1.0
+Despite the performance and transparency, researchers also in-
+vestigate the effectiveness of expert systems in handling sensitive
+data such as age, gender, and ethnicity [2, 11]. They make efforts to
+prevent expert systems methods from producing discriminatory re-
+sults or to eliminate biased effects after making predictions [29]. As
+such, we consider using LLMs that can store the general knowledge
+and learning domain knowledge [45, 75] to explore these online
+tasks in credit and risk assessment. We also take into account the po-
+tential bias issues when utilizing LLMs to investigate task abilities,
+as LLMs are susceptible to some biases [55, 65].
+LLMs for financial and the evaluation benchmark.Although
+LLMs have been applied in many areas of finance [41, 70, 74], to
+our best knowledge, there is limited research using LLMs to ex-
+plore credit and risk assessment. Before the release of ChatGPT
+2, a highly anticipated LLM, studies were mainly conducted using
+BERT-based pre-trained language models (PLMs) [21] which are
+smaller in size compared to current LLMs. The financial pre-trained
+language models like finBERT [4], FinBERT [72], and FLANG [58]
+are proposed as the backbone for the NLP-related tasks in the finan-
+cial domain 3. They demonstrated that PLMs have a strong ability
+to solve some financial tasks, such as financial sentiment analysis,
+financial named entity recognition, and question answering [58].
+Recently, with the emergence of LLMs such as ChatGPT and GPT-4
+[50], which have better text processing capabilities, there is grow-
+ing interest in their performance in financial tasks [34, 70]. Many
+studies have attempted to utilize the powerful general knowledge
+capabilities of LLMs [45, 56] to directly address various tasks in the
+financial domain [34, 41, 74]. In addition, some preliminary work
+has tried to construct financial LLMs that can tackle multi-tasks
+specific to the domain, such as BBT-Fin [43], Bloomberg [68], PIXIU
+[70] and FinGPT[71]. However, it is worth noting that these studies
+still pay little attention to problems with tabular data [61], such as
+credit and risk assessment.
+In terms of evaluating financial LLMs, the current benchmarks
+are led by PIXIU [70] and BBT-CFLEB [43]. They have tested most
+of the LLMs, including Vicuna [17], Llama1,2[63] and GPT-4 [50].
+Our approach differs from theirs in that we do not aim to construct
+a benchmark for the entire financial domain. Instead, we take a
+2https://openai.com/blog/chatgpt
+3There are some similar financial PLMs also called finBERT/FinBERT [20, 27, 40].
+close look at evaluating the performance of LLMs in credit and risk
+assessment with its online tasks, and we also take into consideration
+the potential bias of LLMs in this field.
+3 DATA FOR BENCHMARK AND
+INSTRUCTION TUNING
+We develop the first dataset for benchmarking and instruction tun-
+ing of large language models (LLMs) in the field of credit and risk as-
+sessment. We sourced 9 open-source datasets, rich in complexity to
+challenge LLMs with diverse, tabular data scenarios, and to identify
+potential biases. The benchmark comprises all these datasets (14K
+entries) for a thorough model evaluation. For instruction tuning,
+we use 6 datasets (initially 30K, expanded to 45K after processing),
+which exclude 3 datasets to test the LLM’s ability to generalize to
+new tasks. This method ensures that the LLM is rigorously tested
+for both its learning breadth and applicability.
+3.1 Raw Data Collection
+Following existing work on online credit and task assessment [9, 12],
+our study adopts a comprehensive approach, gathering nine open-
+source datasets that collectively cover the spectrum of four essen-
+tial task types in credit and risk assessment. Specifically, these task
+types include credit scoring, fraud detection, financial distress
+identification, and claim analysis. Each represents a binary clas-
+sification problem and is underpinned by tabular data, providing
+a broad, illustrative snapshot of the challenges and complexities
+inherent in financial decision-making models. The statistical de-
+tails of these datasets and the data size for our benchmark and
+instruction-tuning are shown in Table 1.
+3.1.1 Credit Scoring. Credit scoring is a critical process used by
+financial institutions to determine the likelihood that a borrower
+will repay their debts [9]. It involves analyzing the financial infor-
+mation that individuals submit with their credit applications. This
+analysis helps lenders decide who should receive a loan, what inter-
+est rate to charge, and the loan terms. To explore this area, we’ve
+chosen three widely recognized datasets, known as German [25],
+Australia [51], and Lending Club4, which provide detailed insights
+4https://www.kaggle.com/datasets/wordsforthewise/lending-club
+
+
+[Page 4]
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Feng and Dai, et al.
+into the factors that affect an individual’s credit score and the risk
+they pose to lenders.
+German [25] is a classic dataset used for credit scoring, consisting
+of information on 1,000 loan applicants. It provides a mix of 20
+attributes per applicant, including 13 qualitative descriptions and 7
+quantitative figures. Among these attributes, it captures sensitive
+personal details such as marital status and gender (personal status
+and sex), age (age), and whether the individual is a foreign worker
+(foreign worker or not ). For our purposes, we utilize the version of
+the dataset that includes natural language descriptions, allowing
+us to explore the nuances of credit scoring in a real-world context.
+Australia [51] is a credit scoring dataset that stands out because it
+has been anonymized using symbols instead of actual names for its
+features. It includes data on 690 individuals, broken down into 8 cat-
+egorical and 6 numerical attributes, to assess their creditworthiness
+without revealing their personal information.
+Lending Club5 provides a comprehensive look at loan transac-
+tions from 2007 to 2018 on the United States’ largest peer-to-peer
+lending platform. It contains around 1.3 million records of borrower
+data. Following the methods of a previous study [16], we focus on
+21 specific features of the loan applicants, such as the amount of the
+installment, the purpose of the loan, and the state of the borrower’s
+address. Our primary variable of interest, loan status, is used to
+categorize the loans into ’Fully Paid’ or ’Charged Off’, indicating
+whether the loan was repaid or defaulted, respectively.
+3.1.2 Fraud Detection. Fraud detection is a task closely related
+to credit scoring, where the goal is to identify whether online loan
+applications are genuine or deceptive. This process is crucial for
+maintaining the integrity of financial systems and protecting both
+the institutions and their customers from financial losses. In our
+research, we have gathered two datasets specifically designed for
+this task: Credit Card Fraud 6 and ccFraud [32]. These datasets are
+notably imbalanced, a common challenge in fraud detection, with
+the actual cases of fraud representing a very small proportion of
+the total applications, as 0.17% and 5.98% respectively.
+Credit Card Fraud 7 is a well-known, anonymized collection of
+data often used for detecting fraudulent activities in financial trans-
+actions. It includes 30 features, with 28 of them transformed into
+non-identifiable symbols through Principal Component Analysis
+(PCA) to protect sensitive information. Originally, this dataset en-
+compasses a total of 284,807 transaction records.
+ccFraud [32] includes around 1 million transaction samples, and
+for our purposes, we have selected a subset of about 10,000 samples.
+This dataset contains sensitive information, including the gender of
+individuals (gender), which is a significant feature in our analysis
+to assess bias.
+3.1.3 Financial Distress Identification. This task aims to pre-
+dict if a company is at risk of or is currently experiencing bank-
+ruptcy based on its publicly available online data. This is an im-
+portant process for stakeholders to understand the financial health
+and stability of a company [36]. For this task, we use two widely
+recognized datasets, Polish [62] and Taiwan Economic Journal8.
+5https://www.kaggle.com/datasets/wordsforthewise/lending-club
+6https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
+7https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
+8https://www.kaggle.com/datasets/fedesoriano/company-bankruptcy-prediction
+Polish [62] is a bankruptcy prediction dataset with 43,405 records
+for Polish companies. It assesses the bankruptcy status of compa-
+nies that were still in operation during the years 2007 to 2013. The
+dataset comprises 64 features, with missing values replaced by 1. Re-
+flecting real-world business conditions, the dataset is significantly
+imbalanced, with only 3% of the companies having gone bankrupt.
+Taiwan Economic Journal 9 is a prominent resource in corporate
+bankruptcy prediction research, encompassing data from 1999 to
+2009. It includes a detailed set of 95 features that provide insights
+into the financial status, performance metrics, and other pertinent
+details of companies. This dataset contains records for 6,819 compa-
+nies, with only 4.8% of these representing instances of bankruptcy.
+3.1.4 Claim Analysis. Claim analysis is a critical task for insur-
+ance companies, where they analyze claims to identify any fraud-
+ulent activity. Fraudulent claims are those that are not genuine
+and could be attempts to receive payment under false pretenses.
+Legitimate claims, on the other hand, are valid and honest requests
+for payment due to losses covered by an insurance policy. This
+distinction is important to prevent financial losses due to fraud and
+to ensure that only rightful claims are paid [53]. To study this, we
+have selected two datasets, PortoSeguro [24] and Travel Insurance10,
+which provide perspectives from both the beneficiaries that are fil-
+ing the claims and the insurance companies that are assessing these
+claims for authenticity. Both datasets are imbalanced, meaning that
+fraudulent claims are far fewer than legitimate ones, which is a
+common scenario in real-world insurance claim analysis.
+PortoSeguro [ 24] includes approximately 10,000 records from
+a Brazilian insurance company, representing a 2% sample from
+the original dataset. In this dataset, 57 client features have been
+anonymized into symbols that don’t directly reveal any identifiable
+information, ensuring privacy.
+Travel Insurance 11 originates from a travel insurance service
+provider in Singapore. It originally includes 10 features, categorized
+into 6 categorical and 4 numerical types. However, due to 71% of
+the data for the Gender feature being missing, we have opted to
+exclude this feature. We’ve also condensed the dataset to 20% of its
+original volume. The preprocessing aligns with the methodology
+outlined by Rawat et al. [53]. It’s important to note that this dataset
+includes sensitive information such as the age of individuals (Age).
+3.2 Data Construction
+We then use the above datasets to construct our benchmark and
+instruction-tuning data. We first construct our prompts similar to
+the existing instruction data of other financial tasks [ 70]. These
+prompts are then reviewed by financial experts to ensure that the
+meaning is correct. We also use ChatGPT to confirm that our prompt
+templates can be answered and also use it to optimize the prompts.
+We develop two types of prompts,table-based and description-
+based, to evaluate or further fine-tune LLMs, shown in Figure 1.
+This is because some datasets contain numerous features and mean-
+ingless symbols. Both forms of prompts follow a similar template.
+For instance, [prompt] is a prompt created for each data, [input]
+9https://www.kaggle.com/datasets/fedesoriano/company-bankruptcy-prediction
+10https://www.kaggle.com/datasets/mhdzahier/travel-insurance
+11https://www.kaggle.com/datasets/mhdzahier/travel-insurance
+
+
+[Page 5]
+Empowering Many, Biasing a Few: Generalist Credit Scoring through Large Language Models Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+query: [ prompt + input ] answer: [ output ] choices: [ labels] gold: [ index ] text: [ input ]
+Datasets: Australian, Credit Card Fraud, Polish, Taiwan 
+Economic Journal, PortoSeguro
+Example of Table-based Instruction:
+“Assess the creditworthiness of a customer using the
+following table attributes for financial status. Respond
+with either ’good’ or ’bad’. And all the table attribute
+names including 8 categorical attributes and 6 numerical
+attributes and values have been changed to
+meaningless symbols to protect confidentiality of the
+data. For instance, ’The client has attributes: A1: 0, A2:
+21.67, A3: 11.5, A4: 1, A5: 5, A6: 3, A7: 0, A8: 1, A9: 1,
+A10: 11, A11: 1, A12: 2, A13: 0, A14: 1.’, should be
+classified as ’good’.”
+prompt: 
+“good”output: { ‘good’, ‘bad’ }labels: 0index:
+The client has attributes: A1: 1.0, A2: 27.67, A3: 2.0, A4:
+2.0, A5: 14.0, A6: 8.0, A7: 1.0, A8: 1.0, A9: 1.0, A10: 4.0,
+A11: 0.0, A12: 2.0, A13: 140.0, A14: 7545.0.
+input:
+Datasets: German, Lending Club, ccFraud, Travel Insurance.
+Example of Description-based Instruction:
+“Identify the claim status of insurance companies using the
+records of travel insurance attributes. Respond with
+either ’yes’ or ’no’. For instance: ’A policyholder aged 41
+chosen product ’Rental Vehicle Excess Insurance’ of the
+insurance company ’CWT’ through sales channel ’Online’ to
+travel to destination ’ITALY’. The type of insurance
+is ’Travel Agency’, with an effective period of 79, and the
+company recorded the net sales and commission of the
+insurance as -19.8 and 11.88.’, should be classified as ’No’.
+prompt: 
+“no”output:
+A policyholder aged 36 chosen product ’Cancellation Plan’ of
+the insurance company ’EPX’ through sales channel ’Online’
+to travel to destination ’INDONESIA’. The type of insurance
+is ’Travel Agency’, with an effective period of 39, and the
+company recorded the net sales and commission of the
+insurance as 28.0 and 0.0.”
+input:
+{ ‘yes’, ‘no’ }labels: 1index:
+Figure 1: The template and example of our instruction data.
+expresses a single data from the original datasets, [output] is the cor-
+responding correct label for the [input], [choices] are the available
+label options (such as [“Yes", “No"] or [“good", “bad"]), and [index]
+is the index of the correct label in the label set. The [choices] and
+[index] are the special parts of our benchmark, which are further
+used as parts of the template to evaluate the LLMs and do not exist
+in our instruction-tuning data. Therefore, the differences between
+the two prompts come from the specific construction of [prompt]
+and [input]. Strictly speaking, we provide a very simple example
+that may have omissions in [prompt], so the datasets are one-shot
+or nearly zero-shot.
+Table-based Prompt. This form of prompt is designed for data
+that contains too many features or meaningless symbols. As their
+features are too many or do not have any semantic information, it
+is hard to describe them in natural language with limited words.
+Therefore, in the [prompt], we explain the data is composed of
+meaningless symbols and provide the number of features; in the
+[input] section, we directly tell the values of each data. Therefore,
+it is concise and convenient to construct highly structured data.
+Description-based Prompt. This form of prompt is designed
+for the rest datasets that have clear semantic information about the
+features. Here, we use natural language in [input] to re-explain the
+meaning of features and the corresponding numerical values for
+each data. For instance, in credit scoring, we transfer the features
+as “The purpose is car (new). The state of credit amount is 2366. ".
+This form makes LLMs easier to understand the data.
+Because many datasets have severe imbalance issues, we further
+consider the balance of the instruction tuning data. On some ex-
+tremely imbalanced datasets, including Credit Card Fraud, ccFraud,
+Taiwan Economic Journal and Travel Insurance, we resample the
+minority class of the instruction tuning data. The resampling pro-
+cess results in a ratio of 2:1 between majority class samples and
+minority class samples, with a total sample size of 45k.
+4 CREDIT AND RISK ASSESSMENT LARGE
+LANGUAGE MODEL (CALM)
+We further build our Credit and Risk Assessment Large Language
+Model (CALM) by fine-tuning the latest LLM, Llama2-chat [ 63],
+with the our instruction-tuning dataset. The instruction-tuning
+dataset includes all the 6 datasets that are constructed and resam-
+pled earlier. We exclude 3 datasets (the Lending Club, Polish, and
+PortoSeguro datasets) to verify the generalization ability. When fine-
+tuning our LLM (CALM), we use the LORA strategy [26] to reduce
+the computation cost. The instruction tuning data is divided into a
+7:1 ratio for training and validation. We set the maximum length
+of input texts as 2048 and fine-tune 5 epochs based on AdamW
+optimizer [42] on 4 A100 40GB GPUs. We set the initial learning
+rate and the weight decay as 3e-4 and 1e-5, respectively. The batch
+size is set to 24, and the warmup steps to 1%.
+5 EV ALUATION FOR BENCHMARK
+In our benchmark, we conduct a comprehensive evaluation from
+two aspects: model performance and bias. We show all these eval-
+uation metrics of each dataset in our benchmark in Table 2. For
+model performance, we evaluated the effectiveness of the model
+itself as well as the significant issue of imbalance. Regarding bias,
+we examined the bias in the dataset and the potential bias in LLMs.
+Specifically, we use the two most commonly used metrics, ac-
+curacy (Acc) and F1 score to evaluate the performance of these
+binary classification tasks in our benchmark. Here, we use the ma-
+jority class as the positive, like most of the references. We use the
+Matthews Correlation Coefficient (Mcc) as a metric [ 18] to eval-
+uate the performance with the imbalanced situation. Therefore,
+for datasets like German, Australia, and Lending Club that are rel-
+atively balanced, the F1 score reflects their overall performance.
+For the remaining datasets, we prioritize the Mcc metric to assess
+whether the model can handle class imbalance issues. When there
+is a certain high level of Mcc value (larger than 0), models with
+higher F1 and Acc scores perform better. We also record the Miss
+value of LLMs to reflect the tasks they cannot answer. A higher
+Miss value indicates that the LLMs’ answers are more irrelevant.
+To verify the bias, we follow the previous work [29] with the AI
+FAIRNESS 360 framework [7]. We separately consider the bias of
+the data and the bias of the model to determine if the model has
+bias and if these biases are caused by the data. For the bias of the
+data, we use the Disparate Impact (DI) value which computes the
+ratio between the probability of the unprivileged group getting a
+favorable prediction and the probability of the privileged group
+getting a favorable prediction. The DI value closer to 1 indicates a
+more balanced distribution, while a difference greater than 0.1 from
+1 suggests potential bias risks. For the bias of models, we use Equal
+Opportunity Difference (EOD) and Average Odds Difference (AOD).
+
+
+[Page 6]
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Feng and Dai, et al.
+The first metric computes the difference between TPR values of
+unprivileged and privileged groups. The second metric computes
+the average of TPR difference and FPR difference between unpriv-
+ileged and privileged groups. When the values of EOD and AOD
+approach 0, it indicates that the model’s judgment is unbiased. How-
+ever, when their absolute values are greater than 0.1, we should
+be cautious as the model may exhibit bias. In our benchmark of
+bias, we take into account the potential bias that may arise from
+gender, age, and foreign status. We have analyzed the impact of
+gender, age, and foreign status on German, the impact of gender
+on ccFraud, and the impact of age on Travel Insurance. We set the
+old, female and foreigner as the unprivileged groups for gender,
+age, and foreign status, respectively. We divide the age group into
+‘young’ and ‘old’, with the age of 45 as the dividing line.
+Our benchmark covers all 9 datasets from 4 tasks: credit scoring,
+fraud detection, financial distress identification, and claim analysis.
+Among these datasets, the prompts for Australia, Credit Card Fraud,
+PortoSeguro, Polish, and Taiwan Economic Journal are in table-
+based form, while the rest are in description-based form. Except
+this, we introduce an additional dataset for customs fraud detection
+[31], which is similar to the aforementioned tasks, and not included
+in the fine-tuning process. This dataset is further evaluated (see
+Appendix A) to test the models’ generalization ability.
+Table 2: The metrics of each dataset in our benchmark.
+Metrics Dataset
+Acc, F1, Miss German, Australia, Lending Club
+Acc, Mcc, F1, Miss Credit Card Fraud, ccFraud, Polish,
+Taiwan Economic Journal, PortoSe-
+guro, Travel Insurance
+DI, EOD, AOD German, ccFraud, Travel Insurance
+6 EXPERIMENT
+In this section, extensive experiments are conducted to validate
+our hypotheses. Specifically, our experiments address the following
+questions.
+• RQ1: From our benchmark, do LLMs have the potential to
+generally solve the tasks of credit and risk assessment based
+on their pertaining process?
+• RQ2: After fine-tuning LLMs with a portion of the datasets,
+can LLMs transfer insights between datasets and enhance
+their performance on untrained datasets for credit and risk
+assessment?
+• RQ3: Is there a bias present in LLMs when it comes to solving
+these tasks? If so, how does this bias present?
+6.1 Experiment Setup
+In addition to our model CALM, we also compare other LLMs and
+SOTA expert system models as follows.
+We choose two kinds of the latest and most popular LLMs as
+the baselines, the open-resource LLMs and the non-open-resource
+LLMs. For the open resource LLMs, we use (1) Bloomz [ 47]: it is
+capable of following human instructions in dozens of languages
+zero/one-shot, (2) Vicuna [17]: it is an open-source chatbot trained
+by fine-tuning LLaMA on user-shared conversations collected from
+ShareGPT, (3) Llama1 [63]: it only uses publicly available data and
+has competitive performance compared to the best existing LLMs,
+(4) Llama2 [63]: the new version of Llama, (5) Llama2-chat [ 63]:
+it is further optimized for dialogue use cases, (6) Chatglm2 [ 22]:
+it is the second-generation version of the open-source bilingual
+(Chinese-English) chat model ChatGLM-6B that has stronger math
+ability. (7) FinMA (7B-full) [ 70]: It is the latest LLMs fine-tuned
+in the financial field from the PIXIU project. To ensure fairness
+and minimize computation cost, we use the around 7B-parameters
+version for all these LLMs. For the non-open resource LLMs, we
+use (1) ChatGPT: A powerful LLM from OpenAI; (2) GPT-4 [50]: A
+powerful LLM with around 1T parameters proposed by OpenAI.
+In addition, we have also included a comparison of the results
+from the SOTA expert system models on these datasets in Table 3.
+Most of the models are tree-based or deep neural networks, which
+are trained for specific tasks.
+6.2 Results
+6.2.1 The benchmark of Credit and Risk Assessment (RQ1).
+Table 3 shows the results of the benchmark with the LLMs and
+SOTA expert systems. Overall, as for performance, we can find
+that GPT-4 may have the ability to solve these tasks at the same
+time, even close to some SOTA expert systems in some tasks (like
+Lending Club and Travel Insurance), but the other LLMs still have
+a certain gap. The results also indicate that LLMs can be divided
+into four groups, non-open-source LLMs (ChatGPT and GPT 4),
+open-source LLMs (Bloomz, Vicuna, Llama1, and Llama2), open-
+source LLMs with a chat version (Llama2-chat and Chatglm 2), and
+financial LLMs (FinMA), each with its distinct characteristics.
+For the non-open-source LLMs, we observe that ChatGPT and
+GPT-4 possess capabilities that are comparable to SOTA expert sys-
+tems, especially GPT-4. GPT-4 demonstrates exceptional handling
+of imbalanced data, achieving optimal or near-optimal results on
+several datasets. Additionally, GPT-4 may also have the ability to
+handle meaningless data, such as the Australia. These impressive
+results are noteworthy considering that our prompts are only pro-
+vided as one-shot and even nearly zero-shot. Furthermore, these
+findings address our RQ1. ChatGPT and GPT-4 can acquire strong
+generalization abilities to tackle multiple tasks specific to credit and
+risk assessment in the financial domain without further supervised
+training. This sets them apart from these SOTA expert systems
+listed in Table 3, which exhibit excellent performance on individual
+datasets, but lack versatility and cannot be applied to other tasks.
+However, for the open-source LLMs (Bloomz, Vicuna, Llama1,
+and Llama2), the Acc, F1 (both of them near the class ratio) and
+Mcc (most are around zero) show that most of them tend to predict
+all the samples to one class, regardless of whether the dataset is
+balanced or imbalanced. This indicates that they can only answer
+the question but lack reasoning ability. Among these LLMs, Bloomz
+and Llama1,2 give opposite predictions in some datasets, such as
+Taiwan Economic Journal, Polish and ccFraud, which may be due
+to their training data, making them learn the different answers.
+Interestingly, for the open-source LLMs with a chat version, most
+Mcc of Llama2-chat and Chatglm2 are not equal to zero. This may
+be because they are further trained on the conversation data, which
+makes them try to give a reasonable answer. However, this also
+
+
+[Page 7]
+Empowering Many, Biasing a Few: Generalist Credit Scoring through Large Language Models Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+Table 3: The performance of LLMs and the SOTA expert system models on our benchmark. We use bold to indicate the best and
+underline to indicate the second-best. For Miss, where smaller is better, for other metrics, larger is better.
+Dataset Data Type Metrics SOTA expert system models ChatGPT GPT4 Bloomz Vicuna Llama1 Llama2 Llama2-chat Chatglm2 FinMA CALM
+German Description
+Acc 0.804[66] 0.440 0.545 0.315 0.590 0.660 0.660 0.475 0.505 0.170 0.565
+F1 0.857[73] 0.410 0.513 0.197 0.505 0.173 0.173 0.468 0.477 0.170 0.535
+Miss - 0.000 0.000 0.110 0.000 0.000 0.000 0.000 0.110 0.000 0.000
+Australia Table
+Acc 0.902[66] 0.425 0.748 0.568 0.489 0.432 0.432 0.432 0.115 0.410 0.518
+F1 0.875[73] 0.257 0.746 0.412 0.513 0.412 0.412 0.260 0.165 0.410 0.492
+Miss - 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.806 0.000 0.000
+Lending Club* Description
+Acc 0.777[30] 0.386 0.762 0.693 0.808 0.808 0.808 0.809 0.469 0.572 0.571
+F1 0.780[30] 0.401 0.740 0.675 0.723 0.062 0.062 0.723 0.503 0.610 0.608
+Miss - 0.000 0.000 0.139 0.000 0.000 0.000 0.000 0.000 0.000 0.286
+Credit Card Fraud Table
+Acc 0.880[28] ** 0.998 0.810 0.001 0.999 0.823 0.999 - 0.001 0.003 0.947
+Mcc 0.167 [5] -0.001 0.331 0.000 0.000 -0.008 0.000 - 0.000 0.002 0.151
+F1 0.846[28] ** 0.998 0.878 0.000 0.998 0.902 0.998 - 0.000 0.004 0.971
+Miss - 0.000 0.110 0.000 0.000 0.176 0.000 1.000 0.000 0.000 0.000
+ccFraud Description
+Acc 0.826[33] 0.173 0.580 0.059 0.608 0.941 0.941 0.914 0.085 0.060 0.514
+Mcc 0.344[33] 0.066 0.113 0.000 -0.095 0.000 0.000 -0.020 -0.024 -0.061 0.192
+F1 0.899[33] 0.214 0.587 0.007 0.651 0.007 0.007 0.437 0.109 -0.006 0.627
+Miss - 0.000 0.210 0.000 0.000 0.000 0.000 0.000 0.891 0.000 0.000
+Polish* Table
+Acc 0.968[3] 0.930 0.650 0.051 0.949 0.001 0.949 0.484 0.224 0.949 0.475
+Mcc 0.569[48] 0.019 -0.026 0.000 0.000 0.003 0.000 0.036 0.010 0.000 0.015
+F1 0.986[48] 0.917 0.623 0.005 0.924 0.001 0.924 0.633 0.360 0.924 0.585
+Miss - 0.000 0.000 0.000 0.000 0.999 0.000 0.499 0.761 0.000 0.000
+Taiwan Economic Journal Table
+Acc 0.999[49] 0.968 0.730 0.032 0.167 0.968 0.968 0.336 0.396 0.968 0.497
+Mcc - 0.000 0.150 0.000 0.023 0.000 0.000 -0.016 0.008 0.000 0.046
+F1 - 0.952 0.750 0.002 0.266 0.952 0.952 0.493 0.557 0.968 0.636
+Miss - 0.000 0.010 0.000 0.644 0.000 0.000 0.651 0.593 0.000
+PortoSeguro* Table
+Acc 0.868[24] ** 0.970 0.790 0.030 0.000 - 0.030 0.049 0.588 0.050 0.964
+Mcc 0.728[24]** 0.000 -0.030 0.000 0.000 - 0.000 -0.009 -0.011 0.008 -0.013
+F1 0.810[24] ** 0.955 0.778 0.002 0.000 - 0.002 0.040 0.716 0.040 0.952
+Miss - 0.000 0.000 0.000 0.947 1.000 0.000 0.000 0.000 0.000 0.000
+Travel Insurance Description
+Acc 0.839[39] 0.981 0.835 0.015 0.015 0.000 0.015 0.665 0.154 0.002 0.929
+Mcc 0.154[39] -0.008 0.153 0.000 0.000 -0.001 0.000 0.010 -0.005 0.000 0.076
+F1 0.912[39] 0.975 0.897 0.000 0.130 0.001 0.978 0.787 0.955 0.001 0.950
+Miss - 0.000 0.000 0.000 0.000 0.999 0.000 0.000 0.000 0.000 0.000
+* These datasets are not used to train CALM.**The related studies balance the data for the test set, and the values are for reference only.
+makes them cannot give direct answers to our questions (or refuse
+to answer), showing some higher Miss values. In addition, their
+ability is still insufficient, which gives predictions in the opposite
+direction in some tasks (Mcc<0).
+The FinMA (Financial LLM) has demonstrated its strong ability
+to address issues, due to its extensive training in financial tasks. In
+addition, in comparison to open-source LLMs with a chat version,
+although the accuracy and F1 scores of FinMA are not higher than
+theirs, the Mcc value (Mcc does not equal 0 in Credit Card Fraud
+and PortoSeguro) indicates that FinMA may be capable of providing
+discerning results based on previously trained financial tasks.
+Therefore, all the results indicate that LLMs have developed a
+general ability to understand different credit and risk assessment
+tasks, but the performance of these answers may vary depending
+on the training data and parameter size of the LLMs. GPT-4 is
+approaching the power of expert systems, which may provide a
+new chance for solving these tasks. However, these open-source
+general or financial LLMs that are not specifically trained on credit
+and risk assessment may still lack this solving ability.
+6.2.2 The fine-tuned results of our LLM (RQ2). The results of
+our LLM (CALM) are shown in the last column of Table 3. Because
+of the significant proportion of imbalanced data in our benchmark,
+we also create a radar figure for Mcc metric to visually display
+the abilities of CALM, original Llama2-chat, ChatGPT, and GPT-4,
+shown as Figure 2.
+Credit Card Fraud
+ccFraud
+Polish
+Taiwan Economic
+Journal
+PortoSeguro
+Travel Insurance
+ChatGPT
+GPT4
+Llama2-chat
+FinMA
+CALM
+Figure 2: The radar figure for Mcc metric on different LLMs.
+The outermost value is 0.35 and it decreases by 0.05 for each
+subsequent layer.
+After fine-tuning, our CALM demonstrates capabilities that are
+comparable to those of GPT-4. It exhibits the ability to learn credit
+tasks through instruction tuning, even on some untrained datasets.
+On the datasets we trained like Credit Card Fraud, ccFraud and
+Taiwan Economic Journal, CALM has a higher value of Mcc than
+before and even better than ChatGPT and GPT-4. It means that
+CALM can make predictions based on what it has learned from the
+training set, rather than guessing. In a more general sense, the Mcc
+value of CALM typically increases, though there may be a slight
+decrease in Acc and F1 for some datasets. This comes from that
+
+
+[Page 8]
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Feng and Dai, et al.
+CALM changes the outcomes from some majority-class samples to
+more balanced results.
+When testing CALM on untrained data from lending club, Polish,
+and PortoSeguro, we find potential for generalization in similar
+datasets but unclear on some other datasets. CALM shows improve-
+ment in understanding and answering questions on the Polish
+dataset, with a Miss value of 0. However, it does not achieve signif-
+icant results on the Lending Club and PortoSeguro datasets. This
+could be due to the similarity of Polish to other training data, while
+PortoSeguro consists of anonymized data and requires specialized
+learning. In FinMA, a similar phenomenon is observed, where the
+training on a broader set of financial tasks unrelated to the task in
+Figure 2 results in better performance in PortoSeguro compared
+to its base model (llama2-chat). This also suggests potential com-
+monalities among financial tasks. To delve deeper, we further use
+an additional task and corresponding dataset to test whether fine-
+tuning LLMs on certain tasks can improve their ability on other
+tasks, shown in Appendix A. The results provide a clearer result of
+the transferrable skills possessed by LLMs.
+Therefore, the results indicate that LLMs with fine-tuning have
+great potential in solving different credit and risk assessment tasks.
+It demonstrates that LLMs may be capable of learning from the
+related data and have the extrapolation ability without requiring
+special construction for each dataset like expert systems, which
+echoes our H2. It will be feasible for companies or individuals to
+create a customized LLM that aligns with their needs quickly.
+6.2.3 The bias analyze (RQ3). We explore the bias of three LLMs
+(ChatGPT, GPT-4, and our model CALM) in three datasets. Our
+results indicate that the inherent biases present in these datasets
+are relatively small. However, it is crucial to acknowledge that there
+is a notable risk of bias for LLMs.
+0 0.2 0.4 0.6 0.8 1 1.2
+Age test Age train
+Gender test Gender trian
+Foreigner test Foreigner train
+German
+ccFruad
+Travel
+Insurance
+Figure 3: The Disparate Impact (DI) value of the train/test
+data on three datasets. Closer to 1 is better.
+For potential biases within each dataset, we analyze whether
+the benchmark and instruction-tuning data themselves have any
+bias. We consider the impact of gender, age, and foreign status on
+German, the impact of gender on ccFraud, and the impact of age
+on Travel Insurance. The fundamental bias information of these
+datasets can be seen in Figure 3. We can find that except for the
+‘foreigner’ in German, all of these DI values are near 1. This suggests
+that the majority of the original datasets are unbiased when it comes
+to these sensitive features. Additionally, instruction tuning itself is
+unbiased towards the model.
+To evaluate the bias of LLMs, we calculate the Equal Opportunity
+Difference (EOD) and the Average Odds Difference (AOD) on these
+features with the predictions made by LLMs. The results are shown
+in Table 4. For ChatGPT and GPT-4, it indicates that they have a
+bias in some special cases. For example, GPT-4 is more likely to give
+females wrong predictions (AOD is -0.273) on the ccFraud dataset
+and prefer foreign workers on the German dataset (EOD is 0.289),
+even though the original test data is unbiased (DI close to 1); on the
+German dataset, ChatGPT prefers to lend money to older people
+(EOD is 0.137). It’s also interesting to note that the potential biases
+that exist in both ChatGPT and GPT-4 are not completely consistent
+with each other (‘gender’ and ‘age’ in German, and ‘gender’ in
+ccFraud). This may be related to their training dataset and the
+alignment process of reinforcement learning human feedback [15,
+67]. For our CALM, the risk of bias is similar to ChatGPT and GPT-4,
+with the greatest bias found in the foreigner of German. This is
+because the other data is more balanced, so our LLM trained with
+these data does not suffer such bias. However, the foreigner variable
+in German has a tendency (DI= 0.75 in training data), which causes
+CALM to learn the bias.
+In summary, we demonstrate that there is a potential bias risk in
+credit and risk assessment with LLMs (GPT-4 is more serious than
+ChatGPT). Referring back to our H3, if individuals and companies
+promote the application of LLM in these tasks within society, the
+issue of bias needs to be addressed.
+Table 4: The bias evaluation of ChatGPT, GPT4, and our LLM
+on the test data. We use bold to indicate the best and under-
+line to indicate the second-best. Closer to 0 is better.
+Metrics Model
+German ccFraud Travel Insurance
+Gender Age Foreigner Gender Age
+EOD
+ChatGPT 0.101 0.137 -0.023 0.001 0.001
+GPT4 0.010 -0.104 0.289 -0.023 0.007
+CALM -0.121 -0.075 -0.250 0.003 0.007
+AOD
+ChatGPT 0.005 0.108 0.093 0.036 0.000
+GPT4 -0.156 -0.092 0.040 -0.273 -0.115
+CALM -0.116 -0.103 -0.207 0.065 0.055
+7 CONCLUSION
+In this work, we explore the impact of LLMs on online credit and
+risk assessment and highlight the potential implications of the bias
+of LLMs12. To test the effectiveness of LLMs in credit and risk assess-
+ment, we build the first benchmark, open source LLM (CALM), and
+evaluate LLMs’ performance against existing expert systems on our
+build benchmark. We observe that although existing open-source
+Language Models (LLMs) may not be able to process financial tab-
+ular data without modifications, their pretraining endows them
+with a powerful understanding capability. Furthermore, GPT-4 or
+LLMs fine-tuned with more relevant data have the potential to
+achieve superior results and potentially replace existing expert sys-
+tems. However, through our bias experiences, we also discover that
+LLMs such as ChatGPT or GPT-4 exhibit biases, affecting individu-
+als’ access to online financial services and opportunities. As LLMs
+continue to evolve and become more prevalent, it is essential to
+address their limitations and biases to ensure fair and unbiased
+decision-making.
+12We provide our ethics statement and limitations in Appendix B and C, respectively.
+
+
+[Page 9]
+Empowering Many, Biasing a Few: Generalist Credit Scoring through Large Language Models Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+REFERENCES
+[1] Wiena Faqih Abror, Alamsyah Alamsyah, and Muhammad Aziz. 2023. Bankruptcy
+Prediction Using Genetic Algorithm-Support Vector Machine (GA-SVM) Feature
+Selection and Stacking. Journal of Information System Exploration and Research 1,
+2 (2023).
+[2] Daniel Felix Ahelegbey, Paolo Giudici, and Branka Hadji-Misheva. 2019. Latent
+factor models for credit scoring in P2P systems. Physica A: Statistical Mechanics
+and its Applications 522 (2019), 112–121.
+[3] Samar Aly, Marco Alfonse, and Abdel-Badeeh M Salem. 2022. Intelligent Model for
+Enhancing the Bankruptcy Prediction with Imbalanced Data Using Oversampling
+and CatBoost. International Journal of Intelligent Computing and Information
+Sciences 22, 3 (2022), 92–108.
+[4] Dogu Araci. 2019. Finbert: Financial sentiment analysis with pre-trained language
+models. arXiv preprint arXiv:1908.10063 (2019).
+[5] RB Asha and Suresh Kumar KR. 2021. Credit card fraud detection using artificial
+neural network. Global Transitions Proceedings 2, 1 (2021), 35–41.
+[6] Natarajan Balasubramanian, Yang Ye, and Mingtao Xu. 2022. Substituting human
+decision-making with machine learning: Implications for organizational learning.
+Academy of Management Review 47, 3 (2022), 448–465.
+[7] Rachel K. E. Bellamy, Kuntal Dey, Michael Hind, Samuel C. Hoffman, Stephanie
+Houde, Kalapriya Kannan, Pranay Lohia, Jacquelyn Martino, Sameep Mehta,
+Aleksandra Mojsilovic, Seema Nagar, Karthikeyan Natesan Ramamurthy, John
+Richards, Diptikalyan Saha, Prasanna Sattigeri, Moninder Singh, Kush R. Varsh-
+ney, and Yunfeng Zhang. 2018. AI Fairness 360: An Extensible Toolkit for De-
+tecting, Understanding, and Mitigating Unwanted Algorithmic Bias. https:
+//arxiv.org/abs/1810.01943
+[8] Ibtissam Benchaji, Samira Douzi, Bouabid El Ouahidi, and Jaafar Jaafari. 2021.
+Enhanced credit card fraud detection based on attention mechanism and LSTM
+deep model. Journal of Big Data 8 (2021), 1–21.
+[9] Siddharth Bhatore, Lalit Mohan, and Y Raghu Reddy. 2020. Machine learning
+techniques for credit risk evaluation: a systematic literature review. Journal of
+Banking and Financial Technology 4 (2020), 111–138.
+[10] Michael Bücker, Gero Szepannek, Alicja Gosiewska, and Przemyslaw Biecek.
+2022. Transparency, auditability, and explainability of machine learning models
+in credit scoring. Journal of the Operational Research Society 73, 1 (2022), 70–90.
+[11] Niklas Bussmann, Paolo Giudici, Dimitri Marinelli, and Jochen Papenbrock. 2021.
+Explainable machine learning in credit risk management. Computational Eco-
+nomics 57 (2021), 203–216.
+[12] Longbing Cao. 2020. AI in finance: A review. A vailable at SSRN 3647625 (2020).
+[13] Longbing Cao, Qiang Yang, and Philip S Yu. 2021. Data science and AI in FinTech:
+An overview. International Journal of Data Science and Analytics 12 (2021), 81–99.
+[14] Salvatore Carta, Anselmo Ferreira, Diego Reforgiato Recupero, Marco Saia, and
+Roberto Saia. 2020. A combined entropy-based approach for a proactive credit
+scoring. Engineering Applications of Artificial Intelligence 87 (2020), 103292.
+[15] Stephen Casper, Xander Davies, Claudia Shi, Thomas Krendl Gilbert, Jérémy
+Scheurer, Javier Rando, Rachel Freedman, Tomasz Korbak, David Lindner, Pe-
+dro Freire, Tony Wang, Samuel Marks, Charbel-Raphaël Segerie, Micah Carroll,
+Andi Peng, Phillip Christoffersen, Mehul Damani, Stewart Slocum, Usman An-
+war, Anand Siththaranjan, Max Nadeau, Eric J. Michaud, Jacob Pfau, Dmitrii
+Krasheninnikov, Xin Chen, Lauro Langosco, Peter Hase, Erdem Bıyık, Anca
+Dragan, David Krueger, Dorsa Sadigh, and Dylan Hadfield-Menell. 2023. Open
+Problems and Fundamental Limitations of Reinforcement Learning from Human
+Feedback. arXiv:2307.15217 [cs.AI]
+[16] Zihao Chen, Xiaomeng Wang, Yuanjiang Huang, and Tao Jia. 2023. An Inter-
+pretable Loan Credit Evaluation Method Based on Rule Representation Learner.
+In Computer Supported Cooperative Work and Social Computing , Yuqing Sun, Tun
+Lu, Yinzhang Guo, Xiaoxia Song, Hongfei Fan, Dongning Liu, Liping Gao, and
+Bowen Du (Eds.). Springer Nature Singapore, Singapore, 580–594.
+[17] Wei-Lin Chiang, Zhuohan Li, Zi Lin, Ying Sheng, Zhanghao Wu, Hao Zhang,
+Lianmin Zheng, Siyuan Zhuang, Yonghao Zhuang, Joseph E Gonzalez, et al. 2023.
+Vicuna: An open-source chatbot impressing gpt-4 with 90%* chatgpt quality. See
+https://vicuna. lmsys. org (accessed 14 April 2023) (2023).
+[18] Davide Chicco and Giuseppe Jurman. 2020. The advantages of the Matthews
+correlation coefficient (MCC) over F1 score and accuracy in binary classification
+evaluation. BMC genomics 21, 1 (2020), 1–13.
+[19] Xolani Dastile, Turgay Celik, and Moshe Potsane. 2020. Statistical and machine
+learning models in credit scoring: A systematic literature survey. Applied Soft
+Computing 91 (2020), 106263.
+[20] Vinicio DeSola, Kevin Hanna, and Pri Nonis. 2019. Finbert: pre-trained model on
+sec filings for financial natural language tasks. University of California (2019).
+[21] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2018. Bert:
+Pre-training of deep bidirectional transformers for language understanding.arXiv
+preprint arXiv:1810.04805 (2018).
+[22] Zhengxiao Du, Yujie Qian, Xiao Liu, Ming Ding, Jiezhong Qiu, Zhilin Yang, and
+Jie Tang. 2022. GLM: General Language Model Pretraining with Autoregressive
+Blank Infilling. In Proceedings of the 60th Annual Meeting of the Association for
+Computational Linguistics (Volume 1: Long Papers) . 320–335.
+[23] Xavier Ferrer, Tom van Nuenen, Jose M Such, Mark Coté, and Natalia Criado. 2021.
+Bias and discrimination in AI: a cross-disciplinary perspective. IEEE Technology
+and Society Magazine 40, 2 (2021), 72–80.
+[24] Mohamed Hanafy and Ruixing Ming. 2021. Machine learning approaches for
+auto insurance big data. Risks 9, 2 (2021), 42.
+[25] Hans Hofmann. 1994. Statlog (German Credit Data). UCI Machine Learning
+Repository. DOI: https://doi.org/10.24432/C5NC77.
+[26] Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
+Wang, Lu Wang, and Weizhu Chen. 2021. Lora: Low-rank adaptation of large
+language models. arXiv preprint arXiv:2106.09685 (2021).
+[27] Allen H Huang, Hui Wang, and Yi Yang. 2023. FinBERT: A large language model
+for extracting information from financial text.Contemporary Accounting Research
+40, 2 (2023), 806–841.
+[28] Emmanuel Ileberi, Yanxia Sun, and Zenghui Wang. 2022. A machine learning
+based credit card fraud detection using the GA algorithm for feature selection.
+Journal of Big Data 9, 1 (2022), 1–17.
+[29] Krishna Ravali Jammalamadaka and Srikanth Itapu. 2023. Responsible AI in
+automated credit scoring systems. AI and Ethics 3, 2 (2023), 485–495.
+[30] Jaber Jemai and Anis Zarrad. 2023. Feature Selection Engineering for Credit Risk
+Assessment in Retail Banking. Information 14, 3 (2023), 200.
+[31] Chaeyoon Jeong, Sundong Kim, Jaewoo Park, and Yeonsoo Choi. 2022. Customs
+Import Declaration Datasets. arXiv preprint arXiv:2208.02484 (2022).
+[32] Sk. Kamaruddin and Vadlamani Ravi. 2016. Credit Card Fraud Detection Using Big
+Data Analytics: Use of PSOAANN Based One-Class Classification. In Proceedings
+of the International Conference on Informatics and Analytics (Pondicherry, India)
+(ICIA-16). Association for Computing Machinery, New York, NY, USA, Article 33,
+8 pages. https://doi.org/10.1145/2980258.2980319
+[33] Sk Kamaruddin and Vadlamani Ravi. 2021. EGRNN++ and PNN++: Parallel
+and distributed neural networks for big data regression and classification. SN
+Computer Science 2, 2 (2021), 109.
+[34] Hyungjin Ko and Jaewook Lee. 2023. Can Chatgpt Improve Investment Deci-
+sion? From a Portfolio Management Perspective. From a Portfolio Management
+Perspective (2023).
+[35] Gang Kou, Xiangrui Chao, Yi Peng, Fawaz E Alsaadi, Enrique Herrera Viedma,
+et al. 2019. Machine learning methods for systemic risk analysis in financial
+sectors. (2019).
+[36] Dovil˙e Kuizinien ˙e, Tomas Krilavičius, Robertas Damaševičius, and Rytis
+Maskeli¯unas. 2022. Systematic Review of Financial Distress Identification us-
+ing Artificial Intelligence Methods. Applied Artificial Intelligence 36, 1 (2022),
+2138124.
+[37] Wenlong Lai. 2023. Default Prediction of Internet Finance Users Based on
+Imbalance-XGBoost. Tehnički vjesnik 30, 3 (2023), 779–786.
+[38] Peng Li, Yeye He, Dror Yashar, Weiwei Cui, Song Ge, Haidong Zhang,
+Danielle Rifinski Fainman, Dongmei Zhang, and Surajit Chaudhuri. 2023. Table-
+GPT: Table-tuned GPT for Diverse Table Tasks. arXiv:2310.09263 [cs.CL]
+[39] Xiaonan Li et al. 2023. Exploring the Potential of Machine Learning Techniques
+for Predicting Travel Insurance Claims: A Comparative Analysis of Four Models.
+Academic Journal of Computing & Information Science 6, 4 (2023), 118–125.
+[40] Zhuang Liu, Degen Huang, Kaiyu Huang, Zhuang Li, and Jun Zhao. 2021. Finbert:
+A pre-trained financial language representation model for financial text mining.
+In Proceedings of the twenty-ninth international conference on international joint
+conferences on artificial intelligence. 4513–4519.
+[41] Alejandro Lopez-Lira and Yuehua Tang. 2023. Can chatgpt forecast stock price
+movements? return predictability and large language models. arXiv preprint
+arXiv:2304.07619 (2023).
+[42] Ilya Loshchilov and Frank Hutter. 2017. Decoupled weight decay regularization.
+arXiv preprint arXiv:1711.05101 (2017).
+[43] Dakuan Lu, Jiaqing Liang, Yipei Xu, Qianyu He, Yipeng Geng, Mengkun Han,
+Yingsi Xin, Hengkui Wu, and Yanghua Xiao. 2023. BBT-Fin: Comprehensive
+Construction of Chinese Financial Domain Pre-trained Language Model, Corpus
+and Benchmark. arXiv preprint arXiv:2302.09432 (2023).
+[44] Sebastián Maldonado, Georg Peters, and Richard Weber. 2020. Credit scoring
+using three-way decisions with probabilistic rough sets. Information Sciences 507
+(2020), 700–714.
+[45] Kevin Meng, David Bau, Alex Andonian, and Yonatan Belinkov. 2022. Locating
+and editing factual associations in GPT.Advances in Neural Information Processing
+Systems 35 (2022), 17359–17372.
+[46] Tsholofelo Mokheleli and Tinofirei Museba. 2023. Machine Learning Approach
+for Credit Score Predictions. Journal of Information Systems and Informatics 5, 2
+(2023), 497–517.
+[47] Niklas Muennighoff, Thomas Wang, Lintang Sutawika, Adam Roberts, Stella
+Biderman, Teven Le Scao, M Saiful Bari, Sheng Shen, Zheng-Xin Yong, Hailey
+Schoelkopf, et al. 2022. Crosslingual generalization through multitask finetuning.
+arXiv preprint arXiv:2211.01786 (2022).
+[48] Amir Mukeri, Habibullah Shaikh, and Dr DP Gaikwad. 2020. Financial Data
+Analysis Using Expert Bayesian Framework For Bankruptcy Prediction. arXiv
+preprint arXiv:2010.13892 (2020).
+
+
+[Page 10]
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NY Feng and Dai, et al.
+[49] Much Aziz Muslim, Yosza Dasril, Haseeb Javed, Wiena Faqih Abror, Dwika
+Ananda Agustina Pertiwi, Tanzilal Mustaqim, et al. 2023. An Ensemble Stacking
+Algorithm to Improve Model Accuracy in Bankruptcy Prediction.Journal of Data
+Science and Intelligent Systems (2023).
+[50] OpenAI. 2023. GPT-4 Technical Report. arXiv:2303.08774 [cs.CL]
+[51] Ross Quinlan. [n. d.]. Statlog (Australian Credit Approval). UCI Machine Learning
+Repository. DOI: https://doi.org/10.24432/C59012.
+[52] Seema Rawat, Aakankshu Rawat, Deepak Kumar, and A Sai Sabitha. 2021. Appli-
+cation of machine learning and data visualization techniques for decision support
+in the insurance sector. International Journal of Information Management Data
+Insights 1, 2 (2021), 100012.
+[53] Seema Rawat, Aakankshu Rawat, Deepak Kumar, and A. Sai Sabitha. 2021. Appli-
+cation of machine learning and data visualization techniques for decision support
+in the insurance sector. International Journal of Information Management Data
+Insights 1, 2 (2021), 100012. https://doi.org/10.1016/j.jjimei.2021.100012
+[54] Zhang Runchi, Xue Liguo, and Wang Qin. 2023. An ensemble credit scoring
+model based on logistic regression with heterogeneous balancing and weighting
+effects. Expert Systems with Applications 212 (2023), 118732.
+[55] Leonard Salewski, Stephan Alaniz, Isabel Rio-Torto, Eric Schulz, and Zeynep
+Akata. 2023. In-Context Impersonation Reveals Large Language Models’
+Strengths and Biases. arXiv preprint arXiv:2305.14930 (2023).
+[56] Victor Sanh, Albert Webson, Colin Raffel, Stephen H Bach, Lintang Sutawika,
+Zaid Alyafeai, Antoine Chaffin, Arnaud Stiegler, Teven Le Scao, Arun Raja, et al.
+2021. Multitask prompted training enables zero-shot task generalization. arXiv
+preprint arXiv:2110.08207 (2021).
+[57] Marc Schmitt. 2022. Deep Learning vs. Gradient Boosting: Benchmarking
+state-of-the-art machine learning algorithms for credit scoring. arXiv preprint
+arXiv:2205.10535 (2022).
+[58] Raj Sanjay Shah, Kunal Chawla, Dheeraj Eidnani, Agam Shah, Wendi Du, Sudheer
+Chava, Natraj Raman, Charese Smiley, Jiaao Chen, and Diyi Yang. 2022. When
+flue meets flang: Benchmarks and large pre-trained language model for financial
+domain. arXiv preprint arXiv:2211.00083 (2022).
+[59] Feng Shen, Zhiyuan Yang, Xingchao Zhao, and Dao Lan. 2022. Reject inference
+in credit scoring using a three-way decision and safe semi-supervised support
+vector machine. Information sciences 606 (2022), 614–627.
+[60] Makram Soui, Ines Gasmi, Salima Smiti, and Khaled Ghédira. 2019. Rule-based
+credit risk assessment model using multi-objective evolutionary algorithms.
+Expert systems with applications 126 (2019), 144–157.
+[61] Mahsa Tavakoli, Rohitash Chandra, Fengrui Tian, and Cristián Bravo. 2023. Multi-
+Modal Deep Learning for Credit Rating Prediction Using Text and Numerical
+Data Streams. arXiv preprint arXiv:2304.10740 (2023).
+[62] Sebastian Tomczak. 2016. Polish companies bankruptcy data. UCI Machine
+Learning Repository. DOI: https://doi.org/10.24432/C5F600.
+[63] Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne
+Lachaux, Timothée Lacroix, Baptiste Rozière, Naman Goyal, Eric Hambro, Faisal
+Azhar, et al. 2023. Llama: Open and efficient foundation language models. arXiv
+preprint arXiv:2302.13971 (2023).
+[64] Simon Vandenhende, Stamatios Georgoulis, Marc Proesmans, Dengxin Dai, and
+Luc Van Gool. 2020. Revisiting multi-task learning in the deep learning era.arXiv
+preprint arXiv:2004.13379 2, 3 (2020).
+[65] Pranav Narayanan Venkit, Sanjana Gautam, Ruchi Panchanadikar, Ting-Hao ’Ken-
+neth’ Huang, and Shomir Wilson. 2023. Nationality Bias in Text Generation.
+arXiv:2302.02463 [cs.CL]
+[66] Yadong Wang, Yanlin Jia, Yuhang Tian, and Jin Xiao. 2022. Deep reinforcement
+learning with the confusion-matrix-based dynamic reward function for customer
+credit scoring. Expert Systems with Applications 200 (2022), 117013.
+[67] Yotam Wolf, Noam Wies, Yoav Levine, and Amnon Shashua. 2023. Fundamental
+limitations of alignment in large language models.arXiv preprint arXiv:2304.11082
+(2023).
+[68] Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski, Mark Dredze, Sebas-
+tian Gehrmann, Prabhanjan Kambadur, David Rosenberg, and Gideon Mann.
+2023. Bloomberggpt: A large language model for finance. arXiv preprint
+arXiv:2303.17564 (2023).
+[69] Qianqian Xie, Weiguang Han, Yanzhao Lai, Min Peng, and Jimin Huang. 2023.
+The Wall Street Neophyte: A Zero-Shot Analysis of ChatGPT Over MultiModal
+Stock Movement Prediction Challenges. arXiv preprint arXiv:2304.05351 (2023).
+[70] Qianqian Xie, Weiguang Han, Xiao Zhang, Yanzhao Lai, Min Peng, Alejandro
+Lopez-Lira, and Jimin Huang. 2023. PIXIU: A Large Language Model, Instruction
+Data and Evaluation Benchmark for Finance. arXiv preprint arXiv:2306.05443
+(2023).
+[71] Hongyang Yang, Xiao-Yang Liu, and Christina Dan Wang. 2023. FinGPT: Open-
+Source Financial Large Language Models. arXiv:2306.06031 [q-fin.ST]
+[72] Yi Yang, Mark Christopher Siy Uy, and Allen Huang. 2020. Finbert: A pretrained
+language model for financial communications. arXiv preprint arXiv:2006.08097
+(2020).
+[73] Jianrong Yao, Zhongyi Wang, Lu Wang, Meng Liu, Hui Jiang, and Yuangao Chen.
+2022. Novel hybrid ensemble credit scoring model with stacking-based noise
+detection and weight assignment. Expert Systems with Applications 198 (2022),
+116913.
+[74] Haohan Zhang, Fengrui Hua, Chengjin Xu, Jian Guo, Hao Kong, and Ruiting Zuo.
+2023. Unveiling the Potential of Sentiment: Can Large Language Models Predict
+Chinese Stock Price Movements? arXiv preprint arXiv:2306.14222 (2023).
+[75] Chaoqi Zhen, Yanlei Shang, Xiangyu Liu, Yifei Li, Yong Chen, and Dell Zhang.
+2022. A Survey on Knowledge-Enhanced Pre-trained Language Models. arXiv
+preprint arXiv:2212.13428 (2022).
+
+
+[Page 11]
+Empowering Many, Biasing a Few: Generalist Credit Scoring through Large Language Models Conference acronym ’XX, June 03–05, 2018, Woodstock, NY
+A MORE RESULTS
+Here, we evaluate the potential of LLMs in customs fraud detection
+dataset [31] which is similar to but not strictly belonging to credit
+and risk assessment. This is aimed at showing that LLMs can not
+only complete credit and risk assessments but also be applied in a
+broader field of risk detection for the whole society, which demon-
+strates LLMs can potentially recognize and apply transferrable
+skills.
+CustomsDeclaration13 comprises customs import declaration
+records and is intended to detect fraudulent attempts to reduce
+customs duty or critical frauds that can threaten public safety. It
+consists of 54,000 artificially generated records created by CTGAN
+with 24.7 million customs declarations reported from January 1,
+2020, to June 30, 2021. The dataset encompasses 20 attributes and
+includes two labels: “fraud" and “critical fraud". The label “fraud"
+involves binary classification, which aims to detect fraudulent at-
+tempts to reduce customs duty with “non-fraud" and “fraud" two
+cases. The label “critical fraud" involves three classes: “non-fraud",
+“fraud", and “critical fraud", making it a multi-class classification
+task. It aims to detect critical frauds that can threaten public safety.
+Due to the extremely imbalanced issue of the label “critical fraud",
+which is also not used in the original paper, we use “fraud" as the
+prediction target. To evaluate the dataset, we sample 2000 instances
+from their test set to make the prompt data.
+Customs:
+{"id": 0,
+"Prompt": "Identify the provided customs import
+declaration information to determine whether it
+constitutes customs fraud that attempts to
+reduce customs duty or not. The answer
+must be 'no' or 'yes', and do not provide any
+additional information. This Import Declaration
+consists of 20 data attributes, including
+Declaration ID, Date, Office ID, Process type,
+Import type, Import use, Payment type, Mode of
+transport, Declarant ID, Importer ID, Seller ID,
+Courier ID, HS6 code, Country of departure,
+Country of origin, Tax rate, Tax type, Country of
+origin indicator, Net mass and Item price. For
+instance, 'This customs import declaration has
+attributes: Declaration ID: 97061800, Date:
+2020-01-01, Office ID: 30, Process Type: B, ...,
+Item Price: 372254.4. ' should be categorized as
+'no'.",
+"Text": "This customs import declaration has
+attributes: Declaration ID: 97061800, Date:
+2020-01-01, Office ID: 30, Process Type: B,
+Import Type: 11, Import Use: 21, Payment Type:
+11, Mode of Transport: 10, Declarant ID: ZZR1LT6,
+Importer ID: QLRUBN9, Seller ID: 0VKY2BR, Courier
+ID: nan, HS6 Code: 440890, Country of Departure:
+BE, Country of Origin: BE, Tax Rate: 0.0, Tax
+Type: FEU1, Country of Origin Indicator: G,
+Net Mass: 108.0, Item Price: 372254.4. Answer:",
+"Answer": "no",
+"Choices": ["no", "yes"],
+"Gold": 0}
+Metrics. Except for the Acc and F1, we also use the precision
+(P). Due to the reason that the LLMs cannot give a probability, we
+are not able to compute precision@n% as the original paper. We
+also consider ‘fraud’ as a positive class, like the original paper.
+Results. We show the results in Table 5. Based on these results,
+we can reach a conclusion similar to our benchmark. GPT4 has
+great potential in solving related tasks. However, the open-source
+LLMs and even ChatGPT may lack this ability. In particular, due to
+the reversal of the definition of positive class, we can clearly see
+13https://github.com/Seondong/Customs-Declaration-Datasets
+Table 5: The results of Customs dataset.
+Acc P F1 Miss
+SOTA expert system - 0.646[31]* - -
+ChatGPT 0.778 0.000 0.000 -
+GPT4 0.665 0.255 0.264 -
+Bloomz 0.222 0.222 0.363 -
+Vicuna 0.778 0.000 0.000 -
+Llama1 0.778 0.000 0.000 0.001
+Llama2 0.778 0.000 0.000 -
+Llama2-chat 0.290 0.214 0.339 -
+Chatglm2 0.005 0.000 0.000 0.994
+CALM 0.303 0.230 0.368 0.001
+* It is the value of precision@10%.
+that the original open-source LLMs and ChatGPT are completely
+biased towards one side for prediction. For example, although Acc
+is 0.778, the precision and F1 of Vicuna, Llama1,2 and ChatGPT
+equal 0. Nevertheless, through training on similar tasks, LLMs
+may learn the ability to generalize predictions. In particular, our
+7B-CALM that only be trained on credit and risk assessment has
+higher precision and F1 compared to other open-source LLMs and
+can even outperform the ChatGPT.
+More importantly, the results not only suggest that LLMs have
+the potential for further application in credit and risk assessment,
+but also in a broader range of social activities related to credit and
+risk. This indicates that the transferrable skills of LLMs.
+B ETHICS STATEMENT
+This research investigates the effectiveness of LLMs in credit and
+risk assessment with some online tasks. The datasets used for this
+research were constructed based on online open-source data that
+can be further modified. We have thoroughly reviewed the data
+to ensure that it does not contain any personally identifiable or
+offensive information. Therefore, we are confident that the datasets
+are safe and suitable for distribution.
+C LIMITATIONS
+Although this research has several contributions, we acknowledge
+two limitations. First, due to computational constraints, we test
+and fine-tune open-resource LLMs with a smaller parameter size,
+which may underestimate the potential of the LLMs. Second, al-
+though the LLMs have strong language explanatory abilities, we
+do not construct an interpretable dataset, which may increase the
+interpretability. The reason is that it requires a significant amount
+of additional professional labeling.

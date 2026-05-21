@@ -1,0 +1,935 @@
+[Page 1]
+Taxonomy-Aligned Risk Extraction from 10-K Filings with
+Autonomous Improvement Using LLMs
+Rian Dolphin∗
+Massive.com
+Dublin, Ireland
+Joe Dursun∗
+Massive.com
+Atlanta, Georgia, USA
+Jarrett Blankenship
+Massive.com
+Atlanta, Georgia, USA
+Katie Adams
+Massive.com
+Atlanta, Georgia, USA
+Quinton Pike
+Massive.com
+Atlanta, Georgia, USA
+Abstract
+We present a methodology for extracting structured risk factors
+from corporate 10-K filings while maintaining adherence to a pre-
+defined hierarchical taxonomy. Our three-stage pipeline combines
+LLM extraction with supporting quotes, embedding-based semantic
+mapping to taxonomy categories, and LLM-as-a-judge validation
+that filters spurious assignments. To evaluate our approach, we ex-
+tract 10,688 risk factors from S&P 500 companies and examine risk
+profile similarity across industry clusters. Beyond extraction, we
+introduce autonomous taxonomy maintenance where an AI agent
+analyzes evaluation feedback to identify problematic categories, di-
+agnose failure patterns, and propose refinements, achieving 104.7%
+improvement in embedding separation in a case study. External val-
+idation confirms the taxonomy captures economically meaningful
+structure: same-industry companies exhibit 63% higher risk profile
+similarity than cross-industry pairs (Cohen’s𝑑= 1.06, AUC 0.82,
+𝑝< 0.001). The methodology generalizes to any domain requir-
+ing taxonomy-aligned extraction from unstructured text, with au-
+tonomous improvement enabling continuous quality maintenance
+and enhancement as systems process more documents.
+CCS Concepts
+•Computing methodologies→Information extraction.
+Keywords
+LLM, Information Extraction, Unstructured Text, Finance, 10K, Em-
+bedding
+1 Introduction
+Corporate risk disclosure in annual reports (10-K filings) provides
+insightful commentary on the uncertainties facing public compa-
+nies. Item 1A of these filings, the “Risk Factors” section, contains
+detailed discussions of material risks written in natural language by
+company management and legal teams. For investors, analysts, and
+risk managers, systematically analyzing these disclosures across
+hundreds or thousands of companies could reveal sector-wide risk
+patterns, emerging threats, and company-specific vulnerabilities.
+However, the unstructured nature of these documents and their
+substantial length (often spanning dozens of pages per company)
+makes manual systematic analysis at scale impractical.
+A natural solution is to use large language models (LLMs) to
+extract structured risk information from these documents. Modern
+∗Both authors contributed equally to this research. Contact at research@massive.com
+LLMs can indeed process 10-K risk sections and generate coher-
+ent lists of identified risks. However, this naïve approach creates
+a fundamental problem: without constraints, each LLM extraction
+produces idiosyncratic risk labels that may differ in terminology,
+granularity, and framing, even when describing the same underly-
+ing risk. One company might be tagged with “currency fluctuation
+risk” while another receives “foreign exchange exposure, ” mak-
+ing systematic comparison impossible. The result is unstructured
+tags that defeat the purpose of automation—we trade one form of
+unstructured data for another.
+Producing actionable data requires a method that maps LLM-
+extracted risks to a predefined, curated taxonomy. This allows con-
+sistent risk categorization across thousands of filings while pre-
+serving the flexibility of LLMs to identify diverse risk expressions
+in natural language. The challenge lies in the mapping itself: how
+do we reliably connect free-form risk descriptions extracted by an
+LLM to fixed categories in a hierarchical taxonomy, while ensuring
+that only genuinely relevant mappings are retained?
+We propose a methodology that combines semantic embeddings
+with LLM-based validation to achieve robust taxonomy-aligned risk
+extraction. Our approach operates in three stages. First, we use an
+LLM with structured output to extract comprehensive risk factors
+and supporting quotes from the raw text. Second, we map these
+extracted risks to our predefined taxonomy using embedding-based
+similarity between the extracted quote and taxonomy category de-
+scriptions. Third, we employ an LLM-as-a-judge to validate each
+mapping, scoring how well the supporting quote actually matches
+the assigned taxonomy category and filtering out weak or spurious
+mappings. This validation stage serves dual purposes: it filters spu-
+rious mappings in production while generating systematic feedback
+for continuous taxonomy improvement. This multi-stage pipeline
+ensures that extracted risks adhere to a consistent taxonomy while
+maintaining high precision in their assignments.
+Our contributions are:
+A robust methodology for taxonomy-aligned risk extraction.We
+present a complete pipeline that combines LLM extraction, embedding-
+based similarity mapping, and LLM validation to reliably map free-
+form risk descriptions to predefined taxonomy categories. The
+embedding-based mapping provides computational efficiency and
+semantic grounding, while the LLM-as-a-judge validation prevents
+false positives that would arise from naïve nearest-neighbor assign-
+ment alone.
+arXiv:2601.15247v1  [cs.CL]  21 Jan 2026
+
+
+[Page 2]
+Dolphin et al.
+A three-tier risk factors taxonomy for investment analysis.We
+introduce a hierarchical taxonomy specifically designed for risk
+analysis in the investment context, with primary, secondary, and
+tertiary categories that organize risks at appropriate granularity for
+investment decision-making. Unlike existing taxonomies such as
+the Cambridge Taxonomy of Business Risks [7], which subdivides
+categories like extreme weather into overly specific types (“Tropical
+Windstorm” vs. “Temperature Windstorm”), our taxonomy balances
+comprehensiveness with practical utility for financial analysis.
+Autonomous taxonomy refinement workflow.We present a sys-
+tematic method for continuous taxonomy improvement using LLM-
+as-a-judge evaluation scores as feedback signals. An AI agent au-
+tonomously identifies problematic taxonomy categories by ana-
+lyzing patterns in low-quality mappings, diagnoses root causes
+through examination of evaluation reasoning, generates candi-
+date description refinements, and validates improvements using
+embedding-based testing that directly mirrors production match-
+ing. This creates a continuous improvement loop where taxonomy
+quality increases as the system processes more documents, reduc-
+ing the human expertise burden in taxonomy maintenance. A case
+study demonstrates 104.7% improvement in embedding separation
+for a pharmaceutical approval category through this autonomous
+workflow, transitioning taxonomy development from a static design
+problem to an iteratively improving system.
+Empirical validation on S&P 500 companies.We evaluate our
+approach on 2024 10-K filings for S&P 500 companies, extracting
+10,688 validated risk factors mapped to our taxonomy. Industry clus-
+tering analysis demonstrates that companies in the same industry
+exhibit significantly more similar risk profiles than cross-industry
+pairs (63% relative improvement in similarity, Cohen’s 𝑑= 1.06,
+𝑝< 0.001across four statistical tests). This clustering emerges
+despite the taxonomy mapping having no access to industry codes,
+validating that extracted categories capture genuine economic risk
+dimensions. Finer industry granularity strengthens the signal (AUC
+improves from 0.733 for broad sectors to 0.822 for narrow industry
+definitions), and sector-specific analysis reveals intuitive patterns
+such as 83% of banks tagged with interest rate risk versus 22% of
+all companies. The production system has been deployed at Mas-
+sive.com, processing companies across five years of historical filings
+and serving results via API.
+The methodology we present is not specific to risk factors or 10-
+K filings. It provides a general framework for extracting structured
+information from unstructured text while maintaining adherence
+to predefined categorical systems—a problem that arises in many
+domains where systematic analysis requires consistent labeling but
+source documents use unconstrained natural language.
+2 Related Work
+Financial document analysis and risk extraction.The analysis
+of corporate disclosures using computational methods has been
+extensively studied. Early work focused on sentiment analysis of
+financial documents and identifying risk-related language through
+dictionary-based approaches [16]. More recent work has applied
+deep learning to classification and prediction based on financial
+text [5, 10, 19]. Other work has explored using pre-trained language
+models fine-tuned on financial corpora [2, 8, 23]. However, exist-
+ing work primarily focuses on document-level sentiment analysis
+and broad classification tasks rather than structured extraction of
+specific risk factors aligned with pre-defined taxonomies.
+Risk taxonomies for corporate analysis.Several taxonomies have
+been proposed for classifying business risks. The Cambridge Tax-
+onomy of Business Risks [7] provides a comprehensive framework
+but is designed for general risk management rather than invest-
+ment analysis, leading to excessive granularity in some categories
+(e.g., subdividing weather risks by storm type). Industry-specific
+taxonomies exist (see, for example, Kaufman et al. [11] for bank-
+ing and Rabitti et al. [18] for cyber) but lack the breadth needed
+for cross-sector equity analysis. Our work contributes a taxonomy
+specifically designed for the investment use case, balancing cover-
+age with practical granularity.
+Structured information extraction with LLMs.Recent advances in
+LLMs and the surrounding ecosystem have enabled reliable struc-
+tured output through prompt engineering and function calling [1, 3].
+While this solves the problem of output formatting, it does not ad-
+dress the challenge of mapping free-form LLM outputs to predefined
+categorical systems. Wei et al. [22] showed that chain-of-thought
+prompting improves reasoning in complex tasks, and our extrac-
+tion prompts follow this pattern by asking the LLM to identify
+risks while providing supporting quotes and reasoning—though
+this alone is insufficient to ensure taxonomy alignment. Examples
+of structured information extraction from unstructured text in the
+financial domain include [4, 14].
+Semantic similarity and embedding-based retrieval.Embedding
+models that map text to dense vector representations have become
+central to semantic search and retrieval tasks [20]. Recent work has
+shown that task-specific instructions can improve embedding qual-
+ity for downstream applications [21, 24]. We leverage this capability
+using instruction-tuned embeddings to represent both taxonomy
+descriptions and extracted risk supporting quotes in a shared se-
+mantic space. The nearest-neighbor retrieval approach is standard
+in embedding-based semantic search [17], but applying it to tax-
+onomy mapping introduces the challenge of preventing spurious
+mappings when extracted content has no appropriate taxonomy
+category.
+LLM-as-judge evaluation.Using LLMs to evaluate outputs from
+other systems has emerged as a practical approach for tasks where
+traditional metrics are insufficient [6, 25]. LLM judges have been
+applied to evaluate open-ended generation quality, factual consis-
+tency, and instruction following. Critically, recent work has shown
+that LLM judges can achieve high agreement with human evalua-
+tors when provided with clear scoring rubrics [15, 25]. We extend
+this paradigm to the taxonomy mapping problem, using an LLM
+judge not just for post-hoc evaluation but as an integral compo-
+nent of the extraction pipeline to filter low-quality mappings in
+production.
+Hybrid approaches to information extraction.Our work sits in the
+broader context of hybrid systems that combine multiple techniques
+for robust information extraction. Recent systems have combined
+retrieval with generation [13], used multiple models in ensemble [9],
+
+
+[Page 3]
+Taxonomy-Aligned Risk Extraction from 10-K Filings
+or employed multi-stage pipelines with different models for differ-
+ent subtasks [12]. Our three-stage approach (LLM extraction →
+embedding mapping → LLM validation) follows this philosophy,
+using each component where it excels: LLMs for understanding nu-
+anced text and making holistic judgments, embeddings for efficient
+large-scale semantic similarity.
+3 Methodology
+We present a three-stage pipeline for extracting risk factors from
+10-K filings and mapping them to a predefined taxonomy (Figure 1).
+The key insight is that no single technique suffices: LLMs excel
+at understanding nuanced text but produce inconsistent labels,
+embeddings enable efficient semantic matching but can produce
+spurious mappings, and validation is needed to ensure quality. Our
+approach combines these complementary strengths into a robust
+extraction system.
+3.1 Problem Formulation
+Let T={𝑡 1, . . . , 𝑡𝑁 } represent our risk factor taxonomy, where
+each category 𝑡𝑖 consists of a hierarchical label (primary, secondary,
+tertiary) and a natural language description 𝑑𝑖 that explains what
+risks belong in that category. The hierarchy allows primary and
+secondary labels to repeat across branches, while tertiary cate-
+gories provide unique leaf-level classification. Given raw text 𝑥
+from a 10-K Item 1A section, our goal is to produce a set of tuples
+{(𝑡 𝑖1, 𝑞1), . . . ,(𝑡 𝑖𝑘 , 𝑞𝑘 )} where each 𝑡𝑖 𝑗 ∈ T is a taxonomy category
+and 𝑞 𝑗 is a supporting quote from 𝑥 that justifies the assignment.
+Critically, we want high precision—only including taxonomy cate-
+gories when genuinely supported by the text.
+3.2 Three-Tier Risk Taxonomy
+Our taxonomy organizes corporate risks into a three-tier hierarchy
+designed for investment analysis. The structure comprises seven
+primary categories (Strategic & Competitive, Operational & Execu-
+tion, Financial & Market, Technology & Information, Regulatory
+& Compliance, External & Systemic, Governance & Stakeholder),
+which subdivide into 28 secondary categories and further into 140
+tertiary categories. Each tertiary category represents a specific risk
+type with an associated natural language description.
+For example, under the primary category “Financial & Market, ”
+the secondary category “Market & Investment” contains the tertiary
+risk “Interest rate and yield curve risk, ” described as:“Risk from
+changes in interest rates or yield curves that can affect borrowing
+costs, investment returns, asset values, and overall financial perfor-
+mance. This includes risks from both rising and falling interest rate
+environments and their impact on various aspects of the business. ”
+The taxonomy balances comprehensiveness with practical gran-
+ularity. Unlike academic risk taxonomies that can overly subdivide
+non-consequential categories, our design groups related risks at a
+level useful for investment decision-making. Weather-related risks,
+for instance, are captured in a single category rather than being
+fragmented by storm type or temperature range.
+3.3 Stage 1: LLM-Based Risk Extraction
+The first stage uses an LLM to process the Item 1A text and extract
+a comprehensive list of risk factors without any constraint to match
+our taxonomy. We use Claude 4.5 Sonnet with structured output
+via function calling, configured with a task specific system prompt.
+The LLM receives the full Item 1A text and must produce a list
+of risk exposures, where each exposure includes:
+•A free-form tag describing the risk
+• A supporting quote from the original text justifying that
+risk’s inclusion
+This design follows chain-of-thought prompting principles. By
+requiring the LLM to provide supporting quotes, we encourage
+more grounded extraction and simultaneously obtain the text snip-
+pets needed for subsequent embedding-based matching. The struc-
+tured output constraint ensures reliable parsing, with automatic
+retry on malformed responses.
+The LLM isnotprovided our taxonomy at this stage. Direct tax-
+onomy matching proves unreliable due to context bloat, increasing
+costs and degrading performance. Instead, we separate comprehen-
+sion from categorization.
+3.4 Stage 2: Embedding-Based Taxonomy
+Mapping
+Given the LLM-extracted risks with supporting quotes, we map
+each to the most semantically similar taxonomy category using
+dense embeddings. This approach provides computational efficiency
+(matching tens of extracted risks against 140 categories) while
+leveraging semantic similarity to find appropriate mappings.
+Embedding generation.We use the Qwen3 Embedding 0.6B [ 24]
+model, which supports task specific instructions that improve ap-
+plication specific embedding quality [21, 24]. We leverage this capa-
+bility by prepending a task instruction to all text before embedding:
+“Classify risk factor text from an annual report into the most appro-
+priate taxonomy category. ”
+Taxonomy embeddings are computed once offline by embed-
+ding each category’s natural language description with this instruc-
+tion. At runtime, we embed each supporting quote from the LLM-
+extracted risks using the same instruction, ensuring both taxonomy
+descriptions and extracted quotes are represented in a shared, task-
+aligned latent space. The model is run locally, avoiding API costs
+and latency compared to cloud-based embedding services.
+Nearest neighbor matching.For each extracted risk with embed-
+dinge 𝑞 ∈R 1024, we compute similarity to all taxonomy category
+embeddings {e𝑡1, . . . , e𝑡𝑁 } using dot product (equivalent to cosine
+similarity for normalized embeddings):
+𝑠(𝑞, 𝑡𝑖 )=e 𝑇
+𝑞 e𝑡𝑖 (1)
+We assign each extracted risk to its highest-similarity taxonomy
+category:
+𝑡 ∗ =arg max
+𝑡𝑖 ∈ T
+𝑠(𝑞, 𝑡𝑖 )(2)
+This matching is implemented efficiently using matrix multipli-
+cation, computing all pairwise similarities in a single operation.
+The spurious mapping problem.Nearest neighbor assignment
+guarantees every extracted risk maps tosometaxonomy category,
+even when no appropriate category exists. Embeddings-based se-
+mantic search isn’t a silver bullet. An LLM might extract a risk about
+“regulatory approval delays for pharmaceutical products, ” which
+
+
+[Page 4]
+Dolphin et al.
+Stage 1: Extraction
+LLM extracts risk
+factors with supporting
+quotes from 10-K text
+Stage 2: Mapping
+Embed quotes and
+match to pre-computed
+taxonomy embeddings
+Stage 3: Validation
+LLM judge scores
+each mapping; filter
+low-quality matches
+Low-quality mappings inform taxonomy refinement
+Figure 1: Three-stage pipeline for taxonomy-aligned risk extraction. Stage 1 uses an LLM to extract risk factors with supporting
+quotes from raw text. Stage 2 maps extracted risks to taxonomy categories using embedding-based semantic similarity. Stage 3
+employs an LLM judge to validate mappings and filter spurious assignments, while low-quality mappings provide feedback for
+continuous taxonomy improvement.
+could map to a generic regulatory risk category despite our taxon-
+omy having a more specific “Clinical trial and regulatory approval
+risks” category that would be a better fit—or worse, an extracted
+risk could be mapped to an entirely inappropriate category if the
+true risk isn’t covered by our taxonomy at all. Heuristics based on
+the embedding similarity score alone are insufficient to detect these
+problematic mappings.
+3.5 Stage 3: LLM-as-Judge Validation
+To address spurious mappings, we employ an LLM as a judge [25]
+to evaluate each proposed mapping and assign a quality score. We
+initialize a separate LLM instance with a system prompt specifically
+designed for evaluation, distinct from the extraction stage. This
+validation step acts as a precision filter, discarding low-confidence
+assignments while retaining high-quality matches.
+For each mapping of supporting quote 𝑞 to taxonomy category 𝑡
+(with description 𝑑), we prompt the LLM with instructions to rate
+the match quality on a 1-5 scale, along with relevant context. The
+rating scale is defined as:
+• 5 = Excellent fit: Perfect match between text and classifica-
+tion
+•4 = Good fit: Appropriate with only minor issues
+•3 = Adequate fit: Reasonable but some gaps
+•2 = Poor fit: Significant misalignment
+•1 = Very poor fit: Clearly wrong classification
+The LLM must provide both a numerical score and concise rea-
+soning (one sentence) explaining the rating. We use structured
+output to ensure reliable parsing of the evaluation results. Due to
+the inherent latency of LLMs, evaluating each mapping sequen-
+tially would create a bottleneck, and so, we implement concurrent
+evaluation while respecting API rate limits.
+Table 1 shows the distribution of ratings. We retain only map-
+pings with quality scores ≥ 4, ensuring high precision in the final
+results. Lower-scored mappings are logged with their reasoning for
+taxonomy improvement—repeated low scores for similar extracted
+risks can indicate taxonomy gaps or categories needing refinement.
+This logging serves dual purposes: filtering spurious mappings
+in production and providing systematic signals for taxonomy im-
+provement during development. When a category accumulates
+Table 1: Distribution of LLM-as-judge quality scores across
+all evaluated mappings for S&P 500 companies before quality
+filtering.
+Quality Score Count Percentage
+1 (Very poor) 1,291 7.8%
+2 (Poor) 4,037 24.3%
+3 (Adequate) 599 3.6%
+4 (Good) 2,344 14.1%
+5 (Excellent) 8,344 50.2%
+Total 16,615 100%
+many low-quality mappings with similar patterns in the reason-
+ing (e.g., “text discusses EU regulatory approval but description
+emphasizes FDA”), this indicates the category description needs
+refinement to better capture the intended scope or distinguish true
+positives from common false positives. Section 4.2 demonstrates
+this feedback loop through a detailed case study of autonomous
+taxonomy refinement using LLM evaluation outputs.
+3.6 Deduplication and Final Output
+The pipeline may produce multiple LLM-extracted risks that map
+to the same taxonomy category (e.g., different phrasings of cyber-
+security risk). After quality filtering, we deduplicate by taxonomy
+category, retaining the highest-quality mapping for each category.
+This ensures each taxonomy category appears at most once in the
+final output.
+The final output for a given 10-K filing is an object where each
+element represents one risk factor:
+•Primary, secondary, and tertiary category labels
+•Supporting quote from the original Item 1A text
+•Original LLM-generated tag (for interpretability)
+•Quality score (for downstream filtering or analysis)
+4 Evaluation
+We evaluate our methodology on 2024 10-K filings for S&P 500
+companies, addressing two distinct questions. First, can we system-
+atically improve taxonomy quality using LLM-as-a-judge feedback
+
+
+[Page 5]
+Taxonomy-Aligned Risk Extraction from 10-K Filings
+signals to refine problematic category descriptions? Second, do the
+extracted risk profiles capture economically meaningful structure—
+specifically, whether companies in the same industry exhibit more
+similar risk profiles than cross-industry pairs? The first question
+tests whether the methodology enables continuous improvement
+of the taxonomy itself, while the second tests whether the extracted
+risks reflect genuine sectoral patterns rather than arbitrary catego-
+rizations. We find that autonomous taxonomy refinement yields
+substantial improvements in embedding separation (104.7% for a
+pharmaceutical approval category), while industry clustering analy-
+sis demonstrates strong and statistically significant sectoral patterns
+(63% higher similarity for same-industry pairs, Cohen’s𝑑= 1.06,
+𝑝<0.001).
+4.1 Data Acquisition
+We obtain risk factor sections (Item 1A) from 10-K filings using
+Massive.com’s SEC AI-Ready APIs 1. These APIs provide direct
+access to parsed Item 1A sections, eliminating the need for custom
+XBRL parsing. For a given ticker symbol and fiscal year, the API
+returns clean plain text of the risk factors section, typically ranging
+from 4,000 to 20,000 words. This pre-processing is helpful because
+raw SEC filings contain inconsistent formatting, nested tags, and
+presentation markup that complicate downstream analysis.
+4.2 Taxonomy Quality Analysis and Iterative
+Refinement
+The LLM-as-judge evaluation scores provide more than a filtering
+mechanism—they offer systematic feedback for improving the tax-
+onomy itself. When a category consistently receives low-quality
+scores across many mappings, this signals potential issues with
+the category description that can be addressed through iterative
+refinement. We demonstrate this through a detailed case study
+of an autonomous AI agent workflow that identifies problematic
+categories, analyzes failure patterns, proposes refinements, and
+validates improvements through embedding-based testing.
+Quality score distribution.Across all 500 S&P 500 companies,
+the LLM-as-judge evaluated 16,615 candidate mappings from the
+embedding-based matching stage. Again, see Table 1 for the distri-
+bution of evaluation scores. While the majority of mappings (50.2%)
+received the highest quality score of 5, a substantial fraction (32.1%)
+received scores of 1 or 2, indicating poor matches between the
+extracted risk text and the assigned taxonomy category. These low-
+quality mappings are filtered from production results but logged
+with their evaluation reasoning for taxonomy analysis.
+Autonomous identification of problematic categories.An AI agent
+with custom tools analyzed the logged low-quality mappings to
+identify taxonomy categories requiring attention. By aggregating
+mappings with scores < 4by category, the agent identified “Phar-
+maceutical and medical device approval” as accumulating 179 low-
+quality mappings—one of the highest among all 140 tertiary cate-
+gories. The quality score distribution for this category was notably
+worse than the overall distribution: 78.1% of its mappings received
+scores of 1 or 2, compared to 32.1% across all categories (Table 1).
+1https://massive.com/docs/rest/stocks/filings/10-k-sections
+The category’s original description was:“Risk for healthcare com-
+panies from regulatory approval processes, including FDA approvals,
+market access restrictions, or changes in regulatory requirements that
+could delay product launches, limit market opportunities, or require
+additional studies. ”The agent retrieved all 179 low-quality map-
+pings along with their LLM evaluation reasoning to analyze failure
+patterns.
+Pattern analysis and root cause identification.The agent system-
+atically analyzed the evaluation reasoning across the low-quality
+mappings, identifying four major failure patterns:
+(1) Geographic scope confusion(30% of cases): While the descrip-
+tion mentioned “including FDA approvals, ” many extracted
+risks specifically discussed EU Medical Devices Regulation,
+UK UKCA marking, or EMA processes. These were legit-
+imate regulatory approval risks but received low scores
+with reasoning like “text specifically discusses EU/EMA
+regulations, not FDA approval processes. ” The phrasing “in-
+cluding FDA” inadvertently suggested FDA primacy rather
+than multi-jurisdictional coverage.
+(2) Post-market vs. pre-market misalignment(20%): The phrase
+“market access restrictions” attracted post-approval com-
+pliance risks (off-label promotion penalties, Phase 4 trial
+requirements) that should not match this category. Evalua-
+tion reasoning correctly noted these describe post-market
+enforcement rather than pre-market approval processes.
+(3) Reimbursement conflation(15%): “Market access restrictions”
+also incorrectly attracted reimbursement-related risks such
+as physician adoption barriers due to unclear payor policies.
+These belong in the separate “Reimbursement and pricing
+pressure” category.
+(4) Non-healthcare regulatory approvals(10%): Generic men-
+tions of “approval processes” incorrectly attracted risks
+about FCC regulations, DOE export permits, and M&A reg-
+ulatory clearance, which the LLM judge correctly rejected
+as irrelevant to pharmaceutical/device approval.
+Automated description refinement and testing.Based on these
+patterns, the agent autonomously generated multiple candidate
+description refinements and implemented an embedding-based test-
+ing methodology to evaluate them. The agent created a test set
+of cases: true positives representing genuine regulatory approval
+risks across multiple jurisdictions (FDA, EMA, MHRA) and false
+positives drawn from the identified failure patterns.
+For each candidate description, the agent: (1) generated embed-
+dings using the same Qwen3-Embedding model with task instruc-
+tions, (2) computed cosine similarity against all test cases, and (3)
+measured embedding separation quality as the difference between
+the average similarity scores of true positive test cases versus false
+positive. In some sense, this process can be thought of as analogous
+to contrastive learning: we are trying to find category descriptions
+that maximize similarity with true positive test cases while mini-
+mizing similarity with false positive cases.
+Table 2 shows selected variants tested by the agent. The key
+insight was that removing the ambiguous phrase “market access re-
+strictions” while explicitly listing multiple health authorities (FDA,
+
+
+[Page 6]
+Dolphin et al.
+EMA, and other agencies) and emphasizing the pre-market approval
+stage would address the identified failure patterns.
+The final refined description achieved 0.132 separation, a104.7%
+improvementover the original’s 0.064. Critical changes included:
+(1) removing “market access restrictions” which caused the post-
+market and reimbursement confusion, (2) explicitly listing “FDA,
+EMA, and international agencies” to signal multi-jurisdictional
+coverage rather than FDA primacy, (3) adding “pre-market” to dis-
+tinguish from post-approval compliance, and (4) including specific
+regulatory approval terminology (“clinical trial failures, regulatory
+review delays”).
+Implications for continuous taxonomy improvement.This case
+study demonstrates an end-to-end autonomous workflow for tax-
+onomy refinement: the AI agent identifies problematic categories
+from LLM-as-a-judge outputs, retrieves and analyzes low-quality
+mappings to diagnose root causes, generates candidate description
+refinements, implements quantitative testing methodology, and
+validates improvements before recommending deployment. The
+entire process—from identifying the “Pharmaceutical and medi-
+cal device approval” category as problematic to producing the re-
+fined description with measured 104.7% improvement in embedding
+separation—was performed autonomously, with human oversight
+but no manual intervention in the analysis or refinement steps.
+This autonomous refinement capability enables continuous tax-
+onomy improvement as the system processes new documents. As
+low-quality mappings accumulate for various categories, the agent
+can periodically identify categories needing attention and propose
+evidence-based refinements. The embedding-based testing method-
+ology provides objective measurement of improvements, ensuring
+that refinements genuinely enhance the semantic separation be-
+tween true and false positives rather than merely changing the
+description arbitrarily. While the case study presented here focused
+on a single category, the methodology applies systematically across
+all taxonomy categories—the agent can identify and refine multiple
+problematic categories using the same workflow, with prioritization
+based on the volume and severity of low-quality mappings.
+4.3 Industry Clustering Validation
+The preceding evaluation demonstrates internal consistency through
+embedding separation metrics and autonomous taxonomy refine-
+ment, but does not validate whether the extracted taxonomy cap-
+tures economically meaningful structure. We now test whether
+companies in the same industry exhibit similar risk profiles when
+similarity is computed purely from taxonomy assignments with no
+industry information in the matching process.
+4.3.1 Experimental Design.We construct a binary risk matrixR ∈
+{0, 1}𝑛×𝑘 where 𝑛= 500companies and 𝑘= 137represents the
+tertiary taxonomy categories appearing in our S&P 500 sample 2,
+with𝑅 𝑖 𝑗 =1if company𝑖was tagged with risk category𝑗.
+Not all risks are equally informative for distinguishing indus-
+tries. Generic risks like “data breaches” appear in 270 companies
+(58%), providing little discriminative signal—most companies face
+cybersecurity concerns regardless of industry. Specialized risks
+2Three categories were not assigned to any of the sample companies, accounting for
+the discrepancy between𝑘= 137and the140total tertiary categories in the taxonomy.
+like “clinical trial risks” appear in only 14 companies (3%), strongly
+indicating pharmaceutical firms. We therefore weight each risk
+category inversely to its prevalence, upweighting rare risks that
+distinguish industries while downweighting common risks shared
+across sectors.
+This approach is inspired by inverse document frequency (IDF)
+weighting from information retrieval, adapted to our binary setting.
+Since companies either have a risk or not (no frequency counts),
+the term frequency component is always 1, leaving only the inverse
+prevalence weighting. For each category𝑗, we compute:
+𝑤 𝑗 =log 𝑛Í
+𝑖 𝑅𝑖 𝑗 +1 (3)
+and weight the matrix as ˜𝑅𝑖 𝑗 =𝑅 𝑖 𝑗 ·𝑤 𝑗 . The logarithm creates
+balanced weights: very rare risks appearing in 2 companies receive
+weight log(500/2)= 5.52, while common risks in 250 companies
+receive weight log(500/250)= 0.69, yielding an 8-fold range. Lin-
+ear inverse weighting, without the log transformation, produces
+extreme ratios (250 versus 2, a 125-fold range) that allow ultra-rare
+features to dominate similarity, degrading classification perfor-
+mance.
+We compute pairwise company similarity using cosine distance
+on weighted risk vectors and test whether same-industry pairs
+(sharing 2-digit SIC codes) exhibit higher similarity than different-
+industry pairs. This provides external validation: the taxonomy
+mapping has no access to industry information, yet if it captures
+genuine business risks, industry structure should emerge naturally
+from the risk profiles.
+4.3.2 Results.Figure 2 shows similarity distributions for same-
+industry versus different-industry pairs. Companies in the same
+industry exhibit substantially higher risk profile similarity (mean
+0.254) compared to companies in different industries (mean 0.156),
+a 63% relative increase. The distributions show clear separation:
+same-industry pairs form a distinct mode shifted rightward from
+the different-industry distribution.
+Four statistical tests confirm this difference is highly signifi-
+cant and represents a large effect. Welch’s𝑡-test yields 𝑡= 54.59
+(𝑝< 0.001). The Kolmogorov-Smirnov test shows the entire distri-
+butions differ significantly (𝐷= 0.341, 𝑝< 0.001), not just their
+central tendencies. A permutation test with 10,000 iterations con-
+firms robustness to distributional assumptions (𝑝< 0.001). Cohen’s
+𝑑= 1.062indicates a very large effect size by conventional standards
+(𝑑> 0.8), demonstrating both statistical and practical significance.
+Figure 3 tests whether risk similarity predicts industry mem-
+bership by computing ROC curves for binary classification using
+similarity as the decision variable. That is, for each company pair,
+we predict whether they share industry membership based on their
+similarity. At 2-digit SIC granularity (broad sectors like "Deposi-
+tory Institutions" or "Chemicals"), AUC reaches 0.733, substantially
+above random classification (0.5). More granular industry codes
+strengthen the signal: 3-digit SIC achieves AUC 0.798, while 4-
+digit (highly specific industries) reaches 0.822. This progression
+demonstrates that our taxonomy captures fine-grained industry
+characteristics, not merely coarse sectoral patterns.
+
+
+[Page 7]
+Taxonomy-Aligned Risk Extraction from 10-K Filings
+Table 2: Performance of description variants for “Pharmaceutical and medical device approval” tested by the autonomous
+agent. Separation measures the difference between average true positive and false positive similarity scores in the latent space
+(higher is better).
+Description Variant Avg TP Avg FP Separation
+Original: Risk for healthcare companies from regulatory approval processes, including FDA
+approvals, market access restrictions, or changes in regulatory requirements that...
+0.522 0.457 0.064
+V1: Risk ... from regulatory approval processes, including FDA, EMA, and other health
+authority approvals, or changes in regulatory requirements that could delay product launches...
+0.524 0.436 0.089
+V2: Risk from ... regulatory approval delays or rejections by health authorities (FDA, EMA,
+MHRA, and other agencies) due to clinical trial requirements, review process delays, or
+requests...
+0.556 0.434 0.122
+Final (V3): Risk from pre-market regulatory approval delays or rejections for pharmaceutical
+and medical device products by health authorities including FDA, EMA, and international
+agencies. This includes clinical trial failures, regulatory review delays, and requirements...
+0.564 0.4330.132
+0.1 0.2 0.3 0.4 0.5 0.6 0.7
+0
+1
+2
+3
+4
+Different Industry
+Same Industry
+Risk Profile Similarity
+Probability Density
+Figure 2: Risk profile similarity distributions for same-
+industry versus different-industry company pairs using
+weighted similarity. Companies sharing 2-digit SIC codes
+(blue, 5,263 pairs) exhibit substantially higher similarity than
+companies in different industries (red, 101,228 pairs). The
+clear distributional separation demonstrates that extracted
+risk profiles naturally capture sectoral information despite
+no industry information in the taxonomy mapping process.
+These results validate that our extraction pipeline captures eco-
+nomically meaningful risk dimensions rather than generic boiler-
+plate. The taxonomy was designed for investment analysis without
+reference to industry codes, yet the risk profiles naturally capture
+sectoral information.
+4.3.3 Sensitivity to granularity.Table 3 shows clustering strength
+across taxonomy levels and SIC digit precision. Taxonomy granular-
+ity proves critical: primary categories (7 total) produce essentially
+random classification (AUC 0.509), secondary categories (28) show
+moderate clustering (AUC 0.633), while tertiary categories (137)
+yield strong industry signal (AUC 0.733). This progression reflects
+that coarse categorization collapses industry-specific variation—
+all companies face "strategic and competitive" risks, but tertiary
+manifestations differ meaningfully by industry.
+0 0.2 0.4 0.6 0.8 1
+0
+0.2
+0.4
+0.6
+0.8
+1
+2-digit SIC (AUC = 0.733)
+3-digit SIC (AUC = 0.798)
+4-digit SIC (AUC = 0.822)
+Random
+False Positive Rate
+True Positive Rate
+Figure 3: ROC curves for predicting industry membership
+from weighted risk similarity across three SIC code granu-
+larities. Finer industry definitions (4-digit SIC, AUC = 0.822)
+produce stronger clustering than broad sectors (2-digit, AUC
+= 0.733), demonstrating that extracted risk profiles capture
+industry-specific patterns at multiple levels of specificity.
+All curves substantially outperform random classification
+(diagonal, AUC = 0.5).
+Table 3: Industry clustering validation across taxonomy and
+SIC granularities using weighted similarity. All differences
+significant at𝑝<0.001across all statistical tests.
+Taxonomy SIC Mean Similarity
+Level Digits Same Ind. Diff. Ind.ΔAUC
+Primary 2 0.752 0.751 0.001 0.509
+Secondary 2 0.476 0.380 0.096 0.633
+Tertiary 2 0.254 0.156 0.098 0.733
+Tertiary 3 0.292 0.158 0.134 0.798
+Tertiary 4 0.307 0.159 0.148 0.822
+
+
+[Page 8]
+Dolphin et al.
+Industry code precision amplifies clustering for tertiary cate-
+gories: moving from 2-digit to 4-digit SIC increases AUC from 0.733
+to 0.822, with absolute similarity differences growing from 0.098 to
+0.148. Finer industry definitions (e.g., "pharmaceutical preparation"
+versus "chemicals and allied products") correspond to more spe-
+cialized risk profiles that our taxonomy successfully distinguishes.
+Notably, different-industry similarity remains stable around 0.16 re-
+gardless of SIC granularity, while same-industry similarity increases
+from 0.254 (2-digit) to 0.307 (4-digit), confirming that narrow in-
+dustry definitions genuinely share more similar risk profiles rather
+than the effect arising from statistical artifacts.
+These results validate our design choices. Tertiary granularity
+captures industry-specific risk patterns that coarser levels collapse.
+The strong signal at 2-digit SIC (broad sectors) demonstrates the
+taxonomy captures fundamental industry characteristics, not nar-
+row idiosyncrasies, providing a practical balance for cross-sector
+analysis.
+4.4 Sector-Specific Risk Profiles
+The preceding analysis demonstrates that risk profiles cluster by
+industry in aggregate, but what does this look like for a specific
+sector? We examine SIC 60 (Depository Institutions), containing
+12 banks including Bank of America, JPMorgan Chase, and State
+Street.
+Figure 4 shows the most overrepresented risk categories for
+banks. Finance-specific risks appear with dramatically higher preva-
+lence than in the overall S&P 500 population: interest rate and yield
+curve risk appears in 83% of banks versus only 22% of all compa-
+nies. Capital and liquidity requirements appears in 67% of banks
+versus 3% overall—this regulatory requirement is largely specific to
+financial institutions. Credit risk appears in 50% versus 17%, market
+volatility in 67% versus 8%, and public perception in 83% versus
+10%. The latter reflects banks’ particular sensitivity to reputational
+damage given depositor confidence and regulatory scrutiny.
+Conversely, risks common in other sectors rarely appear for
+companies in the Depository Institutions SIC class. Raw material
+availability appears in only 8% versus 42% of all companies, and
+safety and environmental regulations in 8% versus 45% overall. This
+pattern—strong enrichment for sector-relevant risks, systematic
+depletion for irrelevant ones—demonstrates that our taxonomy
+captures what makes banks economically distinctive: interest rate
+sensitivity, regulatory capital requirements, credit quality, and sys-
+temic financial risk, while appropriately filtering out manufacturing
+and supply chain concerns that dominate other industries.
+5 Conclusion
+We present a methodology for extracting structured risk informa-
+tion from corporate disclosures while maintaining adherence to
+a predefined taxonomy. The core challenge—mapping free-form
+LLM-extracted text to fixed categories without producing spuri-
+ous assignments—is addressed through a three-stage pipeline com-
+bining LLM extraction, embedding-based semantic matching, and
+LLM-as-a-judge validation. This hybrid approach leverages the
+complementary strengths of each component: LLMs understand
+nuanced language and make holistic judgments, embeddings pro-
+vide efficient semantic similarity at scale, and the validation layer
+0 20 40 60 80
+Interest rate and yield curve risk
+Public perception and reputation
+Market volatility and financial crises
+Internal controls and risk management
+Capital and liquidity requirements
+Depository InstitutionsOverall S&P 500
+Percentage of Companies
+Figure 4: Risk category prevalence for Depository Institu-
+tions (SIC 60, 𝑛= 12) versus overall S&P 500 population.
+Bars show the percentage of companies tagged with each
+risk. Banks exhibit systematic overrepresentation of finance-
+specific risks: 83% have interest rate risk versus 22% overall,
+67% have capital requirements versus 3% overall. Risks are
+sorted by overall S&P prevalence (highest at top) to empha-
+size sector-specific enrichment.
+filters false positives that arise from nearest-neighbor assignment
+alone.
+Our evaluation demonstrates the methodology’s effectiveness on
+S&P 500 companies’ 2024 10-K filings, extracting 10,688 validated
+risk factors across the pre-defined taxonomy categories. Beyond
+validating extraction quality, we introduce autonomous taxonomy
+maintenance as a distinct contribution: an AI agent analyzes LLM-
+as-a-judge evaluation scores to systematically identify problematic
+categories, diagnose failure patterns, and propose evidence-based
+refinements. This creates a continuous improvement loop where
+taxonomy quality increases as the system processes more docu-
+ments, reducing the human expertise burden in taxonomy design
+and maintenance. A case study demonstrates 104.7% improvement
+in embedding separation through autonomous refinement of a phar-
+maceutical approval category.
+External validation through industry clustering confirms the tax-
+onomy captures economically meaningful risk dimensions. Com-
+panies in the same industry exhibit 63% higher risk profile similar-
+ity than cross-industry pairs when measured using inverse preva-
+lence weighted similarity on taxonomy assignments. This clustering
+emerges despite the mapping process having no access to indus-
+try codes, with strong statistical significance across four tests and
+high predictive power for industry membership (AUC 0.733-0.822
+depending on industry granularity). Sector-level analysis reveals
+intuitive patterns: 83% of banks are tagged with interest rate risk
+versus 22% of all companies, while manufacturing concerns like
+raw material availability appear in only 8% of banks versus 42%
+overall.
+The methodology we present extends beyond risk factor extrac-
+tion from 10-K filings. It provides a general framework for mapping
+unstructured text to predefined categorical systems—a problem
+arising in many domains where systematic analysis requires con-
+sistent labeling but source documents use unconstrained natural
+
+
+[Page 9]
+Taxonomy-Aligned Risk Extraction from 10-K Filings
+language. The approach could be applied to other SEC filing sec-
+tions (MD&A, business descriptions), temporal analysis tracking
+risk evolution across years, or entirely different domains requiring
+taxonomy-aligned extraction from unstructured text.
+Several limitations warrant discussion. LLM-based extraction
+and validation incur API costs and latency that may constrain real-
+time applications or extremely large-scale processing, though batch
+processing and caching mitigate these concerns in practice. Taxon-
+omy design requires upfront domain expertise to define appropriate
+categories and descriptions, though our autonomous improvement
+workflow reduces ongoing maintenance burden as the system learns
+from evaluation feedback. The current implementation focuses on
+English-language corporate filings, though the methodology itself is
+language-agnostic given multilingual LLMs and embedding models.
+The combination of robust extraction, autonomous improve-
+ment, and external validation provides an effective framework for
+taxonomy-aligned information extraction from unstructured text.
+As LLMs become more capable and embedding models more so-
+phisticated, the core challenge shifts from raw extraction capability
+to ensuring consistency, precision, and alignment with predefined
+categorical systems. Our methodology addresses this challenge
+through hybrid techniques and continuous refinement, enabling
+systematic analysis at scale while maintaining the structured out-
+puts that downstream applications require. The extracted data is
+available via the Risk Factors API at Massive.com.
+References
+[1] Anthropic. 2025.The Claude Model Family: Opus, Sonnet, Haiku. Technical Report.
+Anthropic. https://www.anthropic.com/claude/sonnet Accessed: 2025-10-29.
+[2] Dogu Araci. 2019. Finbert: Financial sentiment analysis with pre-trained language
+models.arXiv preprint arXiv:1908.10063(2019).
+[3] Samuel Colvin et al. 2024.Pydantic AI: GenAI Agent Framework,. https://github.
+com/pydantic/pydantic-ai
+[4] Rian Dolphin, Joe Dursun, Jonathan Chow, Jarrett Blankenship, Katie Adams,
+and Quinton Pike. 2024. Extracting structured insights from financial news: An
+augmented llm driven approach.arXiv preprint arXiv:2407.15788(2024).
+[5] Xinyu Du. 2025. Financial text analysis using 1D-CNN: Risk classification and
+auditing support. InProceedings of the 2025 International Conference on Artificial
+Intelligence and Computational Intelligence. 515–520.
+[6] Yann Dubois, Chen Xuechen Li, Rohan Taori, Tianyi Zhang, Ishaan Gulrajani,
+Jimmy Ba, Carlos Guestrin, Percy S Liang, and Tatsunori B Hashimoto. 2023. Al-
+pacafarm: A simulation framework for methods that learn from human feedback.
+Advances in Neural Information Processing Systems36 (2023), 30039–30069.
+[7] Cambridge Centre for Risk Studies. 2019. Cambridge Taxonomy of Business
+Risks. (2019).
+[8] Giorgos Iacovides, Thanos Konstantinidis, Mingxue Xu, and Danilo Mandic.
+2024. Finllama: Llm-based financial sentiment analysis for algorithmic trading.
+InProceedings of the 5th ACM International Conference on AI in Finance. 134–141.
+[9] Dongfu Jiang, Xiang Ren, and Bill Yuchen Lin. 2023. Llm-blender: Ensembling
+large language models with pairwise ranking and generative fusion.arXiv
+preprint arXiv:2306.02561(2023).
+[10] Wen jun Gu, Yi hao Zhong, Shi zun Li, Chang song Wei, Li ting Dong, Zhuo yue
+Wang, and Chao Yan. 2024. Predicting stock prices with finbert-lstm: Integrating
+news sentiment analysis. InProceedings of the 2024 8th International Conference
+on Cloud and Big Data Computing. 67–72.
+[11] George G Kaufman et al. 2000.Banking and currency crises and systemic risk: A
+taxonomy and review. Number 48-2000. Blackwell Publishers.
+[12] Omar Khattab, Keshav Santhanam, Xiang Lisa Li, David Hall, Percy Liang,
+Christopher Potts, and Matei Zaharia. 2022. Demonstrate-search-predict: Com-
+posing retrieval and language models for knowledge-intensive nlp.arXiv preprint
+arXiv:2212.14024(2022).
+[13] Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir
+Karpukhin, Naman Goyal, Heinrich Küttler, Mike Lewis, Wen-tau Yih, Tim Rock-
+täschel, et al. 2020. Retrieval-augmented generation for knowledge-intensive nlp
+tasks.Advances in neural information processing systems33 (2020), 9459–9474.
+[14] Huaxia Li, Haoyun Gao, Chengzhang Wu, and Miklos A Vasarhelyi. 2025. Ex-
+tracting financial data from unstructured sources: Leveraging large language
+models.Journal of Information Systems39, 1 (2025), 135–156.
+[15] Yang Liu, Dan Iter, Yichong Xu, Shuohang Wang, Ruochen Xu, and Chenguang
+Zhu. 2023. G-eval: NLG evaluation using gpt-4 with better human alignment.
+arXiv preprint arXiv:2303.16634(2023).
+[16] Tim Loughran and Bill McDonald. 2011. When is a liability not a liability? Textual
+analysis, dictionaries, and 10-Ks.The Journal of finance66, 1 (2011), 35–65.
+[17] Tomas Mikolov, Kai Chen, Greg Corrado, and Jeffrey Dean. 2013. Efficient
+estimation of word representations in vector space.arXiv preprint arXiv:1301.3781
+(2013).
+[18] Giovanni Rabitti, Amir Khorrami Chokami, Patrick Coyle, and Ruben D Cohen.
+2025. A taxonomy of cyber risk taxonomies.Risk Analysis45, 2 (2025), 376–386.
+[19] Vipula Rawte, Aparna Gupta, and Mohammed J Zaki. 2018. Analysis of year-
+over-year changes in risk factors disclosure in 10-k filings. InProceedings of the
+fourth international workshop on data science for macro-modeling with financial
+and economic datasets. 1–4.
+[20] Nils Reimers and Iryna Gurevych. 2019. Sentence-bert: Sentence embeddings
+using siamese bert-networks.arXiv preprint arXiv:1908.10084(2019).
+[21] Liang Wang, Nan Yang, Xiaolong Huang, Linjun Yang, Rangan Majumder, and
+Furu Wei. 2023. Improving text embeddings with large language models.arXiv
+preprint arXiv:2401.00368(2023).
+[22] Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi,
+Quoc V Le, Denny Zhou, et al. 2022. Chain-of-thought prompting elicits reason-
+ing in large language models.Advances in neural information processing systems
+35 (2022), 24824–24837.
+[23] Yi Yang, Mark Christopher Siy Uy, and Allen Huang. 2020. Finbert: A pretrained
+language model for financial communications.arXiv preprint arXiv:2006.08097
+(2020).
+[24] Yanzhao Zhang, Mingxin Li, Dingkun Long, Xin Zhang, Huan Lin, Baosong Yang,
+Pengjun Xie, An Yang, Dayiheng Liu, Junyang Lin, Fei Huang, and Jingren Zhou.
+2025. Qwen3 Embedding: Advancing Text Embedding and Reranking Through
+Foundation Models.arXiv preprint arXiv:2506.05176(2025).
+[25] Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu,
+Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric Xing, et al. 2023. Judging
+llm-as-a-judge with mt-bench and chatbot arena.Advances in neural information
+processing systems36 (2023), 46595–46623.

@@ -1,0 +1,3572 @@
+[Page 1]
+PyFi: Toward Pyramid-like Financial Image Understanding for VLMs via
+Adversarial Agents
+Yuqun Zhang1∗ Yuxuan Zhao12∗ Sijia Chen1†
+1 The Hong Kong University of Science and Technology (Guangzhou)
+2 Yantai Research Institute, Harbin Engineering University
+research@yuqunzhang.com, yx.zhao129@gmail.com, sijiachen@hkust-gz.edu.cn
+Abstract
+This paper proposesPyFi, a novel framework
+for pyramid-like financial image understanding
+that enables vision language models (VLMs)
+to reason through question chains in a progres-
+sive, simple-to-complex manner. At the core of
+PyFi isPyFi-600K, a dataset comprising 600K
+financial question-answer pairs organized into
+a reasoning pyramid: questions at the base re-
+quire only basic perception, while those toward
+the apex demand increasing levels of capability
+in financial visual understanding and expertise.
+This data is scalable because it is synthesized
+without human annotations, usingPyFi-adv, a
+multi-agent adversarial mechanism under the
+Monte Carlo Tree Search (MCTS) paradigm, in
+which, for each image, a challenger agent com-
+petes with a solver agent by generating question
+chains that progressively probe deeper capabil-
+ity levels in financial visual reasoning. Lever-
+aging this dataset, we present fine-grained,
+hierarchical, and comprehensive evaluations
+of advanced VLMs in the financial domain.
+Moreover, fine-tuning Qwen2.5-VL-3B and
+Qwen2.5-VL-7B on the pyramid-structured
+question chains enables these models to answer
+complex financial questions by decomposing
+them into sub-questions with gradually increas-
+ing reasoning demands, yielding average ac-
+curacy improvements of 19.52% and 8.06%,
+respectively, on the dataset.
+1 Introduction
+Vision language models (VLMs) are capable of
+step-by-step reasoning, presented as Chain-of-
+Thought (CoT) (Wei et al., 2022), for image un-
+derstanding in question answering (Q&A) across
+various scientific domains (Chen et al., 2024a; Yue
+et al., 2024; Wu et al., 2025d), driven by the de-
+velopment of domain-specific benchmarks (Weng
+et al., 2025; Wang et al., 2025b; Yue et al., 2024;
+∗ Equal contribution.
+† Corresponding author.
+Wang et al., 2025a), step-wise annotations (Wang
+et al., 2024c; Zhang et al., 2024b; Qi et al., 2024),
+and domain-tailored VLMs (Yang et al., 2023;
+Huang et al., 2024; Lan et al., 2025). In contrast, ad-
+vancements in the financial domain remain limited.
+This is because, in finance image understanding,
+the creation of CoT reasoning datasets, which are
+highly necessary for the evaluation and fine-tuning
+of VLMs, requires a high level of expertise and
+domain knowledge and is therefore scarce.
+To address these issues, previous literature (Chen
+et al., 2021) collects Q&A samples from financial
+documents manually, a process that is prohibitively
+time-consuming and difficult to scale. As a result,
+subsequent works propose datasets by merging ex-
+tensive existing financial datasets (Shah et al., 2022;
+Xie et al., 2024). These repurposed datasets may
+introduce accumuated biases and inconsistencies
+inherited from the original sources. More recently,
+benchmarks such as (Gan et al., 2025; Kim et al.,
+2024; Luo et al., 2025; Lu et al., 2025; Li et al.,
+2025a; Liu et al., 2025d) leverage trained VLMs
+to generate Q&A pairs augmented with CoTs (Xue
+et al., 2025). However, these samples may con-
+tain factual errors or hallucinations, which can dis-
+tort VLM evaluation and fine-tuning and thereby
+undermine their reliability in real-world financial
+applications, where precision and expert-level un-
+derstanding are essential.
+Therefore, this paper proposes a framework
+namedPyFi, which supports comprehensive evalu-
+ation and advanced fine-tuning of VLMs through
+a pyramid-like hierarchy for financial image un-
+derstanding. Specifically,PyFiincludes a synthe-
+sized dataset,PyFi-600Kshown in Figure 1, com-
+prising 600 thousand (K) samples with step-wise
+annotations that provide expert-level guidance on
+how to progressively solve complex financial prob-
+lems across 17 categories. The construction of
+this dataset is enabled byPyFi-adv, a multi-agent
+adversarial mechanism designed to automatically
+arXiv:2512.14735v2  [q-fin.CP]  8 Apr 2026
+
+
+[Page 2]
+PyFi
+PyFi
+Level 6 
+Decision
+Level 4 
+Pattern Recognition
+Level 3 
+Calculation Analysis
+Level 2 
+Data Extraction
+Level 1 
+Perception
+Q: Which policy would most effectively reduce economic vulnerability to 
+future external shocks and internal conflict?
+A: Establish a sovereign wealth fund to stabilize revenues and 
+investments.
+Q: How does the volatility of general government revenue in Chad during 
+the Period of low-oil prices contribute to economic vulnerability?
+A: It reduces the government’s ability to withstand shocks and invest in 
+stability.
+Q: What pattern is observed between general government 
+revenue and total expenditure during the 'Onset oil production' 
+period?
+A: Both revenue and expenditure increase significantly.
+Q: In 2016, during the Period of low-oil prices, what is the 
+approximate value of (general government total expenditure 
+- general government revenue) in Chad?
+A: ~17.4%.
+Q: In which shaded region does the general 
+government revenue reach its highest value?
+A: Phase 2: post-oil period.
+Q: Which shaded region in the chart represents 
+the 'Period of low-oil prices'?
+A: Light blue (Phase 3: Period of low-oil prices).
+Level 5 
+Reasoning
+(d) Distribution of financial themes
+(b) Example image of PyFi-600K (c) Distribution of image types
+(a) Distribution of 
+capability levels
+(a) Distribution of 
+capability levels
+4.8%
+4.9%
+5%
+4.5%
+5.1%
+4.4%
+5.4%
+4.3%
+4.2% 1.2%
+5.6% 7%
+7.3%
+7.7%
+7.8%
+7.9%
+13.2%
+ Macroeconomic Indicators
+ Financial Markets & Products
+ Demographics & Socioeconomics
+ Monetary & Fiscal Policy
+ Financial Systems & Infrastructure
+ Industry Analysis
+ International Trade & Capital Flows
+ Geospatial Economic Data
+ Economic Cycles & Market Theories
+ Investment Theory & Portfolio Management
+ Risk Models & Management
+ Commodities & Real Estate Markets
+ Bonds & Fixed Income
+ Organization & Regulation
+ Corporate Finance & Valuation
+ Microeconomic Principles
+ Financial History & Documentation
+0.7%4.9%
+10.1%
+14.7%
+18.7%
+51%
+ Line Chart  Bar/Column Chart
+ Diagram/Schematic  Candlestick Chart
+ Infographic  Others
+Figure 1: Overview of thePyFi-600Kdataset within ourPyFiframework. The dataset is structured as a pyramid
+comprising 6 capability levels, 11 financial image types, and 17 financial themes.
+synthesize and refine samples using expert-level
+financial knowledge.
+PyFi-600Koffers three key benefits for the in-
+terpretability and fine-tuning of VLMs in finance.
+First, the samples are organized in a pyramid struc-
+ture, where the required image understanding capa-
+bility increases progressively — from basic visual
+perception at the bottom level to complex financial
+decision-making at the top. This hierarchy, with
+capability levels ranging from one to six, enables
+comprehensive evaluation of VLMs across multi-
+ple aspects and supports ranking the capabilities
+required by VLMs in different financial themes.
+Second, samples across different levels are inter-
+connected throughquestion chains, demonstrating
+how questions at higher levels can be addressed
+step-by-step by leveraging information and reason-
+ing from lower-level Q&A samples. Finally, it sup-
+ports process supervision (Lightman et al., 2023),
+as each sample is assigned a reward score that re-
+flects the correctness of its reasoning process in
+solving the financial problem.
+The construction of such a scalable dataset
+is enabled by our proposedPyFi-adv, a multi-
+agent adversarial mechanism in which a challenger
+agent progressively synthesizes increasingly diffi-
+cult questions, while a solver agent generates an-
+swers by reasoning with financial knowledge. The
+two agents compete within a Monte Carlo Tree
+Search (MCTS) framework: the challenger begins
+with simple questions at level 1, either selecting
+existing ones or generating new ones, and presents
+them to the solver for response. Based on the an-
+swer, the challenger then formulates a more chal-
+lenging question in the next round. This iterative
+process continues until the information accumu-
+lated suffices to address the decision-making task
+at level 6.
+Our extensive experiments withPyFi-600Kre-
+veal that 15 well-known VLMs struggle to answer
+complex financial questions, with average accuracy
+dropping from 71.80% at level 1 to 32.95% at level
+6. Withquestion chains, we observe that address-
+ing a Level-6 financial decision-making question
+typically requires correctly answering an average
+of 10.48 sub-questions from lower levels. In partic-
+ular, our results highlight that errors in calculation
+analysis are a primary cause of VLMs’ failure in
+final financial decision-making. More importantly,
+fine-tuning Qwen-VL models onPyFi-600Kusing
+question chainsimproves accuracy by an average
+of 13.79%, with gains reaching up to 19.52% in the
+best case.
+2 Related Work
+Financial Benchmark. The evaluation of Vision-
+Language Models (VLMs) in the finance domain
+has seen remarkable progress, from early text-
+based benchmarks (Chen et al., 2021; Shah et al.,
+2022; Xie et al., 2024) to more recent efforts tar-
+geting financial image understanding (Kim et al.,
+2024; Zhu et al., 2025a; Shu et al., 2025; Li et al.,
+2025a; Liu et al., 2025d; Rangapur et al., 2025;
+Zhao et al., 2025; Gan et al., 2025; Luo et al., 2025;
+Xue et al., 2025; DENG et al., 2025). However, the
+question-answering datasets of most benchmarks,
+such as FinMME (Gan et al., 2025), rely on hu-
+man annotation, making them costly and difficult to
+scale. Besides, they fail to support comprehensive
+assessment of VLMs in the financial domain. How-
+
+
+[Page 3]
+ever, we introduce an automatically synthesized
+dataset for the fine-grained, hierarchical evaluation
+of financial visual understanding across diverse
+image types and financial themes. More related
+background can be found in Appendix A.
+Financial Large Models. Previous efforts pri-
+marily centered on text analysis using financial
+LMs (Huang et al., 2023; Wu et al., 2023; Yang
+et al., 2023; Xie et al., 2023; Liu et al., 2025c).
+Recent financial VLMs (Wang et al., 2023; Bha-
+tia et al., 2024; Huang et al., 2024; Park et al.,
+2025) integrate visual inputs to facilitate step-by-
+step reasoning, thereby enabling broader financial
+decision-making. However, these models lack the
+expertise and interpretability needed for challeng-
+ing financial themes, a limitation stemming from
+the absence of detailed, step-wise problem-solving
+processes grounded in finance-specific knowledge.
+In contrast, our dataset contains questions that il-
+lustrate how to address financial problems through
+a progression from simple to complex image un-
+derstanding and from basic to increasingly deep
+financial knowledge.
+Multi-Agent LM Framework. Recent ad-
+vances in LMs have enabled Agentic AI to excel in
+real-world applications, with multiple LM-based
+agents now collaborating to perceive, learn, reason,
+and act, supporting intricate tasks such as simula-
+tion (Lin et al., 2025; ShengbinYue et al., 2025),
+reasoning (Liu et al., 2024a; Wu et al., 2025a; Du
+et al., 2024), trading (Li et al., 2025b; Yu et al.,
+2024; Wu et al., 2025c), and data synthesis (Tang
+et al., 2024; Liu et al., 2025a; Xuan et al., 2025).
+However, to our knowledge, no existing method
+in finance leverages a multi-agent adversarial ap-
+proach to synthesize data. In contrast, inspired by
+Generative Adversarial Networks (GANs) (Good-
+fellow et al., 2014), we present the first method that
+employs adversarial agents to automatically synthe-
+size hierarchical, fine-grained financial datasets.
+3 Framework
+3.1 Financial Dataset in Pyramid Structure
+We releasePyFi-600K, a large-scale finance dataset
+comprising 600 thousand (K) samples, each con-
+sisting of a question-answer pair, constructed
+within a pyramid structure that encompasses six lev-
+els of finance-specific visual cognition:Perception
+(PP),Data Extraction(DE),Calculation Analysis
+(CA),Pattern Recognition(PR),Logical Reason-
+ing(LR),Decision Support(DS). More importantly,
+PyFi-600Kintroducessample chainsthat demon-
+strate how to address higher-level pyramid ques-
+tions by leveraging knowledge from lower-level
+samples.
+Specifically, we denote each finance sample as
+sl = (I, Q, A, r) , where r∈[0,1] is the reward
+reflecting its correctness, I is the finance image to
+understand, l∈[1,6] indicates the pyramid level
+to which the question Q and the answer A belong.
+The sample complexity degree is C
+ 
+sl
+∈[1,5] .
+And, as presented in right sub-figure of Figure 2,
+we definesample chainas Sl
+1...n =
+
+s1
+1, ...,s l
+n
+
+where n is the length and n≥l because samples
+within the chain can come from the same level.
+Considering the chain, the sequence of questions
+increases in levels or complexity degrees, as the
+answer for each one requires more insightful im-
+age understanding and financial expertise than the
+preceding ones. That is, for any sh
+i and sk
+j with
+i, j∈[1, . . . , n] , h, k∈[1, . . . , l] , i < j , we have
+that h≤k , and if h=k , then C
+ 
+sh
+i
+
+≤C
+
+sk
+j
+
+.
+Subsequently, the reasoning process for answer-
+ing the question in any sample within the chain
+depends on its predecessor samples. Specifically,
+when sl
+j is addressed by a VLM parameterized by
+θ, we have pθ (A|I, Q)< p θ
+
+A|I, Q,
+
+sl
+i
+	j
+i=1
+
+,
+meaning that the reasoning information and finan-
+cial knowledge in answers from predecessor sam-
+ples enable more reliable question answering for
+the current sample.
+Therefore, compared to existing manual and au-
+tomatic evaluation dataset construction methods,
+we observe the following three advantages of the
+proposed approach for the finance domain:
+Hierarchical Cognitionin the dataset embodies
+human-level problem solving processes, progress-
+ing from basic perception to complex financial
+decision-making. Samples at each level l corre-
+spond to a specific cognitive capability, which
+builds upon those from lower levels i= 1.., l−1
+or complexities. Thus, evaluating VLMs on these
+hierarchically structured samples enables a compre-
+hensive assessment of their abilities in the finance
+domain. That is, any financial reasoning performed
+for questions from higher levels, which require rare,
+expert-level knowledge, relies on foundational fi-
+nancial questions involving base cognitions such
+asCA. Besides, we can identify how VLMs per-
+form, whether better or worse, at each cognition
+level during financial reasoning, thereby revealing
+which level is crucial for which financial questions
+
+
+[Page 4]
+…
++ 1
++ 1+ 1
+…
+…
+…
+…
+Image Background:
+The image is Figure 1.8 titled 'Chad's GDP growth 
+and fiscal space correlate with oil and security 
+cycles or shocks', showing real GDP growth and 
+fiscal revenue and spending in Chad from 1990 to 
+2017. Abbreviations: CEMAC (Economic and 
+Monetary Community of Central Africa), IMF-ECF 
+(International Monetary Fund - Extended Credit 
+Facility), LDF (likely Local Development Fund), 
+MFMod (likely Ministry of Finance Modeling Unit).
+…
+6
+12s
+2
+2s
+Level 1: Perception
+Complexity: 1
+Reward: 0.8
+Which shaded region in the chart represents the 'Period of low-oil prices'?
+Light blue (Phase 3: Period of low-oil prices).
+1
+1s
+      : The shaded region representing the 'Period of low-oil prices' is light blue (Phase 3: Period of low-oil prices)
+Level 2: Data Extraction
+Complexity: 2
+Reward: 0.6
+During Phase 3: Period of low-oil prices, what is the approximate 
+value of general government revenue in Chad, as shown in the chart?
+-2.4% of GDP.
+1
+1s
+      : The shaded region representing the 'Period of low-oil prices' is light blue (Phase 3: Period of low-oil prices)      
+      : During Phase 3: Period of low-oil prices, the approximate value of general government revenue (blue dashed line) in Chad, as shown in the 
+chart, is -2.4% of GDP.
+…
+      : To address both Chad’s oil revenue volatility from external shocks and vulnerability to internal conflict, establishing a sovereign wealth 
+fund to stabilize revenues and investments would be the most effective policy.
+Level 6: Decision
+Complexity: 4
+Reward: 1
+Based on the image illustrating Chad’s fiscal volatility driven by oil cycles 
+and security shocks, which policy would most effectively reduce economic 
+vulnerability to future external shocks and internal conflict?
+Establish a sovereign wealth fund to stabilize revenues and investments.
+6
+11s
+2
+2s
+1
+1s
+      : The shaded region representing the 'Period of low-oil prices' is light blue (Phase 3: Period of low-oil prices)      
+      : During Phase 3: Period of low-oil prices, the approximate value of general government revenue (blue dashed line) in Chad, as shown in the 
+chart, is -2.4% of GDP.
+…
+      : To address both Chad’s oil revenue volatility from external shocks and vulnerability to internal conflict, establishing a sovereign wealth 
+fund to stabilize revenues and investments would be the most effective policy.
+Level 6: Decision
+Complexity: 4
+Reward: 1
+Based on the image illustrating Chad’s fiscal volatility driven by oil cycles 
+and security shocks, which policy would most effectively reduce economic 
+vulnerability to future external shocks and internal conflict?
+Establish a sovereign wealth fund to stabilize revenues and investments.
+6
+11s
+2
+2s
+1
+1s
+Level 6: Decision
+Complexity: 5
+Reward: 1
+policy (as suggested by the 
+image’s revenue and 
+expenditure trends), which 
+action would most effectively 
+reduce economic volatility?
+policy by borrowing during oil 
+booms to invest in productive 
+sectors.
+To address Chad’s  
+procyclical fiscal 
+Implement a 
+countercyclical fiscal 
+Final Question
+Solver 
+Agent
+Solver 
+Agent
+Challenger 
+Agent
+Challenger 
+Agent
+, , ..., 1 2 l
+1 2 ns s s
+Existing Chain
+(                     )
+, , ..., 1 2 l
+1 2 ns s s
+Existing Chain
+(                     ) + 1
+One Sample (     )
+l
+ns
+l
+nsOne Sample (     )
+l
+ns
++ 1+ 1+ 1+ 1
+Question-Answer 
+Pair Node
+BackpropagationBackpropagation
+Correctly Answer 
+the Final Question
+Figure 2: Overview ofPyFi-adv: a challenger agent competes with a solver agent under the Monte Carlo tree search
+(MCTS) paradigm to generate question chains that progressively probe deeper capability levels in financial visual
+reasoning. See the complete chain in Figure 12 in Appendix.
+and to what extent.
+Progressive Logical Chainin the dataset is pre-
+sented as thesample chain Sl
+1...n shown in Fig-
+ure 2, which demonstrates how a challenging finan-
+cial question at level l= 6 is solved by progres-
+sively addressing a sequence of simple-to-complex
+sub-questions. This aligns with financial decision-
+making logic, where each step builds upon the pre-
+vious one to form a cumulative and logically coher-
+ent reasoning flow. Such a traceable chain enhances
+the interpretability and justifiability required in the
+finance domain. Moreover, VLMs fine-tuned on
+such chains are capable of solving complex finan-
+cial problems by accumulating knowledge through
+first addressing a series of simpler problems.
+Step-wise Reward Score r of each sample reflects
+its reliability; thus, the scores along a sample chain
+support process supervision (Lightman et al., 2023)
+in reasoning with financial image understanding.
+Using these scores, we enable the training of pro-
+cess reward models that act as verifiers for any
+financial VLM.
+3.2 Automatic Synthesization with
+Adversarial Agents
+Existing financial datasets rely solely on human
+annotation, while automated methods from other
+domains, such as rStar-Math (Guan et al., 2025) for
+mathematical reasoning, fail to meet the require-
+ments of finance, where interpretability and reli-
+able reasoning are essential, along with increasing
+complexity, domain expertise, and hierarchical cog-
+nition. We achieve this by proposing a multi-agent
+adversarial mechanism, referred to asPyFi-adv,
+which constructs question chains, as illustrated in
+Figure 2.
+Specifically,PyFi-adv contains a challenger
+agent that is supported by an off-and-shelf VLM,
+denoted as ψ, and similarly, a solver agent ϕ.
+Inspired by the adversarial mechanism in Al-
+phaGo (Silver et al., 2016), our two agents com-
+pete within an MCTS framework to automatically
+synthesize high-quality reasoning samples. In the
+finance domain, this approach substantially outper-
+forms existing automatic data augmentation meth-
+ods discussed in subsection A.3.
+Confrontation for Sample Synthesization, as
+shown by the Gray oval circle in Figure 2, is that
+when ϕ aims to correctly answer the given question,
+ψ checks the answer to propose a more challenging
+follow-up question to hinder the solver. This is for-
+mulated as Qi ∼p ψ
+ 
+Qi|I,P q,S l
+1...i−1
+
+and thus
+Ai ∼p ϕ(Ai|I, Qi,P a,S l
+1...i−1), where Pq and Pa
+are the agent prompts.
+Exploration for Diversity Guaranteeaims to pre-
+vent the adversarial process from converging to a
+set of questions with identical content. At each
+step, a Bernoulli sampling is used to determine the
+
+
+[Page 5]
+Table 1: Evaluation of 15 Pre-trained VLMs onPyFi-600Kacross 6 capability levels and 5 complexity degrees,
+conducted on theEvaluation Dataset after Exclusion. This dataset is derived from an initial random selection
+of 1000 instances from PyFi-600K, followed by an additional filtering step toaddress potential data leakage.
+The final test set consists of 301 samples. For simplicity, we only present the results from complexity degrees
+3, 4, and 5. The full model names listed in the "Model" column are: GPT-4.1, InternVL3-38B, Claude-opus-4-
+1-20250805, DeepSeek-VL2, Hunyuan-Large-Vision, ERNIE-4.5-turbo-vl, Moonshot-V1-128k-Vision-Preview,
+Moonshot-V1-32k-Vision-Preview, Moonshot-V1-8k-Vision-Preview, Qwen3-VL-Plus, Qwen2.5-VL-72B-Instruct,
+Qwen2.5-VL-32B-Instruct, Qwen2.5-VL-7B-Instruct, and Qwen2.5-VL-3B-Instruct.
+Model OverallPP DE CA PR LR DS3 4 5
+GPT-4.1 (OpenAI, 2025) 52.99 86.84 47.64 40.62 57.14 54.84 38.46 52.63 46.55 53.85
+InternVL3 (Zhu et al., 2025b) 52.91 76.32 56.37 44.53 43.88 53.23 30.77 41.78 44.83 67.31
+Claude-opus (Anthropic, 2024) 64.70 80.92 62.7466.0258.16 72.58 32.69 66.12 55.60 73.08
+GLM-4.5V (Hong et al., 2025)74.75 89.4778.07 65.2375.51 75.81 46.1572.37 64.22 73.08
+DS-VL2 (Wu et al., 2024b) 45.18 76.32 44.58 36.33 42.35 42.74 19.23 34.54 42.24 46.15
+Hunyuan-LV (Sun et al., 2024) 59.7290.79 58.96 36.72 63.27 69.3551.92 50.00 57.7680.77
+ER-4.5-TVL (Baidu-ERNIE-Team, 2025) 34.47 34.87 33.96 36.72 25.00 45.16 36.54 38.82 25.43 65.38
+MV1-128k (Team et al., 2025b) 54.57 80.92 61.08 39.06 41.84 58.87 38.46 46.71 43.97 57.69
+MV1-32k (Team et al., 2025b) 54.40 80.26 61.56 37.11 40.31 62.90 38.46 45.72 43.97 61.54
+MV1-8k (Team et al., 2025b) 54.90 80.26 61.79 39.84 42.35 58.06 38.46 48.03 43.97 55.77
+Q3-VL-Plus (Yang et al., 2025a) 51.00 77.63 54.25 37.50 41.84 57.26 32.69 45.72 37.50 65.38
+Q2.5-VL-72B (Bai et al., 2025) 48.84 70.39 59.91 33.20 35.71 46.77 26.92 36.51 31.03 57.69
+Q2.5-VL-32B (Bai et al., 2025) 43.19 60.53 45.28 37.50 36.73 42.74 28.85 39.14 30.60 59.62
+Q2.5-VL-7B (Bai et al., 2025) 37.87 54.61 49.53 34.77 18.37 24.19 15.38 31.91 17.67 38.46
+Q2.5-VL-3B (Bai et al., 2025) 20.51 36.84 15.57 21.48 16.84 21.77 19.23 23.03 18.97 30.77
+ψ whether toexplorea new question path orex-
+ploitan existing one. For exploitation, the UCT
+formula is employed to select the most promising
+prior question.
+Expansion for Hierarchical Questionsis natu-
+rally achieved through the adversarial agents: once
+ψ performs aquestion expansion, it generates a
+subsequent, more complex question based on the
+accumulated Sl
+1...i. Agent ϕ then produces an an-
+swer Ai+1, forming a new sample sl
+i+1. Thus, a
+hierarchical question structure is built through re-
+peated adversarial interactions that continue until
+either the top-level (l= 6 ) question is addressed or
+a predefined depth limit is reached.
+Backpropagation for Reward Assignmentad-
+justs the success rate of each sample by backpropa-
+gating the comparison between the answer of the
+top-level question and the ground truth down to
+individual samples in the chain, as indicated by the
+orange dotted line in Figure 2. Upon convergence
+of the MCTS, the resulting success rate is used as
+the reward score, providing a correctness label that
+measures the reliability of the synthesized dataset.
+4 Experiments
+4.1 Setup
+Datasets.PyFi-600K dataset consists 603,859 sam-
+ples and 62,660 sample chains with reward scores
+of 1. For evaluation, we proportionally sample
+1,000 samples from each capability level to con-
+struct the test set across all cases. See detail in
+Appendix B.
+Data Leakage Mitigation. To ensure a fair evalua-
+tion, we systematically identify and exclude sam-
+ples that exhibit data leakage. Specifically, any
+question that can be correctly answered by more
+than half of the evaluated models without the im-
+age is considered leaked. This reduces our test set
+from 1,000 to301samples. Detailed analysis and
+justification are provided in Appendix D.
+Models. For evaluation, we use 15 VLMs as listed
+in Table 1. For SFT, we fine-tune Qwen2.5-VL-
+3B-Instruct and Qwen2.5-VL-7B-Instruct on sam-
+ple chains to obtainPyFi-QwenVL-3BandPyFi-
+QwenVL-7B, respectively.
+SFT. We fine-tuned the models on approximately
+47K sample chains using two dataset variants: one
+with chain-of-thought (CoT) annotations (w/ CoT)
+and one without (w/o CoT). In the CoT variant,
+each question chain is converted into a CoT rea-
+soning sequence, where each reasoning step corre-
+sponds to a sub-question and its answer. Thus, a
+chain with n samples yields a CoT sequence with
+n reasoning steps. In the non-CoT variant, only
+the question and answer from the final sample in
+the chain are used. We use the AdamW optimizer
+with a learning rate of 1.0×10 −4, cosine learning
+rate scheduling, and a warmup ratio of 0.1. Train-
+ing is conducted for one epoch with an effective
+batch size of 8. For parameter-efficient fine-tuning,
+we apply LoRA with full-module adaptation. All
+experiments are carried out on four NVIDIA RTX
+5090 GPUs.
+
+
+[Page 6]
+Evaluation. We prompt all models to place the
+solution within \boxed{}. For all inference runs,
+we use a temperature of 0.1 and a top-p value of
+1.0. Accuracy is reported as the evaluation metric.
+4.2 Main Results
+Evaluations of 15 Pre-trained VLMsare pre-
+sented in Table 1. In summary, we observe that as
+the capability level and complexity of financial im-
+age understanding increase, the accuracy of VLMs
+gradually declines. Specifically, the average accu-
+racy across all models decreases from 71.80% at
+level 1 (Perception) to 32.95% at level 6 (Decision
+Support). This indicates that while current VLMs
+can handle basic visual perception in the financial
+image understanding, they struggle with complex
+financial questions that require higher-level cog-
+nitive abilities. Notably, GLM-4.5V achieves the
+highest overall accuracy of 74.75%, demonstrating
+its strong performance across various capability
+levels. However, even this model’s accuracy drops
+to 46.15% at level 6, highlighting the challenges
+in financial decision-making. Most models, includ-
+ing GPT-4.1 and InternVL3-38B, achieve over 70%
+accuracy at level 1 but fall below 40% at level 6, re-
+sulting in a relatively low average overall accuracy
+of 50%.
+Evaluations of Fine-tuned Qwen-VL modelsare
+presented in Figure 3. In summary, withquestion
+chainsarranged in a pyramid manner, the models,
+especially the smaller ones, show a significant in-
+crease in accuracy and gain the ability to reason
+progressively, moving from low-level to high-level
+questions until they reach the solution, as shown
+in Figure 5. Specifically, both ourPyFi-models
+exhibit substantial accuracy gains.PyFi-CoTre-
+lated models improves the 3B model by 19.52%
+points and the 7B model by 8.06% points over
+their local baselines. The gain is notably larger
+for the smaller 3B model. Notably, on higher-
+level financial questions, such as Decision Support
+(DS),PyFi-CoTones improve the 3B model by
+9.62% and the 7B model by 23.08%. The sub-
+stantially larger gain for the 7B VLM suggests that
+larger VLMs benefit more from question-chain fine-
+tuning in challenging financial scenarios. Notably,
+in Pattern Recognition (PR) and Logical Reasoning
+(LR),PyFi-QwenVL-3Beven surpasses the accu-
+racy of the much larger 72B VLM, as shown in
+Table 1. Building on the detailed comparison in
+Figure 5, we argue that sample-chain fine-tuning
+equips VLMs with the ability to solve complex
+0
+20
+40
+60
+80
+ Qwen2.5-VL-3B-Instruct  PyFi-QwenVL-3B  PyFi-QwenVL-3B-CoT
+ Qwen2.5-VL-7B-Instruct  PyFi-QwenVL-7B  PyFi-QwenVL-7B-CoT
+Logical 
+Reasoning
+Pattern 
+Recognition
+Calculation 
+Analysis
+Data 
+Extraction
+Perception
+Decision 
+Support
+10
+20
+30
+40
+50
+60
+70
+Degree 5
+Degree 4 Degree 3
+Degree 2
+Degree 1
+(a) across 6 capability levels
+(b) across 5 complexity degrees
+Figure 3: Comparison between Qwen2.5-VL models
+and ours (PyFi-QwenVL-3BandPyFi-QwenVL-7B).
+financial problems by iteratively addressing a se-
+quence of self-generated sub-questions of increas-
+ing capability levels, thereby significantly improv-
+ing interpretability and reliability.
+4.3 Main Benefits and Insights
+Evaluationsin Table 1 and Figure 3 enable a fine-
+grained analysis of how — and to what extent —
+VLMs meet the varying capability requirements of
+financial image understanding across different lev-
+els of complexity. The phenomenon of decreasing
+accuracy as the level increases in Table 1 indicates
+that existing VLMs can only meet the most basic
+image understanding in finance and are difficult
+to be used for complex financial decision-making.
+For instance, while models like GLM-4.5V per-
+form well on basic perception questions (level 1),
+their accuracy drops considerably on decision sup-
+port questions (level 6). This trend is consistent
+across most models, suggesting that greater ef-
+
+
+[Page 7]
+Question: Given the chart showing CPI change after a VAT rate reduction from 18% to 10% 
+and that the actual CPI change did not reach the 'full pass-through' target of -6.8 p.p., what 
+policy action is most justified to achieve the intended price stability objective?
+Claude-opus-4-1: Increase the VAT rate to 15% to offset firms’ failure to pass through 
+the tax cut.
+ DS
+Reasoning for challenging 
+financial questions
+Reasoning backward step by step
+...
+Image Background:
+The image titled 'Prices remained unchanged' is part of a 
+presentation discussing Value Added Tax (VAT) policy reform 
+effects, specifically analyzing firm-level responses based on Tax 
+Unit (Unidad Impositiva Tributaria, UIT) thresholds in annual 
+sales. The subject is firms categorized by size using 2021 sales 
+data measured in UIT (1 UIT = 4,400 Soles or ~USD 1,000), 
+comparing treatment (below 1700 UIT) and control (above 1700 
+UIT) groups. Acronyms and abbreviations in the image: VAT = 
+Value Added Tax;
+Image Background:
+The image titled 'Prices remained unchanged' is part of a 
+presentation discussing Value Added Tax (VAT) policy reform 
+effects, specifically analyzing firm-level responses based on Tax 
+Unit (Unidad Impositiva Tributaria, UIT) thresholds in annual 
+sales. The subject is firms categorized by size using 2021 sales 
+data measured in UIT (1 UIT = 4,400 Soles or ~USD 1,000), 
+comparing treatment (below 1700 UIT) and control (above 1700 
+UIT) groups. Acronyms and abbreviations in the image: VAT = 
+Value Added Tax;
+Question: Around which month did the VAT rate reduction from 18% to 10% occur, as 
+indicated by the vertical dashed line in the chart?
+Claude-opus-4-1: 2022m10.
+ DE
+Keep answering questions correctly until
+Question: What does the red dashed line in the chart labeled 'Full pass-through Δp: -6.8 p.p.' 
+represent?
+Claude-opus-4-1: The target decrease in CPI (Δp) from the VAT cut.
+ PP
+Question: Based on the image's contextual analysis of firms categorized by size (treatment: 
+below 1700 UIT, control: above 1700 UIT), which firm group is most likely responsible for the 
+failure to achieve full pass-through of the VAT rate reduction?
+Claude-opus-4-1: Treatment group (below 1700 UIT).
+ LR
+Question: Based on the image's contextual analysis of firms categorized by size (treatment: 
+below 1700 UIT, control: above 1700 UIT), which firm group is most likely responsible for the 
+failure to achieve full pass-through of the VAT rate reduction?
+Claude-opus-4-1: Treatment group (below 1700 UIT).
+ LR
+PP DE CA PR LR DS0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100Proportion
+Capability Level
+ GPT-4.1  InternVL3-38B
+ Claude-opus-4-1-20250805  GLM-4.5V
+ DeepSeek-VL2  Hunyuan-Large-Vision
+ ERNIE-4.5-turbo-vl  Moonshot-V1-128k-Vision-Preview
+ Qwen3-VL-Plus  Qwen2.5-VL-72B-Instruct
+ Qwen2.5-VL-32B-Instruct  Qwen2.5-VL-7B-Instruct
+ Qwen2.5-VL-3B-Instruct
+Error diagnosis at DE level
+Question: Given the chart showing CPI change after a VAT rate reduction from 18% to 10% 
+and that the actual CPI change did not reach the 'full pass-through' target of -6.8 p.p., what 
+policy action is most justified to achieve the intended price stability objective?
+Claude-opus-4-1: Increase the VAT rate to 15% to offset firms’ failure to pass through 
+the tax cut.
+ DS
+Reasoning for challenging 
+financial questions
+Reasoning backward step by step
+...
+Image Background:
+The image titled 'Prices remained unchanged' is part of a 
+presentation discussing Value Added Tax (VAT) policy reform 
+effects, specifically analyzing firm-level responses based on Tax 
+Unit (Unidad Impositiva Tributaria, UIT) thresholds in annual 
+sales. The subject is firms categorized by size using 2021 sales 
+data measured in UIT (1 UIT = 4,400 Soles or ~USD 1,000), 
+comparing treatment (below 1700 UIT) and control (above 1700 
+UIT) groups. Acronyms and abbreviations in the image: VAT = 
+Value Added Tax;
+Question: Around which month did the VAT rate reduction from 18% to 10% occur, as 
+indicated by the vertical dashed line in the chart?
+Claude-opus-4-1: 2022m10.
+ DE
+Keep answering questions correctly until
+Question: What does the red dashed line in the chart labeled 'Full pass-through Δp: -6.8 p.p.' 
+represent?
+Claude-opus-4-1: The target decrease in CPI (Δp) from the VAT cut.
+ PP
+Question: Based on the image's contextual analysis of firms categorized by size (treatment: 
+below 1700 UIT, control: above 1700 UIT), which firm group is most likely responsible for the 
+failure to achieve full pass-through of the VAT rate reduction?
+Claude-opus-4-1: Treatment group (below 1700 UIT).
+ LR
+PP DE CA PR LR DS0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100Proportion
+Capability Level
+ GPT-4.1  InternVL3-38B
+ Claude-opus-4-1-20250805  GLM-4.5V
+ DeepSeek-VL2  Hunyuan-Large-Vision
+ ERNIE-4.5-turbo-vl  Moonshot-V1-128k-Vision-Preview
+ Qwen3-VL-Plus  Qwen2.5-VL-72B-Instruct
+ Qwen2.5-VL-32B-Instruct  Qwen2.5-VL-7B-Instruct
+ Qwen2.5-VL-3B-Instruct
+Error diagnosis at DE level
+Figure 4: Evaluation of error proportions across capability levels leading to incorrect financial decisions. As
+illustrated in the right sub-figure, thesample chainenables error tracing: when Claude-Opus-4-1 fails to answer the
+Level 6 financial decision-making question, we cantrace backto identify the specific lower-level sub-questions
+that were answered incorrectly, thereby pinpointing the exact level at which the error originated.
+forts are needed to enhance VLMs’ capabilities
+in the finance domain. Thus, the results in Figure 3
+demonstrate the importance of our question-chain
+fine-tuning: Qwen models learn to make accurate
+financial decisions by first addressing a series of
+sub-questions in a progression from simple to com-
+plex, a process aligned with human cognition.
+Tracing back from Decision Support to Lower-
+level Q&As, as illustrated in Figure 4, significantly
+improves the interpretability of VLMs in financial
+decision-making. In Figure 4, we first collect Level-
+6 samples that VLMs fail to answer correctly and
+analyze theirquestion chainsby evaluating VLMs
+on the questions at each lower level in the chain. In
+the finance domain, addressing a Level-6 financial
+decision-making question typically requires cor-
+rectly answering sub-questions from lower levels.
+Thus, when an error occurs, as indicated by the red
+cross in the right sub-figure,PyFi-600Kenables
+us to trace the problem-solving chain fromDSto
+LRand eventually toPP, thereby diagnosing how
+an error in theDEleads to the final mistake. Such
+a tracing-back approach is crucial for understand-
+ing the limitations of VLMs in financial decision-
+making, as it reveals at which capability level a
+failure occurs.
+Identifying the Most Frequent Failure Capabil-
+ity Levels, as presented in the left part of Figure 4,
+reveals that the key to improving VLMs’ perfor-
+mance in the financial domain lies in strengthening
+their capabilities at the CA (Calculation Analysis)
+level. Specifically, the pyramid-like structure and
+thequestion chainofPyFi-600Kfacilitates detailed
+error analysis, allowing us to identify specific lev-
+els where VLMs struggle. That is, most VLMs,
+even the advanced Claude-opus-4-1-20250805 and
+Qwen3-VL-Plus, fails to answer more than 40% of
+the question from CA, revealing that the calcula-
+tion analysis is a critical bottleneck for them. More
+importantly, by comparing the error proportions be-
+tween six capability levels, we can prioritize which
+capabilities to enhance first. For instance, since CA
+has the highest error proportion, focusing on im-
+proving calculation analysis skills in VLMs could
+lead to the most significant overall performance
+gains in financial decision-making tasks. In addi-
+tion, this comparison also shows that, in the finance
+domain, analyzing numerical calculations from im-
+ages is one of the most critical capabilities for ac-
+curate decision-making, even more important than
+logical reasoning, aligning with conclusions drawn
+by real-world finance experts.
+Addressing Financial Decision-Making with
+Level-wise CoT, as depicted in Figure 5, is not
+only reliable but also highly interpretable. Specifi-
+cally, we compare the responses of Qwen2.5-VL-
+3B-Instruct andPyFi-QwenVL-3B— the latter fine-
+tuned onquestion chains— when addressing the
+financial problem. The Qwen2.5-VL-3B-Instruct
+produces a short and disorganized reasoning pro-
+
+
+[Page 8]
+Financial Theme: Economic Cycles & Market Theories - Level: Decision Support - Degree: 4
+Question: Based on the image data on unemployment rates in Brazil (2012-
+2019), how does the high unemployment rate among the youth (15-24 years 
+old) group impact a company's hiring strategy for new workers? Image 
+Background: The image is Figure 1 titled 'Unemployment Rates and GDP, 
+2012-2019'. It is sourced from authors based on the National Household 
+Sample Survey (Pesquisa Nacional por Amostra de Domicilios Continua, 
+PNAD Continua) data from 2012 to 2019. The subject is unemployment rates 
+and Gross Domestic Product (GDP) trends in Brazil over this period.
+Question: Based on the image data on unemployment rates in Brazil (2012-
+2019), how does the high unemployment rate among the youth (15-24 years 
+old) group impact a company's hiring strategy for new workers? Image 
+Background: The image is Figure 1 titled 'Unemployment Rates and GDP, 
+2012-2019'. It is sourced from authors based on the National Household 
+Sample Survey (Pesquisa Nacional por Amostra de Domicilios Continua, 
+PNAD Continua) data from 2012 to 2019. The subject is unemployment rates 
+and Gross Domestic Product (GDP) trends in Brazil over this period.
+Qwen2.5-VL-3B-Instruct: The image shows that the unemployment rate among the youth (15-24 years old) group is consistently high throughout the 
+period from 2012 to 2019. This high unemployment rate would likely decrease the availability of workers for hiring, making it unwise to hire from this 
+group. Therefore, the company should not focus on hiring workers from this group.
+Qwen2.5-VL-3B-Instruct: The image shows that the unemployment rate among the youth (15-24 years old) group is consistently high throughout the 
+period from 2012 to 2019. This high unemployment rate would likely decrease the availability of workers for hiring, making it unwise to hire from this 
+group. Therefore, the company should not focus on hiring workers from this group.
+PP
+PP
+PP
+DE
+DE
+DE
+CA
+PR
+...
+LR
+DS
+PyFi-QwenVL-3B: The line in the bottom graph that represents the unemployment rate for the youth group (15-24 years old) in Brazil is the yellow line.
+The blue line in the bottom graph of the image represents the unemployment rate for the total population in Brazil.
+The line in the bottom graph of the image that represents the unemployment rate for the youth group (15-24 years old) in Brazil is the yellow line.
+The approximate unemployment rate for the youth group (15-24 years old) in Brazil in 2019, as shown in the bottom graph, was 15%.
+The approximate unemployment rate for the youth group (15-24 years old) in Brazil in 2017, as shown in the bottom graph, was 10%.
+The approximate unemployment rate for the youth group (15-24 years old) in Brazil in 2014, as shown in the bottom graph, was 10%.
+The approximate percentage increase in the youth unemployment rate (15-24 years old) in Brazil from 2014 to 2019, based on the bottom graph, is 50%.
+The youth unemployment rate (15-24 years old) in Brazil increased from 2014 to 2019, based on the bottom graph.
+...
+The youth unemployment rate (15-24 years old) in Brazil increased from 2014 to 2019, and this trend suggests that companies should prioritize hiring 
+workers from this group to fill labor shortages.
+The final answer is: \\boxed{A}.
+Figure 5: Qualitative analysis of level-wise COT by comparing the Qwen2.5-VL-3B-Instruct andPyFi-QwenVL-3B
+in the challenging financial decision-making.
+cess, reflecting its limited financial reasoning ca-
+pability. In contrast,PyFi-QwenVL-3Bfollows a
+clear, structured, and logical reasoning flow, which
+is essential for expert-level performance in finance.
+For instance, our model first addresses basicPP
+questions, then proceeds toDEandCA, and finally
+tackles high-levelLRandDS. This level-wise CoT
+not only improves answer reliability but also pro-
+vides a transparent and traceable reasoning path
+that users can easily follow and verify, making
+it especially valuable in financial contexts where
+stakes are high. Moreover, experts can inspect this
+professional decision-making process and provide
+detailed and direct feedback to further refine the
+model.
+Providing Process Supervision, in the form of a
+reward score for each sample in ourPyFi-600K, en-
+ables research into training reliable verifier models,
+known as process reward models (PRMs), to facili-
+tate checking the correctness of each step generated
+by financial VLMs. Even though, due to space lim-
+itations, this paper does not perform such training,
+we use the reward scores to filter out low-quality
+samples during both evaluation and fine-tuning.
+Mitigating Hallucinations. As shown in Figure 5
+and Figure 4, our support of Level-wise CoT in
+training effectively mitigates model hallucination
+by enforcing a grounded reasoning process: high-
+level conclusions (e.g., DS) are derived strictly
+from verified low-level findings (e.g., PP and DE),
+rather than from ungrounded speculation. This
+structure ensures traceability and verifiability, as
+every reasoning step can be explicitly traced back
+to concrete evidence in preceding steps.
+5 Conclusion
+In this paper, we have proposed a framework
+namedPyFi, containing the datasetPyFi-600Kand
+the multi-agent adversarial mechanismPyFi-adv, to
+facilitate pyramid-like financial image understand-
+ing for VLMs. With the Q&A samples organized
+in a pyramid structure,PyFi-600Kenables com-
+prehensive evaluation of VLMs across 6 capability
+levels, 17 financial themes and 11 image types.
+Our novel level-wisequestion chainsupports the
+interpretability of the performance of VLMs in fi-
+nancial decision-making by 1) showing importance
+ranking of capability level in accurate decisions
+and 2) enabling a back-track of which errors in
+lower levels led to the decision failure. More im-
+portantly, withPyFi-adv, the dataset is scalable
+without human annotations, meaning the size and
+quality can be improved continuously. After per-
+forming extensive experiments on 15 VLMs and
+especially fine-tuning on Qwen models withques-
+tion chains, we have verified these benefits of the
+PyFiby showing detailed, hierarchical, and fine-
+grained results, exposing important insights such
+as Calculation Analysis (CA) is the most crucial
+for correct decision-making and fine-tuned small
+VLMs gain 19.52% accuracy improvement without
+
+
+[Page 9]
+compromising the model’s existing capabilities on
+general tasks.
+References
+Anthropic. 2024. Claude 3 model family technical re-
+port.
+Rabiul Awal, Mahsa Massoud, Aarash Feizi, Zichao
+Li, Suyuchen Wang, Christopher Pal, Aishwarya
+Agrawal, David Vazquez, Siva Reddy, Juan A Ro-
+driguez, and 1 others. 2025. Webmmu: A benchmark
+for multimodal multilingual website understanding
+and code generation. InProc 2025 Conference on
+Empirical Methods in Natural Language Processing.
+Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wen-
+bin Ge, Sibo Song, Kai Dang, Peng Wang, Shijie
+Wang, Jun Tang, and 1 others. 2025. Qwen2.5-vl
+technical report.arXiv preprint arXiv:2502.13923.
+Baidu-ERNIE-Team. 2025. Ernie 4.5 technical report.
+Gagan Bhatia, Hasan Cavusoglu, Muhammad Abdul-
+Mageed, and 1 others. 2024. Fintral: A family of gpt-
+4 level multimodal financial large language models.
+InFindings of the Association for Computational
+Linguistics ACL 2024, pages 13064–13087.
+Fu Chaoyou, Chen Peixian, Shen Yunhang, Qin Yulei,
+Zhang Mengdan, Lin Xu, Yang Jinrui, Zheng Xi-
+awu, Li Ke, Sun Xing, and 1 others. 2023. Mme:
+A comprehensive evaluation benchmark for mul-
+timodal large language models.arXiv preprint
+arXiv:2306.13394, 3.
+Lin Chen, Jinsong Li, Xiaoyi Dong, Pan Zhang, Yuhang
+Zang, Zehui Chen, Haodong Duan, Jiaqi Wang,
+Yu Qiao, Dahua Lin, and Feng Zhao. 2024a. Are we
+on the right way for evaluating large vision-language
+models? InAdvances in Neural Information Process-
+ing Systems, volume 37, pages 27056–27087. Curran
+Associates, Inc.
+Sijia Chen and Bin Song. 2025a. Rmultiplex200k: To-
+ward reliable multimodal process supervision for vi-
+sual language models on telecommunications. InIn-
+ternational Conference on Computer Vision (ICCV).
+Sijia Chen and Bin Song. 2025b. Rmultiplex200k: To-
+ward reliable multimodal process supervision for vi-
+sual language models on telecommunications. In
+Proceedings of the IEEE/CVF International Confer-
+ence on Computer Vision, pages 1686–1696.
+Zhaorun Chen, Zhuokai Zhao, Zhihong Zhu, Ruiqi
+Zhang, Xiang Li, Bhiksha Raj, and Huaxiu Yao.
+2024b. Autoprm: Automating procedural su-
+pervision for multi-step reasoning via control-
+lable question decomposition.arXiv preprint
+arXiv:2402.11452.
+Zhiyu Chen, Wenhu Chen, Charese Smiley, Sameena
+Shah, Iana Borova, Dylan Langdon, Reema Moussa,
+Matt Beane, Ting-Hao Huang, Bryan R Routledge,
+and 1 others. 2021. Finqa: A dataset of numerical
+reasoning over financial data. InProc 2021 Con-
+ference on Empirical Methods in Natural Language
+Processing, pages 3697–3711.
+Sanjiban Choudhury. 2025. Process reward models
+for llm agents: Practical framework and directions.
+arXiv preprint arXiv:2502.10325.
+SHUANGYAN DENG, Haizhou Peng, Jiachen Xu,
+Chunhou Liu, Ciprian Doru Giurcaneanu, and Ji-
+amou Liu. 2025. Understanding financial reasoning
+in ai: A multimodal benchmark and error learning
+approach. InICLR Workshop on Reasoning and Plan-
+ning for Large Language Models.
+Yihong Dong, Xue Jiang, Huanyu Liu, Zhi Jin, Bin Gu,
+Mengfei Yang, and Ge Li. 2024. Generalization or
+memorization: Data contamination and trustworthy
+evaluation for large language models.arXiv preprint
+arXiv:2402.15938.
+Yilun Du, Shuang Li, Antonio Torralba, Joshua B Tenen-
+baum, and Igor Mordatch. 2024. Improving factual-
+ity and reasoning in language models through multia-
+gent debate. InInternational Conference on Machine
+Learning, pages 11733–11763. PMLR.
+Ziliang Gan, Yu Lu, Dong Zhang, Haohan Li, Che Liu,
+Jian Liu, Ji Liu, Haipang Wu, Chaoyou Fu, Zenglin
+Xu, and 1 others. 2025. Mme-finance: A multimodal
+finance benchmark for expert-level understanding
+and reasoning. InACM International Conference on
+Multimedia.
+Ian J Goodfellow, Jean Pouget-Abadie, Mehdi Mirza,
+Bing Xu, David Warde-Farley, Sherjil Ozair, Aaron
+Courville, and Yoshua Bengio. 2014. Generative
+adversarial nets.Advances in neural information
+processing systems, 27.
+Xinyu Guan, Li Lyna Zhang, Yifei Liu, Ning Shang,
+Youran Sun, Yi Zhu, Fan Yang, and Mao Yang.
+2025. rstar-math: Small llms can master math reason-
+ing with self-evolved deep thinking.arXiv preprint
+arXiv:2501.04519.
+Dong Guo, Faming Wu, Feida Zhu, Fuxing Leng,
+Guang Shi, Haobin Chen, Haoqi Fan, Jian Wang,
+Jianyu Jiang, Jiawei Wang, and 1 others. 2025.
+Seed1. 5-vl technical report.arXiv preprint
+arXiv:2505.07062.
+Zhitao He, Zongwei Lyu, Dazhong Chen, Dadi Guo,
+and Yi R Fung. 2025. Matp-bench: Can mllm be
+a good automated theorem prover for multimodal
+problems?arXiv preprint arXiv:2506.06034.
+Wenyi Hong, Wenmeng Yu, Xiaotao Gu, Guo Wang,
+Guobing Gan, Haomiao Tang, Jiale Cheng, Ji Qi, Jun-
+hui Ji, Lihang Pan, and 1 others. 2025. Glm-4.5v and
+glm-4.1v-thinking: Towards versatile multimodal rea-
+soning with scalable reinforcement learning.arXiv
+e-prints, pages arXiv–2507.
+
+
+[Page 10]
+Allen H Huang, Hui Wang, and Yi Yang. 2023. Finbert:
+A large language model for extracting information
+from financial text.Contemporary Accounting Re-
+search, 40(2):806–841.
+Jimin Huang, Mengxi Xiao, Dong Li, Zihao Jiang,
+Yuzhe Yang, Yifei Zhang, Lingfei Qian, Yan Wang,
+Xueqing Peng, Yang Ren, and 1 others. 2024.
+Open-finllms: Open multimodal large language
+models for financial applications.arXiv preprint
+arXiv:2408.11878.
+Seunghee Kim, Changhyeon Kim, and Taeuk Kim. 2024.
+Fcmr: Robust evaluation of financial cross-modal
+multi-hop reasoning. InAnnual Meeting of the Asso-
+ciation for Computational Linguistics.
+Nathan Lambert, Valentina Pyatkin, Jacob Morrison,
+LJ Miranda, Bill Yuchen Lin, Khyathi Chandu,
+Nouha Dziri, Sachin Kumar, Tom Zick, Yejin Choi,
+and 1 others. 2024. Rewardbench: Evaluating re-
+ward models for language modeling.arXiv preprint
+arXiv:2403.13787.
+Kai Lan, Jiayong Zhu, Jiangtong Li, Dawei Cheng,
+Guang Chen, and Changjun Jiang. 2025. Finlmm-
+r1: Enhancing financial reasoning in lmm through
+scalable data and reward design.arXiv preprint
+arXiv:2506.13066.
+Yang Lei, Jiangtong Li, Dawei Cheng, Zhijun Ding, and
+Changjun Jiang. 2023. Cfbenchmark: Chinese finan-
+cial assistant benchmark for large language model.
+arXiv preprint arXiv:2311.05812.
+Jiangtong Li, Yiyun Zhu, Dawei Cheng, Zhijun Ding,
+and Changjun Jiang. 2025a. Cfbenchmark-mm:
+Chinese financial assistant benchmark for mul-
+timodal large language model.arXiv preprint
+arXiv:2506.13055.
+Kaixin Li, Yuchen Tian, Qisheng Hu, Ziyang Luo, Zhiy-
+ong Huang, and Jing Ma. 2024. Mmcode: Bench-
+marking multimodal large language models for code
+generation with visually rich programming problems.
+InProc 2024 Conference on Empirical Methods in
+Natural Language Processing.
+Xiangyu Li, Yawen Zeng, Xiaofen Xing, Jin Xu, and Xi-
+angmin Xu. 2025b. Hedgeagents: A balanced-aware
+multi-agent financial trading system. InCompanion
+Proceedings of the ACM on Web Conference 2025,
+pages 296–305.
+Xiaoyuan Li, Moxin Li, Wenjie Wang, Rui Men,
+Yichang Zhang, Fuli Feng, Dayiheng Liu, and Jun-
+yang Lin. 2025c. Mathopeval: A fine-grained
+evaluation benchmark for visual operations of
+mllms in mathematical reasoning.arXiv preprint
+arXiv:2507.18140.
+Hunter Lightman, Vineet Kosaraju, Yuri Burda, Harri-
+son Edwards, Bowen Baker, Teddy Lee, Jan Leike,
+John Schulman, Ilya Sutskever, and Karl Cobbe.
+2023. Let’s verify step by step. InThe Twelfth Inter-
+national Conference on Learning Representations.
+Longzhong Lin, Xuewu Lin, Kechun Xu, Haojian
+Lu, Lichao Huang, Rong Xiong, and Yue Wang.
+2025. Revisit mixture models for multi-agent simula-
+tion: Experimental study within a unified framework.
+arXiv preprint arXiv:2501.17015.
+Haochen Liu, Li Chen, Yu Qiao, Chen Lv, and
+Hongyang Li. 2024a. Reasoning multi-agent behav-
+ioral topology for interactive autonomous driving.
+Advances in Neural Information Processing Systems,
+37:92605–92637.
+Wenhao Liu, Zhenyi Lu, Xinyu Hu, Jierui Zhang, Dailin
+Li, Jiacheng Cen, Huilin Cao, Haiteng Wang, Yuhan
+Li, Kun Xie, and 1 others. 2025a. Storm-born: A
+challenging mathematical derivations dataset curated
+via a human-in-the-loop multi-agent framework. In
+arXiv preprint arXiv:2506.01531.
+Yuan Liu, Haodong Duan, Yuanhan Zhang, Bo Li,
+Songyang Zhang, Wangbo Zhao, Yike Yuan, Jiaqi
+Wang, Conghui He, Ziwei Liu, and 1 others. 2024b.
+Mmbench: Is your multi-modal model an all-around
+player? InEuropean conference on computer vision,
+pages 216–233. Springer.
+Yuliang Liu, Junjie Lu, Zhaoling Chen, Chaofeng
+Qu, Jason Klein Liu, Chonghan Liu, Zefan Cai,
+Yunhui Xia, Li Zhao, Jiang Bian, and 1 others.
+2025b. Adaptivestep: Automatically dividing reason-
+ing step through model confidence.arXiv preprint
+arXiv:2502.13943.
+Zhaowei Liu, Xin Guo, Fangqi Lou, Lingfeng Zeng,
+Jinyi Niu, Zixuan Wang, Jiajie Xu, Weige Cai, Zi-
+wei Yang, Xueqian Zhao, and 1 others. 2025c. Fin-
+r1: A large language model for financial reason-
+ing through reinforcement learning.arXiv preprint
+arXiv:2503.16252.
+Zhaowei Liu, Xin Guo, Haotian Xia, Lingfeng Zeng,
+Fangqi Lou, Jinyi Niu, Mengping Li, Qi Qi, Jiahuan
+Li, Wei Zhang, and 1 others. 2025d. Visfineval:
+A scenario-driven chinese multimodal benchmark
+for holistic financial understanding.arXiv preprint
+arXiv:2508.09641.
+Guilong Lu, Xuntao Guo, Rongjunchen Zhang, Wen-
+qiao Zhu, and Ji Liu. 2025. Bizfinbench: A business-
+driven real-world financial benchmark for evaluating
+llms.arXiv preprint arXiv:2505.19457.
+Jianqiao Lu, Zhiyang Dou, Hongru Wang, Zeyu Cao,
+Jianbo Dai, Yunlong Feng, and Zhijiang Guo. 2024a.
+Autopsv: Automated process-supervised verifier.Ad-
+vances in Neural Information Processing Systems,
+37:79935–79962.
+Pan Lu, Hritik Bansal, Tony Xia, Jiacheng Liu, Chun-
+yuan Li, Hannaneh Hajishirzi, Hao Cheng, Kai-Wei
+Chang, Michel Galley, and Jianfeng Gao. 2024b.
+Mathvista: Evaluating mathematical reasoning of
+foundation models in visual contexts. InInter-
+national Conference on Learning Representations
+(ICLR).
+
+
+[Page 11]
+Junyu Luo, Zhizhuo Kou, Liming Yang, Xiao Luo,
+Jinsheng Huang, Zhiping Xiao, Jingshu Peng,
+Chengzhong Liu, Jiaming Ji, Xuanzhe Liu, and 1
+others. 2025. Finmme: Benchmark dataset for finan-
+cial multi-modal reasoning evaluation. InAnnual
+Meeting of the Association for Computational Lin-
+guistics.
+Liangchen Luo, Yinxiao Liu, Rosanne Liu, Samrat
+Phatale, Harsh Lara, Yunxuan Li, Lei Shu, Yun
+Zhu, Lei Meng, Jiao Sun, and 1 others. Im-
+prove mathematical reasoning in language models
+by automated process supervision, 2024.URL
+‘https://arxiv.org/abs/2406.06592’, 2.
+Qianli Ma, Haotian Zhou, Tingkai Liu, Jianbo Yuan,
+Pengfei Liu, Yang You, and Hongxia Yang. 2023.
+Let’s reward step by step: Step-level reward model
+as the navigators for reasoning.arXiv preprint
+arXiv:2310.10080.
+Shiwen Ni, Xiangtao Kong, Chengming Li, Xiping Hu,
+Ruifeng Xu, Jia Zhu, and Min Yang. 2025. Training
+on the benchmark is not all you need. InProceedings
+of the AAAI Conference on Artificial Intelligence,
+volume 39, pages 24948–24956.
+OpenAI. 2025. Introducing gpt-4.1 model family. Ac-
+cessed: 2025-10-02.
+Hyejin Park, Jiyoon Lee, and Hayoung Oh. 2025.
+Fintab-llava: Finance domain-specific table under-
+standing multimodal llm using fintmd. InPacific-
+Asia Conference on Knowledge Discovery and Data
+Mining, pages 235–246. Springer.
+Xueqing Peng, Lingfei Qian, Yan Wang, Ruoyu Xiang,
+Yueru He, Yang Ren, Mingyang Jiang, Jeff Zhao,
+Huan He, Yi Han, and 1 others. 2025. Multifinben: A
+multilingual, multimodal, and difficulty-aware bench-
+mark for financial llm evaluation.arXiv preprint
+arXiv:2506.14028.
+Zhenting Qi, Mingyuan Ma, Jiahang Xu, Li Lyna Zhang,
+Fan Yang, and Mao Yang. 2024. Mutual reasoning
+makes smaller llms stronger problem-solvers.arXiv
+preprint arXiv:2408.06195.
+Runqi Qiao, Qiuna Tan, Guanting Dong, Minhui Wu,
+Chong Sun, Xiaoshuai Song, Zhuoma GongQue,
+Shanglin Lei, Zhe Wei, Miaoxuan Zhang, and 1 oth-
+ers. 2024. We-math: Does your large multimodal
+model achieve human-like mathematical reasoning?
+arXiv preprint arXiv:2407.01284.
+Aman Rangapur, Haoran Wang, Ling Jian, and Kai Shu.
+2025. Fin-fact: A benchmark dataset for multimodal
+financial fact-checking and explanation generation.
+InCompanion Proc ACM on Web Conference 2025,
+pages 785–788.
+Raj Shah, Kunal Chawla, Dheeraj Eidnani, Agam Shah,
+Wendi Du, Sudheer Chava, Natraj Raman, Charese
+Smiley, Jiaao Chen, and Diyi Yang. 2022. When
+flue meets flang: Benchmarks and large pretrained
+language model for financial domain. InProc 2022
+Conference on Empirical Methods in Natural Lan-
+guage Processing, pages 2322–2335.
+ShengbinYue ShengbinYue, Ting Huang, Zheng Jia,
+Siyuan Wang, Shujun Liu, Yun Song, Xuan-Jing
+Huang, and Zhongyu Wei. 2025. Multi-agent simula-
+tor drives language models for legal intensive inter-
+action. InFindings of the Association for Computa-
+tional Linguistics: NAACL 2025, pages 6537–6570.
+Dong Shu, Haoyang Yuan, Yuchen Wang, Yanguang
+Liu, Huopu Zhang, Haiyan Zhao, and Mengnan Du.
+2025. Finchart-bench: Benchmarking financial chart
+comprehension in vision-language models.arXiv
+preprint arXiv:2507.14823.
+David Silver, Aja Huang, Chris J Maddison, Arthur
+Guez, Laurent Sifre, George Van Den Driessche, Ju-
+lian Schrittwieser, Ioannis Antonoglou, Veda Pan-
+neershelvam, Marc Lanctot, and 1 others. 2016. Mas-
+tering the game of go with deep neural networks and
+tree search.nature, 529(7587):484–489.
+Xingwu Sun, Yanfeng Chen, Yiqing Huang, Ruob-
+ing Xie, Jiaqi Zhu, Kai Zhang, Shuaipeng Li, Zhen
+Yang, Jonny Han, Xiaobo Shu, and 1 others. 2024.
+Hunyuan-large: An open-source moe model with
+52 billion activated parameters by tencent.arXiv
+preprint arXiv:2411.02265.
+Shuo Tang, Xianghe Pang, Zexi Liu, Bohan Tang, Rui
+Ye, Tian Jin, Xiaowen Dong, Yanfeng Wang, and Si-
+heng Chen. 2024. Synthesizing post-training data for
+llms through multi-agent simulation.arXiv preprint
+arXiv:2410.14251.
+Zichen Tang, Jiacheng Liu, Zhongjun Yang, Rongjin
+Li, Zihua Rong, Haoyang He, Zhuodi Hao, Xinyang
+Hu, Kun Ji, Ziyan Ma, and 1 others. 2025. Fin-
+mmr: Make financial numerical reasoning more mul-
+timodal, comprehensive, and challenging. InInterna-
+tional Conference on Computer Vision (ICCV).
+Gemma Team, Aishwarya Kamath, Johan Ferret, Shreya
+Pathak, Nino Vieillard, Ramona Merhej, Sarah Perrin,
+Tatiana Matejovicova, Alexandre Ramé, Morgane
+Rivière, and 1 others. 2025a. Gemma 3 technical
+report.arXiv preprint arXiv:2503.19786.
+Kimi Team, Angang Du, Bohong Yin, Bowei Xing,
+Bowen Qu, Bowen Wang, Cheng Chen, Chenlin
+Zhang, Chenzhuang Du, Chu Wei, and 1 others.
+2025b. Kimi-vl technical report.arXiv preprint
+arXiv:2504.07491.
+Bin Wang, Chao Xu, Xiaomeng Zhao, Linke Ouyang,
+Fan Wu, Zhiyuan Zhao, Rui Xu, Kaiwen Liu, Yuan
+Qu, Fukai Shang, and 1 others. 2024a. Mineru: An
+open-source solution for precise document content
+extraction.arXiv preprint arXiv:2409.18839.
+Hanbin Wang, Xiaoxuan Zhou, Zhipeng Xu, Keyuan
+Cheng, Yuxin Zuo, Kai Tian, Jingwei Song, Junting
+Lu, Wenhui Hu, and Xueyang Liu. 2025a. Code-
+vision: Evaluating multimodal llms logic understand-
+ing and code generation capabilities.arXiv preprint
+arXiv:2502.11829.
+
+
+[Page 12]
+Ke Wang, Junting Pan, Weikang Shi, Zimu Lu, Houxing
+Ren, Aojun Zhou, Mingjie Zhan, and Hongsheng Li.
+2024b. Measuring multimodal mathematical reason-
+ing with math-vision dataset. InThe Thirty-eight
+Conference on Neural Information Processing Sys-
+tems Datasets and Benchmarks Track.
+Peijie Wang, Zhong-Zhi Li, Fei Yin, Dekang Ran, and
+Cheng-Lin Liu. 2025b. Mv-math: Evaluating mul-
+timodal math reasoning in multi-visual contexts. In
+Proceedings of the Computer Vision and Pattern
+Recognition Conference, pages 19541–19551.
+Peiyi Wang, Lei Li, Zhihong Shao, Runxin Xu, Damai
+Dai, Yifei Li, Deli Chen, Yu Wu, and Zhifang Sui.
+2024c. Math-shepherd: Verify and reinforce llms
+step-by-step without human annotations. InProc An-
+nual Meeting of the Association for Computational
+Linguistics, pages 9426–9439.
+Shuting Wang, Jiejun Tan, Zhicheng Dou, and Ji-Rong
+Wen. 2024d. Omnieval: An omnidirectional and
+automatic rag evaluation benchmark in financial do-
+main.arXiv preprint arXiv:2412.13018.
+Weiyun Wang, Zhangwei Gao, Lianjie Chen, Zhe Chen,
+Jinguo Zhu, Xiangyu Zhao, Yangzhou Liu, Yue Cao,
+Shenglong Ye, Xizhou Zhu, and 1 others. 2025c. Vi-
+sualprm: An effective process reward model for mul-
+timodal reasoning.arXiv preprint arXiv:2503.10291.
+Weiyun Wang, Zhangwei Gao, Lixin Gu, Hengjun Pu,
+Long Cui, Xingguang Wei, Zhaoyang Liu, Linglin
+Jing, Shenglong Ye, Jie Shao, and 1 others. 2025d. In-
+ternvl3.5: Advancing open-source multimodal mod-
+els in versatility, reasoning, and efficiency.arXiv
+preprint arXiv:2508.18265.
+Ziao Wang, Yuhang Li, Junda Wu, Jaehyeon Soon, and
+Xiaofeng Zhang. 2023. Finvis-gpt: A multimodal
+large language model for financial chart analysis.Fin-
+LLM Symposium at IJCAI 2023.
+Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten
+Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou,
+and 1 others. 2022. Chain-of-thought prompting elic-
+its reasoning in large language models.Advances
+in neural information processing systems, 35:24824–
+24837.
+Tengjin Weng, Jingyi Wang, Wenhao Jiang, and Zhong
+Ming. 2025. Visnumbench: Evaluating number sense
+of multimodal large language models. InInterna-
+tional Conference on Computer Vision (ICCV).
+Chengyue Wu, Yixiao Ge, Qiushan Guo, Jiahao Wang,
+Zhixuan Liang, Zeyu Lu, Ying Shan, and Ping Luo.
+2024a. Plot2code: A comprehensive benchmark
+for evaluating multi-modal large language models in
+code generation from scientific plots.arXiv preprint
+arXiv:2405.07990.
+Junde Wu, Jiayuan Zhu, Yuyuan Liu, Min Xu, and
+Yueming Jin. 2025a. Agentic reasoning: A stream-
+lined framework for enhancing llm reasoning with
+agentic tools. InProceedings of the 63rd Annual
+Meeting of the Association for Computational Lin-
+guistics (Volume 1: Long Papers), pages 28489–
+28503.
+Mingqi Wu, Zhihao Zhang, Qiaole Dong, Zhiheng Xi,
+Jun Zhao, Senjie Jin, Xiaoran Fan, Yuhao Zhou, Hui-
+jie Lv, Ming Zhang, and 1 others. 2025b. Reasoning
+or memorization? unreliable results of reinforcement
+learning due to data contamination.arXiv preprint
+arXiv:2507.10532.
+Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski,
+Mark Dredze, Sebastian Gehrmann, Prabhanjan Kam-
+badur, David Rosenberg, and Gideon Mann. 2023.
+Bloomberggpt: A large language model for finance.
+arXiv preprint arXiv:2303.17564.
+Siyi Wu, Zhaoyang Guan, Leyi Zhao, Xinyuan Song,
+Xinyu Ying, Hanlin Zhang, Michele Pak, Yangfan He,
+Yi Xin, Jianhui Wang, and 1 others. 2025c. Moun-
+tainlion: A multi-modal llm-based agent system for
+interpretable and adaptive financial trading.arXiv
+preprint arXiv:2507.20474.
+Xueqing Wu, Yuheng Ding, Bingxuan Li, Pan Lu,
+Da Yin, Kai-Wei Chang, and Nanyun Peng. 2025d.
+Visco: Benchmarking fine-grained critique and cor-
+rection towards self-improvement in visual reasoning.
+InProc IEEE/CVF conference on computer vision
+and pattern recognition, pages 9527–9537.
+Zhiyu Wu, Xiaokang Chen, Zizheng Pan, Xingchao
+Liu, Wen Liu, Damai Dai, Huazuo Gao, Yiyang
+Ma, Chengyue Wu, Bingxuan Wang, and 1 others.
+2024b. Deepseek-vl2: Mixture-of-experts vision-
+language models for advanced multimodal under-
+standing.arXiv preprint arXiv:2412.10302.
+Jingyu Xiao, Yuxuan Wan, Yintong Huo, Zixin Wang,
+Xinyi Xu, Wenxuan Wang, Zhiyao Xu, Yuhang Wang,
+and Michael R Lyu. 2024. Interaction2code: Bench-
+marking mllm-based interactive webpage code gen-
+eration from interactive prototyping.arXiv preprint
+arXiv:2411.03292.
+Jingyu Xiao, Ming Wang, Man Ho Lam, Yuxuan Wan,
+Junliang Liu, Yintong Huo, and Michael R Lyu. 2025.
+Designbench: A comprehensive benchmark for mllm-
+based front-end code generation.arXiv preprint
+arXiv:2506.06251.
+Qianqian Xie, Weiguang Han, Zhengyu Chen, Ruoyu
+Xiang, Xiao Zhang, Yueru He, Mengxi Xiao, Dong
+Li, Yongfu Dai, Duanyu Feng, and 1 others. 2024.
+Finben: A holistic financial benchmark for large lan-
+guage models.Advances in Neural Information Pro-
+cessing Systems, 37:95716–95743.
+Qianqian Xie, Weiguang Han, Xiao Zhang, Yanzhao
+Lai, Min Peng, Alejandro Lopez-Lira, and Jimin
+Huang. 2023. Pixiu: A comprehensive benchmark,
+instruction dataset and large language model for fi-
+nance. InAdvances in Neural Information Process-
+ing Systems, volume 36, pages 33469–33484.
+
+
+[Page 13]
+Vu Dinh Xuan, Hao V o, David Murphy, and Hoang D
+Nguyen. 2025. Agentsgen: Multi-agent llm in the
+loop for semantic collaboration and generation of
+synthetic data.arXiv preprint arXiv:2505.13466.
+Siqiao Xue, Tingting Chen, Fan Zhou, Qingyang Dai,
+Zhixuan Chu, and Hongyuan Mei. 2025. Famma:
+A benchmark for financial multilingual multimodal
+question answering.arXiv preprint.
+An Yang, Anfeng Li, Baosong Yang, Beichen Zhang,
+Binyuan Hui, Bo Zheng, Bowen Yu, Chang
+Gao, Chengen Huang, Chenxu Lv, and 1 others.
+2025a. Qwen3 technical report.arXiv preprint
+arXiv:2505.09388.
+Hongyang Yang, Xiao-Yang Liu, and Christina Dan
+Wang. 2023. Fingpt: Open-source financial large lan-
+guage models.FinLLM Symposium at IJCAI 2023.
+Zitong Yang, Aonan Zhang, Hong Liu, Tatsunori
+Hashimoto, Emmanuel Candès, Chong Wang, and
+Ruoming Pang. 2025b. Synthetic bootstrapped pre-
+training.arXiv preprint arXiv:2509.15248.
+Yangyang Yu, Zhiyuan Yao, Haohang Li, Zhiyang Deng,
+Yuechen Jiang, Yupeng Cao, Zhi Chen, Jordan Su-
+chow, Zhenyu Cui, Rong Liu, and 1 others. 2024.
+Fincon: A synthesized llm multi-agent system with
+conceptual verbal reinforcement for enhanced finan-
+cial decision making.Advances in Neural Informa-
+tion Processing Systems, 37:137010–137045.
+Xiang Yue, Yuansheng Ni, Kai Zhang, Tianyu Zheng,
+Ruoqi Liu, Ge Zhang, Samuel Stevens, Dongfu Jiang,
+Weiming Ren, Yuxuan Sun, and 1 others. 2024.
+Mmmu: A massive multi-discipline multimodal un-
+derstanding and reasoning benchmark for expert agi.
+InProc IEEE/CVF Conference on Computer Vision
+and Pattern Recognition, pages 9556–9567.
+Renrui Zhang, Dongzhi Jiang, Yichi Zhang, Haokun
+Lin, Ziyu Guo, Pengshuo Qiu, Aojun Zhou, Pan Lu,
+Kai-Wei Chang, Yu Qiao, and 1 others. 2024a. Math-
+verse: Does your multi-modal llm truly see the dia-
+grams in visual math problems? InEuropean Confer-
+ence on Computer Vision, pages 169–186. Springer.
+Yao Zhang, Yu Wu, Haowei Zhang, Weiguo Li, Haokun
+Chen, Jingpei Wu, Guohao Li, Zhen Han, and
+V olker Tresp. 2025a. Groundedprm: Tree-guided
+and fidelity-aware process reward modeling for step-
+level reasoning.arXiv preprint arXiv:2510.14942.
+Yuxiang Zhang, Shangxi Wu, Yuqi Yang, Jiangming
+Shu, Jinlin Xiao, Chao Kong, and Jitao Sang. 2024b.
+o1-coder: an o1 replication for coding.arXiv
+preprint arXiv:2412.00154.
+Zhenru Zhang, Chujie Zheng, Yangzhen Wu, Beichen
+Zhang, Runji Lin, Bowen Yu, Dayiheng Liu, Jin-
+gren Zhou, and Junyang Lin. 2025b. The lessons of
+developing process reward models in mathematical
+reasoning.arXiv preprint arXiv:2501.07301.
+Suifeng Zhao, Zhuoran Jin, Sujian Li, and Jun Gao.
+2025. Finragbench-v: A benchmark for multimodal
+rag with visual citation in the financial domain.arXiv
+preprint arXiv:2505.17471.
+Fengbin Zhu, Junfeng Li, Liangming Pan, Wenjie Wang,
+Fuli Feng, Chao Wang, Huanbo Luan, and Tat-
+Seng Chua. 2025a. Fintmmbench: Benchmarking
+temporal-aware multi-modal rag in finance. InACM
+International Conference on Multimedia.
+Fengbin Zhu, Ziyang Liu, Xiang Yao Ng, Haohui
+Wu, Wenjie Wang, Fuli Feng, Chao Wang, Huanbo
+Luan, and Tat Seng Chua. 2024. Mmdocbench:
+Benchmarking large vision-language models for
+fine-grained visual document understanding.arXiv
+preprint arXiv:2410.21311.
+Jinguo Zhu, Weiyun Wang, Zhe Chen, Zhaoyang Liu,
+Shenglong Ye, Lixin Gu, Hao Tian, Yuchen Duan,
+Weijie Su, Jie Shao, and 1 others. 2025b. Internvl3:
+Exploring advanced training and test-time recipes
+for open-source multimodal models.arXiv preprint
+arXiv:2504.10479.
+
+
+[Page 14]
+Appendix Contents
+A Related Work Discussion . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+A.1 VLM Reasoning . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+A.2 Financial Benchmarks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+A.3 Automatic Data Augmentation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+A.4 Our Contributions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+B Data Details . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+B.1 Data Statistics . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+B.2 Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+B.3 Data Processing . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+C Limitations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24
+D Discussion on Data Leakage . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 25
+E Discussion on Pyramid-like Structure . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 26
+F Discussion on Question Chain . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 26
+G Model Performance with and without Fine-Tuning . . . . . . . . . . . . . . . . . . . . . . . . 26
+H Detailed Results . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 36
+H.1 Experiments Consideration and Ablation Studies . . . . . . . . . . . . . . . . . . . . . 36
+H.2 Detailed Experiment Results on Original Evaluation Dataset with Image . . . . . . . . . 36
+I Algorithms . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 40
+
+
+[Page 15]
+A Related Work Discussion
+A.1 VLM Reasoning
+Vision-language models (VLMs) have achieved im-
+pressive performance on complex tasks by leverag-
+ing step-by-step reasoning, decomposing intricate
+problems into simpler subtasks and solving them
+sequentially to reach a final solution (Guo et al.,
+2025; Team et al., 2025b; Bai et al., 2025; Hong
+et al., 2025; Team et al., 2025a; Wang et al., 2025d).
+Benchmarking reasoning ability is essential for
+guiding future advancements. In contrast to earlier
+methods that evaluated reasoning holistically via a
+single scalar score, recent work has shifted toward
+fine-grained assessment, enabling step-by-step val-
+idation of the chain-of-thought (CoT) process (Wu
+et al., 2025d; Chaoyou et al., 2023; Zhu et al., 2024;
+Chen et al., 2024a; Liu et al., 2024b; Yue et al.,
+2024; Chen and Song, 2025a). This paradigm has
+seen significant traction in domains like mathemati-
+cal reasoning (Wang et al., 2024b; Lu et al., 2024b;
+Zhang et al., 2024a; Weng et al., 2025; Li et al.,
+2025c; He et al., 2025; Wang et al., 2025b; Qiao
+et al., 2024) and code generation (Xiao et al., 2025,
+2024; Wang et al., 2025a; Awal et al., 2025; Li
+et al., 2024; Wu et al., 2024a), where outputs are
+inherently verifiable and intermediate steps can be
+automatically annotated.
+The success in these domains stems from the
+inherent verifiability of their outputs, which en-
+ables automatic construction of process-annotated
+datasets for fine-tuning large language models
+(LLMs). Two types of verifiers are commonly
+employed: the Outcome Reward Model (ORM),
+which assigns a scalar reward to the entire solu-
+tion, and the Process Reward Model (PRM) (Ma
+et al., 2023; Zhang et al., 2025b; Wang et al., 2025c;
+Choudhury, 2025; Lambert et al., 2024), which
+evaluates correctness at each step of the reason-
+ing path. PRM’s step-wise scoring enables precise
+error localization, facilitating more targeted feed-
+back.
+However, this progress has yet to be effectively
+transferred to vertical domains such as finance.
+Reasoning in finance typically involves multistep
+interpretation of charts, tables, and contextual nar-
+ratives, requiring not only accurate understanding
+of financial visuals and deep domain knowledge,
+but also often yielding open-ended answers that are
+inherently difficult to verify precisely. This ambi-
+guity impedes the generation of dense, step-wise
+process rewards essential for PRM training.
+A.2 Financial Benchmarks
+Existing financial benchmarks remain limited: they
+reduce complex reasoning to single scalar scores,
+obscure intermediate reasoning steps, and lack sup-
+port for hierarchical or diagnostic evaluation (Kim
+et al., 2024; Zhu et al., 2025a; Shu et al., 2025;
+Li et al., 2025a; Liu et al., 2025d; Rangapur et al.,
+2025; Zhao et al., 2025; Gan et al., 2025; Luo et al.,
+2025; Xue et al., 2025; DENG et al., 2025). Ad-
+ditionally, current evaluation datasets consist only
+of isolated question-answer pairs, making it dif-
+ficult to uncover hidden relationships within the
+data (Yang et al., 2025b). Compounding this chal-
+lenge, these benchmarks rely on costly manual an-
+notations that hinder scalability, and no large-scale
+synthetic dataset currently exists to train finance-
+specific preference reward models (PRMs) for vi-
+sual reasoning tasks.
+Specifically regarding scalability, FAMMA-
+LivePro (Xue et al., 2025), a manually annotated
+benchmark, contains 103 questions crafted by se-
+nior finance experts. These questions are of high
+quality and accuracy, and capture the complexity of
+real-world financial scenarios. However, such man-
+ual annotation demands highly qualified experts
+and is both time-consuming and labor-intensive,
+making it difficult to scale. While some bench-
+marks (Wang et al., 2024d; Gan et al., 2025; Luo
+et al., 2025; Lu et al., 2025; Li et al., 2025a; Zhu
+et al., 2025a; Zhao et al., 2025; Shu et al., 2025;
+Liu et al., 2024b) explore using large models for
+automatic data synthesis, they typically prompt
+these models to directly generate expert-level, com-
+plex financial questions. However, due to the diffi-
+culty large models face in understanding complex
+financial visuals, they often rely heavily on pro-
+vided textual cues, leading to question homogeniza-
+tion and hallucinations. This results in question-
+answer pairs of inconsistent quality that still re-
+quire substantial manual verification. On the other
+hand, most financial benchmarks only release their
+datasets without disclosing their data augmenta-
+tion methods, making direct comparison of such
+methods difficult.
+As a result, the finance domain still lacks bench-
+mark datasets capable of supporting hierarchical
+capability assessment, evaluating step-by-step rea-
+soning, enabling fine-grained reward modeling, and
+achieving fully scalable data augmentation.
+
+
+[Page 16]
+A.3 Automatic Data Augmentation
+Existing automated annotation methods fall into
+two categories. The first includes Math-Shepherd
+(Wang et al., 2024c), AutoPSV (Lu et al., 2024a),
+AutoPRM (Chen et al., 2024b), and AdaptiveStep
+(Liu et al., 2025b), which score or decompose
+steps of a fixed problem using verifiers or con-
+fidence heuristics. While efficient, they are pas-
+sive and cannot generate new problems or structure
+them by difficulty. The second category, including
+OmegaPRM (Luo et al.), rStar-Math (Guan et al.,
+2025), GroundedPRM (Zhang et al., 2025a), and
+RMultiplex200K (Chen and Song, 2025b), lever-
+ages MCTS or structured planning to create higher-
+quality, verifiable paths. Specifically, OmegaPRM
+employs a divide-and-conquer MCTS algorithm
+to systematically locate the first incorrect step in a
+reasoning chain, enabling efficient and high-quality
+data generation. GroundedPRM also uses MCTS
+but integrates external validation tools to ensure
+the fidelity of each step, resulting in a more data-
+efficient PRM that achieves SOTA performance
+with far fewer annotations.
+While existing methods such as Math-Shepherd,
+AutoPSV , AutoPRM, and AdaptiveStep effectively
+annotate steps of a given problem through passive,
+single-agent verification, they are inherently lim-
+ited to flat, post-hoc labeling and cannot gener-
+ate new problems or structure them by difficulty.
+Even MCTS-based approaches though capable of
+constructing high-fidelity reasoning paths—focus
+exclusively on verifying or refining a single solu-
+tion trajectory. In contrast, our work introduces
+an active, adversarial two-agent framework embed-
+ded within the MCTS architecture: one agent (the
+questioner) generates financial reasoning problems,
+while the other (the answerer) solves them, with
+the questioner progressively increasing difficulty
+based on the answerer’s performance.
+This co-evolutionary process is specifically de-
+signed for the financial domain, where reasoning
+often requires layered knowledge, from basic ac-
+counting principles to complex risk modeling, and
+where errors must be interpretable and traceable.
+Our method explicitly constructs a hierarchical, in-
+terpretable curriculum of financial problems, in
+which each subsequent question builds upon pre-
+requisite concepts and demands deeper domain un-
+derstanding. Non-MCTS methods lack the struc-
+tured search mechanism needed to jointly optimize
+problem generation, difficulty progression, and fi-
+nancial knowledge dependency. MCTS, by con-
+trast, provides the necessary planning backbone
+to balance exploration of novel financial scenarios
+with exploitation of solvable, pedagogically mean-
+ingful chains. Thus, MCTS is essential not only
+for scalability but also for realizing a generative,
+knowledge-aware annotation process that produces
+explainable, difficulty-graded financial reasoning
+data, extending MCTS’s role beyond verification to
+structured curriculum synthesis tailored to domain-
+specific reasoning.
+A.4 Our Contributions
+To address above shortcomings, we aim to: (1)
+comprehensively evaluate VLMs across a hierar-
+chy of cognitive levels, from basic perception to
+expert financial decision-making, enabling granular
+diagnosis of strengths and weaknesses at each rea-
+soning stage and revealing which foundational cog-
+nitions are critical for higher-level financial tasks,
+and uncover meaningful data relationships; (2) pro-
+vide traceable, progressive logical chains that mir-
+ror real-world financial reasoning, enhancing inter-
+pretability, explainability, and justifiability while
+enabling VLMs to learn complex problem-solving
+through cumulative, step-by-step knowledge build-
+ing; (3) introduce step-wise reward scores for each
+reasoning step, facilitating automated, scalable ver-
+ification via Process Reward Models and overcom-
+ing the limitations of costly manual annotation,
+and (4) propose an automatic data augmentation
+method that decomposes the task of generating
+complex financial question-answer pairs into in-
+cremental process, starting from simple visual per-
+ception questions and progressively increasing dif-
+ficulty and financial reasoning depth, all without
+requiring human verification. Finally, we present
+a comparison between ourPyFi-600Kdataset and
+existing evaluation datasets in Table 2.
+B Data Details
+B.1 Data Statistics
+The completePyFi-600Kdataset comprises
+603,859 samples, each comprising a financial im-
+age paired with a corresponding question-answer
+(Q&A) pair, along with essential background infor-
+mation (caption, theme, acronym expansions) of
+the image and a summary analysis of its context.
+Each sample is annotated with a capability level
+and complexity rating. Specifically, Level 1 (Per-
+ception) contains 73,006 samples (12.09% of the
+
+
+[Page 17]
+Table 2: Comparison ofPyFi-600Kwith Existing Evaluation Dataset. In Multimodal column, "T" means Text
+modality, "I" means Image modality. In the V olume column, K is used as the unit.
+Dataset Volume Multimodal Automatic
+Synthesized
+Hierarchical
+Cognition CoT Step-wise
+Reward
+General Domain
+MME (Chaoyou et al., 2023) 2.4 T & I✓
+MMDocBench (Zhu et al., 2024) 4.3 T & I✓
+MMStar (Chen et al., 2024a) 1.5 T & I
+MMBench (Liu et al., 2024b) 3.2 T & I✓
+MMMU (Yue et al., 2024) 11.6 T & I
+Finance Domain
+FinQA (Chen et al., 2021) 8.3 T
+FLUE (Xie et al., 2023) 26.3 T
+FLARE (Xie et al., 2023) 19.2 T
+CF-Benchmark (Lei et al., 2023) 3.9 T
+BizFinBench (Lu et al., 2025) 7.0 T✓
+FinMME (Luo et al., 2025) 11.1 T & I✓
+MME-Finance (Gan et al., 2025) 1.2 T & I✓
+FAMMA-Basic (Xue et al., 2025) 1.9 T & I✓
+CFBenchmark-MM (Li et al., 2025a) 9.7 T & I
+FinMMR (Tang et al., 2025) 4.3 T & I✓
+MultiFinBen-Vision (Peng et al., 2025) 21.8 T & I✓
+PyFi-600K(Ours)600 T & I✓ ✓ ✓ ✓
+Table 3: Question Length and Question Chain Length
+Statistics
+Statistic Question Length (Characters) Chain Length
+Mean 142.11 11.48
+Median 137.00 12
+Minimum 29 1
+Maximum 853 26
+Std Dev 50.54 2.55
+total); Level 2 (Data Extraction) includes 159,601
+samples (26.43%); Level 3 (Calculation Analysis)
+comprises 90,229 samples (14.94%); Level 4 (Pat-
+tern Recognition) has 109,848 samples (18.19%);
+Level 5 (Logical Reasoning) accounts for 117,751
+samples (19.50%); and Level 6 (Decision Support)
+includes 53,424 samples (8.85%). Notably, Level
+2, Data Extraction, is the most prevalent, under-
+scoring its foundational role in complex reasoning
+tasks. The dataset also includes over 60,000 sample
+chains, whose lengths vary from 1 to 26 samples,
+with an average chain length of 11.48. Question
+lengths range from 29 to 853 characters, with an
+average length of 142 characters, as shown in Ta-
+ble 3. The full distribution across capability levels
+and complexity degrees is shown in Table 4.
+The distribution of question chain lengths by
+segment has shown in Table 5. The results indi-
+cate that the majority of sample chains (84.47%)
+fall within the 11-15 length range, suggesting that
+Table 4: Distribution of Question Capability Levels and
+Complexity Degree
+Classification Type Count Percentage (%)
+Capability
+Level
+1 Perception 73,006 12.09
+2 Data Extraction 159,601 26.43
+3 Calculation Analysis 90,229 14.94
+4 Pattern Recognition 109,848 18.19
+5 Logical Reasoning 117,751 19.50
+6 Decision Support 53,424 8.85
+Complexity
+Degree
+1 — 91,143 15.09
+2 — 148,465 24.59
+3 — 165,072 27.34
+4 — 139,654 23.13
+5 — 59,527 9.86
+Total 603,859 100.00
+most tasks in the dataset require a moderate to sub-
+stantial number of reasoning steps. Since chain
+length reflects the number of logically sequential
+question-answer pairs needed to arrive at a final an-
+swer, longer chains correspond to higher task com-
+plexity. The scarcity of very short (1-10, 15.11%)
+or very long (16-26, 0.42% combined) chains fur-
+ther implies that the dataset is intentionally curated
+to focus on multistep reasoning scenarios that are
+neither trivial nor excessively extended.
+We also observed that, generally, the average
+question length increases with higher capability
+levels, indirectly reflecting a progressive rise in
+task difficulty, as shown in Figure 6. However,
+an unexpected decrease occurs at Level 4 (Pattern
+
+
+[Page 18]
+Table 5: Distribution of question chain lengths by seg-
+ment
+Length Range Count Percentage (%)
+1–10 9,456 15.11
+11–15 52,863 84.47
+16–20 241 0.39
+21–26 21 0.03
+1 2 3 4 5 6 020k40k60k80k100k120k140k160k180k200k Count Average Question Length (Characteristics)C
+apability LevelC
+ount8
+0100120140160180200 Average Question Length (Characteristics)
+Figure 6: Capability Level with Question Length.
+Recognition). This may be because pattern recog-
+nition tasks often require identifying and interpret-
+ing intricate patterns rather than relying on simple
+textual matching, which could lead to more con-
+cise yet semantically dense questions that challenge
+model performance.
+Finally, we analyzed word frequency in the ques-
+tions, as shown in Table 6 and Figure 7. Ex-
+cluding common function words such as prepo-
+sitions and basic terms like "and" or "where," the
+most frequently occurring words include "price",
+"growth", "trend", "GDP", "debt", "investment",
+"income", "share", "revenue", "change", "risk",
+"government", and "market". This vocabulary high-
+lights the dataset’s rich thematic coverage across
+diverse domains of finance.
+Before fine-tuning, we analyzed the answer dis-
+tribution across all samples in the question chains
+and observed significant category imbalance. As
+shown in Table 7, answer option A accounts for
+43.39% of all responses, while B makes up 34.20%.
+In contrast, options C and D represent only 15.81%
+and 6.08%, respectively, with options E-J collec-
+tively comprising less than 0.52%. This skew sug-
+gests a generation bias, likely introduced during
+synthetic question creation, where the model tends
+to place the correct answer in the first two choices.
+Table 6: Top most frequent words in the questions
+Rank Word Frequency Percentage (%)
+1 price 112,502 1.31
+2 growth 99,789 1.17
+3 trend 83,465 0.97
+4 gdp 63,960 0.75
+5 debt 42,057 0.49
+6 investment 38,931 0.45
+7 income 34,923 0.41
+8 share 33,044 0.39
+9 revenue 29,665 0.35
+10 change 29,019 0.34
+11 risk 28,486 0.33
+12 government 27,847 0.33
+13 market 26,763 0.31
+p
+ricegovernmentinvestmentgdpdebtgrowthchangesharer evenuei ncomer iskt rendmarket Frequency
+Figure 7: Top most frequent words in the questions.
+To mitigate this bias and ensure a fair evaluation,
+we manually rebalanced the answer distribution in
+a subset of 1,000 test samples so that options A,
+B, C, and D each appear with approximately equal
+frequency. During fine-tuning, we then compared
+model accuracy under the original imbalanced dis-
+tribution versus the rebalanced version to quantify
+the impact of answer-position bias on model perfor-
+mance. This controlled comparison helps isolate
+whether apparent gains in accuracy stem from gen-
+uine reasoning ability or merely from exploiting
+skewed answer patterns.
+B.2 Instructions
+Data PrivacyData is collected from open-source
+and publicly available resources, including reports,
+textbooks, and online documents. When using
+MinerU (Wang et al., 2024a) for data extraction,
+
+
+[Page 19]
+Table 7: Answer distribution in the Question Chain with
+non-standard responses grouped as "Wrong Format"
+Answer Category Percentage (%)
+A 43.39
+B 34.20
+C 15.81
+D 6.08
+E 0.44
+F 0.06
+G<0.01
+H<0.01
+I<0.01
+J<0.01
+Wrong Format<0.01
+Total 100.00
+we strictly adhere to the copyright and licensing
+terms of each source. Furthermore, we provide
+comprehensive citation information for every finan-
+cial document in our collection, including details
+such as title, author, and publisher. Most impor-
+tantly, the dataset is used exclusively for research
+purposes and involves no financial gain.
+Data FormatAll textual data inPyFi-600Kare
+formatted in JSON, while images are stored in
+.jpg format. We verify that each sample con-
+tains exactly one image, belongs to a specific level
+within the pyramid hierarchy, and is part of one or
+more sample chains.
+Data StructureThe complete dataset is stored
+in a tree structure represented in JSON format. The
+root node of the tree is a placeholder with no se-
+mantic meaning, while every other node represents
+a Q&A pair. Each branch extending from the root
+to a leaf node constitutes a complete sample chain.
+Nodes are assigned to different levels of a capabil-
+ity pyramid based on their hierarchical competence.
+Each node contains the following fields: the ques-
+tion, the answer, an associated image, essential
+visual context required to answer the question, and
+a summary/analysis of the contextual information.
+B.3 Data Processing
+To construct the finalPyFi-600Kdataset, we adopt
+a concise multi-stage pipeline: collect public finan-
+cial documents; parse PDFs to extract images and
+associated text; evaluate compliance and classify
+images (normal/abnormal/extremely abnormal), en-
+hancing only normal ones with contextual meta-
+data; categorize images into content themes and
+chart types; maintain provenance; and sample by
+relevance and complexity with expert validation.
+An overview is shown in Figure 8.
+We aggregated over 30,000 public financial
+PDFs in Chinese and English via web crawling and
+institutional APIs, then applied technical checks
+(corruption, password protection, readability) and
+domain relevance filters with curated inclusion/ex-
+clusion keywords to retain about 10,000 documents.
+We leverage MinerU (Wang et al., 2024a) to parse
+validated PDFs and extract images, text blocks, and
+layout metadata, preserving image–caption asso-
+ciations with page indices and bounding coordi-
+nates. Extracted assets were reorganized into a
+standardized hierarchical directory by document
+and page (separating images and contextual text)
+for efficient batch processing and traceability. We
+screened approximately 820,000 images using a
+VLM-guided dual 0–10 scoring for compliance (fi-
+nancial visualization criteria) and complexity (visu-
+al/data density and structural sophistication), gener-
+ated per-image JSON summaries, and conducted a
+targeted manual audit. Images were labeled as nor-
+mal/abnormal/extremely abnormal by combining
+caption-match windows around image tags with
+nearby-image proximity signals; only normal im-
+ages were enhanced with contextual metadata. We
+follow the following criteria to select the target
+images for our study:
+• Financial trend data chart only; no non-
+informative elements.
+• Clear, legible Chinese or English text; unam-
+biguous recognition.
+• No obvious errors or omissions; follows finan-
+cial data conventions.
+• Clearly highlights dynamic financial pro-
+cesses.
+• Tables/grids are secondary and must not dom-
+inate.
+• Explicit relationships shown via visual con-
+nections.
+• Addresses at least one finance-related issue.
+• Universally discernible; self-contained com-
+position.
+
+
+[Page 20]
+Data Collection
+Raw documents
+Crawler API
+Internet
+Initial Filtering and Parsing
+x N 
+Initial filtering via title keywords
+Remained:
+technical analysis; K-line; moving average ...
+Removed:
+Biography, personal finance, forum posts ...
+x N 
+Image Filtering
+Parsed images
+(1) The image must be a financial 
+trend data image exclusively, with 
+no landscapes, logos, icons, 
+covers, or Non-informative 
+elements...
+Prompt
+Vision-Language Model
+ {
+   "is_compliant": "no",
+   "compliance_level": 1,
+   "complexity_level": 6
+ }
+Context Extraction
+Markdown files
+Normal: One caption matched, no other images nearby
+Abnormal: One caption with nearby images/multiple captions
+Extreme Abnormal: No captions found
+Find captions and nearby images via 
+search strategies and image tag 
+Image classification
+Extract references via matched caption
+Figure 8: Overview of Data Processing Pipeline.
+Context Extraction. The retained images are
+classified into three status categories (normal,ab-
+normalandextremely abnormal) based on their
+contextual clarity within the document. Anormal
+image is defined by a clear one-to-one match with a
+single caption located nearby and no other adjacent
+images, indicating reliable and unambiguous corre-
+spondence. Only images classified asnormalare
+enriched with detailed contextual metadata from
+the surrounding text, providing each with explana-
+tory insights.
+Anabnormalimage arises when there is con-
+textual ambiguity, either because the image has
+other images close to it or because multiple cap-
+tions appear near it. Anextremely abnormalimage
+is identified when no caption is found within the
+search window, signaling a high risk of missing
+context. This classification ensures that contex-
+tual enhancement is applied only to images with a
+well-defined and correct caption relationship.
+Topic Classification. We utilize the VLM to
+classify each image into one of 17 distinct financial
+content themes and one of 11 chart types, based
+on both the visual content of the image and its
+extracted contextual information.
+Content Theme and Chart Type Classification
+I. Content Theme
+This dimension describes the core financial sub-
+ject of the image, includingMacroeconomic Indica-
+tors,Financial Markets & Products,Commodities
+& Real Estate Markets,Bonds & Fixed Income,
+Monetary & Fiscal Policy,International Trade &
+Capital Flows,Corporate Finance & Valuation,
+Industry Analysis,Investment Theory & Portfolio
+Management,Risk Models & Management,Eco-
+nomic Cycles & Market Theories,Microeconomic
+Principles,Demographics & Socioeconomics,Fi-
+nancial Systems & Infrastructure,Geospatial Eco-
+nomic Data,Organization & Regulation, andFi-
+nancial History & Documentation, as shown in
+Figure 9 and Figure 10.
+II. Chart Type
+The chart types includingLine Chart,Bar Chart
+& Column Chart,Pie Chart & Donut Chart,
+Scatter Plot & Bubble Chart,Table,Diagram &
+Schematic,Radar Chart,Heatmap,Candlestick
+Chart,Photograph, andInfographic, as shown in
+Figure 11.
+Reference Info Extraction. We employ a LLM
+to extract bibliographic references and citation
+metadata from financial and academic documents.
+The model parses footnote, endnotes, and refer-
+ence sections to identify cited works and extract
+key fields, including author(s), publication venue,
+year, and DOI (when available), while mapping
+each citation to its contextual use within the text.
+Data Sampling. The image sampling strategy is
+structured around four key dimensions: complexity
+degree, compliance level, content theme, and chart
+type. The compliance level (ranging from 0 for
+non-compliant to 10 for fully compliant) reflects
+the degree to which the image satisfies the specified
+financial data visualization criteria. The complex-
+ity degree (from 0 for very simple to 10 for very
+complex) is assigned based on visual intricacy, data
+density, and structural sophistication. Each image
+
+
+[Page 21]
+Macroeconomic Indicators
+Financial Markets & Products
+Commodities & Real Estate Markets
+ Industry Analysis
+Monetary & Fiscal Policy
+ International Trade & Capital Flows
+Corporate Finance & Valuation
+ Bonds & Fixed Income
+Investment Theory & Portfolio Management
+ Risk Models & Management
+Figure 9: Overview of content themes.
+
+
+[Page 22]
+Economic Cycles & Market Theories
+ Geospatial Economic Data
+Demographics & Socioeconomics
+ Financial Systems & Infrastructure
+Microeconomic Principles
+ Organization & Regulation
+Financial History & Documentation
+Figure 10: Overview of content themes (continued).
+
+
+[Page 23]
+Line Chart
+ Pie Chart & Donut Chart
+Table
+Bar Chart & Column Chart
+Scatter Plot & Bubble Chart
+ Candlestick Chart
+Diagram
+Figure 11: Overview of chart types. In images used for generating question-answer pairs, Radar Charts, Heatmaps,
+and Photographs are rarely used.
+is tagged with at least one of 17 content themes and
+at least one of 11 image types.
+From an initial pool of820,816images, we ap-
+plied a two-stage filtering process to construct a
+comprehensive financial evaluation dataset. First,
+we retained only images with compliance levels
+9 and 10, indicating full or near-full adherence to
+the specified financial data visualization criteria.
+Non-financial images were excluded.
+From the compliant subset, we selected the top
+
+
+[Page 24]
+20,000 images with the highest complexity degree,
+reflecting visual intricacy and informational density.
+We further refined the set by including only image
+types relevant to financial data analysis: Line Chart,
+Bar Chart / Column Chart, Diagram / Schematic,
+Candlestick Chart / OHLC Chart, and Infographic.
+Content themes were balanced across categories
+such as macroeconomic indicators, financial mar-
+kets, risk management, and economic cycles to
+ensure thematic diversity.
+After automated filtering, a manual review was
+conducted to exclude any remaining unsuitable
+images, such as those with poor readability, non-
+compliant elements, or ambiguous content. The
+final curated dataset consists of3,092images. The
+resulting dataset supports rigorous computational
+analysis of financial visualizations with high com-
+pliance and varying complexity.
+Initial Images Statistics Summary. A total of
+820,816 images were collected and annotated from
+a substantial collection of financial documents. The
+initial dataset’s distributions across content themes,
+image types, compliance levels, and complexity
+degrees are presented in Table 8.
+Sampling Images Statistics Summary. A to-
+tal of 3,092 images were selected from the initial
+dataset for analysis. The distribution across image
+types and themes is visualized in Figure 1 (c) and
+(d), respectively. Regarding the compliance level
+of the final dataset, 2,642 images (85.45%) were
+rated at level 9, while 450 images (14.55%) were
+rated at level 10. For complexity degree, the major-
+ity of images, 2,741 (88.65%), were rated at level
+7, followed by 188 (6.08%) at level 8, 140 (4.53%)
+at level 6, 17 (0.55%) at level 9, and 6 (0.19%) at
+level 5.
+C Limitations
+We identify several key limitations in our current
+work:
+Potential Data Contamination.SincePyFi-600K
+is derived from publicly available financial reports
+and books, there is a risk that these documents were
+included in the pre-training corpora of the evalu-
+ated VLMs. To address this, we implemented rigor-
+ous data-level filtering. We conducted "blind tests"
+to determine if questions could be answered cor-
+rectly without visual input and "completion tests"
+to check if models could reconstruct content from
+text alone. Samples where models succeeded with-
+out visual context were flagged as potential leakage
+Category Classification Count Percentage
+Content Theme
+Macroeconomic Indicators – 2.66%Financial Markets & Products – 63.20%Commodities & Real Estate – 0.99%Bonds & Fixed Income – 0.73%Monetary & Fiscal Policy – 0.88%International Trade – 0.88%Corporate Finance & Valuation – 1.39%Industry Analysis – 2.98%Investment Theory & PM – 13.42%Risk Models & Management – 1.13%Economic Cycles & Theories – 3.06%Microeconomic Principles – 0.43%Demographics & Socioeconomics – 3.57%Financial Systems – 1.17%Organization & Regulation – 1.35%Geospatial Economic Data – 1.62%Financial History – 0.53%
+Total– 100.00%
+(a) Content Theme Distribution
+Category Classification Count Percentage
+Chart Type
+Line Chart – 11.82%
+Bar/Column Chart – 5.52%
+Pie/Donut Chart – 0.43%
+Scatter/Bubble Chart – 0.45%
+Table – 2.50%
+Diagram/Schematic – 17.48%
+Radar Chart – 0.07%
+Heatmap – 0.05%
+Candlestick/OHLC – 46.43%
+Photograph – 3.99%
+Infographic – 11.27%
+Total– 100.00%
+(b) Chart Type Distribution
+Category Classification Count Percentage
+Compliance Level
+1 194,325 23.67%
+2 3,703 0.45%
+3 995 0.12%
+4 9 0.00%
+5 117 0.01%
+6 614 0.07%
+7 34,455 4.20%
+8 561,368 68.39%
+9 23,206 2.83%
+10 2,024 0.25%
+Total820,816 100.00%
+(c) Compliance Level Distribution
+Category Classification Count Percentage
+Complexity Degree
+0 35 0.00%
+1 52,841 6.44%
+2 49,852 6.07%
+3 49,937 6.08%
+4 49,743 6.06%
+5 82,867 10.10%
+6 408,909 49.82%
+7 126,258 15.38%
+8 296 0.04%
+9 78 0.01%
+Total820,816 100.00%
+(d) Complexity Degree Distribution
+Table 8: Initial Image Distributions
+
+
+[Page 25]
+and excluded from our core evaluation set to ensure
+that performance gains reflect genuine multimodal
+reasoning. Although it may always be beneficial
+to include documents published after the release of
+large language models, doing so can significantly
+reduce the scalability and size of the dataset, in-
+troduce manual effort, and prevent the data from
+being updated continuously.
+Computational Constraints on Scale.Although
+PyFi-600Kcontains 600k samples, computational
+limits restricted us from scaling further. However,
+the pipeline is designed to be extensible and can
+leverage the vast array of financial datasets avail-
+able (e.g., on Hugging Face) to construct billion-
+scale datasets in the future.
+Reward Modeling Noise.The reward scores used
+during the adversarial interactions and MCTS may
+contain noise. Accurately evaluating open-ended
+financial reasoning is inherently challenging, and
+minor inaccuracies in the reward model can affect
+the optimization process.
+Adversarial Framework Complexity.ThePyFi-
+advmechanism, while effective for data synthesis,
+introduces complexity that may limit its deploy-
+ment in resource-constrained environments. Fur-
+thermore, the stochastic nature of VLMs can occa-
+sionally lead to inconsistent chain lengths or hallu-
+cinations, which requires careful post-hoc filtering.
+Incomplete Process Supervision Analysis.Due to
+time and resource limitations, we have not yet fully
+explored the upper bounds of process supervision
+provided by our framework, although our initial
+experiments demonstrate its significant value.
+D Discussion on Data Leakage
+In constructingPyFi-600K, we acknowledge the
+potential risk ofdata leakage, particularly due to
+the use of publicly available financial documents
+that may have been included in the pretraining cor-
+pora of some VLMs. To ensure a fair and reliable
+evaluation, we conduct asystematic and stringent
+analysis to identify and mitigate such leakage.
+Existing research employs various methods to
+detect data leakage. Dong et al. (2024) iden-
+tify leakage by measuring the peakedness of the
+model’s output distribution, where high similarity
+among sampled outputs indicates memorization.
+Wu et al. (2025b) assess leakage by the model’s
+ability to reconstruct or answer problems based
+only on partial prompt prefixes. Ni et al. (2025)
+detect leakage in multiple-choice benchmarks by
+identifying if the log-probability of the original
+option order is a significant outlier among permuta-
+tions. However, these approaches are often indirect,
+model-specific, or limited to particular benchmark
+formats, making them less applicable to financial
+image understanding tasks where the interplay be-
+tween image and text is essential.
+We define a sample as exhibiting data leakage
+ifmore than half of the evaluated modelscan
+answer the question correctlywithout access to
+the image. This criterion is based on the assump-
+tion that if models can consistently answer a ques-
+tion without visual input, the answer is likely en-
+coded in the textual content or has been memo-
+rized during pretraining, rather than being inferred
+from the image.Our method is more direct,
+task-agnostic, and interpretable: by explicitly
+ablating the visual modality and measuring perfor-
+mance across diverse models, we capture leakage
+that genuinely compromises multimodal evaluation
+fairness—making it the most suitable strategy for
+benchmarks likePyFi-600K that hinge on visual
+grounding.
+To quantify this, we conduct a comprehensive
+study where we evaluate all 15 VLMs on the orig-
+inal 1,000-sample test set under two conditions:
+with and without the image input. Samples that
+meet the leakage criterion are subsequently ex-
+cluded from the evaluation set. As a result, the test
+set is reduced from 1,000 to301 samples, form-
+ing theEvaluation Dataset after Exclusion.All
+results reported in the main paper are derived
+exclusively from this rigorously filtered set.
+This filtered dataset is used for all final evalua-
+tions and fine-tuning experiments reported in the
+main paper. The significant reduction in sample
+size underscores the prevalence of potential leak-
+age in financial Q&A datasets and highlights the
+importance of this filtering step.
+This approach is bothreasonable and effec-
+tivein mitigating the influence of data leakage.
+By removing samples that can be answered with-
+out visual reasoning, we ensure that the remaining
+questions require genuine visual understanding and
+financial reasoning, aligning with the goals ofPyFi-
+600K. Furthermore, this method is model-agnostic
+and does not rely on external knowledge of pre-
+training data, making it broadly applicable.
+In summary, our data leakage mitigation
+strategy enhances the validity of the evaluation
+results and supports the development of more
+robust and generalizable financial VLMs.
+
+
+[Page 26]
+E Discussion on Pyramid-like Structure
+Financial image analysis requires more than object
+detection or simple classification; true understand-
+ing is a multi-stage cognitive process from visual
+perception to strategic decision-making. To ad-
+dress this, we proposePyFi-600K, a pyramid-like
+hierarchy structured across six levels:Perception,
+Data Extraction,Calculation Analysis,Pattern
+Recognition,Logical Reasoning, andDecision
+Support.
+Level 1: Perception. This is the foundational base
+of the pyramid. At this stage, the model performs
+basic visual recognition. It identifies fundamen-
+tal elements within the image: "What objects are
+present?" or "What is the color of that line?" This
+involves detecting axes, labels, data points, lines,
+bars, pie segments, and textual annotations. The
+questions and answers are a structured inventory of
+visual components.
+Level 2: Data Extraction. Building on the per-
+ceived components, this level translates visual in-
+formation into machine-readable quantitative or
+categorical data. For example, it converts the height
+of a bar in a chart into a numerical value based on
+the Y-axis scale, or it extracts the exact numerical
+percentage from a pie chart label. The output is a
+clean dataset ready for computation.
+Level 3: Calculation Analysis. Here, the extracted
+data undergoes initial processing. This involves
+performing basic arithmetic, such as calculating
+percentage changes, growth rates or variances, and
+descriptive statistics. This level answers "What are
+the basic quantitative relationships?"
+Level 4: Pattern Recognition. This level moves
+from discrete calculations to identifying broader
+trends and shapes within the data. It answers "What
+is happening over time or across categories?" Ex-
+amples include recognizing an upward or down-
+ward trend in a stock price chart, identifying a pe-
+riod of high volatility, or spotting seasonal patterns
+in sales data.
+Level 5: Logical Reasoning. This is a crit-
+ical step towards higher-order cognition. The
+model integrates the identified patterns with ex-
+ternal or common-sense financial knowledge to
+answer "Why is this happening, or what does this
+imply?" For instance, reasoning that a sharp drop in
+a company’s stock price coinciding with a negative
+earnings report indicates a causal relationship. It
+involves drawing inferences and establishing cause-
+and-effect links.
+Level 6: Decision Support. The apex of the pyra-
+mid leverages all previous levels to provide action-
+able insights. It answers "What should be done?"
+Based on the reasoned analysis and the options or
+answers might include recommendations.
+PyFi-600Kprovides a robust and principled
+framework for building a multi-modal financial
+image understanding dataset. By decomposing the
+task into six hierarchically organized cognitive lev-
+els for automated, reward-driven generation of logi-
+cal chains, we create a resource that promotes deep,
+structured, and explainable reasoning.
+F Discussion on Question Chain
+A complete question chain can refer to the Fig-
+ure 12, Figure 13, and Figure 14.
+Figure 12: Illustration of the complete question chain
+presented in the Figure 2 of the main paper.
+G Model Performance with and without
+Fine-Tuning
+The examples of Qwen2.5-VL-3B-Instruct perfor-
+mance before and after fine-tuning can refer to
+the Figures 15, 16, and 17, and the examples
+of Qwen2.5-VL-7B-Instruct can refer to the Fig-
+ures 18, 19, 20 and 21.
+
+
+[Page 27]
+Complete Example of Question Chain
+1.Question:Which shaded region in the chart represents the ’Period of low-oil prices’?
+Options:
+A. Gray (Phase 1: pre-oil period)
+B. Purple (Phase 2: post-oil period)
+C. Light blue (Phase 3: Period of low-oil prices)
+D. Green (not a shaded region)
+Answer:C
+2.Question:What is the color of the shaded region labeled ’Phase 2: post-oil period’ in the chart?
+Options:
+A. Light gray
+B. Dark gray
+C. Light blue
+D. Cyan
+Answer:B
+3.Question:During Phase 3: Period of low-oil prices, what is the approximate value of general
+government revenue (blue dashed line) in Chad, as shown in the chart?
+Options:
+A. 5% of GDP
+B. -2.4% of GDP
+C. 10% of GDP
+D. 20% of GDP
+Answer:B
+4.Question:Which event is associated with the decline in general government revenue (blue dashed
+line) during Phase 3 (Period of low-oil prices) in Chad, as shown in the chart?
+Options:
+A. Internal conflict
+B. Drought
+C. Drop in oil prices
+D. Normalisation of ties with Sudan
+Answer:C
+5.Question:In 2016, during the Period of low-oil prices (Phase 3), what is the approximate value of
+(general government total expenditure - general government revenue) in Chad?
+Options:
+A. 17.4%
+B. -17.4%
+C. 5%
+D. -5%
+Answer:A
+6.Question:What pattern is observed between general government revenue and total expenditure
+during the ’Onset oil production’ period (marked in the chart)?
+Options:
+A. Both revenue and expenditure increase significantly
+B. Revenue increases while expenditure decreases
+C. Revenue decreases while expenditure increases
+D. Both revenue and expenditure remain stable
+Answer:A
+Figure 13: Complete example of question chain.
+
+
+[Page 28]
+Complete Example of Question Chain (continued)
+7.Question:What pattern does the general government total expenditure (green dashed line) follow
+during periods of internal conflict (marked by red arrows) in Chad from 1990 to 2017?
+Options:
+A. It decreases consistently
+B. It increases significantly
+C. It remains stable
+D. It fluctuates randomly
+Answer:B
+8.Question:How does the volatility of general government revenue in Chad during the Period of
+low-oil prices (Phase 3) contribute to economic vulnerability?
+Options:
+A. It increases military spending, leading to internal conflict.
+B. It reduces the government’s ability to withstand shocks and invest in stability.
+C. It causes oil prices to drop further, worsening revenue.
+D. It eliminates the need for non-oil revenue sources.
+Answer:B
+9.Question:Based on the image illustrating Chad’s economic volatility driven by oil price cycles and
+security shocks, how would establishing a sovereign wealth fund help reduce revenue vulnerability
+during low-oil price periods?
+Options:
+A. By increasing military spending to preempt conflict and stabilize revenue
+B. By investing oil revenues during high-price periods to fund expenditures during low-price periods
+C. By reducing reliance on non-oil revenue sources, such as IMF-ECF support
+D. By increasing general government revenue through borrowing from the World Bank during booms
+Answer:B
+10.Question:Which policy would most effectively address both Chad’s oil revenue volatility (from
+external shocks) and vulnerability to internal conflict?
+Options:
+A. Increase military spending to preempt conflict
+B. Establish a sovereign wealth fund to stabilize revenues and investments
+C. Reduce all non-oil revenue sources to avoid over-reliance on oil
+D. Borrow heavily from the World Bank during low-oil price periods
+Answer:B
+11.Final Question:Based on the image illustrating Chad’s fiscal volatility driven by oil cycles and
+security shocks, which policy would most effectively reduce economic vulnerability to future external
+shocks and internal conflict?
+Options:
+A. Increase military spending to preempt conflict
+B. Establish a sovereign wealth fund to stabilize revenues and investments
+C. Reduce all non-oil revenue sources to avoid over-reliance on oil
+D. Borrow heavily from the World Bank during low-oil price periods
+Answer:B
+Figure 14: Complete example of question chain (continued).
+
+
+[Page 29]
+Image Background:
+The image is Figure 11 titled 'FDI Morocco outperformed peers (FDI announcements as a share of GDP)'. It is sourced 
+from FDI Markets, a service from the Financial Times Ltd., and Office des Changes, with calculations and analyses by IFC. 
+The image path is [images/002131/000013.jpg].
+Qwen2.5-VL-3B-Instruct: 
+To determine which country had the highest FDI announcements as a share of GDP growth rate from 2022 to 2023, we 
+need to look at the trend lines for each country in the chart. The chart shows four countries: Morocco, Mexico, Turkey, 
+and Vietnam. We are interested in the period from 2022 to 2023.
+- Morocco's trend line shows a significant increase from 2022 to 2023.
+- Mexico's trend line shows a slight increase from 2022 to 2023.
+- Turkey's trend line shows a slight decrease from 2022 to 2023.
+- Vietnam's trend line shows a slight increase from 2022 to 2023.
+Given this information, Morocco's trend line shows the most significant increase from 2022 to 2023, indicating the 
+highest growth rate among the four countries.
+PyFi-QwenVL-3B: 
+The country represented by the red line in the chart is Mexico.
+The country represented by the green line in the chart is Vietnam.
+The country represented by the dashed brown line in the chart is Morocco.
+The approximate FDI announcements as a share of GDP for Morocco in 2022, based on the chart, is 0.12.
+The approximate FDI announcements as a share of GDP for Vietnam in 2022, based on the chart, is 0.08.
+The approximate FDI announcements as a share of GDP for Mexico in 2022, based on the chart, is 0.03.
+The approximate percentage growth rate of FDI announcements as a share of GDP for Morocco from 2021 to 2022, 
+based on the chart, is 200%.
+The approximate percentage growth rate of FDI announcements as a share of GDP for Vietnam from 2021 to 2022, based 
+on the chart, is 150%.
+The country whose FDI announcements as a share of GDP line shows the most significant upward trend from 2021 to 
+2022 is Morocco.
+The country with the highest FDI announcements as a share of GDP growth rate from 2021 to 2022, based on the chart, is 
+Morocco.
+The country with the highest FDI announcements as a share of GDP growth rate from 2022 to 2023, based on the chart, is 
+Morocco.
+The approximate percentage growth rate of FDI announcements as a share of GDP for Turkey from 2021 to 2022, based 
+on the chart, is 0%.
+The approximate percentage growth rate of FDI announcements as a share of GDP for Mexico from 2021 to 2022, based 
+on the chart, is 50%.The final answer is: \\boxed{A}
+Image Background:
+The image is Figure 11 titled 'FDI Morocco outperformed peers (FDI announcements as a share of GDP)'. It is sourced 
+from FDI Markets, a service from the Financial Times Ltd., and Office des Changes, with calculations and analyses by IFC. 
+The image path is [images/002131/000013.jpg].
+Qwen2.5-VL-3B-Instruct: 
+To determine which country had the highest FDI announcements as a share of GDP growth rate from 2022 to 2023, we 
+need to look at the trend lines for each country in the chart. The chart shows four countries: Morocco, Mexico, Turkey, 
+and Vietnam. We are interested in the period from 2022 to 2023.
+- Morocco's trend line shows a significant increase from 2022 to 2023.
+- Mexico's trend line shows a slight increase from 2022 to 2023.
+- Turkey's trend line shows a slight decrease from 2022 to 2023.
+- Vietnam's trend line shows a slight increase from 2022 to 2023.
+Given this information, Morocco's trend line shows the most significant increase from 2022 to 2023, indicating the 
+highest growth rate among the four countries.
+PyFi-QwenVL-3B: 
+The country represented by the red line in the chart is Mexico.
+The country represented by the green line in the chart is Vietnam.
+The country represented by the dashed brown line in the chart is Morocco.
+The approximate FDI announcements as a share of GDP for Morocco in 2022, based on the chart, is 0.12.
+The approximate FDI announcements as a share of GDP for Vietnam in 2022, based on the chart, is 0.08.
+The approximate FDI announcements as a share of GDP for Mexico in 2022, based on the chart, is 0.03.
+The approximate percentage growth rate of FDI announcements as a share of GDP for Morocco from 2021 to 2022, 
+based on the chart, is 200%.
+The approximate percentage growth rate of FDI announcements as a share of GDP for Vietnam from 2021 to 2022, based 
+on the chart, is 150%.
+The country whose FDI announcements as a share of GDP line shows the most significant upward trend from 2021 to 
+2022 is Morocco.
+The country with the highest FDI announcements as a share of GDP growth rate from 2021 to 2022, based on the chart, is 
+Morocco.
+The country with the highest FDI announcements as a share of GDP growth rate from 2022 to 2023, based on the chart, is 
+Morocco.
+The approximate percentage growth rate of FDI announcements as a share of GDP for Turkey from 2021 to 2022, based 
+on the chart, is 0%.
+The approximate percentage growth rate of FDI announcements as a share of GDP for Mexico from 2021 to 2022, based 
+on the chart, is 50%.The final answer is: \\boxed{A}
+Question:
+From 2022 to 2023, which country had 
+the highest FDI announcements as a 
+share of GDP growth rate, based on 
+the chart?
+Options:
+A: Morocco
+B: Mexico
+C: Turkey
+D: Vietnam
+Question:
+From 2022 to 2023, which country had 
+the highest FDI announcements as a 
+share of GDP growth rate, based on 
+the chart?
+Options:
+A: Morocco
+B: Mexico
+C: Turkey
+D: Vietnam
+International Trade & Capital Flows - Level: Decision Support - Degree: 4
+PP
+PP
+PP
+DE
+DE
+DE
+CA
+CA
+CA
+PR
+PR
+LR
+DS
+Figure 15: Model performance before and after fine-tuning (Qwen2.5-VL-3B-Instruct)
+
+
+[Page 30]
+Question:
+Which factor most directly led to Rwanda's new business 
+density exceeding the low-income average after 2009?
+Options:
+A: Implementation of Rwanda Development Board (RDB) 
+and using Doing Business (DB) as a reporting tool.
+B: A rapid improvement in Doing Business (DB) ranking from 
+150th to 41st.
+C: Natural economic growth unrelated to policy reforms.
+D: Increased foreign direct investment (FDI) without 
+regulatory changes
+Image Background:
+The image is titled 'Figure 2. A timeline of Rwanda's 
+business reform successes'. It visually represents Rwanda's 
+business regulatory reforms from 2009 (Doing Business 
+2010) to 2018 (Doing Business 2019), implemented under 
+the Rwanda Development Board (RDB), which was 
+established in 2009. The RDB oversees business 
+regulations, foreign direct investment (FDI), and broader 
+development planning, inspired by the Singaporean 
+model. The source of the data is the Doing Business data 
+from the World Bank Entrepreneurship database. 
+Acronyms and abbreviations in the image: RDB = Rwanda 
+Development Board;
+Qwen2.5-VL-3B-Instruct: 
+The image shows a timeline of Rwanda's business regulatory reforms from 2009 to 2018, with the Rwanda Development 
+Board (RDB) being established in 2009. The timeline indicates that Rwanda's Doing Business (DB) ranking improved 
+significantly from 150th to 41st, which is a major factor in the country's business density exceeding the low-income 
+average. The RDB's role in overseeing business regulations and foreign direct investment (FDI) is also highlighted, 
+suggesting that policy reforms were a key driver of the business density increase.
+PyFi-QwenVL-3B: 
+The color line in the chart that represents Rwanda's new business density is green.
+The color line in the chart that represents the low-income average new business density is orange.
+The year when Rwanda's Doing Business (DB) ranking first exceeded 150th is 2009.
+The year when Rwanda's Doing Business (DB) ranking first exceeded 150th, as indicated by the chart, is 2009.
+The approximate percentage increase in Rwanda's new business density from 2009 to 2015, based on the chart, is 150%.
+The approximate percentage increase in Rwanda's new business density from 2015 to 2016, based on the chart, is 50%.
+The factor most directly associated with Rwanda's new business density exceeding the low-income average after 2009, 
+based on the chart and contextual information, is the implementation of Rwanda Development Board (RDB) and using 
+Doing Business (DB) as a reporting tool.
+The factor most directly associated with Rwanda's Doing Business (DB) ranking improvement from 2009 to 2015, based on 
+the chart and contextual information, is the creation of Rwanda Development Board (RDB).
+…
+The factor most directly associated with Rwanda's new business density exceeding the low-income average after 2009, 
+based on the chart and contextual information, is the creation of Rwanda Development Board (RDB) and using Doing 
+Business (DB) as a reporting tool.
+The final answer is: \\boxed{A}.
+Organization & Regulation - Level: Decision Support - Degree: 5
+PP
+PP
+DE
+CA
+LR
+DS
+DE
+CA
+PR
+LR
+…
+Figure 16: Model performance before and after fine-tuning (Qwen2.5-VL-3B-Instruct)
+
+
+[Page 31]
+Question:
+If a trader has a long position in a near - expiry (3 - 
+month) oil futures contract and the longer - dated (6 - 
+month) contract is cheaper, what is the impact on their 
+potential profit if they roll over the position?
+Options:
+A: Profit decreases because the new contract is cheaper.
+B: Profit decreases because the new contract is more 
+expensive.
+C: Profit increases because the new contract is cheaper.
+D: Profit increases because the new contract is more
+expensive.
+Image Background:
+The image is titled 'Figure 2.1. Oil and natural gas prices' and contains two panels: Panel A shows Brent Oil spot prices, 
+and Panel B shows European-delivery natural gas prices. The image is referenced in the context of discussing natural gas 
+price trends in Europe amid geopolitical tensions related to the war in Ukraine. Abbreviations: MENA (Middle East and 
+North Africa), GCC (Gulf Cooperation Council), EU (European Union), IMF (International Monetary Fund), WEO (World 
+Economic Outlook), UN Comtrade (United Nations Commodity Trade Statistics Database), G20 (Group of Twenty), AES 
+(Advanced Economies in the G20: Australia, Canada, Eurozone, France, Germany, Italy, Japan, Saudi Arabia, the United 
+Kingdom, the United States), EMs (Emerging Markets in the G20: Brazil, China, India, Mexico, South Africa, South Korea, 
+and Turkey).
+Qwen2.5-VL-3B-Instruct: 
+The trader has a long position in a near-expiry (3-month) oil futures contract. If the longer-dated (6-month) contract is 
+cheaper, rolling over the position would mean the trader would switch to the cheaper contract. This would result in a 
+decrease in the trader's potential profit because the new contract is cheaper, meaning the trader would have to pay less 
+for the same quantity of oil. Therefore, the trader's profit decreases.
+PyFi-QwenVL-3B: 
+The color line in Panel A that represents the latest Brent Oil spot price is Green.
+The color line in Panel A that represents the 6-month Brent Oil futures contract is Blue.
+The color line in Panel A that represents the 3-month Brent Oil futures contract is Red.
+The approximate price of the 3-month Brent Oil futures contract (red line) in Panel A at its latest expiration date (last 
+observed date) is 60 U.S. dollars per barrel.
+The approximate price of the 6-month Brent Oil futures contract (blue line) at its latest expiration date (last observed 
+date) in Panel A is 65 U.S. dollars per barrel.
+The approximate price of the 3-month Brent Oil futures contract (red line) at its latest expiration date (last observed 
+date) in Panel A is 60 U.S. dollars per barrel.
+The approximate percentage increase in the price of the 6-month Brent Oil futures contract from its latest expiration 
+date to its 3-month expiration date is 8.3%.
+The approximate percentage decrease in the price of the 3-month Brent Oil futures contract from its latest expiration 
+date to its 6-month expiration date is 16.7%.
+The price trend of the 3-month Brent Oil futures contract (red line) from its latest expiration date to its 6-month 
+expiration date is decreasing.
+The price trend of the 6-month Brent Oil futures contract (blue line) from its latest expiration date to its 3-month 
+expiration date is increasing.
+If a trader has a long position in a 3-month Brent Oil futures contract and the 6-month contract is cheaper, the trader’s 
+profit from rolling over the position decreases because the new contract is cheaper.
+If a trader has a long position in a 3-month Brent Oil futures contract and the 6-month contract is cheaper, the trader’s 
+profit from rolling over the position decreases because the new contract is cheaper.
+If a trader has a long position in a 3-month Brent Oil futures contract and the 6-month contract is cheaper, the trader’s 
+profit from rolling over the position decreases because the new contract is cheaper. The final answer is: \\boxed{A}
+Commodities & Real Estate Markets - Level: Decision Support - Degree: 4
+PP
+PP
+PP
+DE
+DE
+DE
+PR
+PR
+PR
+PR
+LR
+LR
+DS
+Figure 17: Model performance before and after fine-tuning (Qwen2.5-VL-3B-Instruct)
+
+
+[Page 32]
+Question:
+Which combination of trends in the chart shows that 
+Guatemala avoided fiscal collapse during the COVID-19 
+crisis?
+Options:
+A: Nominal expenditure (blue bars) continued rising 
+while arrears (black line) peaked then declined
+B: Nominal expenditure (blue bars) declined while 
+arrears (gray bars) remained low
+C: Nominal expenditure (blue bars) fell sharply while 
+arrears (black line) decreased
+D: Nominal expenditure (blue bars) fluctuated wildly 
+while arrears (gray bars) stayed constant
+Image Background:
+The image is labeled 'FIGURE 23 - Guatemala: Budgetary Arrears' and appears in the context of a discussion on 
+government arrears in Guatemala during the COVID-19 crisis. The subject is Guatemala’s budgetary arrears, with 
+reference to the World Bank (WB) and International Monetary Fund (IMF).
+Qwen2.5-VL-7B-Instruct: 
+To determine which combination of trends in the chart shows that Guatemala avoided fiscal collapse during the COVID-
+19 crisis, we need to analyze the behavior of nominal expenditure and arrears over time.
+1. **Nominal Expenditure (blue bars)**: The blue bars represent the nominal expenditure in billions of USD. We need to 
+observe if there was a significant decline or increase in expenditure.
+2. **Arrears (black line)**: The black line represents the arrears in millions of USD. We need to observe if the arrears 
+peaked and then declined, indicating that the government was able to manage its financial obligations.
+From the chart:
+- The blue bars (nominal expenditure) show a general increase over time, which is consistent with the trend of previous 
+years.\n- The black line (arrears) shows a peak in 2020M5 and then declines in subsequent months, indicating that the 
+government was able to manage its financial obligations.
+Given these observations, the combination of trends that shows Guatemala avoided fiscal collapse is:
+- Nominal expenditure (blue bars) continued rising while arrears (black line) peaked then declined.
+Therefore, the correct answer is A.
+PyFi-QwenVL-7B: 
+The unit of measurement for the black line in the chart labeled 'Guatemala: Budgetary Arrears' is millions of USD.
+The unit of measurement for the gray bars in the chart labeled 'Guatemala: Budgetary Arrears' is percent of total 
+expenditure.
+The unit of measurement for the blue bars in the chart labeled 'Guatemala: Budgetary Arrears' is billions of USD.
+The approximate value of nominal expenditure (blue bars) in 2020M5 (May 2020) was 4 billion USD.
+The approximate value of nominal expenditure (blue bars) in 2020M1 (January 2020) was 1 billion USD.
+The approximate value of nominal expenditure (blue bars) in 2020M9 (September 2020) was 5 billion USD.
+The approximate percentage increase in nominal expenditure (blue bars) from 2020M1 (January 2020) to 2020M5 (May 
+2020) is 300%.
+The approximate percentage increase in nominal expenditure (blue bars) from 2020M5 (May 2020) to 2020M9 
+(September 2020) is 25%.
+The trend of nominal expenditure (blue bars) from 2020M1 to 2020M5 in the chart labeled 'Guatemala: Budgetary 
+Arrears' is increasing.
+The trend of Guatemala’s budgetary arrears (black line) from 2020M1 to 2020M5 in the chart labeled 'Guatemala: 
+Budgetary Arrears' is increasing then decreasing.
+The combination of trends in the chart that indicates Guatemala avoided fiscal collapse during the COVID-19 crisis is 
+nominal expenditure (blue bars) increasing while arrears (black line) peak then decline.
+The combination of trends in the chart that indicates Guatemala avoided fiscal collapse during the COVID-19 crisis is 
+nominal expenditure (blue bars) increasing while arrears (black line) peak then decline.
+The trend of nominal expenditure (blue bars) from 2020M5 to 2020M9 in the chart labeled 'Guatemala: Budgetary 
+Arrears' is increasing.
+The final answer is: \\boxed{A}.
+Monetary & Fiscal Policy - Level: Decision Support - Degree: 4
+PP
+PP
+PP
+DE
+DE
+DE
+PR
+PR
+LR
+LR
+DS
+DE
+DE
+LR
+Figure 18: Model performance before and after fine-tuning (Qwen2.5-VL-7B-Instruct)
+
+
+[Page 33]
+Question:
+When the Shanghai Index reached 2245.43, what is the 
+most risk - averse strategy to protect against potential 
+losses based on the chart's post - peak trend?
+Options:
+A: Sell all holdings immediately to secure profits before 
+the market decline
+B: Increase position size in high - growth sectors to 
+capitalize on momentum
+C: Hold existing positions and reinvest all dividends into 
+new investments
+D: Short the index to profit from the anticipated 
+downward correction
+Image Background:
+The image is labeled as 'Figure 70' and depicts a stock market chart referenced in the context of Ma Weipeng's 
+investment experience. The subject is the Chinese stock market performance between late 1999 and 2001, specifically 
+showing an upward trend of over 900 index points during the first year and a half of Ma Weipeng’s participation in the 
+market.
+Qwen2.5-VL-7B-Instruct: 
+The question asks for the most risk-averse strategy to protect against potential losses when the Shanghai Index reached 
+2245.43, based on the chart's post-peak trend. The chart shows a peak at 2245.43, and the trend after this peak is 
+downward, indicating a potential decline in the market.
+Let's analyze each option:
+- Option A: Sell all holdings immediately to secure profits before the market decline. This is a risk-averse strategy as it 
+aims to lock in profits before the market drops.
+- Option B: Increase position size in high-growth sectors to capitalize on momentum. This is a risky strategy as it involves 
+increasing exposure to the market, which could lead to larger losses if the market declines.
+- Option C: Hold existing positions and reinvest all dividends into new investments. This strategy involves staying in the 
+market and reinvesting dividends, which could be risky if the market continues to decline.
+- Option D: Short the index to profit from the anticipated downward correction. Shorting the index is a high-risk strategy 
+as it involves borrowing assets to sell them, and if the market rises, the investor will lose money.
+Given the post-peak trend and the potential for a market decline, the most risk-averse strategy would be to sell all 
+holdings immediately to secure profits before the market decline. Final answer: \\boxed{A}
+PyFi-QwenVL-7B: 
+The highest value of the Shanghai Index shown on the chart is 2245.43.
+The lowest value of the Shanghai Index shown on the chart is 1047.83.
+The approximate percentage increase of the Shanghai Index from its lowest point (1047.83) to its 
+highest point (2245.43) is 115%.
+The approximate percentage decrease of the Shanghai Index from its peak (2245.43) to its subsequent 
+trough (1047.83) is 53%.
+The Shanghai Index exhibits a peak followed by a sharp decline after reaching its highest point of 
+2245.43.
+The Shanghai Index exhibits a sharp decline after reaching its peak of 2245.43, based on the chart.
+Given the Shanghai Index's sharp decline after reaching 2245.43, the most risk - averse strategy to 
+protect against potential losses is to sell all holdings immediately to secure profits before the market 
+decline.
+The Shanghai Index's sharp decline after reaching 2245.43 indicates that the market's momentum is 
+exhausted, making it a suitable time to sell to avoid further losses.
+When the Shanghai Index reached 2245.43, the most risk - averse strategy to protect against potential 
+losses based on the chart's post - peak trend is to sell all holdings immediately to secure profits before 
+the market decline. The final answer is: \\boxed{A}.
+Financial Markets & Products - Level: Decision Support - Degree: 5
+PP
+PP
+DE
+DE
+PR
+LR
+DS
+PR
+LR
+Figure 19: Model performance before and after fine-tuning (Qwen2.5-VL-7B-Instruct)
+
+
+[Page 34]
+Question:
+In January 2016, an investor who has seen 
+Mozambique’s sovereign bond spread rise due to 
+transparency issues should most rationally decide to...
+Options:
+A: Purchase bonds immediately to capitalize on the dip 
+in spreads after hidden loans were revealed
+B: Avoid purchasing bonds due to the market’s 
+sensitivity to transparency issues, as seen by the sharp 
+spread increases
+C: Short sell bonds to profit from expected further 
+spread decreases
+D: Wait for the DSA report to confirm the extent of 
+debt distress before investing
+Image Background:
+Figure 1.4 Lack of Transparency: Market Reactions. The image shows market reactions in Mozambique and Zambia due 
+to lack of debt transparency. Abbreviations: WB (World Bank), IMF (International Monetary Fund), EMBI (Emerging 
+Markets Bond Index). Acronyms and abbreviations in the image: DSA = Debt Sustainability Analysis;
+Qwen2.5-VL-7B-Instruct: 
+The image shows that in January 2016, there was a significant rise in Mozambique's sovereign bond spread due to 
+transparency issues. The spread increased sharply, indicating a loss of investor confidence. Given this information, the 
+most rational decision for an investor would be to avoid purchasing bonds due to the market's sensitivity to transparency 
+issues, as seen by the sharp spread increases.
+Option A suggests purchasing bonds immediately, which is not advisable given the current market conditions and the lack 
+of transparency.
+Option B advises avoiding bonds, which aligns with the current market sentiment and the sharp spread increases.
+Option C suggests short selling bonds, which is speculative and not necessarily rational given the lack of transparency and 
+the potential for further spread increases.
+Option D suggests waiting for the DSA report, which might be too late as the spread has already increased significantly.
+Therefore, the most rational decision is to avoid purchasing bonds due to the market's sensitivity to transparency issues.
+PyFi-QwenVL-7B: 
+The unit of measurement for the bond spread values on the y -axis of the chart is basis points.
+The approximate bond spread value (in basis points) for Mozambique in January 2016, as shown in the 
+chart, was 1200.
+The approximate bond spread value (in basis points) for Mozambique in July 2015, as shown in the 
+chart, was 900.
+The approximate percentage increase in Mozambique ’s sovereign bond spread from July 2015 to 
+January 2016, based on the chart, is 33%.
+The approximate percentage increase in Mozambique ’s sovereign bond spread from July 2015 to 
+November 2016, based on the chart, is 100%.
+The pattern observed in Mozambique’s sovereign bond spread from July 2015 to November 2016, 
+based on the chart, is that it increased sharply in July 2015, then decreased slightly, increased again in 
+November 2016, and then decreased.
+The pattern observed in Mozambique’s sovereign bond spread from July 2015 to November 2016, 
+based on the chart, is that it increased sharply in July 2015, then decreased slightly, increased again in 
+November 2016, and then decreased.
+The sharp increase in Mozambique’s sovereign bond spread in July 2015 was caused by the revelation of 
+hidden loans.
+The sharp increase in Mozambique’s sovereign bond spread in July 2015 was caused by the revelation of 
+hidden loans.
+In January 2016, an investor who has seen Mozambique ’s sovereign bond spread rise due to 
+transparency issues should most rationally decide to avoid purchasing bonds due to the market ’s 
+sensitivity to transparency issues, as seen by the sharp spread increases.
+The final answer is: \\boxed{B}
+Bonds & Fixed Income - Level: Decision Support - Degree: 5
+PP
+DE
+DE
+DE
+PR
+PR
+DS
+DE
+LR
+LR
+Figure 20: Model performance before and after fine-tuning (Qwen2.5-VL-7B-Instruct)
+
+
+[Page 35]
+Question:
+Based on the Petroleum Fund’s quarterly investment 
+returns (light green bars) shown in the chart, which 
+action would most effectively address the long-term 
+threat of volatile investment returns to the Fund’s 
+balance stability?
+Options:
+A: Increase budget withdrawals to align with the 
+Estimated Sustainable Income (ESI).
+B: Develop strategies to stabilize and enhance 
+investment returns.
+C: Reduce petroleum revenue transfers to the Fund.
+D: Lower the Estimated Sustainable Income (ESI) 
+threshold.
+Image Background:
+The image is Figure 1.19 titled 'The petroleum fund balance stabilized for the first quarter this year partly due to 
+contained withdrawals last year', showing the Petroleum Fund (PF) balance in USD million. The Petroleum Fund is 
+referenced with the abbreviation PF. The image appears in the context of discussing the PF’s capital value as of March 
+2024, which was USD 18.45 billion, and its 3.4 percent year-over-year growth from USD 17.83 billion. The source is INETL, 
+World Bank Commodity Markets Reports, and World Bank Staff calculation.
+Qwen2.5-VL-7B-Instruct: 
+The chart shows the balance of the Petroleum Fund (red line) and the investment returns (light green bars). The 
+volatility in investment returns (light green bars) is a significant factor affecting the Fund's balance stability. To address 
+the long-term threat of volatile investment returns, developing strategies to stabilize and enhance investment returns 
+(option B) would be the most effective action. This would help in managing the Fund's balance more effectively over 
+time. Increasing budget withdrawals to align with the Estimated Sustainable Income (ESI) (option A) might not directly 
+address the volatility in investment returns. Reducing petroleum revenue transfers to the Fund (option C) could 
+potentially reduce the Fund's balance but might not necessarily stabilize investment returns. Lowering the Estimated 
+Sustainable Income (ESI) threshold (option D) could also indirectly affect the Fund's balance but does not directly address 
+the volatility in investment returns.
+Therefore, the most effective action to address the long-term threat of volatile investment returns is to develop 
+strategies to stabilize and enhance investment returns.
+PyFi-QwenVL-7B: 
+The color representing the Petroleum Fund ’s investment returns in the chart is light green.
+The color representing the Petroleum Fund ’s revenues in the chart is Blue.
+The color representing the Petroleum Fund ’s withdrawals in the chart is Orange.
+The approximate value of the Petroleum Fund’s investment returns (light green bars) in Q1 2020 is -
+1000 million USD.
+The approximate value of the Petroleum Fund ’s investment returns (light green bars) in Q1 2024 is 500 
+million USD.
+The approximate value of the Petroleum Fund ’s investment returns (light green bars) in Q3 2022 is -
+1000 million USD.
+The approximate total value of the Petroleum Fund ’s investment returns (light green bars) from Q1 
+2020 to Q1 2024 is 1000 million USD.
+The approximate total value of the Petroleum Fund ’s investment returns (light green bars) from Q1 
+2020 to Q1 2024 is 1000 million USD.
+The pattern observed in the relationship between the Petroleum Fund ’s investment returns (light green 
+bars) and its balance (red line) over the quarters shown is that investment returns are volatile, and the 
+balance is relatively stable.
+The volatility of the Petroleum Fund’s investment returns (light green bars) is most likely caused by the 
+Fund’s investment strategy.
+The volatility of the Petroleum Fund’s investment returns (light green bars) is most likely caused by the 
+Fund’s investment strategy.
+The action that would most effectively address the volatility of the Petroleum Fund ’s investment returns 
+(light green bars) shown in the chart is to develop strategies to stabilize and enhance investment 
+returns. The final answer is: \\boxed{B}
+Financial Markets & Products - Level: Decision Support - Degree: 5
+PP
+PP
+PP
+DE
+DE
+PR
+DS
+DE
+DE
+LR
+DE
+LR
+Figure 21: Model performance before and after fine-tuning (Qwen2.5-VL-7B-Instruct)
+
+
+[Page 36]
+H Detailed Results
+H.1 Experiments Consideration and Ablation
+Studies
+In order to comprehensively evaluate the perfor-
+mance of various VLMs on our samples fromPyFi-
+600Kand eliminate potential biases, we consider
+the following factors and conduct comparative ex-
+periments and ablation studies accordingly.
+The Impact of Contextual Information. To
+investigate the impact of image-related contextual
+information on model performance, we provide the
+target model with an image and a question, fol-
+lowed by additional textual information in one of
+four conditions: (1) providing image background
+information only, (2) providing image contextual
+analysis only, (3) providing both background infor-
+mation and contextual analysis, and (4) providing
+no additional text. The background information
+includes the image’s title, topic, and the full forms
+of all abbreviations, offering necessary context for
+answering the question without revealing the an-
+swer itself. The contextual analysis, generated by
+a large language model, summarizes relevant con-
+textual information present in the image and offers
+direct guidance for solving the problem. This ex-
+perimental design aims to determine whether the
+model genuinely understands the visual content or
+relies on external textual information to infer the
+answer.
+Risk of Data Leakage. The VLMs evaluated
+in this study were pretrained on massive corpora.
+Since our data primarily consists of publicly avail-
+able financial documents sourced from the internet
+and predominantly dated before 2025, there is a po-
+tential risk of data leakage. To address this concern,
+we additionally evaluated the VLMs in a setting
+where images were not provided. By comparing
+model accuracy between the two settings, with and
+without images, we can assess whether the pre-
+training corpus might already contain images or
+questions from our dataset. As for the formal statis-
+tics, we exclude those samples that can be correctly
+answered by more than half of the evaluated mod-
+els even without image input, and the remaining
+samples are defined as Evaluation Dataset after Ex-
+clusion while the initial ones are defined as Original
+Evaluation Dataset.
+Impact of Option Distribution. Our analysis of
+the ground-truth labels reveals severe class imbal-
+ance. Specifically, 43.39% of the samples designate
+option A as the correct answer, 34.20% select op-
+tion B, 15.81% choose option C, and only 6.08%
+pick option D. All remaining options combined
+account for less than 1% of the total answers. De-
+tails can be found in the appendix 7. Such extreme
+imbalance may introduce bias during both training
+and evaluation, potentially undermining model per-
+formance. To address this issue and obtain more
+robust and reliable evaluation results, we rebalance
+the sample options so that, in a set of one thou-
+sand samples, each of the four options A, B, C,
+and D constitutes approximately 25%. We then
+compare model performance before and after this
+rebalancing.
+All experimental results are presented in the fol-
+lowing sections. The meanings of key abbrevia-
+tions and the group configurations are defined in
+the tables below.
+Table 9: Meaning of Abbreviations
+Abbreviation Meaning
+PP Perception
+DE Data Extraction
+CA Calculation Analysis
+PR Pattern Recognition
+LR Logical Reasoning
+DS Decision Support
+Table 10: Experimental Group Configurations
+Group Input Configuration
+I Image and Image Background
+II Image and Analysis Information
+III Image, Image Background and Analysis Information
+IV Image Only
+H.2 Detailed Experiment Results on Original
+Evaluation Dataset with Image
+Table 11presents the overall accuracy and perfor-
+mance across groups for all models on the origi-
+nal evaluation dataset (1000 samples). GLM-4.5V
+achieves the highest overall accuracy (85.22%)
+among all pre-trained models, significantly outper-
+forming others. Claude-opus follows as the second-
+best pre-trained model (79.88%). Among the Qwen
+series, the larger models generally perform better,
+with Qwen3-VL-Plus (76.70%) leading, showing
+a clear scaling effect from 3B (59.00%) to 72B
+(74.28%). For SFT models, fine-tuning with 500
+or 47K samples shows modest but inconsistent
+improvements over their base Instruct-L versions.
+For instance, PyFi-QwenVL-3B-COT-47K reaches
+
+
+[Page 37]
+Table 11: Model Performance Comparison By Group On Original Evaluation Dataset (Samples=1000, Groups with
+Image)
+Model Overall TC TQ I II III IV
+Pre-trained VLMs
+GPT-4.1 76.08 3043 4000 75.4 75.0 77.5 76.4
+InternVL3-38B 73.72 2949 4000 73.9 74.6 73.7 72.7
+Claude-opus-4-1-20250805 79.88 3195 4000 80.8 79.5 80.6 78.6
+GLM-4.5V 85.22 3409 4000 85.8 85.3 85.5 84.3
+DeepSeek-VL2 63.20 2528 4000 61.8 63.3 65.6 62.1
+Hunyuan-Large-Vision 76.60 3064 4000 77.3 76.4 77.5 75.2
+ERNIE-4.5-turbo-vl 68.83 2753 4000 68.0 70.0 71.1 66.2
+Moonshot-V1-128k-Vision-Preview 76.40 3056 4000 75.3 77.4 78.2 74.7
+Moonshot-V1-32k-Vision-Preview 76.22 3049 4000 75.1 77.1 77.8 74.9
+Moonshot-V1-8k-Vision-Preview 76.53 3061 4000 75.0 77.5 77.8 75.8
+Qwen3-VL-Plus 76.70 3068 4000 76.5 76.6 76.8 76.9
+Qwen2.5-VL-72B-Instruct 74.28 2971 4000 72.9 75.4 75.5 73.3
+Qwen2.5-VL-32B-Instruct 71.78 2871 4000 71.2 72.4 73.0 70.5
+Qwen2.5-VL-7B-Instruct 67.55 2702 4000 65.0 68.4 69.7 67.1
+Qwen2.5-VL-3B-Instruct 59.00 2360 4000 57.3 59.7 62.1 56.9
+SFT VLMs, Trained with 500 Sample Chains
+Qwen2.5-VL-3B-Instruct-L 58.80 2352 4000 58.4 60.3 60.0 56.5
+PyFi-QwenVL-3B-500 61.52 2461 4000 60.6 62.8 63.6 59.1
+PyFi-QwenVL-3B-COT-500 62.32 2493 4000 61.8 63.9 63.3 60.3
+Qwen2.5-VL-7B-Instruct-L 66.60 2664 4000 65.5 67.5 68.4 65.0
+PyFi-QwenVL-7B-500 66.27 2651 4000 62.3 67.1 67.2 68.5
+PyFi-QwenVL-7B-COT-500 65.72 2629 4000 64.4 66.4 66.0 66.1
+SFT VLMs, Trained with 47K Sample Chains
+Qwen2.5-VL-3B-Instruct-L 58.80 2352 4000 58.4 60.3 60.0 56.5
+PyFi-QwenVL-3B-47K 61.85 2474 4000 61.6 63.0 62.5 60.3
+PyFi-QwenVL-3B-COT-47K 64.40 2576 4000 64.2 63.6 66.6 63.2
+Qwen2.5-VL-7B-Instruct-L 66.60 2664 4000 65.5 67.5 68.4 65.0
+PyFi-QwenVL-7B-47K 66.35 2654 4000 65.7 67.1 67.2 65.4
+PyFi-QwenVL-7B-COT-47K 67.42 2697 4000 67.8 67.6 68.0 66.3
+64.40%, a noticeable gain over the base Qwen2.5-
+VL-3B-Instruct (59.00%). However, for the 7B
+models, gains from SFT are marginal, with some
+variants even underperforming the base model.
+This indicates that the effectiveness of SFT may be
+model-size and data-dependent.
+The following tables present performance on the
+Evaluation Dataset after Exclusion, which removes
+samples that more than half the models could an-
+swer correctly without the image. This subset (301
+samples) is designed to mitigate data leakage con-
+cerns and focus on problems that genuinely require
+visual understanding.
+Table 12provides an overall summary on the
+excluded dataset, including total correct (TC) out
+of total questions (TQ = 4 groups * 301 samples
+= 1204). The ranking of pre-trained models re-
+mains consistent. It also shows performance per
+group (I, II, III, IV). The top models like GLM-
+4.5V and Claude-opus maintain high and consis-
+tent accuracy across all four groups, demonstrating
+robustness. The SFT results reinforce previous
+observations: The 47K COT training for the 3B
+model (PyFi-QwenVL-3B-COT-47K) yields the
+most dramatic improvement, boosting overall ac-
+curacy from 20.85% to 40.37% and showing gains
+across all groups. For the 7B models, the 500-
+sample SFT (PyFi-QwenVL-7B-500) provides a
+strong boost, but the 47K COT variant also deliv-
+ers competitive performance. Notably, the non-
+COT 47K SFT for the 7B model (PyFi-QwenVL-
+7B-47K) underperforms significantly, highlighting
+the critical importance of the Chain-of-Thought
+
+
+[Page 38]
+Table 12: Model Performance Comparison By Group On Evaluation Dataset After Exclusion (Samples=301, Groups
+with Image)
+Model Overall TC TQ I II III IV
+Pre-trained VLMs
+GPT-4.1 52.99 638 1204 51.5 52.16 52.82 55.48
+InternVL3-38B 52.91 637 1204 55.81 52.16 50.17 53.49
+Claude-opus-4-1-20250805 64.70 779 1204 65.78 62.46 63.12 67.44
+GLM-4.5V 74.75 900 1204 74.75 75.08 73.75 75.42
+DeepSeek-VL2 45.18 544 1204 45.85 42.86 45.18 46.84
+Hunyuan-Large-Vision 59.72 719 1204 60.13 60.8 59.47 58.47
+ERNIE-4.5-turbo-vl 34.47 415 1204 32.56 34.55 34.88 35.88
+Moonshot-V1-128k-Vision-Preview 54.57 657 1204 53.82 54.15 54.15 56.15
+Moonshot-V1-32k-Vision-Preview 54.40 655 1204 54.82 53.82 53.16 55.81
+Moonshot-V1-8k-Vision-Preview 54.90 661 1204 53.82 54.15 54.15 57.48
+Qwen3-VL-Plus 51.00 614 1204 52.16 49.17 48.17 54.49
+Qwen2.5-VL-72B-Instruct 48.84 588 1204 47.18 47.51 46.51 54.15
+Qwen2.5-VL-32B-Instruct 43.19 520 1204 40.86 42.19 42.19 47.51
+Qwen2.5-VL-7B-Instruct 37.87 456 1204 36.21 36.21 36.54 42.52
+Qwen2.5-VL-3B-Instruct 20.51 247 1204 18.6 18.94 21.26 23.26
+SFT VLMs, Trained with 500 Sample Chains
+Qwen2.5-VL-3B-Instruct-L 20.85 251 1204 20.6 21.93 17.28 23.59
+PyFi-QwenVL-3B-500 26.74 322 1204 28.57 25.25 23.92 29.24
+PyFi-QwenVL-3B-COT-500 27.66 333 1204 29.57 25.58 21.59 33.89
+Qwen2.5-VL-7B-Instruct-L 34.55 416 1204 34.55 32.89 32.23 38.54
+PyFi-QwenVL-7B-500 43.44 523 1204 39.53 41.53 40.2 52.49
+PyFi-QwenVL-7B-COT-500 39.53 476 1204 40.86 38.87 34.88 43.52
+SFT VLMs, Trained with 47K Sample Chains
+Qwen2.5-VL-3B-Instruct-L 20.85 251 1204 20.6 21.93 17.28 23.59
+PyFi-QwenVL-3B-47K 25.25 304 1204 25.58 24.25 22.92 28.24
+PyFi-QwenVL-3B-COT-47K 40.37 486 1204 40.2 37.21 38.87 45.18
+Qwen2.5-VL-7B-Instruct-L 34.55 416 1204 34.55 32.89 32.23 38.54
+PyFi-QwenVL-7B-47K 27.08 326 1204 26.58 25.91 24.92 30.9
+PyFi-QwenVL-7B-COT-47K 42.61 513 1204 44.19 38.87 42.52 44.85
+training methodology alongside data volume for
+achieving gains on this challenging visual reason-
+ing benchmark.
+Table 13breaks down model performance by
+required capability on the challenging 301-sample
+subset. The overall accuracy drops dramatically for
+all models compared to the full dataset, confirm-
+ing the difficulty of these leakage-filtered samples.
+GLM-4.5V again dominates with 74.75% overall,
+excelling particularly in Perception (PP, 89.47%)
+and Data Extraction (DE, 78.07%). Claude-opus
+(64.70%) shows strong performance in Calcula-
+tion Analysis (CA, 66.02%) and Logical Reason-
+ing (LR, 72.58%). Hunyuan-Large-Vision is no-
+table for its high Perception (90.79%) and rela-
+tively strong Decision Support (DS, 51.92%). A
+clear capability-wise difficulty trend emerges: Per-
+ception is generally easiest for top models, while
+Calculation Analysis and, especially, Decision Sup-
+port are most challenging. Among SFT models,
+PyFi-QwenVL-3B-COT-47K shows a remarkable
+leap to 40.37%, more than doubling the perfor-
+mance of its base model (20.85%) and significantly
+outperforming its 500-sample counterpart. This
+suggests that Chain-of-Thought (COT) training on
+a larger, high-quality dataset (47K) is highly ef-
+fective for smaller models, particularly improving
+Pattern Recognition (PR) and Logical Reasoning
+(LR). For the 7B models, PyFi-QwenVL-7B-500
+achieves the best overall (43.44%), but the 47K
+COT variant also shows strong gains in LR.
+Table 14analyzes performance stratified by
+
+
+[Page 39]
+Table 13: Model Performance Comparison By Capability On Evaluation Dataset After Exclusion (Samples=301,
+Groups with Image)
+Model Overall PP DE CA PR LR DS
+Pre-trained VLMs
+GPT-4.1 52.99 86.84 47.64 40.62 57.14 54.84 38.46
+InternVL3-38B 52.91 76.32 56.37 44.53 43.88 53.23 30.77
+Claude-opus-4-1-20250805 64.70 80.92 62.74 66.02 58.16 72.58 32.69
+GLM-4.5V 74.75 89.47 78.07 65.23 75.51 75.81 46.15
+DeepSeek-VL2 45.18 76.32 44.58 36.33 42.35 42.74 19.23
+Hunyuan-Large-Vision 59.72 90.79 58.96 36.72 63.27 69.35 51.92
+ERNIE-4.5-turbo-vl 34.47 34.87 33.96 36.72 25.00 45.16 36.54
+Moonshot-V1-128k-Vision-Preview 54.57 80.92 61.08 39.06 41.84 58.87 38.46
+Moonshot-V1-32k-Vision-Preview 54.40 80.26 61.56 37.11 40.31 62.90 38.46
+Moonshot-V1-8k-Vision-Preview 54.90 80.26 61.79 39.84 42.35 58.06 38.46
+Qwen3-VL-Plus 51.00 77.63 54.25 37.50 41.84 57.26 32.69
+Qwen2.5-VL-72B-Instruct 48.84 70.39 59.91 33.20 35.71 46.77 26.92
+Qwen2.5-VL-32B-Instruct 43.19 60.53 45.28 37.50 36.73 42.74 28.85
+Qwen2.5-VL-7B-Instruct 37.87 54.61 49.53 34.77 18.37 24.19 15.38
+Qwen2.5-VL-3B-Instruct 20.51 36.84 15.57 21.48 16.84 21.77 19.23
+SFT VLMs, Trained with 500 Sample Chains
+Qwen2.5-VL-3B-Instruct-L 20.85 35.53 17.22 21.09 15.82 20.97 25.00
+PyFi-QwenVL-3B-500 26.74 34.87 28.77 28.52 16.84 24.19 21.15
+PyFi-QwenVL-3B-COT-500 27.66 37.50 28.77 26.17 22.45 25.81 21.15
+Qwen2.5-VL-7B-Instruct-L 34.55 52.63 42.92 31.64 18.37 25.00 11.54
+PyFi-QwenVL-7B-500 43.44 71.05 44.58 43.36 30.10 37.90 17.31
+PyFi-QwenVL-7B-COT-500 39.53 61.84 41.51 40.23 26.02 34.68 17.31
+SFT VLMs, Trained with 47K Sample Chains
+Qwen2.5-VL-3B-Instruct-L 20.85 35.53 17.22 21.09 15.82 20.97 25.00
+PyFi-QwenVL-3B-47K 25.25 42.76 19.81 18.75 29.59 29.03 25.00
+PyFi-QwenVL-3B-COT-47K 40.37 62.50 36.56 29.69 41.84 48.39 34.62
+Qwen2.5-VL-7B-Instruct-L 34.55 52.63 42.92 31.64 18.37 25.00 11.54
+PyFi-QwenVL-7B-47K 27.08 36.84 23.35 30.47 17.35 37.10 25.00
+PyFi-QwenVL-7B-COT-47K 42.61 68.42 41.75 34.77 32.65 49.19 34.62
+problem complexity degree (1=Least, 5=Most
+Complex). A strong negative correlation between
+model performance and complexity degree is ev-
+ident for most models. For example, GLM-4.5V
+scores 87.75% on degree-1 problems but drops to
+64.22% on degree-4. Interestingly, performance
+on degree-5 (the most complex) does not always
+follow this monotonic decline; for models like
+Claude-opus, Hunyuan, and some Qwen variants,
+degree-5 accuracy is higher than degree-4. This
+may indicate that the highest complexity problems,
+while difficult, sometimes involve different (e.g.,
+more structured) reasoning that some models can
+handle. The SFT models show interesting pat-
+terns: PyFi-QwenVL-3B-COT-47K demonstrates
+substantial improvements across all complexity
+levels, most notably on degrees 4 and 5 (40.09%
+and 48.08%, up from 21% and 29% in the base
+model). This suggests that the COT training on
+extensive data particularly enhances the model’s
+ability to tackle high-complexity, multi-step reason-
+ing problems. The PyFi-QwenVL-7B-COT-47K
+model also shows strong gains on degree-5 prob-
+lems (59.62%).
+Summary of Key Findings
+Performance Gap. A significant performance gap
+exists between top-tier proprietary models (GLM-
+4.5V , Claude-opus) and open-source models, espe-
+cially on the challenging leakage-filtered subset.
+Scaling Laws. For the Qwen family, model size
+strongly correlates with performance on this finan-
+cial visual QA task.
+Effectiveness of SFT: Supervised Fine-Tuning can
+
+
+[Page 40]
+Table 14: Model Performance Comparison By Complexity Degree On Evaluation Dataset After Exclusion (Sam-
+ples=301, Groups with Image)
+Model Overall 1 2 3 4 5
+Pre-trained VLMs
+GPT-4.1 52.99 74.51 46.12 52.63 46.55 53.85
+InternVL3-38B 52.91 75.00 52.91 41.78 44.83 67.31
+Claude-opus-4-1-20250805 64.70 76.47 61.89 66.12 55.60 73.08
+GLM-4.5V 74.75 87.75 76.21 72.37 64.22 73.08
+DeepSeek-VL2 45.18 67.65 43.45 34.54 42.24 46.15
+Hunyuan-Large-Vision 59.72 80.88 54.85 50.00 57.76 80.77
+ERNIE-4.5-turbo-vl 34.47 32.84 33.25 38.82 25.43 65.38
+Moonshot-V1-128k-Vision-Preview 54.57 74.02 56.31 46.71 43.97 57.69
+Moonshot-V1-32k-Vision-Preview 54.40 73.53 56.31 45.72 43.97 61.54
+Moonshot-V1-8k-Vision-Preview 54.90 73.53 56.80 48.03 43.97 55.77
+Qwen3-VL-Plus 51.00 72.55 50.00 45.72 37.50 65.38
+Qwen2.5-VL-72B-Instruct 48.84 67.16 57.77 36.51 31.03 57.69
+Qwen2.5-VL-32B-Instruct 43.19 58.33 43.69 39.14 30.60 59.62
+Qwen2.5-VL-7B-Instruct 37.87 55.39 44.90 31.91 17.67 38.46
+Qwen2.5-VL-3B-Instruct 20.51 31.86 12.62 23.03 18.97 30.77
+SFT VLMs, Trained with 500 Sample Chains
+Qwen2.5-VL-3B-Instruct-L 20.85 33.33 13.11 21.38 21.12 28.85
+PyFi-QwenVL-3B 26.74 40.69 20.87 28.29 20.69 36.54
+PyFi-QwenVL-3B-COT 27.66 39.22 22.57 27.96 24.57 34.62
+Qwen2.5-VL-7B-Instruct-L 34.55 55.88 37.86 30.26 15.52 34.62
+PyFi-QwenVL-7B 43.44 66.18 44.17 39.47 28.45 38.46
+PyFi-QwenVL-7B-COT 39.53 58.82 39.32 36.51 23.71 53.85
+SFT VLMs, Trained with 47K Sample Chains
+Qwen2.5-VL-3B-Instruct-L 20.85 33.33 13.11 21.38 21.12 28.85
+PyFi-QwenVL-3B 25.25 37.25 18.93 19.74 31.47 32.69
+PyFi-QwenVL-3B-COT 40.37 59.80 32.77 36.51 40.09 48.08
+Qwen2.5-VL-7B-Instruct-L 34.55 55.88 37.86 30.26 15.52 34.62
+PyFi-QwenVL-7B 27.08 35.29 21.60 26.64 25.86 46.15
+PyFi-QwenVL-7B-COT 42.61 62.25 38.35 39.80 32.76 59.62
+substantially improve smaller models (3B), particu-
+larly when using a large (47K), high-quality dataset
+with Chain-of-Thought reasoning steps. Gains for
+larger models (7B) are more modest and sensitive
+to the training recipe.
+Capability & Complexity. Perception and Data
+Extraction are relative strengths for leading mod-
+els, while Calculation Analysis and Decision Sup-
+port remain challenging. Problem complexity is
+inversely correlated with accuracy, but advanced
+training (COT) can specifically improve perfor-
+mance on high-complexity problems.
+I Algorithms
+The proposed adversarial agent dataset construc-
+tion method is outlined in Algorithm 1. Its runtime
+is primarily dictated by the base VLM’s inference
+latency. Our implementation, using Doubao-seed-
+1-6-flash-250828, completes approximately 100 ad-
+versarial rounds (100 samples) in about 60 minutes.
+While the MCTS process for a single image runs se-
+quentially, each adversarial step can generate mul-
+tiple branches in parallel for internal acceleration.
+The framework also enables concurrent processing
+of multiple images across servers and processes.
+Consequently, the approach is readily extensible to
+large-scale synthesis with manageable time costs.
+
+
+[Page 41]
+Algorithm 1:Dataset Construction via Adversarial Agents under the MCTS Paradigm
+Input:Challenger Agentψ, Solver Agentϕ, ImageIwith backgroundb I and analysis infof I,
+capability levelsL={l 1, . . . , l6}, complexity levelsC={c 1, . . . , c5}, MCTS parameters
+α, β, max chainsT max
+Output:Pyramid-structured datasetSwith question-answer chains
+1Generate final questionQ F using LLMs with:b I,f I,l(Q F ) =l 6,
+2Determine ground truth answerA F forQ F via multi-LLM consensus
+3Initialize MCTS treeTwith rootQ F
+4t←0
+5whilet < T max andTnot terminateddo
+6ψ, ϕ←root ofT
+7whileψandϕready and debate not terminateddo
+8 Compete (Challenger AgentψTurn)
+9N child ←children ofq ψ
+10if|N child|= 0
+11Determine current and next capability levell curr,l next based on pyramid progression
+12Generate new questionq new with:b I,l curr =l next, complexity∈ C, visit_count= 1,
+victory_count= 0
+13q ψ ←q new
+14else
+15p gen ←σ(α·(|N child| −β))
+16Samplez∼Bernoulli(p gen)
+17ifz= 1
+18 Determine current and next capability level lcurr, lnext based on pyramid progression
+19Generate new questionq new with:b I, capability=l next, complexity∈ C,
+visit_count= 1, victory_count= 0
+20q ψ ←q new
+21else
+22q ψ ←arg max n′∈Nchild UCT(n′)
+23Increment visit_count(q ψ)
+24end
+25end
+26 Compete (Solver AgentϕTurn)
+27Generate answera ϕ toq ψ
+28ifa ϕ ∈existing actions
+29Increment visit_count(a ϕ)
+30else
+31Create newa ϕ with visit_count←1, victory_count←0
+32end
+33Add edge(q ψ, aϕ)toT
+34ifl curr = 6 and LLM judges chain can answerQ F
+35Generate final answera final
+36ifa final =A F
+37Backpropagate and increment victory_count for all nodes
+38end
+39Break
+40end
+41end
+42t←t+ 1
+43end
+44Add successful chains toS

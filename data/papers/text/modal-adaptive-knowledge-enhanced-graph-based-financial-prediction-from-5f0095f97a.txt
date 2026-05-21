@@ -1,0 +1,1064 @@
+[Page 1]
+Modal-adaptive Knowledge-enhanced Graph-based Financial
+Prediction from Monetary Policy Conference Calls with LLM
+Kun Ouyang1, Yi Liu1, Shicheng Li1, Ruihan Bao2, Keiko Harimoto2, Xu Sun1
+1National Key Laboratory for Multimedia Information Processing,
+School of Computer Science, Peking University
+2Mizuho Securities Co., Ltd.
+kunouyang10@gmail.com, {imliuyi, lisc99}@pku.edu.cn,
+{ruihan.bao, keiko.harimoto}@mizuho-sc.com, xusun@pku.edu.cn
+Abstract
+Financial prediction from Monetary Policy Conference (MPC) calls is a new yet challenging task, which targets at
+predicting the price movement and volatility for specific financial assets by analyzing multimodal information including
+text, video, and audio. Although the existing work has achieved great success using cross-modal transformer blocks,
+it overlooks the potential external financial knowledge, the varying contributions of different modalities to financial
+prediction, as well as the innate relations among different financial assets. To tackle these limitations, we propose
+a novelModal-Adaptive kNowledge-enhAnced Graph-basEd financial pRediction scheme, named MANAGER.
+Specifically, MANAGER resorts to FinDKG to obtain the external related knowledge for the input text. Meanwhile,
+MANAGER adopts BEiT-3 and Hidden-unit BERT (HuBERT) to extract the video and audio features, respectively.
+Thereafter, MANAGER introduces a novel knowledge-enhanced cross-modal graph that fully characterizes the
+semantic relations among text, external knowledge, video and audio, to adaptively utilize the information in different
+modalities, with ChatGLM2 as the backbone. Extensive experiments on a publicly available dataset Monopoly verify
+the superiority of our model over cutting-edge methods.
+Keywords:Financial Prediction, LLM, Multimodal Learning
+1. Introduction
+Forecasting the fluctuation of prices for a finan-
+cial asset over a specific period is a crucial task
+in financial analysis, essential for both investors
+and policymakers (Lewellen, 2003). Accurate pre-
+diction results can assist investors in making in-
+formed decisions regarding investment returns,
+while policymakers can implement prudent mon-
+etary measures to uphold a robust economy (Cai
+et al., 2021; Shapiro and Wilson, 2019). In
+early work, researchers made efforts to solve fi-
+nancial prediction for textual financial data, such
+as BloombergGPT (Wu et al., 2023b) and Fin-
+GPT (Wang et al., 2023b).
+Despite their promising performance, the above
+models can only solve text-based financial tasks.
+With unprecedented advances in multimodal learn-
+ing, investors now have access to a vast amount
+of unstructured data for financial prediction (Jiang,
+2020). Moreover, the non-verbal information in-
+volved in the visual and acoustical modalities (e.g.,
+vocaltoneandfacialexpressions)canbeindicative
+and correlated with trading activities in the finan-
+cial market. One such abundant source of multi-
+modal information is the Monetary Policy Confer-
+ence (MPC’s) call. Previous work (Boukus and
+Rosenberg, 2006) has underscored the influence
+of MPC calls on financial stock markets. There-
+fore, Mathur et al. (2022) curated a public Mon-
+Ground Truth: U.S. Dollar Price Movement         V olatility 96.113
+AudioTextVideo
+Finally, FOMC participants project inflation to be quite low this year, largely reflecting 
+lower energy prices.
+The central tendency of the inflation projections for this year is below 1 percent, 
+unchanged since March.
+As the transitory factors holding down inflation abate, the central tendency rises to 1.6 to 
+1.9 percent next year and to 1.9 to 2.0 percent in 2017.
+17 June 2015
+ Federal Reserve Bank
+of USA
+17 June 2015
+ 2 July 2015
+Knowledge Inflation : impact Stock Market; impact S&P 500
+Energy prices : impact Inflation; impact Consumer-Price Index
+S&P 500 Index Price Movement         V olatility 2076.780
+Figure 1: An example of the financial prediction
+from MPC calls. We also present the external
+knowledge inferred by FinDKG for the given text.
+Notably, the words in blue are the anchor entities
+while those in green are the relations and those in
+red are the related entities.
+etary Policy Call Dataset named Monopoly and
+proposed to predict the price movement and volatil-
+ity for six principal financial assets (i.e., Stock In-
+arXiv:2403.16055v4  [cs.CE]  21 Apr 2024
+
+
+[Page 2]
+dex (Small), Stock Index (Large), Gold Price, Cur-
+rency Exchange Rate, Long-term bond yield (10-
+years),Short-termbondyield(3-months))basedon
+MPCcalls. Theauthorsadoptedcross-modaltrans-
+formerblocksandmodality-specificattentionfusion
+to conduct price movement and volatility predic-
+tion. Although this pioneering study has achieved
+promising performance, it still suffers from three
+key limitations.
+1) Overlook the potential external knowledge
+inthefinancialdomain. Thepioneeringstudyfails
+to utilize the related knowledge contained in the
+external public knowledge base in the financial do-
+main. As shown in Figure 1, the related knowledge
+obtainedfromFinDKG(Li,2023)canstrengthenthe
+context comprehension (e.g., “impact S&P 500”)
+and promote the financial prediction.
+2)Overlookthevaryingcontributionsofdiffer-
+ent modalities to financial prediction.The exist-
+ing work equally feeds the multimodal features (i.e.,
+text, video and audio) into the model, and treats
+them as the equal source of information to con-
+duct multimodal information fusion with the same
+weights. In fact, the content of given text is the
+prime cue for the financial prediction, while the non-
+verbal cues such as facial expressions and vocal
+tone involved in the video and audio play a minor
+role in comprehending the context. How to adap-
+tively utilize the information residing in the multiple
+modalities merits our attention.
+3) Overlook the innate relations among differ-
+ent financial assets.The former method predicts
+the price movement and volatility of six financial
+assets independently, ignoring the potential rela-
+tionships among different financial assets. Actually,
+the price changes of a financial asset may provide
+useful information to predict price trend of the other
+financial assets.
+To tackle these limitations, we propose a novel
+Modal-Adaptive k Nowledge-enhAnced Graph-
+basEd financial pRediction scheme, MANAGER
+for short. In detail, MANAGER consists of four
+components: external financial knowledge acqui-
+sition, video-audio feature extraction, knowledge-
+enhanced modal-adaptive context comprehension
+and task-specific instruction tuning for financial pre-
+diction, as shown in Figure 2. In the first module,
+we focus on acquiring the external related knowl-
+edge for the given text, where a large-scale finan-
+cial knowledge base FinDKG (Li, 2023) is used. In
+the second module, we utilize BEiT-3 (Wang et al.,
+2022)andHidden-UnitBERT(HuBERT)(Hsuetal.,
+2021) to extract the video and audio representa-
+tions, respectively. In the third module, we con-
+struct the knowledge-enhanced cross-modal graph
+to aggregate the given text, input video, audio and
+inferred external knowledge through two types of
+relations (i.e., intra-modal and inter-modal seman-
+tic relations). We then employ the commonly used
+graph neural networks (GCNs) (Kipf and Welling,
+2017), which have shown great performance in
+NLP tasks (Jing et al., 2023; Ouyang et al., 2024),
+toadaptivelyutilizethedifferentmodalitiesforcross-
+modal context comprehension. In the last module,
+considering that up-to-date Large Language Mod-
+els (LLMs) have shown promising performance in
+multimodal context learning (Zhang and Li, 2023;
+Wu et al., 2023a), the potential of LLMs in the mul-
+timodal financial prediction task is increasingly ev-
+ident. Therefore, we adopt ChatGLM2 (Du et al.,
+2022) as the backbone and feed the cross-modal
+representation into ChatGLM2 with a task-specific
+instruction devised for the certain financial asset to
+predictthepricemovementorvolatility,respectively.
+Unlike previous work, we do not conduct prediction
+for different financial assets independently, but uti-
+lizeChatGLM2tocapturetheinnaterelationamong
+the financial assets. Finally, we conduct exten-
+sive experiments on a publicly available Monopoly
+dataset, on which our method outperforms the best
+baseline across all the metrics for both price move-
+ment and volatility prediction. Our contributions
+can be concluded as follows.
+• We propose a novel modal-adaptive
+knowledge-enhanced graph-based financial
+prediction scheme, where the text, external
+knowledge, video and audio are aggregated
+for cross-modal context comprehension.
+• As far as we know, we are the first to intro-
+duce an up-to-date LLM named ChatGLM2 to
+solve the financial prediction task for Monetary
+Policy Conference (MPC) calls, which contain
+multiple modalities (i.e., text, video and audio).
+• The results of extensive experiments on the
+Monopoly dataset demonstrate the superior-
+ity of our MANAGER over other cutting-edge
+methods, and prove the effectiveness of each
+component of MANAGER. As a byproduct, we
+release our code and parameters1 to facilitate
+the research community.
+2. Related Work
+2.1. Large Language Models (LLMs) in
+Finance
+In early work about the application of LLMs in
+Finance, researchers resorted to BERT (Devlin
+et al., 2019) to conduct financial tasks, such as
+FinBert (Liu et al., 2020), which is dedicated for
+financial sentiment analysis with under one billion
+1https://github.com/OuyangKun10/
+MANAGER.
+
+
+[Page 3]
+z 
+z 
+FinDKG
+External Financial Knowledge Acquisition 
+Audio
+Video
+A=[a1, a2, …, aN]
+V=[v1, v2, …, vN]
+HuBERTBEiT-3 Tokenizer
+z 
+z 
+Video-audio Feature Extraction
+Knowledge-enhanced Modal-
+adaptive Context Comprehension
+Task-specific Instruction Tuning for Financial Prediction 
+ChatGLM2ChatGLM2
+Movement
+V olatility
+1-st GCNlayerL-thGCNlayer
+...
+Nick Timiraos (Wall Street Journal): "...Would 
+the lack of fiscal support compel the 
+Fed to provide additional accommodation...". 
+Chair Powell: "...We’ll take into account all 
+external factors and, and do what we think we
+need to do with the tools that we have..." 
+Steve Liesman (CNBC): "...why haven’t you 
+reduced QE that you’re doing if the market is
+functioning better already?" 
+Chair Powell: I think in the very beginning of the 
+crisis, the main focus was, obviously, 
+financial, financial market function, in, you know, 
+some of the major markets. 
+Text T=[t1, t2, …, tN]
+z 
+Utterance
+Knowledge Video
+Audio
+Embedded
+Prompt
+Embedded
+Prompt
+Movement-oriented 
+Instruction
+V olatility-oriented 
+Instruction
+Figure 2: The architecture of MANAGER, which consists of four key components including External
+Financial Knowledge Acquisition, Video-audio Feature Extraction, Knowledge-enhanced Modal-adaptive
+Context Comprehension and Task-specific Instruction Tuning for Financial Prediction.
+parameters, fine-tuned on a rich financial corpus to
+excelinfinance-specifictasks. Althoughitachieves
+promising performance, it falls short of compre-
+hending the long and complex financial text. In
+recent years, there has been a surge in research
+dedicatedtointegratingfinancialdatasetswithGPT-
+based models (Brown et al., 2020), aimed at en-
+hancing Natural Language Processing (NLP) appli-
+cations. For example, BloombergGPT (Wu et al.,
+2023b) is a closed-source model, trained exten-
+sively on diverse financial datasets, thereby encap-
+sulating a broad spectrum of the financial domain.
+FinGPT (Wang et al., 2023b) is an open-source
+LLM, fine-tuned from a general LLM using low-rank
+adaptation method (Hu et al., 2021), fostering ac-
+cessibility for the broader community.
+2.2. Multimodal Financial Prediction
+Existingworkinthefinancialrealmutilizevocaland
+textual cues from earnings conference calls (Qin
+and Yang, 2019; Sawhney et al., 2020), and merg-
+ers and acquisitions calls (Sawhney et al., 2021)
+for stock volatility prediction. Multimodal architec-
+tures that use these cues for financial predictions
+have seen significant improvements in their perfor-
+mances (Sawhney et al., 2020; Yang et al., 2020).
+However, the vision modality, which may offer im-
+portant cues that correlate with the performance
+of financial markets (Cao, 2021) remains under-
+explored. Therefore, Mathur et al. (2022) first
+introduced video modality in the financial predic-
+tion task and released a dataset named Monopoly.
+They adopted cross-modal transformer blocks and
+modality-specific attention fusion to forecast the
+financial risk and price movement. Despite its
+promising performance on financial prediction, it
+overlooks the potential external knowledge, the
+varying contributions of different modalities, the
+innate relations among different financial assets,
+which are the major concerns of our model.
+3. Task Formulation
+Suppose we have a training dataset D com-
+posed ofNd samples, i.e., D = {d1, d2, · · · , dNd }.
+Each sample di = {Ti, Vi, Ai, Yi}, where Ti =
+{ui
+1, ui
+2, · · · ui
+N } denotes the input text containing
+N utterances, Vi = {vi
+1, vi
+2, · · · vi
+N } and Ai =
+{ai
+1, ai
+2, · · · ai
+N } are the set of the input video and
+audio clips, respectively. Each utteranceui con-
+tains Nui tokens. i.e., ui = {ti
+1, ti
+2, · · · , ti
+Nui
+} And
+Y τ
+i = {pτ
+i , oτ
+i } denotes the target labels over a pe-
+riod ofτ days, wherepτ
+i is the price movement and
+oτ
+i isthevolatility,respectively. Ourtargetistolearn
+a multimodal financial prediction modelF that is
+able to predict the price movement and volatility
+for six principal financial assets (i.e., Stock Index
+(Small), Stock Index (Large), Gold Price, Currency
+Exchange Rate, Long-term bond yield (10-years),
+Short-term bond yield (3-months) ), based on the
+given multimodal input as follows,
+ˆYi = F(Ti, Vi, Ai|Θ) (1)
+
+
+[Page 4]
+where Θ is a set of learnable parameters of the
+model F. ˆYi = {ˆpτ
+i , ˆoτ
+i } is the labels (i.e., price
+movement and volatility) predicted byF. For sim-
+plicity, we omit the subscriptithat indexes the train-
+ing samples.
+4. Method
+In this section, we detail the four components of
+our proposed MANAGER, as shown in Figure 2.
+4.1. External Financial Knowledge
+Acquisition
+As aforementioned, the external financial knowl-
+edge inferred by the input text can assist the finan-
+cial prediction since it can introduce corresponding
+financial entities as well as the relations, and pro-
+vide some external factors to analyze the financial
+environment, leading to more informed predictions.
+Specifically, we resort to FinDKG (Li, 2023), which
+provides dynamic knowledge graph data in the fi-
+nancial domain, as the source of external knowl-
+edge. Notably, FinDKG changes dynamically over
+time. In detail, it contains13, 645 financial entities
+and 15 types of relations. Given the input text, we
+adopt the period-specific FinDKG2 that only con-
+tainstheknowledgebeforethedateoftheinputtext,
+to prevent our model from obtaining the information
+beyond the date. The ration is that the information
+beyond the date can influence the prediction.
+To acquire the related external knowledge for
+the given text, i.e.,T = {u1, u2, · · · uN }, we first
+identify all the entities in FinDKG that exist in the
+input text. Let {e1, · · · , eNe} be the set of identi-
+fied entities, whereNe is the total number of the
+identified entities. We then use these identified
+entities as the anchors to obtain the related enti-
+ties and corresponding relations as the external
+knowledge for the input text. Notably, for each
+anchor entity e, we retrieve all its one-hop neigh-
+boring entities, as well as the corresponding rela-
+tions that are treated as the edges, from FinDKG
+and deem them as the external knowledge fore.
+Mathematically, letN (e) = N 1(e) ∪ N 2(r) be the
+set of external knowledge (i.e.,N 1(e) is the set
+of neighboring entities and N 2(r) is the set of
+corresponding relations between each neighbor-
+ing entity and the anchor entity, respectively.) of
+the entity e in FinDKG. Then the related external
+knowledge for the input text can be represented as
+{N 1
+e1 , N 1
+e2 , · · · , N 1
+eNe
+} ∪ {N 2
+e1 , N 2
+e2 , · · · , N 2
+eNe
+}. Ne
+is the number of the neighboring entities as well as
+the number of the relations.
+2https://xiaohui-victor-li.github.io/
+FinDKG/.
+4.2. Video-audio Feature Extraction
+To obtain the global feature of video and audio
+clips, we choose BEiT-3 (Wang et al., 2022) and
+Hidden-Unit BERT (HuBERT) (Hsu et al., 2021) as
+the visual and acoustical encoder, respectively.
+Video Encoding, to encode the video clips, we
+resort to BEiT-3, which is an advanced general-
+purpose multimodal foundation model pre-training
+for all vision and vision-language tasks and
+shows great performance in visual modality en-
+coding (Wang et al., 2022). Specifically, we embed
+each framevk
+j in the video clipvj as the arithmetic
+meanofvisualtokensrepresentationsofthatframe.
+We then average over all the frames to obtain the
+aggregated encoding featurexj
+V ∈ RD, whereD is
+the feature dimension. Mathematically, we have
+xj
+V = 1
+Nf
+NfX
+k=1
+BEiT-3(vk
+j ), ∀j ∈ [1, N], (2)
+where Nf is the number of frames in the clipsvj.
+And we represent the sequence of video features
+as XV = [x1
+v, x2
+v, · · · , xN
+v ].
+Audio Encoding, we extract the feature of the
+audio clips via the self-supervised speech repre-
+sentationmodelnamedHuBERT,whichhasshown
+significant power for extracting audio features for
+speech language understanding tasks (Yoon et al.,
+2022). We embed each audio utteranceak
+j in the
+audioclip aj asthearithmeticmeanoftherepresen-
+tation derived by HuBERT and obtain the encoded
+acoustical featurexj
+A ∈ RD. Formally,
+xj
+A = HuBERT(ak
+j ), ∀j ∈ [1, N], (3)
+we represent the sequence of audio features as
+XA = [x1
+a, x2
+a, · · · , xN
+a ].
+4.3. Knowledge-enhanced
+Modal-adaptive Context
+Comprehension
+In this module, we aim to enhance the cross-modal
+context comprehension utilizing the inferred exter-
+nalknowledgeinthefinancialdomain. Infact,there
+arerichrelations(i.e.,intra-modalsemanticrelation
+and inter-modal semantic relation) existing in the
+multiple input including the text, video, audio and
+external knowledge. Therefore, to adaptively utilize
+different modalities via these semantic relations for
+boosting cross-modal context comprehension, we
+resort to the widely used graph neural networks
+(GCNs). Specifically, we first build a knowledge-
+enhanced cross-modal graphG.
+4.3.1. Nodes Initialization
+Inparticular, thenodesintheknowledge-enhanced
+cross-modal graph G come from four kinds of
+
+
+[Page 5]
+sources, the given textT, input video clipsV, in-
+put audio clipsA and inferred external knowledge
+N (e). We define all the nodes as{n1, · · · , nNc } =
+{T, N (e), V, A}, where Nc is the total number of
+nodes. To initialize the nodes, we feed the textual
+input {T, N (e)} into the encoder of ChatGLM2 (Du
+et al., 2022) to extract their features. Specifically,
+we first concatenate them into a sequence of to-
+kens, denoted asXT = {T, N (e)}, and then feed
+X into the encoderE as follows,
+H = E(XT ), (4)
+where H = [ h1, · · · , hNt+2×Ne] ∈ R(Nt+2×Ne)×D
+is the encoded representation matrix,Nt is the to-
+kens number of the whole utterances and each
+column of which corresponds to a token. Accord-
+ingly,nodesofthetextualpart(utterancesandexter-
+nal knowledge) in the knowledge-enhanced cross-
+modal graphG can be initialized byH, where the
+j-thtokennodeisinitializedwith hj. Inaddition,the
+other nodes are initialized by the extracted video
+feature sequenceXV and the extracted audio fea-
+ture sequenceXA, respectively.
+4.3.2. Semantic Relation Construction
+To enhance the cross-modal context comprehen-
+sion with related external knowledge, we consider
+two kinds of semantic relations: intra-modal se-
+mantic relation and inter-modal semantic relation.
+The former captures the basic information flow of
+the multiple modalities input, also incorporates the
+related external knowledge into the text. The lat-
+ter enables the injection of non-textual information
+from video and audio into the context and achieves
+cross-modal information fusion.
+Intra-modal Semantic Relation. To capture the
+information flow in the specific modality, we de-
+sign three types of intra-modal semantic edges. a)
+Token-tokenedges. Weintroduceanedgebetween
+each pair of adjacent nodes in given text to repre-
+sent the neighboring relations among the tokens
+of text. b) Token-knowledge edge. We connect
+the tokens that act as an anchor entity in the afore-
+mentioned external knowledge retrieval process,
+relation token and the related entity token sequen-
+tially. c)Video-videoedge andd) Audio-audioedge.
+We link each pair of adjacent video nodes and con-
+nect each pair of adjacent audio nodes to repre-
+sent the adjacency relations of the video and audio
+modalities,respectively. Theaboveedgesarechar-
+acteristics of the information flow, and weighted by
+1. Formally, we introduce the corresponding adja-
+cency matrixA1 for representing these edges as
+follows,
+A1
+i,j =
+(
+1, if D 1(ni, nj),
+0, otherwise, (5)
+where Nc denotes the total number of nodes in
+G and i, j ∈ [1, Nc]. D1(ni, nj) denotes that the
+nodes ni and nj have the certain above defined
+intra-modal semantic relation.
+Inter-modal Semantic Relation. To compre-
+hensively utilize the multiple modalities to promote
+cross-modal context comprehension, we devise
+two types of inter-modal semantic edges. a)Token-
+video edges. For each video node, we connect it
+to each token in the corresponding utterance. The
+ration is to inject the visual information (e.g., facial
+expressions and hand gestures) that can help se-
+manticsunderstandingandhenceimprovefinancial
+analysis, into the context. b)Token-audio edges.
+For each audio node, we link it with each token in
+the corresponding utterance. In this way, we can
+incorporate the acoustic information (e.g., vocal
+tone) that is also useful for context comprehen-
+sion, into the context. The weight of all the above
+edges is set to1. Accordingly, the adjacency matrix
+A2 ∈ RNc×Nc for capturing the above inter-modal
+semantic relations can be constructed as follows,
+A2
+i,j =
+(
+1, if D 2(ni, nj),
+0, otherwise, (6)
+where D2(ni, nj) indicates that nodesni and nj
+have certain above inter-modal semantic semantic
+relation, i ∈ [1, Nt] and j ∈ [Nt + 2 × Ne + 1, Nc].
+Ultimately, by combing the adjacency matrices
+for intra-modal and inter-modal semantic relations,
+i.e., A1 and A2, we can derive the final adjacency
+matrix A for the knowledge-enhanced cross-modal
+graph.
+4.3.3. Graph Convolution Network
+Towards the final cross-modal context comprehen-
+sion, we adoptL layers of GCN to extract the mul-
+timodal fusion feature of the cross-modal context.
+Then the node representations are iteratively up-
+dated as follows,
+Gl = ReLU( ˜AGl−1Wl), l ∈ [1, L], (7)
+where ˜A = (D)− 1
+2 A(D)− 1
+2 is the normalized sym-
+metricadjacencymatrix,and Disthedegreematrix
+oftheadjacencymatrix A. Inaddition, Wl ∈ RD×D
+is a trainable parameter of thel-th GCN layer.Gl
+are the node representations obtained by thel-th
+GCN layer, whereG0 = H is the initial node repre-
+sentation.
+4.4. Task-specific Instruction Tuning for
+Financial Prediction
+The final nodes representationGL obtained by the
+L-th layer GCNs absorb rich semantic information
+from their correlated nodes and can be used as the
+
+
+[Page 6]
+Model Stock Index (Small)Stock Index (Large)Currency Exchange RateF1_1 F1_3 F1_7 F1_15F1_1 F1_3 F1_7 F1_15F1_1 F1_3 F1_7 F1_15HistPrice0.390 0.470 0.400 0.4200.430 0.430 0.410 0.4200.190 0.260 0.210 0.230P-SVM0.400 0.480 0.340 0.5300.433 0.490 0.338 0.5000.190 0.270 0.190 0.370P-LSTM0.410 0.473 0.291 0.5460.399 0.391 0.421 0.4420.123 0.232 0.165 0.341MLP 0.349 0.435 0.209 0.5390.267 0.319 0.331 0.3510.101 0.201 0.124 0.311LSTM0.449 0.435 0.269 0.5270.414 0.596 0.371 0.4320.137 0.229 0.199 0.369MMIM0.435 0.6530.302 0.6050.392 0.6310.329 0.6010.296 0.217 0.142 0.385MDRM0.449 0.419 0.462 0.3550.409 0.392 0.494 0.3240.177 0.161 0.379 0.152HTML0.490 0.645 0.458 0.5410.431 0.504 0.557 0.4820.484 0.531 0.298 0.626MULT0.491 0.630 0.536 0.6290.443 0.625 0.572 0.6120.499 0.547 0.4730.521MPCNet0.5010.590 0.5650.6380.4600.590 0.5590.6200.5200.5700.329 0.450MANAGER0.548⋆ 0.694⋆ 0.610⋆ 0.659⋆ 0.517⋆ 0.652⋆ 0.589⋆ 0.646⋆ 0.564⋆ 0.608⋆ 0.511⋆ 0.681⋆
+(a) Stock Indices and Currency Exchange Rate
+Model Gold 10-Year Bond Yield3-Month Bond YieldF1_1 F1_3 F1_7 F1_15F1_1 F1_3 F1_7 F1_15F1_1 F1_3 F1_7 F1_15HistPrice0.360 0.390 0.350 0.4000.310 0.290 0.220 0.3900.220 0.160 0.340 0.330P-SVM0.390 0.420 0.370 0.3800.340 0.310 0.330 0.3300.370 0.220 0.310 0.390P-LSTM0.365 0.352 0.371 0.3460.320 0.291 0.342 0.2580.377 0.234 0.332 0.314MLP 0.243 0.215 0.288 0.3150.244 0.299 0.234 0.1740.332 0.157 0.248 0.394LSTM0.361 0.337 0.304 0.3450.364 0.311 0.255 0.3940.381 0.168 0.382 0.444MMIM0.209 0.508 0.412 0.3180.411 0.318 0.345 0.1380.417 0.306 0.417 0.379MDRM0.434 0.383 0.214 0.3170.287 0.242 0.314 0.1490.346 0.198 0.4780.505HTML0.441 0.654 0.379 0.5260.529 0.278 0.466 0.3890.424 0.314 0.397 0.450MULT0.329 0.590 0.4540.5330.5340.3640.485 0.4000.428 0.171 0.466 0.493MPCNet0.4440.6680.413 0.6370.386 0.327 0.5600.6250.4930.5560.374 0.537MANAGER0.486⋆ 0.696⋆ 0.507⋆ 0.672⋆ 0.612⋆ 0.391⋆ 0.587⋆ 0.649⋆ 0.521⋆ 0.583⋆ 0.519⋆ 0.574⋆
+(b) Gold Prices, Long-term (10-Years) and Short-term (3-
+Months) Bonds
+Table 1: Performance comparison with baselines for movement prediction in terms of F1 scoreτ-days
+after the call (τ ∈ {1, 3, 7, 15}). The best results are in boldface, while the second best are underlined.⋆
+denotes that the p-value of the significant test between our result and the best baseline result is less than
+0.01.
+Model Stock Index (Small)Stock Index (Large)Currency Exchange RateMSE1 MSE3 MSE7 MSE15MSE1 MSE3 MSE7 MSE15MSE1 MSE3 MSE7 MSE15
+HistPrice2.486 2.234 1.880 1.6643.397 3.316 2.934 2.9722.709 3.187 3.127 3.291P-SVM2.489 2.220 1.915 1.7532.568 2.921 1.971 2.0122.104 2.534 1.921 2.231P-LSTM2.421 2.217 1.845 1.7312.128 2.194 2.108 1.4561.424 1.867 1.015 1.569MLP 2.524 2.214 1.899 1.6801.469 1.597 0.937 0.9811.060 1.441 0.802 1.159LSTM2.290 2.210 1.750 1.6801.346 1.304 0.724 0.7791.219 1.296 0.762 0.558MMIM2.290 2.092 1.779 1.5981.287 1.133 0.718 0.6220.9751.081 0.500 0.510MDRM2.0652.511 1.748 1.5971.281 1.578 0.683 0.6121.183 1.627 0.769 0.512HTML2.296 2.133 1.771 1.6111.302 1.127 0.766 0.6090.988 1.118 0.588 0.498MULT2.073 2.179 1.768 1.6051.288 1.133 0.6720.7421.022 1.018 0.549 0.497MPCNet2.233 2.0891.7321.5941.2691.0460.806 0.6071.176 1.0010.4690.470MANAGER1.819⋆1.725⋆1.608⋆ 1.471⋆ 1.126⋆0.813⋆0.584⋆ 0.572⋆ 0.906⋆0.957⋆0.416⋆ 0.402⋆
+(a) Stock Indices and Currency Exchange Rate
+Model Gold 10-Year Bond Yield3-Month Bond YieldMSE1 MSE3 MSE7 MSE15MSE1 MSE3 MSE7 MSE15MSE1 MSE3 MSE7 MSE15
+HistPrice3.193 3.039 2.675 2.6834.132 4.020 3.472 3.3343.899 3.665 3.063 2.913P-SVM2.568 2.543 1.967 2.1043.212 3.589 2.986 3.1413.235 3.143 2.922 2.874P-LSTM1.965 1.998 1.043 1.7642.212 1.699 2.340 1.4533.433 2.909 2.678 2.477MLP 1.431 1.654 0.904 0.9551.811 1.743 1.288 1.3822.582 2.523 2.239 2.231LSTM1.472 1.484 0.703 0.5081.735 1.801 1.169 1.2352.421 2.439 2.044 2.013MMIM1.292 1.292 0.565 0.4861.698 1.604 1.080 1.0532.345 2.392 1.977 1.902MDRM1.436 1.843 0.710 0.4831.729 1.699 1.126 1.2232.406 2.622 2.096 1.993HTML1.2771.291 0.589 0.5241.6851.612 1.103 1.1492.342 2.356 1.962 1.998MULT1.314 1.335 0.579 0.5032.122 1.837 1.104 1.0371.1742.515 1.973 1.903MPCNet1.342 1.2750.5620.4771.767 1.6020.9791.1422.431 2.3191.9481.901MANAGER1.106⋆1.144⋆0.527⋆ 0.419⋆ 1.452⋆1.574⋆0.825⋆ 0.917⋆ 1.049⋆2.076⋆1.804⋆ 1.276⋆
+(b) Gold Prices, Long-term (10-Years) and Short-term (3-
+Months) Bonds
+Table 2: Performance comparison with baselines for volatility prediction in terms of MSEτ-days after the
+call (τ ∈ {1, 3, 7, 15}). The best results are in boldface, while the second best are underlined.⋆ denotes
+that the p-value of the significant test between our result and the best baseline result is less than 0.01.
+input for the following financial prediction. Consid-
+ering that we need to solve a couple of tasks (i.e.,
+prediction of the price movement and volatility), we
+resort to the advanced large language model Chat-
+GLM2, which shows great performance in context
+comprehension (Du et al., 2022), and fine-tune it
+for each task independently. In addition, construct-
+ing proper instructions is pivotal for task-specific
+tuning, with each task being guided by a unique
+instruction prompt. Therefore, we adopt the instruc-
+tion template (Wang et al., 2023a) structured as
+follows:
+Instruction: [prompt] Input: [input] Answer:
+[output]
+This template provides a standardized format,
+facilitating consistency across different tasks. No-
+tably, we utilize the aforementioned final nodes rep-
+resentation GL as input. Next, we design prompt
+for specific task.
+Movement Prediction. In this task, we aim to
+predict the price movement for the financial assets.
+Therefore, the movement-oriented prompt is de-
+signed to guide ChatGLM2 to judge the price move-
+ment (e.g., “increase” or “decrease”) of the given
+asset based on the multimodal input. The prompt
+template is “Please predict the price movement
+of O in τ days after thedate according to the in-
+put”, whereO is the to-be-predicted financial asset,
+τ ∈ {1, 3, 7, 15}and dateis formatted asYYYY-MM-
+DD.
+Volatility Prediction. In this task, we aim to
+predict the volatility, a float number that measures
+the instability of an asset. Therefore, the volatility-
+oriented prompt is designed to guide ChatGLM2
+to output the volatility of the given financial asset
+basedonthemultimodalinput. Similartotheabove
+prompt template, we just replace “price movement”
+with “volatility”.
+We then utilize encoder of ChatGLM2 to em-
+bed the prompt and concatenate it with the in-
+put. [output] is the prediction result that is an-
+sweredafterwefeedtheinstructionintoChatGLM2.
+And we can obtain the task-specific instruction
+(i.e.,Movement-orientedinstruction Ip andvolatility-
+oriented instructionIv). Finally, we feedIp and Iv
+intoChatGLM2independentlytoguideittoconduct
+the two financial prediction tasks. For optimizing
+our MANAGER, we adopt Binary Cross-Entropy
+(BCE) loss and Mean Squared Error (MSE) loss to
+train the output for price movement prediction and
+volatility prediction, respectively.
+5. Experiment
+5.1. Dataset
+In this work, we conducted extensive experiments
+on Monopoly (Mathur et al., 2022) dataset for fi-
+nancial prediction. It is a collection of public mon-
+etary conference call videos along with their cor-
+responding audio recordings and text transcripts
+
+
+[Page 7]
+Model Stock Index (Small)Stock Index (Large)Currency Exchange RateF1_1 F1_3 F1_7 F1_15F1_1 F1_3 F1_7 F1_15F1_1 F1_3 F1_7 F1_15w/o-Text0.479 0.590 0.513 0.5440.437 0.556 0.436 0.5490.483 0.510 0.433 0.609w/o-Knowledge0.530 0.677 0.592 0.6310.485 0.630 0.574 0.6280.547 0.591 0.497 0.670w/o-Video0.509 0.664 0.581 0.6270.477 0.606 0.562 0.6110.530 0.573 0.484 0.657w/o-Audio0.527 0.671 0.586 0.6120.493 0.639 0.570 0.6200.546 0.588 0.494 0.660w/o-Graph0.533 0.679 0.491 0.6080.492 0.611 0.560 0.6270.532 0.570 0.483 0.654w/-FullGraph0.499 0.582 0.548 0.6010.429 0.627 0.451 0.5950.510 0.521 0.448 0.639MANAGER0.548 0.694 0.610 0.6590.517 0.652 0.589 0.6460.564 0.608 0.511 0.681
+(a) Stock Indices and Currency Exchange Rate
+Model Gold 10-Year Bond Yield3-Month Bond YieldF1_1 F1_3 F1_7 F1_15F1_1 F1_3 F1_7 F1_15F1_1 F1_3 F1_7 F1_15w/o-Text0.369 0.571 0.448 0.5250.498 0.328 0.467 0.5830.460 0.516 0.428 0.502w/o-Knowledge0.470 0.659 0.488 0.6560.593 0.370 0.562 0.6270.504 0.576 0.498 0.557w/o-Video0.451 0.639 0.471 0.6460.589 0.352 0.550 0.6170.501 0.537 0.500 0.545w/o-Audio0.456 0.662 0.479 0.6310.573 0.362 0.554 0.6190.496 0.553 0.481 0.521w/o-Graph0.457 0.681 0.457 0.6500.593 0.359 0.559 0.6240.503 0.551 0.487 0.540w/-FullGraph0.397 0.592 0.461 0.6200.519 0.317 0.512 0.6070.495 0.532 0.413 0.518MANAGER0.486 0.696 0.507 0.6720.612 0.391 0.587 0.6490.521 0.583 0.519 0.574
+(b) Gold Prices, Long-term (10-Years) and Short-term (3-
+Months) Bonds
+Table 3: Ablation study results of our proposed MANAGER for movement prediction. The best results are
+highlighted in boldface.
+Model Stock Index (Small)Stock Index (Large)Currency Exchange RateMSE1 MSE3 MSE7 MSE15MSE1 MSE3 MSE7 MSE15MSE1 MSE3 MSE7 MSE15
+w/o-Text2.146 2.048 1.795 1.6131.379 1.016 0.879 0.9261.198 1.348 0.702 0.617w/o-Knowledge1.930 1.908 1.784 1.5361.291 0.905 0.670 0.7130.977 1.019 0.474 0.566w/o-Video2.101 1.997 1.891 1.7411.324 1.089 0.851 0.8541.122 1.141 0.668 0.609w/o-Audio1.959 1.893 1.748 1.6091.237 1.003 0.776 0.7901.035 1.124 0.603 0.593w/o-Graph1.941 1.929 1.754 1.7121.331 1.004 0.750 0.7551.136 1.180 0.603 0.449w/-FullGraph2.144 1.962 1.919 1.7911.495 1.022 0.898 0.9041.175 1.306 0.681 0.640MANAGER1.819 1.725 1.608 1.4711.126 0.813 0.584 0.5720.906 0.957 0.416 0.402
+(a) Stock Indices and Currency Exchange Rate
+Model Gold 10-Year Bond Yield3-Month Bond YieldMSE1 MSE3 MSE7 MSE15MSE1 MSE3 MSE7 MSE15MSE1 MSE3 MSE7 MSE15
+w/o-Text1.451 1.400 0.796 0.7941.812 1.910 1.110 1.1731.400 2.403 2.090 1.498w/o-Knowledge1.222 1.215 0.593 0.4271.594 1.708 0.886 1.0921.237 2.211 1.900 1.467w/o-Video2.184 1.351 0.576 0.7041.641 1.850 1.070 1.1011.344 2.280 1.979 1.510w/o-Audio1.307 1.358 0.639 0.5491.588 1.758 1.024 1.1271.264 2.213 1.943 1.419w/o-Graph1.347 1.278 0.742 0.5400.674 1.861 1.013 1.1641.275 2.226 1.937 1.494w/-FullGraph1.365 1.367 0.795 0.6801.816 1.834 1.073 1.1681.234 2.373 2.075 1.463MANAGER1.106 1.144 0.527 0.4191.452 1.574 0.825 0.9171.049 2.076 1.804 1.276
+(b) Gold Prices, Long-term (10-Years) and Short-term (3-
+Months) Bonds
+Table 4: Ablation study results of our proposed MANAGER for volatility prediction. The best results are
+highlighted in boldface.
+released by six international banks between2009
+and 2022. Overall, it consists of24, 180 samples,
+and each sample includes the corresponding text,
+video and audio clips with the annotated price
+movement and volatility. We adopted the original
+dataset split setting, the ratio of data split for train-
+ing/validation/testing sets is7 : 1 : 2.
+5.2. Experimental Setup
+We adopted ChatGLM23 as the backbone of our
+model. The total number of tokens in each sample,
+i.e., Nt is unified to768. The feature dimensionD
+is set to768. We used AdamW (Loshchilov and
+Hutter, 2017) as the optimizer and set the learn-
+ing rate of GCN layers to 1e-3. Following Mathur
+et al. (2022), we use a learning rate of 1e-4 for
+movement prediction and 1e-3 for volatility predic-
+tion, respectively. The batch size is set to1 due
+to GPU limitation, and the maximum number of
+epochsformodeltrainingissetto 10. Followingthe
+previous work, we employed mean squared error
+(MSE) to evaluate the predicted volatility and used
+F1scoretomeasurethepredictedpricemovement,
+respectively, forτ ∈ {1, 3, 7, 15}.
+5.3. Baseline methods
+5.3.1. Text-only baselines
+• HistPrice (Du and Budescu, 2007). It uti-
+lizes the ARIMA model to perform regres-
+sion/classification.
+3https://huggingface.co/THUDM/
+chatglm2-6b.
+• P-SVM(Chatzis et al., 2018). This model ap-
+plies Support Vector Regression (SVR) and
+Classifiers (SVC) for volatility and price move-
+ment prediction, respectively.
+• P-LSTM (Yu and Li, 2018). It uses LSTM to
+extract forecast patterns from 30-day historical
+price time-series.
+5.3.2. Multimodal baselines
+• MLP (Tolstikhin et al., 2021). It is a simple
+multi-layer perceptron where multimodal fea-
+tures are aggregated across a time series and
+concatenated for prediction.
+• LSTM (Poria et al., 2017). It feeds the mul-
+timodal time series to individual LSTMs and
+averages them before the final prediction.
+• MMIM(Hanetal.,2021). Inthismodel,LSTMs
+are employed to encode the video and audio
+sequences, while BERT is utilized for text pro-
+cessing. Subsequently, the encoded features
+are fused for prediction.
+• MDRM (Qin and Yang, 2019). It adopts BiL-
+STM layers to encode unimodal sequences,
+which are then fused together for prediction.
+• HTML (Yang et al., 2020). HTML utilizes
+fused multimodal feature representations be-
+fore passing through Transformer layers for
+final prediction.
+• MULT (Tsai et al., 2019). It employs trans-
+former encoders to align text, video, and audio
+sequences for prediction.
+
+
+[Page 8]
+• MPCNet (Mathur et al., 2022). It adopts
+cross-modal transformer blocks and modality-
+specific attention fusion for prediction.
+5.4. Experimental results
+We reported the experiment results in Table 1 and
+Table 2. From the above tables, we have the fol-
+lowing observations. 1) Our model MANAGER
+consistently exceeds all the baselines in terms of
+allthemetricsforbothpricemovementandvolatility
+prediction, which thoroughly demonstrates the su-
+periority of our model. 2) Overall, the second best
+model is always multimodal baseline which verifies
+that the video and audio modalities can provide
+useful information for the financial prediction. 3)
+Notably, multimodal models not always outperform
+text-only models. For example,HistPrice, P-SVM
+and P-LSTM exceedMLP in the movement predic-
+tion of Stock Index (Large). It imples that improper
+use of non-verbal information in video and audio
+may lead to worse performance.
+6. Analyses
+6.1. Ablation Study
+We introduced the following variants to explore the
+contribution of each component.
+• w/o-Text, w/o-Knowledge, w/o-Video w/o-
+Audio and w/o-Graph. To prove the effec-
+tiveness of the input text, inferred knowledge,
+video, audio and constructed knowledge-
+enhanced cross-modal graph, we eliminated
+the text, external financial knowledge, video,
+audioandgraphinthesevariants, respectively.
+• w/-FullGraph. To further investigate the se-
+mantic relations of our knowledge-enhanced
+cross-modalgraph,weerasedallthesemantic
+relations and transformed the semantic graph
+to a full connection graph.
+The ablation study results are shown in Table 3
+and Table 4. From this table, we have the following
+observations. 1) w/o-Text performs terribly com-
+pared with MANAGER. This is reasonable since
+the caption is the main source for delivering infor-
+mation to predict the price movement or volatility.
+2) MANAGER exceeds w/o-Knowledge. It proves
+that external knowledge in the financial domain can
+assistincomprehendingthecontext. 3)MANAGER
+consistently outperforms w/o-Video and w/o-audio
+acrossdifferentevaluationmetrics. Itdemonstrates
+the non-verbal information residing in the video
+and audio can improve context comprehension and
+hence boost financial prediction. 4)w/o-Text per-
+forms worse than both w/o-Video and w/o-Audio.
+It implies that the given text contributes more to
+the financial prediction than video and audio. 5)
+MANAGER outperforms w/o-Graph, denoting that
+the graphs are essential to capture the semantic
+relations among text, knowledge, video and audio,
+which help comprehend the cross-modal context.
+And 6) w/-FullGraph performs worse than MAN-
+AGER, which verifies the utility of proposed seman-
+tic relations.
+Ground Truth: U.S. Dollar Price Movement         V olatility 95.264
+MPCNet:          U.S. Dollar Price Movement         V olatility 109.910
+MANAGER:    U.S. Dollar Price Movement         V olatility 93.600  
+AudioTextVideo
+For economic growth, participants reduced their projections for this year, in line with 
+the disappointing data for the first quarter.
+The central tendency of the growth projections for 2015 is now 1.8 to 2.0 percent, 
+down a little more than ½ percentage point from the March projections.
+The central tendency rises to 2.4 to 2.7 percent next year, somewhat above estimates 
+of the longer-run growth rate.
+17 June 2015
+ Federal Reserve Bank
+of USA
+17 June 2015
+ 24 June 2015
+Knowledge Economic Growth: impact U.S. Dollar impact Stock 
+Market
+Figure 3: Comparison between the results pre-
+dicted by MANAAGER and the best baseline MPC-
+Net on one testing sample.
+6.2. Case Study
+To get an intuitive understanding of how our model
+works on financial prediction from MPC calls, we
+showed one testing sample in Figure 3 due to the
+limited space. For comparison, we also displayed
+the prediction results of the best baseline MPCNet.
+As you can see, our MANAGER predicted the
+pricemovementofU.S.Dollarcorrectly,whileMPC-
+Net failed. In addition, the volatility 93.600 fore-
+casted by MANAGER is closer to the ground truth
+95.264 than 109.910 predicted by MPCNet. This
+may be attributed to the fact that the external knowl-
+edge (e.g., relation: “impact”, entity: “U.S. Dollar”
+and “Stock Market”) inferred by the entity “Eco-
+nomic Growth” may guide our model to pay atten-
+tion to “Economic Growth” existed in the text, since
+it may provide some useful information for the price
+movement or volatility of U.S. Dollar. Overall, this
+case shows the benefit of incorporating external
+knowledge into the context of financial prediction
+from MPC calls.
+
+
+[Page 9]
+7. Conclusion and Future Work
+In this work, we propose a novel modal-adaptive
+knowledge-enhanced graph-based financial pre-
+diction scheme. Experimental results on a public
+dataset demonstrate the superiority of our model
+over existing cutting-edge methods, and validate
+the advantage of utilizing external knowledge in the
+financialdomain, aswellasthebenefitofconstruct-
+ing the knowledge-enhanced cross-modal graph to
+characterize the intra-modal and inter-modal rela-
+tions among the multiple input (i.e., text, external
+knowledge, videoandaudio). Inthefuture, weplan
+to explore the Multimodal Large Language Models,
+such as VisualGLM, in financial prediction.
+8. Acknowledgement
+We thank all the anonymous reviewers for their
+valuable suggestions. This work is supported by a
+Research Grant from Mizuho Securities Co., Ltd.
+We sincerely thank Mizuho Securities for valuable
+domain expert suggestions. Ruihan Bao and Xu
+Sun are the corresponding authors.
+9. Bibliographical References
+Ellyn R. Boukus and Joshua V. Rosenberg. 2006.
+The information content of fomc minutes.Mone-
+tary Economics.
+Tom B. Brown, Benjamin Mann, Nick Ryder,
+Melanie Subbiah, Jared Kaplan, Prafulla Dhari-
+wal, Arvind Neelakantan, Pranav Shyam, Girish
+Sastry, Amanda Askell, Sandhini Agarwal, Ariel
+Herbert-Voss, Gretchen Krueger, T. J. Henighan,
+Rewon Child, Aditya Ramesh, Daniel M. Ziegler,
+Jeff Wu, Clemens Winter, Christopher Hesse,
+Mark Chen, Eric Sigler, Mateusz Litwin, Scott
+Gray, Benjamin Chess, Jack Clark, Christopher
+Berner, Sam McCandlish, Alec Radford, Ilya
+Sutskever, and Dario Amodei. 2020. Language
+models are few-shot learners.ArXiv.
+Yongbin Cai, Santiago Camara, and Nicholas
+Capel. 2021. It’s not always about the money,
+sometimes it’s about sending a message: Evi-
+denceofinformationalcontentinmonetarypolicy
+announcements.
+Longbing Cao. 2021. Ai in finance: Challenges,
+techniques, and opportunities.ACM Computing
+Surveys (CSUR).
+Sotirios P. Chatzis, Vasilis Siakoulis, Anasta-
+sios Petropoulos, Evangelos Stavroulakis, and
+Nikos E. Vlachogiannakis. 2018. Forecasting
+stock market crisis events using deep and statis-
+tical machine learning techniques.Expert Syst.
+Appl.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and
+Kristina Toutanova. 2019. BERT: pre-training
+of deep bidirectional transformers for language
+understanding.In ProceedingsoftheConference
+oftheNorthAmericanChapteroftheAssociation
+for Computational Linguistics: Human Language
+Technologies, pages 4171–4186. ACL.
+Ning Du and David V. Budescu. 2007. Does past
+volatility affect investors’ price forecasts and con-
+fidence judgements? International Journal of
+Forecasting.
+Zhengxiao Du, Yujie Qian, Xiao Liu, Ming Ding,
+Jiezhong Qiu, Zhilin Yang, and Jie Tang. 2022.
+Glm: General language model pretraining with
+autoregressive blank infilling. InProceedings of
+the 60th Annual Meeting of the Association for
+Computational Linguistics, pages 320–335.
+Wei Han, Hui Chen, and Soujanya Poria. 2021. Im-
+proving multimodal fusion with hierarchical mu-
+tual information maximization formultimodal sen-
+timent analysis.ArXiv.
+Wei-Ning Hsu, Benjamin Bolte, Yao-Hung Hubert
+Tsai, Kushal Lakhotia, Ruslan Salakhutdinov,
+and Abdel rahman Mohamed. 2021. Hubert:
+Self-supervised speech representation learning
+by masked prediction of hidden units.IEEE/ACM
+Transactions on Audio, Speech, and Language
+Processing.
+J. Edward Hu, Yelong Shen, Phillip Wallis, Zeyuan
+Allen-Zhu, Yuanzhi Li, Shean Wang, and Weizhu
+Chen. 2021. Lora: Low-rank adaptation of large
+language models.ArXiv.
+Weiwei Jiang. 2020. Applications of deep learn-
+ing in stock market prediction: recent progress.
+Expert Syst. Appl.
+Liqiang Jing, Xuemeng Song, Kun Ouyang,
+Mengzhao Jia, and Liqiang Nie. 2023. Multi-
+source semantic graph-based multimodal sar-
+casm explanation generation. InAnnual Meeting
+of the Association for Computational Linguistics.
+ACL.
+Thomas N. Kipf and Max Welling. 2017. Semi-
+supervised classification with graph convolu-
+tional networks. InInternational Conference on
+Learning Representations. OpenReview.net.
+Katharina Lewellen. 2003. Financing decisions
+when managers are risk averse. MIT Sloan
+School of Management Working Paper Series.
+
+
+[Page 10]
+Xiaohui Victor Li. 2023. Findkg: Dynamic knowl-
+edgegraphwithlargelanguagemodelsforglobal
+finance. pages 1–64. SSRN.
+VivianLiuandLydiaB.Chilton.2021. Designguide-
+lines for prompt engineering text-to-image gener-
+ative models.Proceedings of the 2022 CHI Con-
+ference on Human Factors in Computing Sys-
+tems.
+Zhuang Liu, Degen Huang, Kaiyu Huang, Zhuang
+Li, and Jun Zhao. 2020. Finbert: A pre-trained
+financiallanguagerepresentationmodelforfinan-
+cial text mining. InProceedings of the Twenty-
+Ninth International Joint Conference on Artificial
+Intelligence, IJCAI-20, pages 4513–4519. Inter-
+national Joint Conferences on Artificial Intelli-
+gence Organization.
+Ilya Loshchilov and Frank Hutter. 2017. Fixing
+weight decay regularization in adam. CoRR,
+abs/1711.05101.
+Puneet Mathur, Atula Tejaswi Neerkaje, Malika
+Chhibber, Ramit Sawhney, Fuming Guo, Franck
+Dernoncourt, Sanghamitra Dutta, and Dinesh
+Manocha. 2022. Monopoly: Financial prediction
+from monetary policy conference videos using
+multimodal cues.Proceedings of the 30th ACM
+International Conference on Multimedia.
+Kun Ouyang, Liqiang Jing, Xuemeng Song,
+Meng Liu, Yupeng Hu, and Liqiang Nie. 2024.
+Sentiment-enhanced graph-based sarcasm ex-
+planation in dialogue.CoRR, abs/2402.03658.
+Long Ouyang, Jeff Wu, Xu Jiang, Diogo Almeida,
+Carroll L. Wainwright, Pamela Mishkin, Chong
+Zhang, Sandhini Agarwal, Katarina Slama, Alex
+Ray, John Schulman, Jacob Hilton, Fraser Kel-
+ton, Luke E. Miller, Maddie Simens, Amanda
+Askell, Peter Welinder, Paul Francis Christiano,
+Jan Leike, and Ryan J. Lowe. 2022. Training lan-
+guage models to follow instructions with human
+feedback. ArXiv.
+Soujanya Poria, E. Cambria, Devamanyu Haz-
+arika, Navonil Majumder, Amir Zadeh, and Louis-
+PhilippeMorency.2017. Context-dependentsen-
+timent analysis in user-generated videos. InAn-
+nual Meeting of the Association for Computa-
+tional Linguistics.
+Yu Qin and Yi Yang. 2019. What you say and
+how you say it matters: Predicting stock volatility
+using verbal and vocal cues. InAnnual Meeting
+of the Association for Computational Linguistics.
+RamitSawhney, MihirGoyal, PrakharGoel, Puneet
+Mathur, and Rajiv Ratn Shah. 2021. Multimodal
+multi-speakermerger&acquisitionfinancialmod-
+eling: A new task, dataset, and neural baselines.
+In Annual Meeting of the Association for Compu-
+tational Linguistics.
+Ramit Sawhney, Puneet Mathur, Ayush Mangal,
+Piyush Khanna, Rajiv Ratn Shah, and Roger
+Zimmermann. 2020. Multimodal multi-task finan-
+cial risk forecasting. Proceedings of the 28th
+ACM International Conference on Multimedia.
+Adam Hale Shapiro and Daniel J. Wilson. 2019.
+Taking the fed at its word: A new approach to
+estimatingcentralbankobjectivesusingtextanal-
+ysis. Federal Reserve Bank of San Francisco,
+Working Paper Series.
+Ilya O. Tolstikhin, Neil Houlsby, Alexander
+Kolesnikov, Lucas Beyer, Xiaohua Zhai, Thomas
+Unterthiner, Jessica Yung, Daniel Keysers,
+Jakob Uszkoreit, Mario Lucic, and Alexey Doso-
+vitskiy. 2021. Mlp-mixer: An all-mlp architecture
+for vision. InNeural Information Processing Sys-
+tems.
+Yao-Hung Hubert Tsai, Shaojie Bai, Paul Pu Liang,
+J. Zico Kolter, Louis-Philippe Morency, and Rus-
+lan Salakhutdinov. 2019. Multimodal transformer
+for unaligned multimodal language sequences.
+Proceedings of the conference. Association for
+Computational Linguistics. Meeting.
+Neng Wang, Hongyang Yang, and Chris Wang.
+2023a. Fingpt: Instruction tuning benchmark for
+open-source large language models in financial
+datasets. ArXiv.
+Neng Wang, Hongyang Yang, and Christina Dan
+Wang. 2023b. Fingpt: Instruction tuning bench-
+mark for open-source large language models in
+financialdatasets. NeurIPSWorkshoponInstruc-
+tion Tuning and Instruction Following.
+Wenhui Wang, Hangbo Bao, Li Dong, Johan
+Bjorck, Zhiliang Peng, Qiang Liu, Kriti Aggar-
+wal, Owais Khan Mohammed, Saksham Sing-
+hal, Subhojit Som, and Furu Wei. 2022. Im-
+age as a foreign language: Beit pretraining for
+all vision and vision-language tasks. CoRR,
+abs/2208.10442.
+Jules White, Quchen Fu, Sam Hays, Michael Sand-
+born, Carlos Olea, Henry Gilbert, Ashraf El-
+nashar, Jesse Spencer-Smith, and Douglas C.
+Schmidt. 2023. A prompt pattern catalog to en-
+hance prompt engineering with chatgpt.ArXiv.
+Qingyun Wu, Gagan Bansal, Jieyu Zhang, Yiran
+Wu, Shaokun Zhang, Erkang Zhu, Beibin Li,
+Li Jiang, Xiaoyun Zhang, and Chi Wang. 2023a.
+Autogen: Enabling next-gen llm applications via
+multi-agent conversation framework.ArXiv.
+
+
+[Page 11]
+Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravol-
+ski, Mark Dredze, Sebastian Gehrmann, Prab-
+hanjan Kambadur, David Rosenberg, and
+Gideon Mann. 2023b. Bloomberggpt: A large
+language model for finance.ArXiv.
+Linyi Yang, Tin Lok James Ng, Barry Smyth,
+and Ruihai Dong. 2020. Html: Hierarchical
+transformer-based multi-task learning for volatil-
+ity prediction.Proceedings of The Web Confer-
+ence 2020.
+J. Yoon, Beom Jun Woo, and Nam Soo Kim.
+2022. Hubert-ee: Early exiting hubert for effi-
+cient speech recognition.ArXiv.
+Shui-Ling Yu and Zhe Li. 2018. Forecasting stock
+price index volatility with lstm deep neural net-
+work.
+Yixuan Zhang and Haonan Li. 2023. Can large
+langauge model comprehend ancient chinese?
+a preliminary test on aclue. InInternational Con-
+ference on Algebraic and Logic Programming.

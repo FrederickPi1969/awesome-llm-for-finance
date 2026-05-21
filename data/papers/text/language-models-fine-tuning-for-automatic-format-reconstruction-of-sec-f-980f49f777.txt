@@ -1,0 +1,1406 @@
+[Page 1]
+Date of publication xxxx 00, 0000, date of current version xxxx 00, 0000.
+Digital Object Identifier 10.1109/ACCESS.2023.0322000
+Language Models Fine-Tuning for
+Automatic Format Reconstruction of
+SEC Financial Filings
+GIANFRANCO LOMBARDO1, GIUSEPPE TRIMIGNO 1, MATTIA PELLEGRINO1, and
+STEFANO CAGNONI, (Senior Member, IEEE), 1,
+1Department of Engineering and Architecture - University of Parma, Parma, Italy
+Corresponding author: G.Lombardo (e-mail: gianfranco.lombardo@unipr.it).
+ABSTRACT The analysis of financial reports is a crucial task for investors and regulators, especially
+the mandatory annual reports (10-K) required by the SEC (Securities and Exchange Commission) that
+provide crucial information about a public company in the American stock market. Although SEC suggests
+a specific document format to standardize and simplify the analysis, in recent years, several companies
+have introduced their own format and organization of the contents, making human-based and automatic
+knowledge extraction inherently more difficult. In this research work, we investigate different Neural
+language models based on Transformer networks (Bidirectional recurrence-based, Autoregressive-based,
+and Autoencoders-based approaches) to automatically reconstruct an SEC-like format of the documents as a
+multi-class classification task with 18 classes at the sentence level. In particular, we propose a Bidirectional
+fine-tuning procedure to specialize pre-trained language models on this task. We propose and make the
+resulting novel transformer model, named SEC-former, publicly available to deal with this task. We evaluate
+SEC-former in three different scenarios: a) in terms of topic detection performances; b) in terms of document
+similarity (TF-IDF Bag-of-words and Doc2Vec) achieved with respect to original and trustable financial
+reports since this operation is leveraged for portfolio optimization tasks; c) testing the model in a real
+use-case scenario related to a public company that does not respect the SEC format but provides a human-
+supervised reference to reconstruct it.
+INDEX TERMS SEC filings, Deep learning,Transformer, Document reconstruction,Topic detection, Stock
+market
+I. INTRODUCTION
+R
+EVIEWING SEC (Securities and Exchange Commis-
+sion) filings is important for investors as it provides
+crucial information about a public company, such as its
+financial performance, business operations, and risk factors.
+In this way, investors can make informed decisions about
+whether to buy, hold, or sell a company’s securities and
+obtain important disclosures about a company’s financial
+condition and business operations. One of the most impor-
+tant documents is the annual report (10-K filing), which
+provides a better understanding of a company’s financial
+strength, competitive position, and growth prospects ( [1]).
+In light of this, several research works have demonstrated
+the importance of automatically analyzing 10-Ks to perform
+knowledge extraction, measuring the year-over-year changes
+between two consecutive annual filings, or detecting the sen-
+timent reported in the most important sections. Published in
+1998 by the Securities and Exchange Commission, the Plain
+English Handbook was the first publication providing guide-
+lines to help public companies create clear SEC disclosure
+documents. This publication and the Sarbanes–Oxley Act of
+2002, which was constructed to supervise financial reporting,
+have made corporate filings an increasingly reliable source of
+information.
+SEC suggests a document format with a specific division
+of topics into 20 different items of the document to improve
+readability and analysis. Nevertheless, several companies in
+the last years have introduced their own format and organi-
+zation of the contents. This condition makes human-based
+and automatic analysis inherently more difficult because the
+documents become longer and more complex every year.
+Moreover, large-scale content retrieval from SEC filings can
+be tough since reports are published in different formats,
+which are often unstructured or semi-semistructured. The
+VOLUME 4, 2016 1
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 2]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+main contributions of this research work are the following:
+• We investigate different language models based on
+transformers neural networks to automatically analyze
+each paragraph in an SEC annual report and reconstruct
+an SEC-like format of the document as a multi-class
+classification task with 18 classes.
+• We propose a bidirectional fine-tuning procedure of
+the pre-trained transformer models for this specific
+task based on different combinations of Bi-Directional
+Long-Short Term Memory Networks (Bi-LSTMs)
+• We made publicly available the best model achieved,
+named SEC-former.
+• We also evaluate the results of SEC-former in two
+different use cases: a) Document similarity detection for
+portfolio optimization; b) A qualitative reconstruction
+of a real document that is not aligned with the SEC
+standard format.
+The paper is structured as follows: Section 2 presents a liter-
+ature review of Natural Language Processing techniques that
+exploit information from SEC filings for different financial
+applications; Section 3 describes the Data Collection process
+and the composition of the dataset; Section 4 introduces the
+operations performed on data collected from SEC’s EDGAR
+platform to build different datasets; Section 5 presents the
+methodology adopted for the Document Format Reconstruc-
+tion task; Section 6 presents three different kinds of results
+for the Document Format Reconstruction task; the paper ends
+with a concluding evaluation of the research work.
+II. RELATED WORKS
+Natural Language Processing (NLP) techniques have been
+widely applied in the financial domain in the last four
+decades. Financial news, in particular, has been extensively
+exploited to make market predictions. Social media and
+corporate disclosures are also being increasingly utilized in
+various applications. [2], for example, produced a multi-layer
+algorithm composed of different machine learning models
+that exploit the semantics and sentiment of news headlines
+for a FOREX market prediction task. [3] proposed a novel
+fine-grained approach that captures the explicit and implicit
+topic-dependent sentiment in company-specific news text.
+Market volatility related to financial news has also been
+studied extensively by [4] with neural networks (NNs).
+More recently, annual SEC reports have attracted more in-
+terest from both investors and researchers, especially thanks
+to the research work “Lazy prices” by [5], which argued
+that a simple comparison of consecutive 10-Ks hides a lot
+of valuable information. Indeed, L. Cohen et al. showed
+that the firms’ management is often “lazy” and uses the last
+year’s filings verbatim in constructing the current year’s 10-
+K while making only the necessary changes to be within
+the boundaries of fiduciary responsibility. Observing these
+changes yields an important and robust indication for fu-
+ture firm performance. They demonstrate this assumption
+by computing quintiles from the distribution of the simi-
+larity scores from all companies’ filings, based on which
+they construct equally-weighted and capitalization-weighted
+portfolios to prove that this phenomenon affects the entire
+Stock market. Specifically, they show that buying stocks of
+the “non-changers” and short-selling the “changers” yields
+statistically significant abnormal returns. In light of this,
+breaks from previous standardized reporting can significantly
+affect firms’ future stock returns. However, the Lazy prices’
+methodology is based on Bag-Of-Words and TF-IDF en-
+coding of the documents, which ignore semantically similar
+words and suffer from sparse-encoding representations of the
+documents. According to [6], it is normal for managers to
+be incentivized to minimize (maximize) the effects on their
+companies’ stock prices deriving from negative (positive)
+news about their firms. [7] showed that the managers provide
+boilerplate information and avoid giving accurate hints about
+the company’s status by extending the document length.
+However, the SEC prohibits any misleading statement or
+omission under Rule 10b-5 and requires that a company’s
+CEO and CFO certify the accuracy of the 10-K. This means
+that, even though valuable information about the company
+and the industry does exist in the 10-Ks, the management has
+incentives to hide it.
+To deal with these issues, [8] proposes the analysis of
+semantic similarity changes among consecutive annual SEC
+reports by exploiting neural networks’ dense representations;
+in particular, Doc2Vec ( [9]), for decision-making in portfolio
+optimization. A similar method has also been applied by
+[10] to detect bank distress by mining financial news. As
+well, extracting information from annual reports has recently
+gained more and more attention in the credit risk sector
+since valuable information to estimate the probability of a
+firm’s default can be extracted from 10-Ks. [11] proposed
+a deep learning model that combines document embedding
+and Convolutional Neural Networks to predict the probability
+of bankruptcy by merging accounting variables and text
+extracted from Item 7 (Management Discussion) of 10-k
+annual reports. More recently, state-of-the-art Transformer
+networks have also been used to extract information from
+SEC filings. [12] leverage pre-trained transformers to ex-
+tract sentiment and topic from 10-Ks to predict companies’
+performance over the next year, also providing explainable
+results for the downstream performance prediction task. De-
+spite the increasing interest of the AI and financial research
+communities, all the methods previously presented have a
+common limitation in real-case scenarios related to data
+quality. Indeed, in the last years, it has become particularly
+difficult to automatically analyze SEC filings because of the
+heterogeneous structure of the reports adopted by several
+companies. In many cases, they differ only slightly from
+the regular SEC filings but can also be definitely different.
+Moreover, although SEC filings are publicly available from
+the SEC EDGAR platform, they are often released with
+different formats that complicate the extraction of the text
+content and the correct segmentation of the document into
+the appropriate thematic items.
+2 VOLUME 4, 2016
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 3]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+III. NEURAL LANGUAGE MODELS
+In this section, we revise the main features of the State-
+of-the-Art Neural Language Models we exploited for our
+analysis and to design the proposed model for the Docu-
+ment Format Reconstruction task. All the models are pre-
+trained Transformers networks [13] that rely on different
+self-attention mechanisms to generate a contextualized em-
+bedding of the input text. Transformer-based models usually
+exploit an encoder component that learns a representation
+of words along with some special tokens and a subsequent
+neural network that is specialized on a specific NLP task or a
+decoder in the case of Text Generation tasks.
+A. BERT
+BERT (Bidirectional Encoder Representations from Trans-
+formers, [14]) is a pre-trained transformer-based model that
+obtained state-of-the-art results in a wide variety of NLP
+tasks, such as question answering (SQuAD dataset, [15]) and
+natural language understanding (GLUE benchmark, [16]).
+While Recurrent Neural Networks process texts as a se-
+quence of single words by exploiting a recurrent mechanism,
+BERT exploits a self-attention mechanism based on several
+attention-heads, which process the entire text independently
+with a Query-Value system that identifies the relationships
+among words in the text. In light of this, each word’s con-
+text is totally observable for the model that, consequently,
+can generate contextual embeddings. Moreover, BERT in-
+troduces special tokens to characterize the structure of each
+sentence, such as [CLS] x [SEP]. A BERT model is
+characterized by: a) The number of Transformer blocks as L,
+every block is a module including an encoder network with
+a self-attention mechanism; b) the hidden size, denoted as
+H, representing the embedding dimension of each sentence;
+c) The number of self-attention heads A; d) The model size,
+expressed as the total number P of parameters/weights.
+BERT is pre-trained on the Wikipedia and BookCorpus
+datasets ( [17]) for two unsupervised tasks:
+• Masked LM In this task, 15% of all input tokens
+are selected at random for replacement with a special
+[MASK] token. 80% are actually replaced, 10% are left
+unchanged, and a randomly selected token replaces the
+remaining 10%. The model has to predict the original
+value of the masked words.
+• Next Sentence Prediction (NSP) Many downstream
+tasks, such as Question Answering, are based on un-
+derstanding the relationship between two sentences. In
+this task, the model receives pairs of sentences as input
+(with a [SEP] token after the first one and a [CLS]
+token after the second one), and it has to predict whether
+the second sentence is the subsequent sentence in the
+original document.
+In the section describing the experimental results, we
+report results obtained by two models: BERTBASE (L=12,
+H=768, A=12, P=110M) and BERTLARGE (L=24, H=1024,
+A=16, P=340M), both uncased version.
+B. ROBERTA
+RoBERTa (Robustly Optimized BERT Approach) is a mod-
+ified version of BERT proposed by [18], which includes
+(1) longer training, with more data and larger batches; (2)
+removing the NSP pre-training task; (3) The ability to process
+longer sequences; (4) dynamic masking over training data.
+In addition to the BookCorpus and Wikipedia datasets,
+three other corpora are used to pre-train the model: CC-News
+[19], OpenWebText [20] and Stories.
+The most important change is dynamic instead of static
+masking. Dynamic masking generates a new masking pattern
+every time a sequence is fed into the model, while BERT per-
+forms masking only once during data pre-processing (static
+masking).
+Moreover, the training data were duplicated 10 times so
+that each sequence was masked in 10 different ways over the
+training phase.
+In our experimental part, we report results on this model
+having the following configuration: RoBERTaBASE (L=12,
+H=768, A=12, P=110M), which is cased.
+C. XLNET
+XLNet is a generalized auto-regressive pre-training method
+proposed by ( [21]) and based on the Transformer-XL ( [22]).
+It is designed to overcome the limitations of BERT by using a
+permutation-based training method, which allows it to better
+capture the dependencies between all words in a sentence,
+as opposed to the masked language modeling objective used
+in BERT, which only considers dependencies within a local
+context. This is achieved by training the model to predict a
+randomly permuted version of the input sequence rather than
+just predicting missing tokens in the original sequence.
+Another key difference between XLNet and BERT is that
+XLNet uses a segment-level recurrent mechanism, which
+allows it to better model the dependencies between different
+segments in the input sequence. This is especially useful
+in tasks such as text classification, where it is important to
+understand the relationships between different sentences or
+paragraphs.
+In terms of architecture, XLNet is similar to the Trans-
+former architecture used in BERT, with a few modifications.
+It uses self-attention mechanisms to calculate the representa-
+tions of each word in the input sequence and feed-forward
+networks to refine these representations. Overall, XLNet
+has achieved state-of-the-art results on a number of NLP
+tasks, including text classification, sentiment analysis, and
+question answering, due to its improved ability to capture
+dependencies between all tokens in a sentence.
+The idea behind XLNet is to leverage the best of both auto-
+regressive (AR) language modeling and auto-encoding (AE)
+while avoiding their limitations. It achieves bidirectional
+contextual embedding of the input sequence by maximizing
+the expected likelihood over all input sequence factorization
+order permutations, as explained in the following.
+AR language modeling seeks to estimate the probability
+distribution of a text corpus with an auto-regressive mech-
+VOLUME 4, 2016 3
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 4]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+anism that, given an input sequence x = [ x1, ..., xN],
+maximizes the likelihood of a forward product (Eq. 1) or a
+backward product (Eq. 2), where pθ is achieved by training a
+parametric model (e.g., a neural network).
+pθ(x) = QT
+t=1 pθ(xt|x<t) (1)
+pθ(x) = QT
+t=1 pθ(xt|x<t) (2)
+Considering the forward product, to optimize the log
+probability of the text corpus distribution, the AR language
+modeling optimization task can be described as in Eq. 3 :
+maxθlogpθ(x) =PT
+t=1logpθ(xt|x<t) =PT
+t=1log exp(hθ(x1:t−1))⊺e(xt))P
+x′ exp(hθ(x1:t−1))⊺e(x′))
+(3)
+where hθ(x1:t−1) is the context representation produced by
+the neural models (considering only tokens to the left), and
+e(xt) is the embedding of each word xt.
+On the other hand, BERT-like models are based on a de-
+noising auto-encoder architecture that constructs a corrupted
+version ˆx by masking words with the [MASK] token. The
+AE language modeling training objective is to reconstruct
+masked tokens ¯x from ˆx, so:
+maxθlogpθ(¯x|ˆx) ≈PT
+t=1mtlogpθ(xt|ˆx) =PT
+t=1log exp(Hθ(ˆx))⊺
+te(xt))P
+x′ exp(Hθ(ˆx))⊺
+te(x′))
+(4)
+where mt is 1 if xt is masked, and Hθ(ˆx) is a Transformer
+network that maps a fixed lenght-T input sequence ˆx into a
+sequence of T hidden vectors [Hθ(ˆx)1,...,Hθ(ˆx)T ] .
+AR language modeling is limited to uni-directional con-
+texts (forward o backward), while AE language modeling
+shows two limitations: (1) it factorizes the joint conditional
+probability pθ(¯x|ˆx) based on an independence assumption
+according to which all masked tokens are separately recon-
+structed (which justifies the ≈ sign in Eq. 2); (2) special to-
+kens, as [MASK], never occur in downstream tasks, creating
+a pre-train finetune discrepancy.
+To merge the two approaches and overcome the limita-
+tions, XLNet exploits thePermutation Language Modeling
+(PLM) objective ( [23]) that enjoys the benefits of AR models
+while capturing a bidirectional context. For a sequence, x
+of length T , AR factorization can be performed in T ! dif-
+ferent orders. So, if model parameters are shared across all
+factorization orders, the model will learn information from
+all positions in both directions.
+Let us call ZT the set of all possible permutations of
+length-T index sequence, zt the tth element and z<t the
+first t − 1 elements of z ∈ Z T . The PLM objective can be
+expressed as:
+max
+θ
+Ez∼ZT
+" TX
+t=1
+log pθ(xzt |xz<t)
+#
+(5)
+This objective formulation only permutes the factorization
+order, not the sequence order. However, this objective formu-
+lation causes slow convergence. For this reason, XLNet limits
+the prediction task only to the last tokens in the factorization
+order (partial prediction). We address the reader to [23], and
+[21] for more details.
+As for pre-training data, XLNet uses BookCorpus,
+Wikipedia, along with the following datasets: Giga5,
+ClueWeb, and CommonCrawl.
+In Section VI, we report results obtained using the
+following model: XLN etLARGE (L=24, H=1024, A=16,
+P=340M).
+IV . DATA
+This section introduces the data we collected from the
+EDGAR SEC platform and the operations performed to build
+different datasets. In particular, we collected 10-K annual
+reports released between 2011 and 2022 of 6k public compa-
+nies traded in the American stock market (New York Stock
+Exchange and Nasdaq). According to SEC recommenda-
+tions, a 10-K document should be arranged in four parts
+and 20 thematic items (see Table 1). Each item contains an
+arbitrary number of paragraphs along with tables and graphs.
+All the images and tables are deleted by filtering the HTML
+content of the document.
+Part 1
+Item 1 Business
+Item 1A Risk Factors
+Item 1B Unresolved Staff Comments
+Item 2 Properties
+Item 3 Legal Proceedings
+Item 4 Mine Safety Disclosures
+Part 2
+Item 5 Market
+Item 6 Consolidated Financial Data
+Item 7 Management’s Discussion and Analysis of
+Financial Condition and Results of Operations
+Item 7A Quantitative and Qualitative Disclosures about Market Risks
+Item 8 Financial Statements
+Item 9 Changes in and Disagreements With Accountants
+on Accounting and Financial Disclosure
+Item 9A Controls and Procedures
+Item 9B Other Information
+Part 3
+Item 10 Directors, Executive Officers and Corporate Governance
+Item 11 Executive Compensation
+Item 12 Security Ownership of Certain Beneficial Owners and
+Management and Related Stockholder Matters
+Item 13 Certain Relationships and Related Transactions,
+and Director Independence
+Item 14 Principal Accounting Fees and Services
+Part 4
+Item 15 Exhibits, Financial Statement Schedules Signatures
+TABLE 1: Structure suggested by SEC for the Annual report
+(10-K).
+A. DATASET FOR 10-K FORMAT RECONSTRUCTION
+We implemented the 10-K format reconstruction task as
+a multi-class classification task over the paragraphs of a
+document. The goal is to classify each paragraph as part
+of one of the possible 18 items (Item 1b and Item 14 have
+not been considered because they are often not filled in by
+the companies in their reports). An example of the task is
+presented in Figure (1). We collected all the reports from
+American companies published between 2011 and 2022. We
+built the dataset considering only those documents where
+4 VOLUME 4, 2016
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 5]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+it was possible to identify each thematic item separately.
+This identification is necessary to label each text content to
+the respective thematic item according to the SEC structure
+(Table 1). Data labeling is performed by leveraging Regex
+rules on specific keywords or by analyzing the Table of
+Contents (when available). This filtering is performed over
+the text content after the HTML tags have been removed.
+Indeed, identifying each item in a 10-K document is not
+trivial due to the totally unstructured format of the original
+documents. Three different parsers have been developed to
+recover the document’s division into items depending on the
+document structure. We have exploited the following three
+information sources for parsing the text:
+1) The presence of a table of contents with hyperlinks in
+the document.
+2) The search of specific keywords for each item along
+with a table of contents available without hyperlinks.
+3) Shallow identification, by only considering the pres-
+ence of consecutive keywords in the document for each
+item and looking for the presumed subsequent item.
+There is no comprehensive solution that can parse each
+document because of the custom document structure adopted
+by each company. For this reason, we considered only those
+documents eligible for inclusion in the dataset for which it
+was possible to retrieve all the items with little "noise" (sur-
+rounding unrelated information before or after each item).
+However, since some items are systematically missing be-
+cause they were added as attachments in other reports, and
+considering the high imbalance of the data set (Figure (2)),
+we removed all paragraphs related to Item 1B and Item 14.
+The final dataset is composed of 43608 documents, each
+corresponding to a complete 10-K with all its items. By
+extracting paragraphs according to the HTML structure of
+the document or considering groups of sentences separated
+by "newline" characters, we collected a highly imbalanced
+dataset composed of ∼9.54M paragraphs (see Figure (2)
+for item distribution). Each paragraph has from 168 to 223
+words, with a mean of about200 words per paragraph. Figure
+(3) shows the distribution of the paragraphs over the years,
+and it is in line with the trend analyzed by [7]: over the years,
+the documents’ length has been increasing, with longer and
+more numerous paragraphs.
+B. DATASET COMPOSITION
+In order to fine-tune, train, validate, and test the Machine
+Learning and Deep Learning models considered in our re-
+search, we divided the dataset according to several policies
+related to the following issues:
+• Mutual exclusion of companies : Although the dataset
+covers a period of eleven years, the data splitting should
+avoid dependencies among the training, validation, and
+test sets caused by a strong overlapping of the com-
+panies analyzed in each year. Considering the result
+presented by [5] about the strong similarities between
+consecutive 10-Ks (copy&paste issue), we must avoid
+Context extraction → Risk FactorsItem 1A: Risk Factors
+We are subject to the risks of product defects, errata, or other product issues. 
+From time to time, we identify product defects, errata (deviations from published 
+specifications), and other product issues which can result from problems in our 
+product design or our manufacturing and assembly and test processes. 
+Components and products we purchase or license from third-party suppliers, or 
+gain through acquisitions, can also contain defects. Product issues also 
+sometimes result from the interaction between our products and third-party 
+products and software. We face risks if products that we design, manufacture, or 
+sell, or that include our technology, cause personal injury or property damage, 
+even where the cause is unrelated to product defects or errata. These risks may 
+increase as our products are introduced into new devices, market segments, 
+technologies, or applications, including transportation, autonomous driving, 
+healthcare, communications, financial services, and other industrial, critical 
+infrastructure. These costs could be large and may increase expenses and lower 
+gross margin, and/or result in delay or loss of revenue.
+FIGURE 1: Paragraph classification based on contextual
+information.
+805833
+2555240
+2656
+58125
+43206
+13804
+119239
+118624
+1825320
+105133
+1655430
+14268
+162933
+71980
+108543
+112580
+36084
+47687
+3095
+296983
+0 500.000 1.000.000 1.500.000 2.000.000 2.500.000
+Item 1
+Item 1A
+Item 1B
+Item 2
+Item 3
+Item 4
+Item 5
+Item 6
+Item 7
+Item 7A
+Item 8
+Item 9
+Item 9A
+Item 9B
+Item 10
+Item 11
+Item 12
+Item 13
+Item 14
+Item 15
+Paragraphs
+FIGURE 2: Items distribution of raw paragraphs.
+including instances (documents) of the same company
+from different years at the same time in the training,
+validation, and test sets. To meet this requirement, data
+splitting is firstly done based on firms instead of time or
+number of paragraphs.
+• Temporal distribution of paragraphs : According to
+the yearly distribution of paragraphs, it is clear that doc-
+uments coming from different companies and different
+years have a different average length, and therefore a
+data splitting considering only the time variable could
+lead to a different distribution of the 10-Ks’ items in the
+training, test, and validation sets.
+According to the above considerations, we used para-
+graphs from documents between 2011 and 2021 for train-
+ing, validation, and testing. Furthermore, we built a second
+separate test set including only paragraphs from documents
+published in 2022 to finally analyze a separate context able to
+simulate a real-case scenario for our tasks. No firm is present
+in more than one dataset. Since all the datasets suffer from a
+heavy imbalancing condition among the items (samples for
+each predictable class), we have also performed a random
+under-sampling to create balanced training, validation, and
+test sets for further evaluations. In light of this, the final
+composition of the dataset is the following:
+• Training set: 13,500 paragraphs per item (for a total of
+VOLUME 4, 2016 5
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 6]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+0
+200.000
+400.000
+600.000
+800.000
+1.000.000
+1.200.000
+1.400.000
+2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022
+Paragraphs
+FIGURE 3: Yearly distribution of raw paragraphs.
+243,000 paragraphs), related to 3,709 companies.
+• Imbalanced Validation set: 77,043 paragraphs (related
+to 531 companies), distributed as in Figure (4).
+• Balanced validation set : after under-sampling, it con-
+tains 1,234 paragraphs per item.
+• Imbalanced test set : 151,880 paragraphs, related to
+1,060 companies, whose distribution is shown in Figure
+(4).
+• Balanced test set : after under-sampling, it contains
+2,771 paragraphs per item.
+• Test set (2022) : 765,315 paragraphs from 2022, dis-
+tributed as in Figure (5).
+0 5.000 10.000 15.000 20.000 25.000 30.000 35.000
+Item 1
+Item 1A
+Item 2
+Item 3
+Item 4
+Item 5
+Item 6
+Item 7
+Item 7A
+Item 8
+Item 9
+Item 9A
+Item 9B
+Item 10
+Item 11
+Item 12
+Item 13
+Item 15
+Imbalanced Test Imbalanced Validation
+FIGURE 4: Paragraph distribution for imbalanced validation
+and test set.
+C. DATA PRE-PROCESSING
+In our experiments, we have investigated and compared
+several classes of models for the Document Format Recon-
+struction task. We investigated different transformer-based
+solutions by proposing different fine-tuning techniques. We
+compared the results with two baseline models, XGBoost
+and a Bidirectional LSTM to prove the benefits introduced
+by our proposed solutions. In light of this, it was necessary
+to build different pre-processing pipelines to perform our
+experiments, depending on the class of models considered.
+107623
+277579
+3450
+1820
+1839
+8583
+672
+133612
+7700
+142091
+2005
+10642
+1193
+20514
+7563
+4653
+9383
+24393
+0 50.000 100.000 150.000 200.000 250.000 300.000
+Item 1
+Item 1A
+Item 2
+Item 3
+Item 4
+Item 5
+Item 6
+Item 7
+Item 7A
+Item 8
+Item 9
+Item 9A
+Item 9B
+Item 10
+Item 11
+Item 12
+Item 13
+Item 15
+Paragraphs
+FIGURE 5: Paragraphs distribution for the year 2022.
+65481
+166282
+26289
+26068
+13804
+26013
+26558
+103847
+25160
+109043
+14268
+27766
+25094
+28431
+25593
+24443
+25404
+31334
+0 20.000 40.000 60.000 80.000 100.000 120.000 140.000 160.000
+Item 1
+Item 1A
+Item 2
+Item 3
+Item 4
+Item 5
+Item 6
+Item 7
+Item 7A
+Item 8
+Item 9
+Item 9A
+Item 9B
+Item 10
+Item 11
+Item 12
+Item 13
+Item 15
+Paragraphs
+FIGURE 6: Item distribution for years 2011-2021.
+Indeed, transformer-based models require few pre-processing
+steps (e.g., data cleaning) since the models are pre-trained
+over large text corpora; thus, the transformers already provide
+an initial word embedding for most words ( [24]). On the
+other hand, baseline ML models like XGBoost and LSTM
+benefit from the typical NLP pre-processing pipelines to
+reduce the number of features, such as Stemming and Stop-
+word Removal. In light of this, to enhance the repeatability of
+our experiments, we present the pre-processing tasks divided
+into two sets:
+• Transformer-oriented tasks: Operations limited to the
+data tokenization tasks required by each pre-trained
+model. In particular, we used the BertTokenizer1, the
+RobertaTokenizer2, and the XLNetTokenizer3 with the
+same sentence padding for each model, considering the
+maximum length equal to 200 and truncating longer
+paragraphs.
+• BiLSTM XGBoost-oriented tasks : documents are en-
+coded according to the TF-Idf (Term Frequency Inverse
+Document Frequency) statistic and using the Snowball
+stemmer.
+1Refer to official Huggingface’s BertTokenizer documentation.
+2Refer to official Huggingface’s RobertaTokenizer documentation.
+3Refer to official Huggingface’s XLNetTokenizer documentation.
+6 VOLUME 4, 2016
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 7]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+1) BiLSTM & XGBoost-oriented pre-processing tasks
+We removed punctuation, stop-words, and any non-English
+word, to let the model focus on the most relevant words.
+Finally, we applied the Snowball stemmer. To encode para-
+graphs for XGBoost, we exploited the Tf-Idf statistic to
+reflect each word’s relevance, considering the paragraph to
+which it belongs and the entire collection of 10-Ks as shown
+in equations (6) and (7).
+tf(t, d) = ft,dP
+t′∈d ft′,d
+, idf(t, D) = log ft,d
+|{d∈D:t∈d}| (6)
+tf · idf(t, d, D) = tf(t, d) · idf(t, D). (7)
+where ft,d is the number of occurrences of word t in
+paragraph d, P
+t′∈d ft′,d is the number of words in paragraph
+d and
+|{d ∈ D : t ∈ d}| is the number of paragraphs which contain
+word d at least once. Moreover, considering the amount of
+memory required to manage the vocabulary accumulated
+through all the documents and in order to speed up the
+models’ training, we selected an occurrence threshold equal
+to 7. This way, we built a vocabulary of size 11,952, i.e., each
+paragraph will be represented as a vector of size 11,952.
+Instead, for the Bi-LSTM, we opted for Keras tokenizer
+considering a 20, 000-word vocabulary, which returns an
+initial word embedding for each token.
+V . METHODOLOGY
+This section presents the methodology we followed to in-
+vestigate the Document Format Reconstruction task. We
+describe the metrics we considered to design the models and
+to evaluate them on the final test sets. We describe the fine-
+tuning mechanisms we propose to specialize the transformer
+architectures for this task. Finally, we also present the two
+baseline models based on XGBoost ( [25]) and Bidirectional
+LSTM (BiLSTM- [26]) to prove the benefits of our solutions.
+A. EVALUATION METRICS
+Since the Document Format Reconstruction task involves
+a multi-class classification task with an imbalanced distri-
+bution over the 18 selected classes, our overall evaluation
+is based on different evaluation metrics. For the balanced
+validation and test sets, we refer to the Accuracy, defined
+as the ratio of correctly predicted samples over the total ones.
+For the imbalanced validation and test sets, we computed
+the Precision, the Recall, and the F1-Score, defined as the
+harmonic mean of Precision and Recall. We also considered
+the Area Under the Curve (AUC), which measures the ability
+of a classifier to distinguish between classes and is used as
+a summary of the Receiver Operating Characteristic (ROC)
+Curve. The ROC curve is created by plotting the true positive
+rate (TPR) against the false positive rate ( FPR) at various
+threshold settings.
+B. BASELINE MODELS
+The first baseline model we considered is the Extreme
+Gradient Boosting (XGBoost) algorithm. It is an ensemble
+learning mechanism that leverages decision trees trained
+sequentially on the residuals (errors) of the previous model.
+This model has been selected because of the performance
+shown in several applications and since it is considered a
+valid alternative to Deep Learning solutions, especially for
+financial-oriented tasks (see [27]–[29]). For a fair compar-
+ison, we optimized the XGBoost model with a grid-search
+procedure leveraging the validation set. In particular, the best
+performance was achieved with the following setting: 500
+estimators, learning-rate= 1e−6, max-depth= 11, min-child-
+weight=5, reg-lambda= 1.0, reg-alpha= 1e−4, gamma= 0.1.
+The XGBoost architecture is shown in Figure 7.
+As the second baseline model, we considered the Bidi-
+rectional Long Short-Term Memory Network (Bi-LSTM)
+since it can process a text input both from left to right and
+from right to left while optimizing the embedding of each
+sentence during training. The Bi-LSTM works as an encoder
+network to learn the context embedding of each sentence and
+requires an additional stack of feed-forward layers (DNN) to
+specialize the embedding for the classification task needed
+for the Document Format Reconstruction task. The final
+structure of this network has been defined after a grid-search
+optimization that involved 50 different combinations of the
+Bi-LSTM and the DNN layers evaluated over the validation
+set. In particular, we considered different design choices,
+such as leveraging only one Bi-LSTM or a stack of two
+Bi-LSTMs. The final architecture includes: a) two stacked
+BiLSTMs with 96 units each and a dropout layer after each
+LSTM unit; b) a feed-forward network with two layers with
+64 and 32 hidden neurons, respectively. As for the hyper-
+parameters, the best results have been achieved with batch
+size=64, learning-rate=6e−3. The network has been trained
+by applying the Early-Stopping technique to avoid overfitting
+and by leveraging the Categorical Cross-Entropy loss func-
+tion. The architecture is shown in Figure 8.
+Table 2 shows the results achieved with the best models
+over both the balanced and the imbalanced validation sets.
+f1(X, ϑ1)
+Dataset X
+∑ fk(X, ϑk)
+.  .  .
+Tree1(X, ϑ1)
+.  .  .
+Tree2(X, ϑ2)
+.  .  .
+Treen(X, ϑn)
+.  .  .
+f2(X, ϑ2) fn-1(X, ϑn-1) fn(X, ϑn)
+Residual Residual Residual
+.  .  .
+.  .  .
+FIGURE 7: Baseline models: XGBoost architecture.
+VOLUME 4, 2016 7
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 8]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+Model Balanced validation set Imbalanced validation set
+Accuracy Precision Recall F1-score AUC
+Random choice 0.056 - - - -
+XGBoost 0.611 0.596 0.565 0.57 0.88
+BiLSTM + DNN 0.702 0.709 0.687 0.689 0.947
+BERT-base + DNN 0.785 0.793 0.779 0.781 0.973
+BERT-base + BiLSTM + DNN 0.784 0.791 0.777 0.778 0.972
+BERT-large + DNN 0.788 0.790 0.779 0.781 0.973
+BERT-large + BiLSTM + DNN 0.787 0.789 0.782 0.782 0.974
+FinBERT + DNN 0.741 0.747 0.730 0.732 0.960
+FinBERT + BiLSTM + DNN 0.739 0.745 0.731 0.733 0.961
+RoBERTa + DNN 0.748 0.745 0.730 0.733 0.961
+RoBERTa + BiLSTM + DNN 0.781 0.778 0.771 0.773 0.972
+XLNet-large + DNN 0.755 0.761 0.746 0.746 0.966
+XLNet-large + BiLSTM + DNN 0.793 0.805 0.791 0.793 0.976
+TABLE 2: Results on the balanced and imbalanced validation sets.
+Softmax
+Label
+DNN
+.  .  .
+.  .  .
+.  .  .
+.  .  .
+BiLSTM
+.  .  .
+Concat
+Backward Layer
+Forward Layer
+Inputs
+Embedding Layer
+.  .  .
+.  .  .
+FIGURE 8: Baseline models: BiLSTM + DNN architecture.
+C. TRANSFORMERS’ FINE-TUNING
+For the Document Format Reconstruction task, we consid-
+ered the transformer networks introduced in Section III.
+Since all these networks are available as models pre-trained
+over different tasks and data sets, we propose a fine-tuning
+procedure for our specific task based on our data set. Ac-
+cording to the number of attention-heads, each model can
+be defined as “base” or “large”. Increasing the number of
+attention heads usually leads to better performance, although
+with a higher computational cost due to a proportional growth
+of the weights in the network. The main benefit of relying on
+pre-trained models is the possibility to exploit the capability
+acquired by each model to represent most of the words in dif-
+ferent domains according to a common context, therefore not
+limited to the typical financial jargon. Aiming to investigate
+this last point in particular, we considered BERT, RoBERTa,
+and XLNet models in both their “base” and “large” models,
+which are pre-trained without any specific exposure to the
+financial jargon. On the other hand, to evaluate the benefits of
+the exposure to the financial terms, we considered FinBERT
+( [30]), which is a BERT-base model that has been fine-
+tuned for sentiment analysis of financial documents on the
+following financial data sets:
+• The Financial PhraseBank , sentences selected ran-
+domly from financial news found on the LexisNexis
+database, then annotated by16 people with backgrounds
+in finance and business. The annotators were asked
+to assign labels according to the extent to which they
+thought the information in the sentence might affect the
+mentioned company’s stock price.
+• A subset of the TRC2 Reuters news dataset that in-
+cludes only financial news.
+For each pre-trained model, we removed the last task-
+specific layers and fine-tuned the model for the Document
+Format Reconstruction task by mainly evaluating two archi-
+tectural strategies:
+1) DNN fine-tuning : fine-tuning using a Deep Feed-
+Forward network that is directly fed with all the token
+embeddings (including the [CLS] token) produced by
+the transformer network (Figure 9).
+2) BiLSTM+DNN fine-tuning: fine-tuning using a BiL-
+STM that processes the Transformer’s output embed-
+ding as a sequence both from left to right and from right
+to left, subsequently followed by a Deep Feed-Forward
+network (Figure 8).
+Finally, each model leverages a Softmax layer to generate
+the final prediction among the 18 possible classes. In this
+way, we could investigate the effects of exposure to financial-
+related data sets during training, but also the contributions
+of different Neural Language models such as Autoencoding
+with different masking approaches (BERT, RoBERTa, and
+FinBERT), the generalized AutoRegressive (XLNet), and,
+finally, the Bidirectional Recurrence as a single method
+(baseline) and in combination with AE and AR language
+models.
+D. FINE-TUNING NETWORKS OPTIMIZATION
+Since the models under consideration present a wide het-
+erogeneity in terms of specific hyper-parameters and we
+aim at a fair comparison among the strategies and language
+models, we decided to optimize separately each model for
+each strategy on the validation set. Due to the higher time
+complexity of “large” models and the size of the training and
+validation sets, there were slight differences in the way we
+optimized “base” and “large” models.
+• For the “base” models, we evaluated 50 different com-
+binations of hyper-parameters when fine-tuned with the
+8 VOLUME 4, 2016
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 9]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+Softmax
+Label
+DNN
+.  .  .
+E[CLS] E1 ENEN-1.  .  .
+TNTN-1
+T2[CLS]
+.  .  .
+.  .  .
+.  .  .
+XLNet/BERT/RoBERTa/FinBERT
+TNTN-1
+FIGURE 9: Transformer networks with DNN architecture.
+Softmax
+Label
+DNN
+.  .  .
+.  .  .
+.  .  .
+.  .  .
+BiLSTM
+.  .  .
+Concat
+Backward Layer
+Forward Layer
+Inputs
+.  .  .
+E[CLS] E1 ENEN-1
+.  .  .
+TNTN-1
+T2[CLS]
+.  .  .
+XLNet/BERT/RoBERTa/FinBERT
+E[CLS] E1
+T2[CLS]
+.  .  .
+FIGURE 10: Transformer networks with BiLSTM and DNN
+architecture.
+DNN architecture
+• For “large” models, we evaluated 12 different combi-
+nations of hyper-parameters when fine-tuned with the
+DNN architecture
+• For the BiLSTM+DNN models, we evaluated 35 differ-
+ent combinations for each model
+Overall, we evaluated 315 models over the same validation
+sets (balanced and imbalanced). The comparison among
+all the models is presented in Table 2. In this preliminary
+analysis, using the validation set, the XLNet-Large (Bi-
+LSTM+DNN) outperforms all the models for every metric
+on both the balanced and imbalanced sets.
+On the other hand, the two fine-tuning strategies we evalu-
+ated achieve very similar performance for AE language mod-
+els, especially when pre-trained with the NSP task (BERT
+and FinBERT), but make a significant difference for AR
+language models where the introduction of bi-directional
+fine-tuning permits to achieve the best performance and
+considerably better performance, according to all the metrics,
+when compared with the same model fine-tuned with the
+DNN strategy. At the end of this grid-search step, we selected
+the XLNet-Large+BiLSTM+DNN as the final model for the
+Document Format Reconstruction task. We named this pre-
+trained transformer model SEC-former and made it publicly
+available 4. The optimal parameters of the model are reported
+in Table 3.
+VI. RESULTS
+This section presents the results achieved with our final
+model (SEC-former) for the Document Format Reconstruc-
+tion task. In particular, we present three groups of results:
+1) Results of the experiments performed to assess the
+capability of the SEC-former of reconstructing 10-K
+filings in different conditions according to the three test
+sets presented in Section IV-B.
+2) We investigate if SEC-former preserves the document
+similarity that plays a fundamental role in Portfolio
+Optimization tasks (See [5], and [1]).
+3) We provide the qualitative results achieved on a prac-
+tical use-case where we reconstruct the SEC-like for-
+mat of the 2022 10-K of an American multinational
+technology company (Intel Corporation) that was not
+included in the dataset because of its custom organiza-
+tion of the document.
+A. RESULTS ON THE TEST SETS
+Using the balanced and imbalanced test sets with documents
+from 2011 until 2021, we evaluated the ability of the model to
+generalize on documents from companies that have not been
+considered when building the training and validation sets (the
+"Mutual exclusion of companies" setting described in Section
+IV-B). We used the randomly balanced test set to measure
+the accuracy over the 18 possible classes and the imbalanced
+test set to measure the performance with the actual statistical
+distribution of items.
+Furthermore, we investigated the results achieved by SEC-
+former while reconstructing the format of 765,315 para-
+graphs from the 2022 financial reports, which had not been
+used in any design step, providing a real-scenario setting
+for the evaluation (2022 Test set presented in Section IV-B)
+without any filtering over the companies, thus allowing the
+"Copy&Paste" effect highlighted by [5]. Figure 11 shows the
+results achieved by SEC-former on the three test sets.
+According to the results presented in Table 4, SEC-
+former exhibits similar performance on the imbalanced test
+set with the mutual exclusion of companies and on the
+2022 test set. This last consideration proves that the model
+achieved item recognition capabilities that are independent
+of the "Copy&Paste" effect, which minimally affects the
+performance, only slightly higher on the 2022 test set for
+all metrics. Table 5 shows the confusion matrix of SEC-
+Former over the balanced test set. Considering that the test
+set contains 2771 samples per item, one can observe that
+most items are most often correctly recognized, especially
+those belonging to Item 1 - Item 3 and to the last ones (Item
+10 - Item 15). The most critical items are Item 4 ( Mine
+Safety Disclosure ) and Item 9 ( Changes in and
+Disagreements With Accountants ), which are the
+4https://github.com/sowide/SEC-former
+VOLUME 4, 2016 9
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 10]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+BiLSTM’s architecture Two stacked LSTMs, each having 1024 units, and a dropout of 0.2 between them
+DNN’s architecture A neural network with two hidden layers of 512 and 256 units, and a dropout of 0.2 after these layers.
+Hidden & Attention dropout 0.1
+CLS token dropout 0.0
+Batch size 32
+Learning rate 5e-5
+TABLE 3: Parameters and architecture of SEC-former.
+least represented in the dataset because their content is often
+very short or absent (See Figure 6). The accuracy on the
+balanced test set over the 18 classes is equal to 0.789.
+B. DOCUMENT SIMILARITY
+Measuring document similarity among consecutive 10-K re-
+ports is crucial for investors due to the relationships identified
+by [5] among changes in the document and abnormal future
+returns. In light of this, the Document Format Reconstruction
+task plays a key role in enabling the analysis and measure of
+similarity at the items level.
+For this reason, it is not sufficient to measure the perfor-
+mance of SEC-former only in terms of the number of single
+paragraphs correctly classified. It is primarily important that
+the resulting overall item obtained by applying SEC-former
+offers the chance of measuring a trustworthy document sim-
+ilarity, despite possible errors introduced by the classifier.
+To achieve such a goal, we considered all paragraphs in the
+2022 Test set, focusing on the longest and over-represented
+in the dataset Item 1A and Item 7 to measure the document
+similarity between the original clean item and the version
+reconstructed by SEC-former. Indeed, being the most fre-
+quently represented ones, these two items largely affect the
+overall Document similarity.
+1) For each filing in 2022, we labeled each paragraph of
+the two items according to the parser introduced in
+Section IV-C
+2) We reconstructed the same items with SEC-former
+3) We computed the document similarity between the real
+and the reconstructed one with the same methodol-
+ogy used to analyze the document similarity in Lazy
+Prices (Tf-Idf encoding) and the Cosine-similarity with
+Doc2Vec embeddings ( [8]).
+4) Finally, we repeated the analysis on the entire original
+document and the reconstructed one.
+The results of this experiment are shown in Figures 12a
+and 12b. As one can see, despite some possibly misclassified
+paragraphs that are therefore missing, the reconstructed items
+and documents are very similar to the original ones. The
+analysis with the Bag-Of-Words model with Tf-Idf proves
+that the overlap in terms of words is almost total, with an
+average similarity equal to 0.97. The analysis with Doc2Vec
+embeddings shows that the original and the reconstructed
+documents are also semantically similar without considering
+the paragraphs’ or words’ order, with an average similarity
+equal to 0.93. In light of this, we can conclude that the
+documents reconstructed by SEC-former can be effectively
+used for downstream tasks based on document similarities,
+such as Portfolio Optimization and others.
+C. PRACTICAL USE-CASE
+Regardless of the quantitative results achieved, it is inter-
+esting to verify how SEC-former works on a practical use
+case in which we ask SEC-former to reconstruct a complex
+document that exhibits a very different structure from the one
+suggested by SEC.
+We selected Intel Corporation, an American multinational
+corporation and technology company headquartered in Cal-
+ifornia. We chose this company because, starting in 2021,
+Intel adopted a new structure for its filings 5, which differs
+from the one SEC recommends, although the company makes
+a cross-reference index available to show readers the possible
+correspondence with the SEC-like structure reported in Table
+6.
+This task yielded some very interesting results. SEC-
+former did not find any paragraph belonging toItem 10, Item
+11, Item 12, Item 13, Item 14, which is correct because, as ex-
+plained in the cross-reference index provided by Intel, these
+items are incorporated by reference in another document
+(2022 Proxy Statement). As well, no paragraphs belonging to
+Item 15 were detected, which is also correct because this item
+is composed of images and tables, which have been removed
+from the document during the parsing stage. We reported
+some extracts of the reconstructed items in Table 7, to show
+that each item’s content conforms SEC recommendations in
+terms of topic, as shown in Table (1). These qualitative results
+of the reconstructed 10-K filing confirm that SEC-former is
+able to learn contextual information from paragraphs.
+Item number Pages Item number Pages
+Item 1 2-36, 48-49, 66, 82-85 Item 8 68-113
+Item 1A 50-63 Item 9 Not Applicable
+Item 1B Not Applicable Item 9A 114
+Item 2 12, 64 Item 9B 67
+Item 3 105-110 Item 10 Ref. Proxy Statement
+Item 4 Not Applicable Item 11 Ref. Proxy Statement
+Item 5 9, 64-65 Item 12 Ref. Proxy Statement
+Item 6 Reserved Item 13 Ref. Proxy Statement
+Item 7 18-47, 77-82 Item 14 Ref. Proxy Statement
+Item 7A 49 Item 15 115-119
+TABLE 6: Cross-reference index provided by Intel in its 2021
+filing.
+5Intel filings are available on the SEC website, at the following link
+10 VOLUME 4, 2016
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 11]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+FIGURE 11: Results achieved by the final model on the three test sets (the balanced test set (2011-2021), the imbalanced test
+set(2011-2021), and the 2022 test set).
+Dataset Accuracy Precision Recall F1-score AUC
+Balanced test set 0.789 - - - -
+Imbalanced test set - 0.812 0.804 0.805 0.978
+Test set 2022 - 0.837 0.814 0.823 0.978
+TABLE 4: Results of best model on test sets.
+Item 1 Item 1A Item 2 Item 3 Item 4 Item 5 Item 6 Item 7 Item 7A Item 8 Item 9 Item 9A Item 9B Item 10 Item 11 Item 12 Item 13 Item 15
+Item 1 2321 151 24 6 21 8 65 129 6 14 0 2 3 13 2 0 6 0
+Item 1A 268 2371 4 5 4 10 28 43 4 3 3 4 6 3 1 3 11 0
+Item 2 90 16 2572 9 2 1 29 16 11 1 2 1 10 0 0 0 9 2
+Item 3 11 25 11 2481 138 4 10 14 4 18 19 3 16 4 1 1 8 3
+Item 4 3 4 1 184 1975 62 206 11 30 0 55 0 7 200 4 13 16 0
+Item 5 11 44 6 4 10 2428 107 27 6 5 3 0 11 0 13 76 8 12
+Item 6 101 25 27 7 13 48 2091 334 28 26 6 6 6 1 13 0 36 3
+Item 7 170 75 14 8 2 20 166 2119 51 114 7 5 6 0 1 0 6 7
+Item 7A 16 43 1 1 23 10 213 246 1922 101 37 39 20 0 2 6 2 89
+Item 8 19 6 2 35 1 15 62 261 22 2121 12 33 18 0 12 0 11 141
+Item 9 25 50 14 103 32 29 186 151 321 308 1077 130 178 9 6 9 41 102
+Item 9A 6 5 2 16 0 4 26 60 38 285 50 2140 22 0 1 0 2 114
+Item 9B 10 8 41 64 65 4 23 33 31 90 148 103 1884 145 41 4 38 39
+Item 10 5 6 0 5 287 1 3 0 0 1 0 1 45 2324 41 2 45 5
+Item 11 5 0 1 0 1 16 14 12 0 1 0 2 19 10 2624 42 23 1
+Item 12 1 3 0 0 0 26 1 2 0 4 2 1 0 2 109 2604 15 1
+Item 13 26 27 12 9 3 41 41 38 10 54 13 6 14 41 58 44 2128 206
+Item 15 11 3 1 11 0 6 19 58 12 427 9 21 10 0 3 0 5 2175
+TABLE 5: Confusion matrix of SEC-Former over the balanced test set.
+VII. CONCLUSIONS
+We investigated Recurrence-based, Autoregressive, and
+Autoencoding-based language models to perform the Doc-
+ument Format Reconstruction task over the 10-K SEC fil-
+ings, also proposing a bidirectional fine-tuning procedure
+that exhibits better performance with respect to Feed-forward
+approaches. Finally, we made the pre-trained model resulting
+from our research publicly available to the scientific commu-
+nity for further analysis.
+Future developments are related to the possible improve-
+ments of the SEC-former that can be achieved by introducing
+logic constraints on the order of the paragraphs when per-
+forming the reconstruction. We also plan to investigate the
+behavior of this model in a zero and few-shoot learning set-
+ting when applied to other financial reports, such as Quarterly
+reports (10-Q) and Earning calls.
+REFERENCES
+[1] George Adosoglou, Seonho Park, Gianfranco Lombardo, Stefano Cagnoni,
+and Panos M Pardalos. Lazy network: A word embedding-based temporal
+financial network to avoid economic shocks in asset pricing models.
+Complexity, 2022, 2022.
+[2] Arman Khadjeh Nassirtoussi, Saeed Aghabozorgi, Teh Ying Wah, and
+David Chek Ling Ngo. Text mining of news-headlines for FOREX market
+prediction: A Multi-layer Dimension Reduction Algorithm with semantics
+and sentiment. Expert Systems with Applications, 42(1):306–324, 2015.
+[3] Marjan Van De Kauter, Diane Breesch, and Véronique Hoste. Fine-grained
+analysis of explicit and implicit sentiment in financial news articles. Expert
+Systems with Applications, 42(11):4999–5010, 2015.
+[4] Constantin Zopounidis, Michael Doumpos, and Panos M Pardalos. Hand-
+book of financial engineering. Springer Science & Business Media, 2010.
+[5] Lauren Cohen, Christopher Malloy, and Quoc Nguyen. Lazy prices. The
+Journal of Finance, 75(3):1371–1415, 2020.
+[6] Tim Laughran and Bill Mcdonald. When is a liability not a liability?
+textual analysis, dictionaries, and 10-ks. The Journal of Finance, 66(1):35–
+65, 2011.
+[7] Travis Dyer, Mark Lang, and Lorien Stice-Lawrence. The evolution of 10-
+VOLUME 4, 2016 11
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 12]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+(a) Box plot of the Tf-Idf embedding results.
+ (b) Box plot of the Doc2Vec embedding results.
+FIGURE 12: Document similarity results with Tf-Idf embeddings (a) and Doc2Vec embeddings (b).
+Content Item
+...Our investments in new businesses, products, and technologies areinherently risky and do not always succeed.... ...We are subject to therisks of product defects, errata, or other product issues... 1A...We face risks related to security vulnerabilities in our products......We are subject to risks associated with litigation and regulatory matters......We face risks related to sales through distributors and other third parties...
+As of December 25, 2021, our major facilities (Square Feet in Millions)consisted of: Owned facilities 31, 24, 55; Leased facilities 1, 5, 6;Total facilities 32, 29, 61 (United States, Other Countries, Total).Our principal executive offices are located in the US. For more informationon our wafer fabrication and our assembly and test facilities, see"Manufacturing Capital" within Fundamentals of Our Business. The facilitiesdescribed above are suitable for our present purposes, and the productivecapacity in our facilities is being utilized or being prepared for 2utilization as we continue to make investments to expand our manufacturingcapacity. We do not identify or allocate assets by operating segment, asthey are interchangeable in nature and used by multiple operating segments.For information on net property, plant and equipment by country, see"Note 6: Other Financial Statement Details" within theFinancial Statements and Supplemental Details.
+We are regularly party to various ongoing claims, litigation, and otherproceedings, including those noted in this section. In the first quarter of2021, we accrued a charge of $2.2 billion related to litigation involvingVLSI, described below. Excluding this charge, management at present believesthat the ultimate outcome of these proceedings, individually and in theaggregate, will not materially harm our financial position, results ofoperations, cash flows, or overall trends; however, legal proceedings and 3related government investigations are subject to inherent uncertainties, andunfavorable rulings, excessive verdicts, or other events could occur......We have had IP infringement lawsuits filed against us, including but notlimited to those discussed below. Most involve claims that certain of ourproducts, services, and technologies infringe others’ IP rights. Adverse resultsin these lawsuits may include awards of substantial fines and penalties, costlyroyalty or licensing agreements, or orders preventing us from offering certainfeatures, functionalities, products, or services...
+Operating income increased $37 million, driven by higher revenue due torecovery in the embedded and communications market segments fromCOVID-19 lows, partially offset by a decrease in the cloud market segment......Our total revenue grew from $62.8 billion in 2017 to $79.0 billionin 2021, representing 6% CAGR. In 2021, revenue was $79.0 billion, up$1.2 billion, or 1%, from 2020. CCG revenue grew 1% due to continuedstrength in notebook demand and recovery in desktop demand, partially offsetby lower notebook ASPs due to strength in the consumer and education marketsegments. CCG adjacent revenue decreased primarily due to the continued rampdown from the exit of our 5G smartphone modem and 7Home Gateway Platform businesses......Our effective tax rate decreased in 2021 compared to 2020, primarily drivenby one-time tax benefits due to the restructuring of certain non-US subsidiariesas well as a higher proportion of our income in non-US jurisdictions. As a resultof the restructuring, we established deferred tax assets and released thevaluation allowances of certain foreign deferred tax assets......Financing cash flows consist primarily of payment of dividends tostockholders, issuance and repayment of short-term and long-term debt,repurchases of common stock, and proceeds from the sale of shares ofcommon stock through employee equity incentive plans...
+We have established currency risk management programs to protect againstcurrency exchange rate risks associated with non-US dollar forecasted futurecash flows and existing non-US dollar monetary assets and liabilities. We mayalso hedge currency risk arising from funding of foreign currency-denominatedfuture investments. We may utilize foreign currency contracts, such ascurrency forwards or option contracts in these hedging programs... 7A...We are exposed to interest rate risk related to our fixed-rate investmentportfolio and outstanding debt. The primary objective of our investment policyis to preserve principal and provide financial flexibility to fund our businesswhile maximizing yields, which generally track the US dollar three-month libor......We are exposed to equity market risk through our investments in marketableequity securities, which we typically do not attempt to reduce or eliminatethrough hedging activities...
+We have audited the accompanying Consolidated Balance Sheets of IntelCorporation (the Company) as of December 25, 2021 and December 26, 2020, therelated Consolidated Statements of Income, Comprehensive Income, Cash Flowsand Stockholders’ Equity for each of the three years in the period ended 8December 25, 2021, and the related notes (collectively referred to asthe "Consolidated Financial Statements")...
+TABLE 7: Extracts of certain items reconstructed from the
+Intel 2022 10-K by SEC-former model.
+K textual disclosure: Evidence from Latent Dirichlet Allocation. Journal
+of Accounting and Economics, 64(2-3):221–245, 2017.
+[8] George Adosoglou, Gianfranco Lombardo, and Panos M Pardalos. Neural
+network embeddings on corporate annual filings for portfolio selection.
+Expert Systems with Applications, 164:114053, 2021.
+[9] Nemanja Djuric, Jing Zhou, Robin Morris, Mihajlo Grbovic, Vladan Ra-
+dosavljevic, and Narayan Bhamidipati. Doc2Vec. Proceedings of the 24th
+International Conference on World Wide Web - WWW ’15 Companion,
+32:29–30, 2015.
+[10] Paola Cerchiello, Giancarlo Nicola, Samuel Ronnqvist, and Peter Sarlin.
+Deep learning bank distress from news and numerical financial data. SSRN
+Electronic Journal, 06 2017.
+[11] Feng Mai, Shaonan Tian, Chihoon Lee, and Ling Ma. Deep learning
+models for bankruptcy prediction using textual disclosures. European
+Journal of Operational Research, 274(2):743–758, 2019.
+[12] Alexander Glodd and Diana Hristova. Extraction of forward-looking
+financial information for stock price prediction from annual reports using
+nlp techniques. 2023.
+[13] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion
+Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention
+is all you need. CoRR, abs/1706.03762, 2017.
+[14] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova.
+BERT: pre-training of deep bidirectional transformers for language under-
+standing. CoRR, abs/1810.04805, 2018.
+[15] Pranav Rajpurkar, Jian Zhang, Konstantin Lopyrev, and Percy Liang.
+Squad: 100, 000+ questions for machine comprehension of text. CoRR,
+abs/1606.05250, 2016.
+[16] Alex Wang, Amanpreet Singh, Julian Michael, Felix Hill, Omer Levy,
+and Samuel R. Bowman. GLUE: A multi-task benchmark and analysis
+platform for natural language understanding. CoRR, abs/1804.07461,
+2018.
+[17] Yukun Zhu, Ryan Kiros, Richard S. Zemel, Ruslan Salakhutdinov, Raquel
+Urtasun, Antonio Torralba, and Sanja Fidler. Aligning books and movies:
+Towards story-like visual explanations by watching movies and reading
+books. CoRR, abs/1506.06724, 2015.
+[18] Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Mandar Joshi, Danqi
+Chen, Omer Levy, Mike Lewis, Luke Zettlemoyer, and Veselin Stoyanov.
+Roberta: A robustly optimized BERT pretraining approach. CoRR,
+abs/1907.11692, 2019.
+[19] Felix Hamborg, Norman Meuschke, Corinna Breitinger, and Bela Gipp.
+news-please: A generic news crawler and extractor. In Proceedings of
+the 15th International Symposium of Information Science, pages 218–223,
+March 2017.
+[20] Aaron Gokaslan and Vanya Cohen. Openwebtext corpus. http://
+Skylion007.github.io/OpenWebTextCorpus, 2019.
+[21] Zhilin Yang, Zihang Dai, Yiming Yang, Jaime G. Carbonell, Ruslan
+Salakhutdinov, and Quoc V . Le. Xlnet: Generalized autoregressive pre-
+training for language understanding. CoRR, abs/1906.08237, 2019.
+[22] Zihang Dai, Zhilin Yang, Yiming Yang, Jaime G. Carbonell, Quoc V . Le,
+and Ruslan Salakhutdinov. Transformer-xl: Attentive language models
+beyond a fixed-length context. CoRR, abs/1901.02860, 2019.
+[23] Benigno Uria, Marc-Alexandre Côté, Karol Gregor, Iain Murray, and
+12 VOLUME 4, 2016
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+[Page 13]
+Author et al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+Hugo Larochelle. Neural autoregressive distribution estimation. CoRR,
+abs/1605.02226, 2016.
+[24] Aliyah Kurniasih and Lindung Parningotan Manik. On the role of text
+preprocessing in bert embedding-based dnns for classifying informal texts.
+International Journal of Advanced Computer Science and Applications,
+13(6), 2022.
+[25] Tianqi Chen and Carlos Guestrin. Xgboost: A scalable tree boosting
+system. CoRR, abs/1603.02754, 2016.
+[26] Sepp Hochreiter and Jürgen Schmidhuber. Long short-term memory.
+Neural Comput., 9(8):1735–1780, nov 1997.
+[27] Yun Zhao, Girija Chetty, and Dat Tran. Deep learning with xgboost for
+real estate appraisal. In 2019 IEEE symposium series on computational
+intelligence (SSCI), pages 1396–1401. IEEE, 2019.
+[28] Minqi Jiang, Jiapeng Liu, Lu Zhang, and Chunyu Liu. An improved
+stacking framework for stock index prediction by leveraging tree-based
+ensemble models and deep learning algorithms. Physica A: Statistical
+Mechanics and its Applications, 541:122272, 2020.
+[29] Gianfranco Lombardo, Mattia Pellegrino, George Adosoglou, Stefano
+Cagnoni, Panos M Pardalos, and Agostino Poggi. Machine learning
+for bankruptcy prediction in the american stock market: Dataset and
+benchmarks. Future Internet, 14(8):244, 2022.
+[30] Dogu Araci. Finbert: Financial sentiment analysis with pre-trained lan-
+guage models. arXiv preprint arXiv:1908.10063, 2019.
+GIANFRANCO LOMBARDO Ph.D., University
+of Parma, 2021. He is an Assistant Professor at
+the Department of Engineering and Architecture
+at the University of Parma. His research activity is
+focused on Deep Learning and Natural Language
+Processing for the financial domain. During Fall
+2019, he was a Visiting Researcher at the Center
+for Applied Optimization (Herbert Wertheim Col-
+lege of Engineering, University of Florida).
+GIUSEPPE TRIMIGNO received a B.Eng in
+Computer Engineering at the University of Parma
+in 2022. Currently, he is a MSc student in Com-
+puter Engineering (AI curriculum) at the Univer-
+sity of Parma. His main interests are related to
+Deep Learning and Natural Language Processing.
+MA TTIA PELLEGRINO received a M.Eng. in
+Computer Engineering at the University of Parma
+in 2020. Currently, he is a Ph.D. student at the Uni-
+versity of Parma. His branch of interest concerns
+Deep Learning and Reinforcement Learning.
+STEFANO CAGNONI Stefano Cagnoni (M 85,
+SM 04) graduated in Electronic Engineering at the
+University of Florence in 1988 where he has been
+a PhD student and a post-doc until 1997. In 1994
+he was a visiting scientist at the Whitaker College
+Biomedical Imaging and Computation Labora-
+tory at the Massachusetts Institute of Technology.
+Since 1997 he has been with the University of
+Parma, where he has been Associate Professor
+since 2004. His research interests regard Artificial
+Intelligence, with particular regard to Evolutionary Computation and its
+applications to image analysis and Pattern Recognition He has published
+more than 150 papers in international journals and conference proceedings.
+VOLUME 4, 2016 13
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and 
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2024.3370444
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/

@@ -1,0 +1,1526 @@
+[Page 1]
+Interpreting Fedspeak with Confidence: A LLM-Based Uncertainty-Aware
+Framework Guided by Monetary Policy Transmission Paths
+Rui Yao*1, Qi Chai*1, Jinhai Yao*2, Siyuan Li1, Junhao Chen1, Qi Zhang†2, Hao Wang†1
+1The Hong Kong University of Science and Technology (Guangzhou)
+2Antai College of Economics and Management, Shanghai Jiaotong University
+{ryao663, qchai315, sli974, jchen024}@connect.hkust-gz.edu.cn,{jh Yao,zhang.qi}@sjtu.edu.cn, haowang@hkust-gz.edu.cn
+Abstract
+“Fedspeak”, the stylized and often nuanced language used
+by the U.S. Federal Reserve, encodes implicit policy signals
+and strategic stances. The Federal Open Market Committee
+strategically employs Fedspeak as a communication tool to
+shape market expectations and influence both domestic and
+global economic conditions. As such, automatically parsing
+and interpreting Fedspeak presents a high-impact challenge,
+with significant implications for financial forecasting, algo-
+rithmic trading, and data-driven policy analysis. In this paper,
+we propose an LLM-based, uncertainty-aware framework for
+deciphering Fedspeak and classifying its underlying mone-
+tary policy stance. Technically, to enrich the semantic and
+contextual representation of Fedspeak texts, we incorporate
+domain-specific reasoning grounded in the monetary policy
+transmission mechanism. We further introduce a dynamic un-
+certainty decoding module to assess the confidence of model
+predictions, thereby enhancing both classification accuracy
+and model reliability. Experimental results demonstrate that
+our framework achieves state-of-the-art performance on the
+policy stance analysis task. Moreover, statistical analysis re-
+veals a significant positive correlation between perceptual un-
+certainty and model error rates, validating the effectiveness of
+perceptual uncertainty as a diagnostic signal.
+Code—
+https://github.com/yuuki20001/FOMC-sentiment-path
+Introduction
+The Federal Open Market Committee (FOMC) is the key
+institution responsible for managing the U.S. economy and
+implementing monetary policy (Connolly and Struby 2024).
+Through tools such as interest rate adjustments and open
+market operations, monetary policy regulates the money
+supply to influence economic activity (Pflueger and Rinaldi
+2022; V olk 2024). FOMC’s statutory mandate is to promote
+“maximum employment, stable prices, and moderate long-
+term interest rates”. This reflects a broader goal of maintain-
+ing a sustainable balance between economic growth, labor
+market performance, and inflation control. Given the global
+importance of the Federal Reserve, its communications have
+*These authors contributed equally.
+†Corresponding author.
+a direct and substantial influence on financial markets world-
+wide (Karnaukh and V okata 2022; Suh 2025).
+Federal Reserve communications, known as “Fedspeak”,
+are challenging to interpret. This challenge arises from their
+inherent ambiguity, where the same term may imply differ-
+ent policy stances depending on the broader economic con-
+text. For example, a “strong” labor market might be a dovish
+signal (indicating no immediate rate hikes) in a weak econ-
+omy, but it can become a hawkish signal (suggesting tight-
+ening) in an overheated economy. This strong dependence
+on context poses a major challenge for traditional sentiment
+analysis models.
+Traditional methods in financial sentiment analysis often
+face a trade-off between performance and interpretability.
+For instance, dictionary-based approaches are simple and
+highly interpretable, but their performance is often limited
+as they struggle to understand complex contexts or incorpo-
+rate external knowledge. In contrast, language models like
+FinBERT (Araci 2019; Liu et al. 2021), after being fine-
+tuned with domain-specific supervised data (Shah, Paturi,
+and Chava 2023), can capture contextual nuances effectively
+and achieve superior performance. However, the black-box
+nature of such model leads to a lack of transparency in their
+decision-making process, resulting in poor interpretability.
+LLMs offer an accessible and effective solution for fi-
+nancial sentiment analysis, particularly for deciphering cen-
+tral bank policy stances. Recent studies (Peskoff et al. 2023;
+Hansen and Kazinnik 2024) have shown that closed-source
+LLMs, such as the GPT-4 series, exhibit strong zero-shot
+capabilities on policy stance analysis tasks. Research from
+central banks (Gambacorta et al. 2024; Geiger et al. 2025)
+demonstrates that fine-tuned LLMs can match human-level
+accuracy in interpreting monetary policy stance signals.
+However, existing work primarily focuses on performance
+metrics, often neglecting critical aspects of LLM behavior
+such as reliability, bias, and hallucinations. Improving the
+reliability and interpretability of LLMs, as well as under-
+standing their limitations in policy stance analysis, is essen-
+tial for reducing systemic risks and enhancing financial sta-
+bility (Leitner et al. 2024).
+In economics, uncertainty is often categorized as risk
+(known probabilities) or ambiguity (unknown probabilities).
+Recent work in behavioral economics borrows the computer
+arXiv:2508.08001v3  [cs.AI]  13 Jan 2026
+
+
+[Page 2]
+Fedspeak Language 
+Model Greedy Decoding Label 
+(a) Traditional Method
+Dynamic Uncertainty 
+Decoding 
+Language 
+Model Label 
+Transmission 
+Path Relation 
+Fedspeak 
+ Augmented 
+Fedspeak 
+Augmented 
+Fedspeak 
+Template-based 
+Generation 
+(b) Our Method
+Figure 1:Comparison between (a) the traditional method
+and (b) our proposed method. Our method introduces a
+domain-specific reasoning approach grounded in the mone-
+tary policy transmission mechanism to emulate how human
+experts analyze policy stances, providing the model with rel-
+evant domain knowledge. In addition, we employ a dynamic
+uncertainty decoding module to capture perceptual uncer-
+tainty and estimate the model’s confidence in its predictions,
+thereby improving overall reliability.
+science concepts of epistemic and aleatoric uncertainty to
+describe how investors interpret uncertainty (Walters et al.
+2023). Epistemic uncertainty reflects missing knowledge,
+while aleatoric uncertainty stems from randomness. This
+framing aligns closely with how LLMs operate: like in-
+vestors, they make predictions under incomplete informa-
+tion. We adopt this perspective to quantify model uncertainty
+and use it to identify the confidence of predictions. We build
+on this analogy and treat LLMs as policy stance analysts.
+Therefore, to align the model behavior with that of human
+analysts, we augment the input texts by extracting financial
+entity relations and reasoning over monetary policy trans-
+mission paths using structured templates. This augmentation
+is designed both to emulate expert-level economic reasoning
+and to reduce the model’s cognitive risk by compensating for
+missing domain-specific knowledge. Then, we redefine the
+model prediction uncertainty as perceptual uncertainty (PU),
+decomposed into cognitive risk (CR) and environmental am-
+biguity (EA). Building on this formulation, we introduce a
+dynamic uncertainty decoding module that adapts model be-
+havior based on the PU level. We tune PU–related hyperpa-
+rameters on the validation set and use them to evaluate the
+model prediction confidence.
+The contribution of this work is as follows:
+• We incorporate a domain-specific reasoning grounded in
+the monetary policy transmission mechanism to emulate
+the analytical process of human experts and enhance eco-
+nomic interpretability on the policy stance analysis task.
+• We introduce a dynamic uncertainty decoding module
+with a PU metric that helps identify potentially unreli-
+able predictions, aiming to improve overall prediction re-
+liability.
+• Our framework achieves state-of-the-art performance
+while enhancing transparency, economic interpretability,
+and human-AI collaboration in policy stance analysis.
+Related Work
+AI in Finance
+Recent applications of LLMs in the financial domain have
+led to the emergence of domain-specific models. proprietary
+models like BloombergGPT (Wu et al. 2023) and open-
+source models such as FinGPT (Liu et al. 2023) are of-
+ten instruction-tuned to perform financial tasks such as sen-
+timent analysis. Existing financial evaluation benchmarks,
+such as FinQA (Chen et al. 2021), FinBen (Xie et al. 2024),
+FinTextQA (Chen et al. 2024a), and FinDER (Choi et al.
+2025), are designed to assess the performance of LLMs on a
+diverse range of tasks. These tasks cover numerical reason-
+ing, retrieval-augmented generation evaluation, general un-
+derstanding, and financial regulation and compliance. These
+benchmarks establish a standard for measuring the reliabil-
+ity of LLMs in various financial tasks. Another line of re-
+search enhances LLM reasoning by decomposing complex
+and ambiguous tasks into structured, domain-informed com-
+ponents, as seen in FinEntity, EFSA, and DEFINE (Tang
+et al. 2023; Chen et al. 2024b; Hu et al. 2024). These works
+highlight the value of integrating domain priors with struc-
+tured task design to improve accuracy and reliability.
+FOMC Analysis
+Fedspeak plays a pivotal role in shaping market expectations
+and asset prices, offering key insights into the Federal Re-
+serve’s economic outlook and policy intentions (Ehrmann
+and Talmi 2020; Cieslak and Vissing-Jorgensen 2021;
+Mathur et al. 2022; G ´omez-Cram and Grotteria 2022). Its
+nuanced language requires careful interpretation, as tone and
+sentiment in communications can significantly affect finan-
+cial variables and market volatility (Gorodnichenko, Pham,
+and Talavera 2023; Curti and Kazinnik 2023). Approaches
+to analyzing Fedspeak have evolved from early dictionary-
+based methods (Loughran and McDonald 2011) and topic
+modeling techniques (Boukus and Rosenberg 2006; Edison
+and Carcel 2021) to Transformer-based models that better
+capture contextual subtleties (Liu et al. 2023; Shah, Paturi,
+and Chava 2023). LLM-based methods have become in-
+creasingly popular for policy stance analysis (Peskoff et al.
+2023; Hansen and Kazinnik 2024). Domain-specific adapta-
+tions have shown promise in improving classification accu-
+racy (Gambacorta et al. 2024; Geiger et al. 2025). However,
+most existing approaches limit LLMs to predicting stance
+labels, underutilizing their potential.
+Methodology
+Policy Stance Definition
+When setting monetary policy, the Federal Reserve relies on
+deliberations and votes by FOMC members to reach collec-
+tive decisions. These decisions reflect an aggregation of in-
+dividual views and preferences. Committee members hold
+different policy stances: Members who prefer supporting in-
+creased output and employment and exhibit a stronger aver-
+sion to unemployment risk are considered dovish. Members
+who prefer controlling inflation and exhibit stronger aver-
+sion to inflation risk are considered hawkish (Bordo and
+
+
+[Page 3]
+Transmission 
+Path 
+Relation 
+Fedspeak 
+Augmented 
+Data 
+The information reviewed at this meeting indicated that 
+economic activity had turned up in the final quarter of last year 
+and strengthened further since then. 
+Extract 
+Reasoning 
+Economic 
+Phenomenon 
+Economic activity strengthened 
+Transmission 
+Path 
+Interest Rate Channel: 
+Increased credit demand → … →  Market 
+participants revise expectations 
+Credit Channel: 
+Rising loan→ … →Accelerated credit creation 
+Asset Price Channel: 
+Improved earnings expectations→ … →Wealth 
+effects stimulation 
+Policy Advice Contractionary Monetary Policy: Gradually
+raise policy rates… 
+Economic 
+Phenomenon 
+(X) 
+Channel 
+(Y)  
+Channel 𝒀𝟏 Channel 𝒀𝒌 … 
+(S1) →(S2) 
+→… 
+(S1) →(S2) 
+→… 
+Policy 
+Advice (M) 
+Path (Z) 
+Prove Object 
+economic 
+activity
+Keyword 
+strengthen
+ed further
+Subject 
+information
+Figure 2:The workflow of data augmentation.We extract economic entity relations from Fedspeak, and then perform reason-
+ing grounded in the monetary policy transmission mechanism using structured templates to derive policy advice.
+Istrefi 2023). From a trade-off perspective, dovish members
+place more weight on maximizing employment, whereas
+hawkish members assign more weight to maintaining price
+stability (Shah, Paturi, and Chava 2023; Smales 2023). We
+follow prior literature in assigning stance labels based on
+these definitions. We define policy stances as dovish, hawk-
+ish, and neutral. The detailed definitions and explanations
+are illustrated in the detailed data augmentation section of
+the appendix.
+Data Augmentation with Domain Reasoning
+Financial Entity RelationsThe relations embedded
+in Fedspeak are complex and multi-layered. To enhance
+the reliability of interpreting Fedspeak, we decom-
+pose these financial entity relations, thereby improving
+our model’s reasoning capability and accuracy (Li and
+Sanna Passino 2024). Within the financial entity rela-
+tions analysis framework, atomic relations serve as the
+minimal logical units for semantic decomposition. We
+define the entity set asE(representing all financial and
+economic entities) and the atomic relation set asR=
+{CAU SE, CON D, EV ID, P U RP, ACT, COM P}.
+Atomic relations are formally defined in Equation 1:
+r(ei, ej)∈ R,∀e i, ej ∈ E(1)
+wheree i is the subject entity,e j is the object entity, andr
+is one of the six core relation types. These six core relation
+types are listed in the detailed data augmentation section of
+the appendix.
+Given a pathT:e 1
+r1
+− →e2
+r2
+− →. . .
+rn
+− →en+1, the decom-
+position of financial entity relations follows Equation 2:
+T⇒
+n[
+k=1
+rk(ek, ek+1),r k ∈ R(2)
+In Equation 2, if a sentence contains a multi-step logical
+chain or causal chain (e.g., A causes B, B causes C), it
+must be decomposed into a sequential list of atomic rela-
+tions within the same subtask. We construct an entity classi-
+fication functionC:E →Ethat maps to the information
+sourcesEin Fedspeak. When extracting entity relations, the
+information source (e.g., official sources: Fed chairs, official
+documents, committee members; external sources: journal-
+ists, analysts) and its stance (official statements, data inter-
+pretation, external analysis, direct questions, rhetorical ques-
+tions) must be identified.
+Monetary Policy Transmission PathsExisting research
+on monetary policy primarily focuses on understanding how
+policy tools, such as interest rate adjustments, affect key eco-
+nomic targets like inflation and employment. These stud-
+ies trace the monetary policy transmission paths through
+the financial system and the real economy, offering a the-
+oretical foundation for policy design (Passos, Carrasco-
+Gutierrez, and Loureiro 2024; Bosshardt et al. 2024; Suh
+2025; Alessandri, `Oscar Jord`a, and Venditti 2025).
+Given the importance of monetary policy transmission
+paths, we construct the transmission path: Define a quadru-
+pleΓ= (X,Y,Z,M), whereX∈R n is anndimensional
+shock vector representing economic phenomena, policy im-
+plementation, policy framework shifts, or external shocks,
+serving as the starting point;Y={y 1, y2, . . . , yk}is the
+set of monetary policy transmission channels, withkbe-
+ing the number of channels, including the credit channel,
+asset price channel, aggregate demand channel, etc.;Z=
+{Z1, Z2, . . . , Zp}is the monetary policy transmission path,
+defined as the sequence of expectation shifts or market/e-
+conomic indicator responses within a specific transmission
+channel. For each channely i ∈Y, there exists a transmis-
+sion pathZ yi, which consists of a series of state transitions,
+as shown in Equation 3:
+Zyi =f i,n ◦f i,n-1 ◦ · · · ◦f i,j ◦ · · · ◦f i,1 (3)
+wheref i,j denotes the mapping function at stepjin chan-
+nely i. For each channely i, the state sequence is given by
+Equation 4:
+Si,j =
+(
+ϕi(X)j=i (0)
+g(j)
+i,j (Si,j)j=i (1), i(2), . . . , i(n) (4)
+In Equation 4,jdenotes the number of steps in channely i,
+ϕi represents the function that maps the initial shockXto
+
+
+[Page 4]
+Label 
+ 
+Reasoning 
+OR 
+Prediction? 
+Reasoning 
+Prediction
+Uncertainty 
+Calculation 
+≤ threshold
+> threshold 
+Candidate Logits
+ 
+Augmented 
+Fedspeak 
+Cognitive  
+Risk 
+Environmental 
+Ambiguity 
+Finetuned 
+LLM 
+Aggressive 
+Strategy 
+Conservative
+Strategy
+Label Token Id
+Softmax 
+Sampling 
+Explanation 
+Path 
+Output
+Figure 3:Overview of Dynamic Uncertainty Decoding module.When the LLM is about to generate a prediction token, we
+obtain the corresponding logits over the vocabulary. Dynamic uncertainty decoding module quantifies the model’s PU via
+estimating CR and EA. The decoding strategy for the current token is selected based on whether the PU exceeds the threshold.
+the initial state of this channel, andS i,ni is the final state
+of the channel.M∈Pis the policy advice,Pdenotes the
+policy space, and the entire transmission path of channely i
+is aggregated intoS (i) ={S i,0, Si,1, . . . , Si,ni }. The policy
+adviceMis a function of the aggregated state, as given by
+Equation 5:
+M=h
+
+S(1), S(2), . . . , S(i), . . . , S(k)
+
+(5)
+where the final policy advice is generated by aggregating
+channel outputs and influenced by multiple channels and
+transmission paths. Through the above analysis, we adopt a
+structured framework to analyze the monetary policy trans-
+mission mechanism, with Equation 6 as the main path.
+X− →Z− →M(6)
+The detailed transmission path of monetary policy is illus-
+trated in Figure 2.
+Dynamic Uncertainty Decoding
+LLMs may generate unreliable information. During next-
+token prediction, reliability can be affected by ambiguity in
+the input data and insufficient domain knowledge. We treat
+our model as a policy analyst. Policy analysts face reliabil-
+ity issues in decision-making due to EA and CR. EA stems
+from data-related uncertainty, such as distributional shifts,
+semantic ambiguity, and other stochastic variations in the
+input (Walters et al. 2023; le Roux and Bopp 2025). EA
+causes policy analysts to consider multiple alternative op-
+tions during decision-making. CR arises from limited do-
+main knowledge, missing information, or skill gaps (Wal-
+ters et al. 2023). CR causes policy analysts to make unreli-
+able judgments due to cognitive limitations. Higher levels of
+EA or CR increase the policy analyst’s PU. We incorporate
+a measure of PU into our model framework. Let the LLM
+be denoted asM, and let the prompt be tokenized into vec-
+tor representationsq. We use the top-klogits fromMto
+construct a Dirichlet distribution (Sensoy, Kaplan, and Kan-
+demir 2018; Ma et al. 2025), as shown below:
+αk =M(τ k|q,a t−1),α 0 =
+KX
+k=1
+αk (7)
+whereτ k presents the token associated with thekth largest
+logit, andα 0 constitutes the total evidence parameter of the
+Dirichlet distribution, equaling the sum of theklargest log-
+its. The model predicts the next tokena t based on the rep-
+resentationsqand the previously generated tokensa t−1 =
+a1a2 . . . at−1.
+Our measure of EA is defined as follows:
+EA(at) =−
+KX
+k=1
+αk
+α0
+(ψ(αk + 1)−ψ(α 0 + 1))(8)
+whereψrepresents the digamma function, defined as
+ψ(x) = d
+dx ln Γ(x). EA denotes the expected entropy of the
+predictive distribution. Higher entropy indicates a more uni-
+form data distribution and greater ambiguity. Increased EA
+implies higher inherent uncertainty in the data, making the
+model uncertain about the input content. In such cases, a
+high level of EA indicates that the model is uncertain and
+confused about the output.
+Our measure of CR is defined as follows:
+CR(a t) = KPK
+k=1(αk + 1)
+(9)
+CR is inversely related to the total evidencePK
+k=1(αk + 1).
+A higher CR indicates that the model has less accumulated
+evidence and domain knowledge, suggesting limited capa-
+bility to process the input effectively. Under high CR, the
+model tends to make less reliable decisions.
+Our measure of PU is defined as follows:
+P U=EA×CR(10)
+where PU is jointly determined by EA and CR. When both
+EA and CR values are high, the model struggles to identify
+clear information in the input and lacks sufficient domain
+knowledge for accurate judgment. This results in elevated
+PU and less reliable outputs. To enhance the model’s under-
+standing of policy analysis and improve its reliability, we
+integrate uncertainty quantification into our framework with
+the goal of reducing PU.
+Experiment
+Experiment Setup
+To simulate the reasoning process of human analysts, we
+design a set of structured templates grounded in the mech-
+
+
+[Page 5]
+Model
+Meeting Minutes Press Conference Speeches All Categories
+Macro F1 Weighted F1 Macro F1 Weighted F1 Macro F1 Weighted F1 Macro F1 Weighted F1
+Zero-Shot
+GLM-4-9B 0.2855 0.3058 0.3438 0.3876 0.3065 0.3807 0.3152 0.3478
+HD-Dissent 0.3032 0.4219 0.3359 0.5962 0.2468 0.3288 0.3109 0.4774
+Qwen3-8B 0.5144 0.5325 0.5670 0.5843 0.5748 0.6450 0.5572 0.5854
+Qwen3-14B 0.5083 0.5367 0.4236 0.4650 0.5129 0.5969 0.5135 0.5514
+GLM-Z1-9B 0.5998 0.5995 0.5951 0.6143 0.5761 0.6284 0.6023 0.6154
+Deepseek-R1 0.6269 0.6355 0.5873 0.6094 0.5680 0.6490 0.6201 0.6385
+Gemini-2.5-pro 0.5953 0.5823 0.6703 0.6620 0.6116 0.6550 0.6286 0.6275
+Phi-4 0.6366 0.6385 0.6023 0.6105 0.6140 0.6736 0.6349 0.6488
+GPT-4.1 0.6500 0.64560.6803 0.69000.6326 0.6980 0.6662 0.6763
+AICBC 0.6701 0.6741 0.6735 0.6805 0.6175 0.6841 0.6637 0.6802
+Fine-Tuned
+GLM-4-9B 0.6442 0.6514 0.5955 0.6087 0.6146 0.6832 0.6390 0.6585
+Phi-4 0.6481 0.6560 0.5706 0.5927 0.6609 0.7096 0.6495 0.6683
+FinBERT 0.5922 0.5958 0.6117 0.6844 0.6398 0.6513 0.6185 0.6380
+GLM-Z1-9B 0.6426 0.6514 0.6366 0.6503 0.6527 0.7032 0.6573 0.6736
+Qwen3-8B 0.6504 0.6536 0.5783 0.5985 0.6621 0.7242 0.6586 0.6745
+Qwen3-14B 0.6227 0.6288 0.6286 0.6363 0.6052 0.6819 0.6360 0.6534
+Ours 0.7449 0.73940.6672 0.66990.7291 0.7718 0.7327 0.7426
+Table 1: Performance comparison of our method against zero-shot and fine-tuned baselines on the FOMC dataset.Zero-Shot
+denotes the baseline models;Fine-tunedapplies LoRA fine-tuning on FOMC data to theZero-Shotmodels;Oursfurther
+integrates the proposed data augmentation and uncertainty decoding module with theFine-tunedQwen-3-14B.
+anism of monetary policy transmission. Using these tem-
+plates, we augment the original Fedspeak texts through a
+hybrid human-AI procedure to construct a supervised fine-
+tuning dataset. Our dynamic decoding framework adaptively
+selects a strategy guided by an PU threshold. For low PU, it
+employs an aggressive strategy by selecting the label from
+the top-ranked vocabulary token; for high PU cases, it adopts
+a conservative strategy, sampling from the two tokens with
+the highest logits. To compute the PU, we first apply a
+ReLU activation to the token-level logits to derive their ev-
+idence. This evidence is then mapped to three canonical la-
+bels (HAWKISH, DOVISH, and NEUTRAL) based on a
+predefined token-to-label mapping. We construct a candi-
+date evidence set by combining the aggregated label logits
+scores with the individual logits scores of all unmapped to-
+kens. The top-Klogits scores from this set are then selected,
+and the PU is computed over them to capture ambiguity and
+low evidence.
+We utilized the open-source ModelScope Swift (Zhao
+et al. 2025) framework for all model training and inference.
+All base models were fine-tuned using the LoRA method.
+During inference, we applied greedy decoding and incor-
+porated FlashAttention for efficiency. For dynamic uncer-
+tainty decoding, hyperparameters were selected based on
+validation set performance. The search space was defined
+as follows:Top-K:{3, 10, 15, 20, 25, 30};Threshold per-
+centiles:{1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7};Sampling tem-
+perature:{0.1, 0.2, 0.3, 0.4, 0.5, 1.0, 1.5, 2.0}. All stochas-
+tic components were controlled with a fixed random seed 42
+to ensure reproducibility. All experiments were conducted
+on four NVIDIA A800 80GB GPUs. Full implementation
+details are provided in the appendix.
+Benchmark and Evaluation Metrics
+We train and evaluate our method on the trillion dollar
+Words (Shah, Paturi, and Chava 2023) FOMC dataset,
+which contains three distinct categories of Federal Reserve
+communications: meeting minutes, press conference tran-
+scripts, and speeches. The dataset spans from January 1996
+to October 2022, covering multiple economic cycles, in-
+cluding the dot-com bubble, the 2008 financial crisis, and
+the COVID-19 pandemic period. We report two metrics for
+evaluations and comparisons: Macro-F1 and Weighted-F1.
+Weighted-F1 is the original metric established for the FOMC
+dataset, ensuring consistency with previous research and en-
+abling fair comparison with existing baselines.
+Main Results
+Performance AnalysisWe compare our method with
+several widely used language models like GPT (Achiam
+et al. 2023), Phi (Abdin et al. 2024), GLM (Zeng et al.
+2024), Qwen (Yang et al. 2025), Deepseek (Guo et al.
+2025), and Gemini (Comanici et al. 2025). The comparison
+also includes previous approaches like HD-Dissent (Peskoff
+et al. 2023), AICBC (Fanta and Horvath 2024), and Fin-
+BERT (Liu et al. 2021). For open-sourced language mod-
+els, we report both zero-shot and fine-tuned results re-
+spectively. The results presented in Table 1 demonstrate
+the effectiveness of our proposed approach across all three
+categories of Federal Reserve communications. Our pro-
+posed method achieves substantial improvements over all
+baselines, demonstrating the effectiveness of our approach
+for financial sentiment analysis. Specifically, our method
+achieves 0.7327 Macro-F1 and 0.7426 Weighted-F1 on the
+
+
+[Page 6]
+combined dataset, representing significant improvements of
+6.6% and 6.2% respectively over the strongest baseline
+(0.6662 and 0.6802). These results highlight the effective-
+ness of our methods.
+The performance gains are particularly pronounced for
+meeting minutes and speeches. On meeting minutes, our
+method achieves 0.7449 Macro-F1 and 0.7394 Weighted-
+F1, substantially outperforming the best baseline by 7.4%
+and 6.5% respectively. For speeches, we also observe im-
+provements, with our method reaching 0.7291 Macro-F1
+and 0.7718 Weighted-F1, representing gains of 6.7% and
+4.7% over the best baseline. However, in the press confer-
+ence transcripts, our methods show reductions of 1.3% and
+2% compared to GPT-4.1. The reason may be that press
+conferences involve real-time interactions where the context
+from prior questions and answers within the same session is
+critical for accurate sentiment classification. Our current ap-
+proach may not fully capture these dynamic dependencies,
+which larger models like GPT-4.1 handle more effectively
+due to their enhanced contextual understanding.
+Fine-tuning vs. Zero-shotAn important observation from
+our results is the varying effectiveness of fine-tuning across
+different model architectures. While fine-tuning generally
+improves performance for most models, the magnitude of
+improvement varies significantly. For instance, GLM-4-9B
+shows substantial gains from fine-tuning (from 0.3152 to
+0.6390 Macro-F1 on combined data), while larger models
+like Phi-4 show more modest improvements. This suggests
+that fine-tuning is particularly beneficial for models that may
+lack sufficient pre-training on financial domain data. No-
+tably, zero-shot models like GPT-4.1 achieve competitive
+performance without fine-tuning, indicating strong out-of-
+the-box capabilities for financial text understanding. How-
+ever, our approach still outperforms these strong baselines.
+Ablation Analysis
+To better understand the contributions of various compo-
+nents in our proposed approach, we performed ablation stud-
+ies by removing individual components step by step and
+evaluating their impact on performance in all categories. The
+results of ablation experiments are presented in Table 2.
+Model
+All Categories
+Macro F1 Weighted F1
+Ours 0.7327 0.7426
+w/o PU 0.7291 0.7378
+w/o Transmission Path 0.6538 0.6699
+w/o Entity Relationships 0.6397 0.6551
+Original Qwen3 0.6360 0.6534
+Table 2: Ablation study results of our methods.
+Among the results,w/o PUrefers to using greedy de-
+coding for all samples,w/o Transmission Pathindicates
+the removal of monetary policy transmission path informa-
+tion,w/o Entity Relationshipsmeans the model receives
+only the policy stance label guidelines,original Qwen3rep-
+resents the baseline with all proposed modules removed.
+The transmission path shows the most substantial impact on
+model performance. Its removal results in the largest perfor-
+mance degradation. This significant drop demonstrates that
+explicit transmission paths are essential for complex finan-
+cial sentiment analysis.
+The transmission path likely enables the model to analyze
+the sentiment by breaking down the decision process into
+interpretable steps, leading to more accurate and consistent
+predictions. The entity relationships also demonstrate sub-
+stantial contribution to the model. It not only serves as the
+foundation for the transmission path but also brings perfor-
+mance improvement to the model. The uncertainty compo-
+nent shows the most modest improvement, however, the un-
+certainty quantification still provides valuable contributions
+by helping the model better calibrate its predictions and han-
+dle ambiguous cases more effectively.
+Uncertainty Analysis
+To validate the effectiveness of our uncertainty quantifica-
+tion algorithm, we conducted an analysis to examine the re-
+lationship between PU and prediction accuracy. We hypoth-
+esize that correctly predicted samples should exhibit lower
+PU compared to incorrectly predicted ones, which would
+demonstrate the reliability of our uncertainty estimation. We
+evaluated our uncertainty quantification approach in various
+Kvalues on the FOMC dataset. For each prediction, we cal-
+culated the PU based on the model outputs, then classified
+predictions into correct and incorrect groups, and computed
+the mean PU for each group.
+To rigorously test our hypothesis, we employed three
+complementary statistical methods:
+•T-test: To compare mean PU between correct and incor-
+rect predictions
+•Mann-Whitney U test: A non-parametric alternative to
+validate results without assuming normal distribution
+•Logistic regression: To quantify the predictive power of
+PU for classification accuracy
+Figure 4: P-values of T-test, Mann-Whitney U test and lo-
+gistic regression for differentKvalues on FOMC dataset.
+
+
+[Page 7]
+Test results are shown in Figure 4. Both statistical tests
+yield consistently significant results across all k-values. The
+blue line shows p-values of T-test ranging from6×10 −9 to
+1.2×10 −7, all substantially below the significance thresh-
+old (green dashed line at p=0.001). The red line demon-
+strates p-values of the Mann-Whitney U test from4×10 −7
+to3×10 −5, providing non-parametric confirmation of sig-
+nificant differences and ensuring robustness regardless of
+data distribution assumptions. The purple line represents p-
+values of logistic regression from1×10 −6 to1.2×10 −5,
+indicating that PU serves as a significant predictor of cor-
+rectness.
+The above results confirm a significant positive correla-
+tion between model PU and model error rate. This finding
+provides crucial guidance for practical applications: when
+the model’s PU is high, the reliability of its predictions cor-
+respondingly decreases. In real-world financial sentiment
+analysis scenarios, the most prudent strategy is to actively
+seek human expert intervention or choose to abstain from
+providing an answer when the model detects that it cannot
+make accurate judgments (i.e., when the PU exceeds thresh-
+old). This strategy can effectively prevent potential losses
+caused by incorrect predictions, particularly in high-risk fi-
+nancial decision-making environments.
+However, to ensure fair comparison with existing base-
+line methods, we did not provide models with the option
+to “refuse to answer” in our main experiments. Instead, all
+models were required to provide explicit predictions for
+every sample. To further validate the effectiveness of un-
+certainty quantification in practice, we designed additional
+experiments to demonstrate the accuracy differences when
+model predictions have PU above or below thresholds. We
+list the accuracy of the low PU group and the high PU group,
+respectively, in Table 3.
+PU
+All Categories
+Macro F1 Weighted F1
+Low 0.7791 0.7822
+High 0.2473 0.4372
+Table 3: Performance of predictions with low vs. high PU on
+the FOMC dataset.
+These results indicate that predictions with low PU are
+highly reliable, achieving strong performance across both
+Macro F1 and Weighted F1 metrics. In contrast, the high
+PU group exhibits significantly poorer performance, indicat-
+ing a higher likelihood of errors. This large performance gap
+highlights that high PU predictions negatively impact overall
+model accuracy, effectively undermining the robust results
+of the low PU group. These findings further reinforce the
+positive correlation between PU and prediction error rate,
+confirming PU as a reliable signal of prediction reliability.
+Case Study
+We conduct a case study to analyze model behavior under
+different sentence types. Results are shown in Table 4. The
+Sentence Type Prediction Strategy
+Explicit + Contrastive CorrectAggressive
+Contextual Confusion IncorrectAggressive
+Implicit Statement IncorrectConservative
+Table 4: Case study of different sentence types.
+model performs well when processing explicit signals, es-
+pecially those with contrastive shifts (e.g., but, however),
+where semantic redirection is clear. It also correctly cap-
+tures transitional tones when contextual cues are clear. How-
+ever, the model struggles in two cases. First, under contex-
+tual confusion, even when surface keywords are present, the
+sentence may reflect third-party views or rely on external
+background knowledge. Without such knowledge, the model
+misinterprets the sentence and makes overly aggressive de-
+cisions. Second, under implicit statements, where no clear
+keywords or contextual anchors exist, the model fails to re-
+solve the underlying intent through economic reasoning. In
+this case, it adopts a conservative strategy but still produces
+incorrect predictions. Table 4 categorizes these cases by sen-
+tence type, prediction correctness, and decision strategy. The
+original sentences and detailed analysis for case study are
+provided in the detailed case study section of the appendix.
+Conclusion
+We present a domain-specific reasoning framework
+grounded in the monetary policy transmission mechanism
+to emulate expert analysis of policy stances. We propose a
+dynamic uncertainty decoding module that effectively iden-
+tifies cases where the model lacks sufficient knowledge or
+exhibits contextual confusion, rendering it unable to provide
+viable predictions. Under high perceptual uncertainty, our
+approach enables the model to identify unreliable outputs,
+improving reliability under realistic decision-making condi-
+tions. We validate our approach through a comprehensive
+hyperparameter search and demonstrate that the framework
+achieves state-of-the-art performance on the policy stance
+analysis task. Beyond improved robustness, our framework
+also supports human analysts by highlighting predictions
+that are well-grounded versus those requiring caution. Our
+work offers a new direction for evaluating the reliabil-
+ity, transparency, and economic interpretability of LLM
+predictions in policy stance analysis.
+Limitation
+While incorporating domain knowledge and dynamic de-
+coding enhances performance and reliability, our approach
+still relies on hand-crafted templates and has runtime and
+strategy constraints. The main limitation is the limited avail-
+ability of fine-grained data from central banks such as the
+BoE and ECB. Additionally, the framework needs improve-
+ment to better handle context ambiguity and implicit state-
+ments. We leave these challenges for future work.
+
+
+[Page 8]
+Acknowledgments
+This work is supported by the National Natural Sci-
+ence Foundation of China (No. 62406267) and the
+Guangzhou Municipal Science and Technology Project
+(No. 2025A04J4070). Zhang acknowledges financial sup-
+port from the National Science Foundation of China (No.
+72373097).
+References
+Abdin, M.; Aneja, J.; Behl, H.; Bubeck, S.; Eldan, R.; Gu-
+nasekar, S.; Harrison, M.; Hewett, R. J.; Javaheripi, M.;
+Kauffmann, P.; et al. 2024. Phi-4 technical report.arXiv
+preprint arXiv:2412.08905.
+Achiam, J.; Adler, S.; Agarwal, S.; Ahmad, L.; Akkaya, I.;
+Aleman, F. L.; Almeida, D.; Altenschmidt, J.; Altman, S.;
+Anadkat, S.; et al. 2023. Gpt-4 technical report.arXiv
+preprint arXiv:2303.08774.
+Alessandri, P.; `Oscar Jord`a; and Venditti, F. 2025. Decom-
+posing the monetary policy multiplier.Journal of Monetary
+Economics, 152: 103783.
+Araci, D. 2019. Finbert: Financial sentiment analy-
+sis with pre-trained language models.arXiv preprint
+arXiv:1908.10063.
+Bordo, M.; and Istrefi, K. 2023. Perceived FOMC: The mak-
+ing of hawks, doves and swingers.Journal of Monetary Eco-
+nomics, 136: 125–143.
+Bosshardt, J.; Di Maggio, M.; Kakhbod, A.; and Kermani,
+A. 2024. The credit supply channel of monetary policy tight-
+ening and its distributional impacts.Journal of Financial
+Economics, 160: 103914.
+Boukus, E.; and Rosenberg, J. V . 2006. The information
+content of FOMC minutes.Available at SSRN 922312.
+Chen, J.; Zhou, P.; Hua, Y .; Xin, L.; Chen, K.; Li, Z.; Zhu,
+B.; and Liang, J. 2024a. FinTextQA: A Dataset for Long-
+form Financial Question Answering. In Ku, L.-W.; Martins,
+A.; and Srikumar, V ., eds.,Proceedings of the 62nd Annual
+Meeting of the Association for Computational Linguistics
+(Volume 1: Long Papers), 6025–6047. Bangkok, Thailand:
+Association for Computational Linguistics.
+Chen, T.; Zhang, Y .; Yu, G.; Zhang, D.; Zeng, L.; He, Q.;
+and Ao, X. 2024b. EFSA: Towards event-level financial sen-
+timent analysis.arXiv preprint arXiv:2404.08681.
+Chen, Z.; Chen, W.; Smiley, C.; Shah, S.; Borova, I.; Lang-
+don, D.; Moussa, R.; Beane, M.; Huang, T.-H.; Routledge,
+B.; et al. 2021. Finqa: A dataset of numerical reasoning over
+financial data.arXiv preprint arXiv:2109.00122.
+Choi, C.; Kwon, J.; Ha, J.; Choi, H.; Kim, C.; Lee, Y .;
+Sohn, J.-y.; and Lopez-Lira, A. 2025. FinDER: Financial
+Dataset for Question Answering and Evaluating Retrieval-
+Augmented Generation.arXiv preprint arXiv:2504.15800.
+Cieslak, A.; and Vissing-Jorgensen, A. 2021. The economics
+of the Fed put.The Review of Financial Studies, 34(9):
+4045–4089.
+Comanici, G.; Bieber, E.; Schaekermann, M.; Pasupat, I.;
+Sachdeva, N.; Dhillon, I.; Blistein, M.; Ram, O.; Zhang,
+D.; Rosen, E.; et al. 2025. Gemini 2.5: Pushing the fron-
+tier with advanced reasoning, multimodality, long context,
+and next generation agentic capabilities.arXiv preprint
+arXiv:2507.06261.
+Connolly, M. F.; and Struby, E. 2024. Treasury buybacks,
+the Federal Reserve’s portfolio, and changes in local supply.
+Journal of Banking & Finance, 168: 107286.
+Curti, F.; and Kazinnik, S. 2023. Let’s face it: Quantifying
+the impact of nonverbal communication in FOMC press con-
+ferences.Journal of Monetary Economics, 139: 110–126.
+Edison, H.; and Carcel, H. 2021. Text data analysis using
+Latent Dirichlet Allocation: an application to FOMC tran-
+scripts.Applied Economics Letters, 28(1): 38–42.
+Ehrmann, M.; and Talmi, J. 2020. Starting from a blank
+page? Semantic similarity in central bank communication
+and market volatility.Journal of Monetary Economics, 111:
+48–62.
+Fanta, N.; and Horvath, R. 2024. Artificial intelligence and
+central bank communication: the case of the ECB.Applied
+Economics Letters, 0(0): 1–8.
+Gambacorta, L.; Kwon, B.; Park, T.; Patelli, P.; and Zhu,
+S. 2024.CB-LMs: language models for central banking.
+Bank for International Settlements, Monetary and Economic
+Department Basel . . . .
+Geiger, F.; Kanelis, D.; Lieberknecht, P.; and Sola, D. 2025.
+Monetary-Intelligent Language Agent (MILA). Technical
+report, Technical Paper.
+G´omez-Cram, R.; and Grotteria, M. 2022. Real-time price
+discovery via verbal communication: Method and applica-
+tion to Fedspeak.Journal of Financial Economics, 143(3):
+993–1025.
+Gorodnichenko, Y .; Pham, T.; and Talavera, O. 2023. The
+voice of monetary policy.American Economic Review,
+113(2): 548–584.
+Guo, D.; Yang, D.; Zhang, H.; Song, J.; Zhang, R.; Xu, R.;
+Zhu, Q.; Ma, S.; Wang, P.; Bi, X.; et al. 2025. Deepseek-r1:
+Incentivizing reasoning capability in llms via reinforcement
+learning.arXiv preprint arXiv:2501.12948.
+Hansen, A. L.; and Kazinnik, S. 2024. Can chatgpt decipher
+fedspeak?Available at SSRN 4399406.
+Hu, Y .; Wang, X.; Yao, W.; Lu, Y .; Zhang, D.; Foroosh, H.;
+Yu, D.; and Liu, F. 2024. Define: Enhancing llm decision-
+making with factor profiles and analogical reasoning.arXiv
+preprint arXiv:2410.01772.
+Karnaukh, N.; and V okata, P. 2022. Growth forecasts and
+news about monetary policy.Journal of Financial Eco-
+nomics, 146(1): 55–70.
+le Roux, S.; and Bopp, F. 2025. Social learning under am-
+biguity—An experimental study.Journal of Behavioral and
+Experimental Economics, 114: 102323.
+Leitner, G.; Singh, J.; van der Kraaij, A.; and Zs ´amboki, B.
+2024. The rise of artificial intelligence: benefits and risks for
+financial stability.Financial Stability Review, 1.
+Li, X. V .; and Sanna Passino, F. 2024. FinDKG: Dynamic
+Knowledge Graphs with Large Language Models for De-
+tecting Global Trends in Financial Markets. InProceedings
+
+
+[Page 9]
+of the 5th ACM International Conference on AI in Finance,
+ICAIF ’24, 573–581. New York, NY , USA: Association for
+Computing Machinery. ISBN 9798400710810.
+Liu, X.-Y .; Wang, G.; Yang, H.; and Zha, D. 2023. Fin-
+gpt: Democratizing internet-scale data for financial large
+language models.arXiv preprint arXiv:2307.10485.
+Liu, Z.; Huang, D.; Huang, K.; Li, Z.; and Zhao, J. 2021.
+Finbert: A pre-trained financial language representation
+model for financial text mining. InProceedings of the
+twenty-ninth international conference on international joint
+conferences on artificial intelligence, 4513–4519.
+Loughran, T.; and McDonald, B. 2011. When is a liability
+not a liability? Textual analysis, dictionaries, and 10-Ks.The
+Journal of finance, 66(1): 35–65.
+Ma, H.; Chen, J.; Zhou, J. T.; Wang, G.; and Zhang, C. 2025.
+Estimating LLM Uncertainty with Evidence.arXiv preprint
+arXiv:2502.00290.
+Mathur, P.; Neerkaje, A.; Chhibber, M.; Sawhney, R.; Guo,
+F.; Dernoncourt, F.; Dutta, S.; and Manocha, D. 2022.
+Monopoly: Financial prediction from monetary policy con-
+ference videos using multimodal cues. InProceedings of the
+30th ACM International Conference on Multimedia, 2276–
+2285.
+Passos, F. V .; Carrasco-Gutierrez, C. E.; and Loureiro, P.
+R. A. 2024. Monetary policy through the risk-taking chan-
+nel: Evidence from an emerging market.The Quarterly Re-
+view of Economics and Finance, 98: 101923.
+Peskoff, D.; Visokay, A.; Schulhoff, S.; Wachspress, B.;
+Blinder, A.; and Stewart, B. M. 2023. GPT Deciphering
+Fedspeak: Quantifying Dissent Among Hawks and Doves.
+InFindings of the Association for Computational Linguis-
+tics: EMNLP 2023, 6529–6539.
+Pflueger, C.; and Rinaldi, G. 2022. Why does the Fed move
+markets so much? A model of monetary policy and time-
+varying risk aversion.Journal of Financial Economics,
+146(1): 71–89.
+Sensoy, M.; Kaplan, L.; and Kandemir, M. 2018. Eviden-
+tial deep learning to quantify classification uncertainty.Ad-
+vances in neural information processing systems, 31.
+Shah, A.; Paturi, S.; and Chava, S. 2023. Trillion dol-
+lar words: A new financial dataset, task & market analysis.
+arXiv preprint arXiv:2305.07972.
+Smales, L. A. 2023. Classification of RBA monetary policy
+announcements using ChatGPT.Finance Research Letters,
+58: 104514.
+Suh, J. E. 2025. An interest rate rule following the natu-
+ral rate of interest for optimal monetary policy.Economic
+Modelling, 147: 107040.
+Tang, Y .; Yang, Y .; Huang, A.; Tam, A.; and Tang, J. 2023.
+FinEntity: Entity-level sentiment classification for financial
+texts. InProceedings of the 2023 Conference on Empirical
+Methods in Natural Language Processing, 15465–15471.
+V olk, M. 2024. The transmission of targeted monetary pol-
+icy to bank credit supply.The Quarterly Review of Eco-
+nomics and Finance, 94: 104–112.
+Walters, D. J.; ¨Ulk¨umen, G.; Tannenbaum, D.; Erner, C.;
+and Fox, C. R. 2023. Investor behavior under epistemic
+vs. aleatory uncertainty.Management Science, 69(5): 2761–
+2777.
+Wu, S.; Irsoy, O.; Lu, S.; Dabravolski, V .; Dredze, M.;
+Gehrmann, S.; Kambadur, P.; Rosenberg, D.; and Mann, G.
+2023. Bloomberggpt: A large language model for finance.
+arXiv preprint arXiv:2303.17564.
+Xie, Q.; Han, W.; Chen, Z.; Xiang, R.; Zhang, X.; He, Y .;
+Xiao, M.; Li, D.; Dai, Y .; Feng, D.; et al. 2024. Finben:
+A holistic financial benchmark for large language models.
+Advances in Neural Information Processing Systems, 37:
+95716–95743.
+Yang, A.; Li, A.; Yang, B.; Zhang, B.; Hui, B.; Zheng, B.;
+Yu, B.; Gao, C.; Huang, C.; Lv, C.; et al. 2025. Qwen3
+technical report.arXiv preprint arXiv:2505.09388.
+Zeng, A.; Xu, B.; Wang, B.; Zhang, C.; Yin, D.; Zhang, D.;
+Rojas, D.; Feng, G.; Zhao, H.; et al. 2024. Chatglm: A fam-
+ily of large language models from glm-130b to glm-4 all
+tools.arXiv preprint arXiv:2406.12793.
+Zhao, Y .; Huang, J.; Hu, J.; Wang, X.; Mao, Y .; Zhang, D.;
+Jiang, Z.; Wu, Z.; Ai, B.; Wang, A.; et al. 2025. Swift: a
+scalable lightweight infrastructure for fine-tuning. InPro-
+ceedings of the AAAI Conference on Artificial Intelligence,
+volume 39, 29733–29735.
+
+
+[Page 10]
+Appendix
+Data Augmentation & Implementation
+Policy stance DefinitionWe provide additional notes on
+our definitions and explanations of policy stance labels as
+follows:
+Label Definition
+DOVISHDovish tends towards an accommodative
+monetary policy, supporting lower interest
+rates, quantitative easing, and other stimulus
+measures to promote economic growth and
+employment.
+NEUTRALThere is no clear inclination in the stance of
+monetary policy.
+HA WKISHHawkish tends to adopt a contractionary mon-
+etary policy, placing more emphasis on con-
+trolling inflation, even at the cost of slowing
+economic growth.
+Table 5: Definition of monetary policy stance labels.
+In the definition of a dovish stance, two levels are
+included. First, the text expresses an explicit signal that the
+Federal Reserve favors an accommodative monetary policy.
+Second, the text content implies that the Fed tends to adopt
+an accommodative monetary policy (Neutral-Dovish). It can
+be derived from corresponding economic phenomena that
+an accommodative monetary policy might be adopted, or it
+directly expresses related concerns, but still requires further
+data support or other statements for cross-validation. And
+in the definition of a Hawkish stance, the text expresses an
+explicit signal that the Fed tends to adopt a contractionary
+monetary policy. Besides, the text content implies that
+the Fed tends to adopt a contractionary monetary policy
+(Neutral-Hawkish). It can be derived from corresponding
+economic phenomena that a contractionary monetary policy
+might be adopted, or it directly expresses related concerns,
+but still requires further data support or other statements
+for cross-validation. Neutral stance indicates that the text
+is a neutral description, with no clear loose or tight tendency.
+Financial Entity RelationsOur six core relationships are
+shown in Table 6.
+ImplementationWe implement the data augmentation
+process in three steps. First, we use an entity-relation ex-
+traction template to prompt the LLM to generate a list of
+economically relevant reasoning tasks. These tasks are struc-
+tured as subtasks associated with identified entities.
+Second, each subtask is passed to the LLM responsible
+for transmission path reasoning. Based on the original text
+and the decomposed subtasks, the LLM generates candidate
+economic inferences and policy suggestions using a trans-
+mission path template. This results in a set of intermediate
+reasoning paths and policy implications.
+Third, to produce the final explanation and final reasoning
+path, we use the shared policy stance analysis template. On
+the training set, we first use the previously generated entity
+Core relations Definition
+CAUSEEntity A leads to or results in a change in
+Entity B (Causal)
+CONDEntity A establishes a necessary precondi-
+tion for Entity B (Conditional)
+EVIDEntity A provides evidence for or supports a
+conclusion about Entity B (Evidential)
+PURPThe goal or purpose of Entity A is to
+achieve Entity B (Purpose)
+ACTEntity A (the agent) performs the action B
+(the verb/event) (Action)
+COMPEntity A is being compared with Entity B
+(Comparative)
+Table 6: Definition of core relations.
+relations and transmission paths to prompt the LLM. If the
+predicted labels differ from the ground truth, we invoke the
+LLM again to align the label, followed by human correction
+of both the explanation and reasoning path by two annota-
+tors. For predictions that match the ground truth, we still per-
+form manual verification to ensure consistency and clarity.
+We employed data augmentation using Deepseek-R1-0528.
+The structured policy stance analysis prompt templates is
+provided with the code.
+Entity Extraction Template DesignWe design a task
+planner prompt to instruct the LLM to identify reasoning
+units from financial policy text and generate corresponding
+sub-tasks. The planner performs two main functions: ex-
+tracting key financial entities and generating reasoning re-
+lations using economic logic. The simplified form of the
+prompt template is shown in listing 1.
+Transmission Path Reasoning Template DesignThe
+transmission path reasoning prompt is designed to emulate
+the analytical process of human experts. It takes structured
+entity relations and text snippets as input and infers possible
+monetary policy transmission paths. The template consists
+of three key components: relevance assessment, structured
+reasoning via economic transmission channels, and policy
+advice generation. The simplified form of the prompt tem-
+plate is shown in listing 2.
+Policy Stance Analysis Template DesignThe policy
+stance analysis prompt is designed to simulate human-style
+monetary policy stance annotation by integrating multi-
+ple information sources. It determines the overall stance
+(DOVISH, HAWKISH, or NEUTRAL) based on the orig-
+inal text, structured financial entity relations, metadata, and
+inferred policy transmission paths. The simplified form of
+the prompt template is shown in listing 3.
+Detailed Experiment Setup
+The detailed scripts, codes and system environment are in-
+cluded in the supplementary code package.
+Supervised Fine-tuning ExperimentWe conducted
+LoRA-based supervised fine-tuning using the MS-Swift
+
+
+[Page 11]
+Listing 1: Core Logic of the Planner Prompt for Entity-
+Relation Extraction
+1########################################
+2system prompt: You are a professional
+financial analyst skilled in
+identifying entities and their
+relationships in financial texts.
+3########################################
+4 **ROLE**: You are a professional
+financial analyst specialized in FOMC
+statement analysis.
+5Your core mission is twofold:1. Entity
+Recognition: Identify key financial
+entities and their sources from the
+text. 2. Relation Extraction: Map
+entity interactions using 6 core
+relations + 2 composite patterns.
+6
+7Core Relations & Composite Patterns:
+8(This part is align with table
+Definition of core relations)
+9
+10Predefined category template:
+11{category_template}
+12
+13Key Annotation Principles & Rules:
+14Rule A: Entity Grouping & Classification
+15Rule B: Logical Chains & Decomposition
+16Rule C: Adversarial Structure (BUT)
+17Rule D: Source Attribution
+18
+19Example Comprehensive Relation:
+20(((productivity growth slowed +
+employment picked up) COND (
+reductions in slack)) CAUSE (higher
+unit labor costs)) CAUSE pressures on
+prices
+21
+22Example decomposition into atomic
+relations:
+23(A + B) COND C
+24C CAUSE D
+25D CAUSE E
+26
+27Output fomrmat:
+28......
+framework. The key hyperparameters are summarized as
+follows: We set the LoRA rank to 8 and the scaling factor
+(lora-alpha) to 32. The model was trained for 5 epochs. We
+used a per-device batch size of 1 with gradient accumulation
+over 2 steps on 4 GPUs, resulting in an effective batch size
+of 8 for parameter updates. We used the bfloat16 precision
+and enabled gradient checkpointing to reduce memory
+consumption. The optimizer used a learning rate of 1e-4.
+All linear layers were included as target modules for LoRA
+adaptation. During training, model checkpoints were saved
+every 60 steps, and validation was also performed every
+60 steps. We retained up to 12 checkpoints. Data loading
+was parallelized using 4 worker threads. We disabled
+sequence packing and fixed the random seed to 42 to ensure
+Listing 2: Core Logic of the Executor Prompt for Monetary
+Policy Transmission Path Reasoning
+1########################################
+2system prompt: You are a monetary policy
+transmission path analyst.
+3########################################
+4 **ROLE**: You are a monetary policy
+transmission path analyst. Your task
+is to infer potential monetary policy
+transmission paths based on provided
+entity relations and text snippets.
+5
+6# Monetary Policy Transmission Path CORE
+DEFINITION
+7## Task Requirements
+8Economic Relevance Gatekeeping: (This
+part is to filter non-substantive
+signals)
+9
+10Definition of X, Y, Z, M
+11
+12Transmission Paths Template:
+13### Format A: X (Phenomenon) -> Z (
+Changes in economic/market indicators
+-> Market participants revise policy
+expectations) -> M (Policy
+recommendation)
+14Use this when the market/economic
+indicators respond first, and the
+expectation of policy reaction arises
+later as a result of these
+observable shifts.
+15### Format B: X (Phenomenon) -> Z (
+Immediate revision of policy
+expectations -> Changes in market/
+economic indicators) -> M (Policy
+recommendation)
+16Use this when the policy expectation
+shifts immediately, and the market
+indicators respond later, often
+through asset repricing or economic
+behavior adjustments.
+17
+18Guidence for Transmission Path Building:
+19......
+20
+21Few-shot Example:
+22......
+23
+24Output Fomrmat:
+25......
+reproducibility. All training was conducted with DeepSpeed
+ZeRO-3 optimization.
+Dynamic Uncertainty Decoding WorkflowTo acceler-
+ate hyperparameter tuning for dynamic uncertainty decod-
+ing, we designed a two-step inference workflow. In the first
+step, we identified candidate token sets at the policy stance
+prediction position for each input based on predefined pat-
+terns. These token sets were extracted and saved, with a
+one-to-one mapping maintained between each input and its
+
+
+[Page 12]
+Listing 3: Core Logic of the Policy Stance Analysis Prompt
+1########################################
+2system prompt: You are a professional
+policy stance analyst. Your task is
+to determine the overall policy
+stance conveyed by the provided
+original text and respond strictly in
+the specified JSON format.
+3########################################
+4 **ROLE**: You are a professional
+financial sentiment analyst. Your
+task is to determine the overall
+financial sentiment tendency
+expressed in the original sentence/
+paragraph based on the provided
+original text, financial entity
+relationships, metadata (time, source
+of text), and monetary policy
+transmission paths.
+5
+6# Input information: original text,
+financial entity relations, metadata,
+monetary policy transmission path,
+human annotation guideline.
+7
+8# Policy Stance Label Definition:
+9......
+10
+11# Output Format:
+12......
+corresponding candidate list. In the second step, we reused
+pre-computed model logits and performed efficient hyper-
+parameter search over the saved candidate positions without
+re-running the full decoding process. To ensure consistency
+and reproducibility of reported results, all performance met-
+rics are based on outputs from the hyperparameter search
+workflow.
+Ablation Analysis
+Data Augmentation AblationThe ablation study is con-
+ducted with Gemini-2.5-Pro under an end-to-end evaluation
+setup.
+Setting Weighted-F1
+Full augmentation prompt0.6695
+w/o rules 0.5073
+w/o examples 0.5024
+w/o both 0.4950
+Table 7: Ablation results for the augmentation prompt. Trun-
+cating or simplifying the template consistently reduces accu-
+racy.
+The ablation results show that both rules and examples
+play essential roles in the augmentation prompt. Removing
+either component leads to a substantial drop in Weighted-
+F1, and removing both results in the lowest performance.
+The full prompt provides the strongest guidance and pro-
+duces the most reliable augmented data, confirming that the
+structured template is necessary for stable model behavior.
+Policy Stance Label Definition StrategyWe reviewed
+prior work on policy stance prediction with LLMs and found
+that label definitions generally follow two approaches: using
+semantically meaningful textual labels (e.g., dovish, hawk-
+ish, neutral), and mapping stance categories to numeric la-
+bels (e.g., 1, 0, –1). To examine how label definition affects
+model performance, we conducted an ablation study by fine-
+tuning models on datasets with different label formats. As
+shown in Table 8, using original text-based labels yields a
+significantly higher weighted F1 score 0.7378 compared to
+using numeric labels (0.7114). This performance gap may
+be attributed to the semantic alignment between the origi-
+nal textual labels and the prediction task. Text-based labels
+provide clearer learning signals and reduce the need for the
+model to internally remap abstract numbers to policy seman-
+tics, thereby lowering the learning burden.
+Label Type Macro F1 Weighted F1
+Numeric Label 0.7024 0.7114
+Text-based Label0.7291 0.7378
+Table 8: Performance comparison: numeric vs. text-based
+policy stance label definitions.
+Token VocabularyIn the dynamic uncertainty decoding
+experiment, we observed that the evidence for a given la-
+bel can be fragmented across multiple candidate token IDs
+due to the behavior of the model’s tokenizer. Specifically,
+we found that for the same label semantics, the Qwen-3
+produces fragmented token outputs similar to the English-
+centric Phi-4 model. The candidate token vocabularies and
+their associated logit scores are visualized in Table 9.
+We conducted a comparative analysis between our
+method and a baseline approach that directly applies top-
+K selection over candidate tokens without grouping. Ex-
+perimental statistics show that, when K is small (K = 3,
+Mann-Whitney test, p=0.0628), the baseline method exhibits
+weaker uncertainty significance. As K increases, its uncer-
+tainty scores become more strongly correlated with predic-
+tion error rates. Based on this observation, we further tuned
+K on the validation set and reported test results using the
+best-performing configuration, as shown in Table 10.
+While the baseline method benefits from larger K values,
+its performance remains inferior to our proposed approach.
+We attribute this to the tokenizer-induced token-level dis-
+persion, which causes evidence for the true label to be frag-
+mented across multiple token IDs. This dispersion weakens
+the model’s preference signal for the correct label and leads
+to less reliable uncertainty estimation.
+Conservative and Aggressive Strategy DesignBased on
+our proposed PU metric, we designed a set of inference
+strategies to evaluate model behavior under uncertainty. For
+aggressive strategies, we implemented the candidate-greedy
+(greedy-c) strategy reported in the main text. We also de-
+signed an additional aggregate-K-greedy (greedy-k) strat-
+
+
+[Page 13]
+Rank Qwen3-14B Phi-4
+Token Logit Token Logit
+1 H 24.2500 H 24.3750
+2 NE 22.2500 NE 24.0000
+3 DO 21.1250 DO 21.6250
+4 hawk 17.5000 hawk 16.8750
+5 HA 16.2500 NA 16.8750
+6 NA 15.8750 Neutral 16.1250
+7 Hawk 15.6250 HO 15.7500
+8 hawk 15.0000 Do 15.6250
+9 HO 14.9375 HA 15.6250
+10 HE 14.8750 E 15.3750
+11 HAL 14.6250 HE 15.3750
+12 HI 14.5625 UNKNOWN 15.3125
+13 Ne 14.3125 UN 14.8125
+14 Neutral 14.1875 ne 14.7500
+15 DA 14.0625 BE 14.4375
+16 hawks 14.0000 NO 14.3125
+17 HW 13.9375 N 14.3125
+18 h 13.6875 do 14.3125
+19 N 13.6250 Ne 14.1875
+20 D 13.4375 HA V 14.1875
+Table 9: Prediction Token V ocabulary (Top-20 Tokens by
+Logit Score).
+Strategy K Thres. Temp. Macro F1 W. F1
+Non-clustered 20 0.9 0.4 0.7321 0.7404
+V ocab-clustered 10 0.8 0.40.7327 0.7426
+Table 10: Comparison of uncertainty-based strategies with
+vs. without label clustering.
+egy, which selects the top-1 token from the grouped candi-
+date vocabulary based on label clustering. For conservative
+strategies, we did not include a “refuse to answer” option
+to ensure a fair comparison with existing baselines. Instead,
+we default to predicting a neutral stance in high-PU scenar-
+ios to simulate abstention. To test whether our method en-
+hances the model’s ability to utilize label-specific evidence
+during prediction, we further implemented two sampling-
+based variants:
+•candidate sampling, which samples from the top-2 to-
+kens in the original candidate vocabulary;
+•cluster sampling, which samples from the top-2 tokens
+within each grouped label cluster.
+We conducted a series of experiments using the above strate-
+gies. Statistical results show that both the greedy-k and
+greedy-c strategies exhibit a significant positive correlation
+between PU scores and prediction error rates across the
+range of K values. We further applied each strategy to search
+for its optimal hyperparameter on the validation set and eval-
+uated the best configuration on the test set. The results are
+summarized in Table 11. As shown in Table 11, the best-
+performing hyperparameters for both the greedy-k strategy
+Aggressive Conserv. K Thres. Temp. F1
+Macro Weighted
+greedy-k
+cand. 3 0.90 0.4 0.7287 0.7363
+clst. 3 0.75 2.0 0.7273 0.7366
+NEU. 3 0.75 – 0.7269 0.7364
+greedy-c
+cand. 10 0.80 0.4 0.7327 0.7426
+clst. 3 0.75 2.0 0.7273 0.7366
+NEU. 3 0.75 – 0.7269 0.7364
+Table 11: Test set performance of strategy combinations us-
+ing best validation-tuned hyperparameters. “–” means no
+temperature used in NEUTRAL.
+and the conservative strategies (cluster and neutral) consis-
+tently use K = 3. However, these configurations fail to out-
+perform the baseline weighted F1 score of 0.7378 on the
+test set. This may indicate that the cluster and neutral strate-
+gies suffer from overfitting to the validation set, resulting
+in weaker generalization and reduced robustness. In con-
+trast, the greedy-c strategy combined with candidate sam-
+pling achieves the highest test performance, with a weighted
+F1 of 0.7426.
+Transferability EvaluationWe further conducted trans-
+ferability experiments, as shown in Table 12. The results
+demonstrate that our method retains a consistent perfor-
+mance advantage across models, indicating its transferabil-
+ity.
+Model Macro F1 Weighted F1
+Phi-4 (Ours)0.7147 0.7241
+Phi-4 (Baseline) 0.7139 0.7225
+Qwen-3 (Ours)0.7327 0.7426
+Qwen-3 (Baseline) 0.7291 0.7378
+Table 12: Transferability test using best hyperparame-
+ters searched on Qwen-3 (K=10, Threshold=0.8, Tempera-
+ture=0.4).
+This analysis suggests that the our proposed method is
+more effective in leveraging PU scores to guide predictions
+and improve reliability. Subsequent sensitivity analysis of
+hyperparameter settings further support the robustness of
+this approach.
+Hyperparameters Sensitivity Analysis
+This section analyzes the sensitivity of the model’s perfor-
+mance to variations in three key hyperparameters: temper-
+ature, threshold percentile, and k-value. The performance
+metrics considered are the macro F1 score and the weighted
+F1 score. For each hyperparameter group, we report the av-
+erage of the results and the standard deviation.
+TemperatureAs shown in Figure 5a, the overall mean for
+macro F1 across all temperatures is 0.7300 with a standard
+deviation of 0.0033, and for weighted F1, the mean is 0.7389
+
+
+[Page 14]
+(a) Temperature’s Impact on F1 Performance.
+(b) Threshold Percentile’s Impact on F1 Performance.
+(c) K value’s Impact on F1 Performance.
+Figure 5: Comparison of F1 Performance across Tempera-
+ture, Threshold Percentile and K value.
+with a standard deviation of 0.0038. The low standard de-
+viations indicate stable performance across the temperature
+range, with the best results at lower temperatures.
+Threshold PercentileFigure 5b contains the threshold
+percentile’s impact on F1 performance. The overall mean
+for macro F1 across all thresholds is 0.7319 with a stan-
+dard deviation of 0.0085, and for weighted F1, the mean is
+0.7405 with a standard deviation of 0.0090. Most results are
+clustered around the mean, except for one maximum value
+(0.75) and one minimum value (0.85).
+K ValueWe show the k value’s impact on F1 performance
+in 5c. The overall mean for macro F1 across all k-values is
+0.7309 with a standard deviation of 0.0040, and for weighted
+F1, the mean is 0.7400 with a standard deviation of 0.0044.
+Notably, the highest performance is observed at a k-value of
+30, indicating that relatively large k-values can be beneficial
+to the model.
+In conclusion, our model is robust to variations in tem-
+perature and k-value, allowing flexibility in these settings.
+The threshold percentile is the most influential parameter, as
+it produces the largest performance swings and higher stan-
+dard deviations. Additionally, although our optimal hyper-
+parameters on validation set fail to obtain the strongest per-
+formance on test set, all of them outperform the average of
+the results.
+Case Study
+We provide supplementary notes for the case study section
+in the main text. In Table 13, we present full sentences with
+their sentence types, GT labels, prediction labels, and cor-
+rectness. We also include relevant analysis.
+
+
+[Page 15]
+Sentence Sentence
+Type
+GT Label Prediction
+Label
+Correctness Analysis
+Sentence 1:I would say,
+in the area of
+commercial real estate,
+while valuations are
+high, we are seeing some
+tightening of lending
+standards and less debt
+growth associated with
+that rise in commercial
+real estate prices.
+Explicit +
+Contrastive
+Hawkish Hawkish Correct We observe that although the sentence lacks
+explicit contrast-signaling words like “but” or
+“however”, the statement “we are seeing
+some...” logically implies a contrast with the
+preceding statement “while valuations are
+high”. Our model establishes a risk-averse
+stance that shapes the hawkish outcome
+through the causal emphasis in the BUT
+relationship.
+Sentence 2:This is
+perhaps because the
+emphasis on price
+stability is taken by some
+as carrying a hint of
+restrictive policy and as
+an inclination to always
+be leaning against
+cyclical increases in
+demand.
+Contextual
+Confusion
+Neutral Hawkish Incorrect We note that the statement “This is perhaps
+because...” suggests an explanatory and
+descriptive tone, rather than a direct assertion
+by the Federal Reserve; it conveys a neutral
+policy stance. However, when interpreting
+the Fed’s dialogue, our model focused solely
+on key evidence like “emphasis on price
+stability,” “restrictive policy,” and “leaning
+against cyclical increases in demand,”
+without considering the context. Our model
+concluded that a tightening monetary policy
+was warranted, indicating a hawkish stance.
+In this context, contextual confusion led to an
+incorrect judgment.
+Sentence 3:Yet, with a
+few exceptions, the
+available data show that
+productivity growth in
+other advanced countries
+has not increased to the
+extent seen in the United
+States.
+Implicit
+Statement
+Dovish Neutral Incorrect We find that this sentence argues against
+rushing to tighten policy in the US by
+emphasizing external economic weakness,
+indirectly supporting loose monetary policy.
+The phrases “with a few exceptions” and “not
+increased to the extent” highlight universal
+weakness, not positive exceptions. This
+sentence shows a clear dovish tilt. From this
+perspective, our model failed to recognize the
+implicit policy message: that the US
+comparison with other countries conveys a
+dovish stance. Our model thus interpreted it
+as neutral, leading to an incorrect judgment.
+Table 13: Comprehensive case study with sentence classification and prediction analysis.
