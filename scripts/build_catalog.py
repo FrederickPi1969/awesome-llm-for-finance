@@ -25,8 +25,36 @@ ROUND2_CANDIDATES_PATH = ROOT / "data" / "processed" / "round2_expansion_candida
 ROUND3_CANDIDATES_PATH = ROOT / "data" / "processed" / "round3_expansion_candidates.csv"
 ROUND4_CANDIDATES_PATH = ROOT / "data" / "processed" / "round4_expansion_candidates.csv"
 CURATED_PATH = ROOT / "data" / "processed" / "curated_papers.csv"
+TAXONOMY_PATH = ROOT / "data" / "processed" / "curated_papers_by_taxonomy.csv"
 README_PATH = ROOT / "README.md"
 PLAN_PATH = ROOT / "docs" / "collection_plan.md"
+
+
+TAXONOMY_ORDER = [
+    "Surveys and Reviews",
+    "Foundation and Domain Language Models",
+    "Benchmarks and Evaluation Suites",
+    "Financial QA, Reasoning, and Table Understanding",
+    "Reports, Filings, Accounting, and Risk",
+    "Trading, Investment, and Portfolio Management",
+    "Agents and Multi-Agent Systems",
+    "RAG, Search, and Knowledge Systems",
+    "Multimodal and Multilingual Finance",
+    "Professional, Regulatory, and Advisory Applications",
+]
+
+TAXONOMY_DESCRIPTIONS = {
+    "Surveys and Reviews": "Survey, review, taxonomy, and overview papers that map the finance LLM landscape.",
+    "Foundation and Domain Language Models": "Financial-domain LLMs, FinBERT-style models, instruction tuning, and domain adaptation work.",
+    "Benchmarks and Evaluation Suites": "General finance LLM benchmarks, evaluation suites, exams, leaderboards, and broad task collections.",
+    "Financial QA, Reasoning, and Table Understanding": "Question answering, numerical reasoning, financial table/text reasoning, and discrete reasoning tasks.",
+    "Reports, Filings, Accounting, and Risk": "SEC filings, annual reports, XBRL, accounting, credit/risk, disclosure, and document analytics.",
+    "Trading, Investment, and Portfolio Management": "Stock prediction, trading, alpha, portfolio construction, allocation, investment reports, and market analysis.",
+    "Agents and Multi-Agent Systems": "Financial LLM agents, trading agents, multi-agent markets, agent benchmarks, and autonomous workflows.",
+    "RAG, Search, and Knowledge Systems": "Retrieval-augmented generation, search, knowledge grounding, knowledge graphs, and document retrieval systems.",
+    "Multimodal and Multilingual Finance": "Multimodal, multilingual, bilingual, and non-English financial LLM resources and evaluations.",
+    "Professional, Regulatory, and Advisory Applications": "CFA/professional exams, financial advice, regulatory interpretation, compliance, and human-facing advisory settings.",
+}
 
 
 STRONG_FINANCE_TERMS = [
@@ -437,6 +465,289 @@ def curated_row_from_seed(row: dict[str, str]) -> dict[str, str]:
     }
 
 
+def assign_taxonomy_category(row: dict[str, str]) -> str:
+    title = norm(row.get("title", ""))
+    abstract = norm(row.get("abstract", ""))
+    category = norm(row.get("primary_category", ""))
+    paper_type = norm(row.get("paper_type", ""))
+    relevance = norm(row.get("primary_relevance", ""))
+    signal = f"{title} {category} {paper_type} {relevance}"
+    padded_signal = f" {signal} "
+
+    def has_any(terms: list[str], where: str = signal) -> bool:
+        return any(term in where for term in terms)
+
+    def has_rag_signal() -> bool:
+        return has_any(
+            [
+                "retrieval",
+                "retrieval-augmented",
+                "finsearch",
+                "financial search",
+                "search and reasoning",
+                "knowledge graph",
+                "knowledge grounding",
+                "grounding",
+                "chunking",
+                "document retrieval",
+                "text embedding",
+                "claim verification",
+                "fact-checking",
+                "grounded",
+            ],
+            signal,
+        ) or " rag " in padded_signal
+
+    def has_qa_signal() -> bool:
+        return has_any(
+            [
+                "question answering",
+                "question-answering",
+                "numerical reasoning",
+                "quantitative reasoning",
+                "discrete reasoning",
+                "table-text",
+                "table text",
+                "textual data",
+                "chain-of-thought",
+                "reasoning over financial",
+                "financial reasoning",
+                "finqa",
+                "convfinqa",
+                "docfinqa",
+                "tat-qa",
+                "tat-llm",
+                "multihiertt",
+                "finchain",
+                "bizbench",
+            ],
+            signal,
+        ) or " qa " in padded_signal or " table " in padded_signal or " tables " in padded_signal
+
+    def is_agent_work() -> bool:
+        return has_any(
+            [
+                "agent",
+                "agents",
+                "multi-agent",
+                "multi agent",
+                "agentic",
+                "autonomous",
+                "crews",
+            ],
+            signal,
+        )
+
+    def is_trading_or_investment() -> bool:
+        return has_any(
+            [
+                "trading",
+                "trade",
+                "stock",
+                "stocks",
+                "portfolio",
+                "investment",
+                "investor",
+                "investing",
+                "alpha",
+                "return prediction",
+                "stock return",
+                "stock price",
+                "market timing",
+                "equity",
+                "asset allocation",
+                "sector allocation",
+                "wall street",
+                "earnings reports",
+                "quantitative investment",
+                "fund investment",
+                "hedge-fund",
+                "fundamental analysis",
+                "forecasting",
+                "financial market",
+                "sentiment trading",
+                "crypto",
+                "cryptocurrency",
+                "forex",
+            ],
+            signal,
+        ) or " market " in padded_signal or " markets " in padded_signal or " factor " in padded_signal or " factors " in padded_signal or " valuation " in padded_signal
+
+    # 1. Surveys are primarily navigational and should stay together. Avoid
+    # matching bare "taxonomy" because some task papers build taxonomies.
+    if has_any(["survey", "review", "overview", "scoping review", "systematic review"], title) or "survey" in category:
+        return "Surveys and Reviews"
+
+    # 2. Professional/regulatory/advisory work is defined by the decision-maker
+    # context, not by generic words such as "professional" alone.
+    if has_any(
+        [
+            "cfa",
+            "chartered financial analyst",
+            "financial advisor",
+            "financial advisement",
+            "advisory",
+            "regulatory interpretation",
+            "regulation",
+            "compliance",
+            "mock cfa",
+            "financial literacy",
+            "model risk management",
+        ],
+        signal,
+    ):
+        return "Professional, Regulatory, and Advisory Applications"
+
+    # 3. RAG, retrieval, search, grounding, and knowledge systems are a
+    # first-class systems theme when explicitly named.
+    if has_rag_signal():
+        return "RAG, Search, and Knowledge Systems"
+
+    # 4. Filing/report/accounting/risk document analytics should not be absorbed
+    # by agent or RAG labels when the data object is the main contribution.
+    if has_any(
+        [
+            "sec filing",
+            "sec filings",
+            "10-k",
+            "10-q",
+            "edgar",
+            "xbrl",
+            "annual report",
+            "financial report",
+            "financial reports",
+            "filing",
+            "filings",
+            "accounting",
+            "audit",
+            "auditing",
+            "disclosure",
+            "disclosures",
+            "credit risk",
+            "risk extraction",
+            "risk quantification",
+            "material risks",
+            "loan descriptions",
+            "banking",
+            "financial statement",
+            "financial statements",
+            "fundamental analysis",
+            "taxonomy-aligned risk",
+        ],
+        signal,
+    ):
+        return "Reports, Filings, Accounting, and Risk"
+
+    # 5. QA/reasoning/table-understanding papers form a clear task family. This
+    # catches finance QA datasets before broad benchmark or RAG labels.
+    if has_qa_signal():
+        return "Financial QA, Reasoning, and Table Understanding"
+
+    # 6. Agents are a distinct systems theme. Reports, QA, and professional
+    # papers have already been separated above.
+    if is_agent_work():
+        return "Agents and Multi-Agent Systems"
+
+    # 7. Trading/investment and market tasks. Put task-focused prediction,
+    # allocation, valuation, and portfolio papers here even when they use RAG or
+    # fine-tuning as a technique.
+    if is_trading_or_investment() or category == "trading and investment":
+        return "Trading, Investment, and Portfolio Management"
+
+    # 8. Multimodal/multilingual resources are a cross-cutting theme, but useful
+    # enough to be a first-class bucket for browsing.
+    if has_any(
+        [
+            "multimodal",
+            "multi-modal",
+            "vision-language",
+            "vlm",
+            "chart",
+            "image-centric",
+            "multilingual",
+            "bilingual",
+            "chinese",
+            "spanish",
+            "arabic",
+            "greek",
+            "japanese",
+            "low-resource",
+            "non-english",
+            "cross-lingual",
+            "cflue",
+        ],
+        signal,
+    ):
+        return "Multimodal and Multilingual Finance"
+
+    # 9. Domain models and fine-tuning/instruction-tuning papers.
+    if has_any(
+        [
+            "bloomberggpt",
+            "fingpt",
+            "finbert",
+            "bondbert",
+            "finllm",
+            "finllms",
+            "financial language model",
+            "financial large language model",
+            "financial chat model",
+            "financial assistant",
+            "domain pre-trained",
+            "pre-trained financial",
+            "instruction tuning",
+            "fine-tuning",
+            "fine tuning",
+            "instruct-",
+            "open finllm",
+            "leaderboard",
+            "domain adaptation",
+            "domain adaption",
+            "financial communications",
+            "sentiment analysis",
+            "text classification",
+        ],
+        signal,
+    ):
+        return "Foundation and Domain Language Models"
+
+    # 10. Broad benchmarks and evaluation collections.
+    if has_any(
+        [
+            "benchmark",
+            "evaluation",
+            "evaluating",
+            "eval",
+            "dataset",
+            "datasets",
+            "exam",
+            "leaderboard",
+            "test",
+            "task collection",
+        ],
+        signal,
+    ):
+        return "Benchmarks and Evaluation Suites"
+
+    return "Benchmarks and Evaluation Suites"
+
+
+def apply_taxonomy(curated: list[dict[str, str]]) -> list[dict[str, str]]:
+    rows = []
+    for row in curated:
+        enriched = dict(row)
+        enriched["taxonomy_category"] = assign_taxonomy_category(row)
+        enriched["taxonomy_description"] = TAXONOMY_DESCRIPTIONS[enriched["taxonomy_category"]]
+        rows.append(enriched)
+
+    if len(rows) != len(curated):
+        raise RuntimeError(f"taxonomy row count mismatch: {len(rows)} != {len(curated)}")
+    missing = [row for row in rows if not row.get("taxonomy_category")]
+    if missing:
+        raise RuntimeError(f"taxonomy assignment missing for {len(missing)} rows")
+    return rows
+
+
 def build_curated_papers(
     seeds: list[dict[str, str]],
     combined_candidates: list[dict[str, str]],
@@ -769,20 +1080,12 @@ def write_readme(
     candidates: list[dict[str, str]],
     curated: list[dict[str, str]],
     round2_candidates: list[dict[str, str]],
+    taxonomy_rows: list[dict[str, str]],
 ) -> None:
-    seed_by_category: dict[str, list[dict[str, str]]] = defaultdict(list)
-    for seed in seeds:
-        seed_by_category[seed_category(seed)].append(seed)
+    taxonomy_by_category: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in taxonomy_rows:
+        taxonomy_by_category[row["taxonomy_category"]].append(row)
 
-    category_order = [
-        "Surveys",
-        "Financial language models",
-        "Benchmarks and datasets",
-        "Reports, filings, and risk",
-        "Trading and investment",
-        "Financial agents",
-        "Other",
-    ]
     lines = [
         "# Awesome LLM for Finance",
         "",
@@ -790,64 +1093,35 @@ def write_readme(
         "",
         "> Status: expanding public seed. The current catalog starts from 58 seed papers plus four Semantic Scholar citation/reference expansion rounds over high-relevance finance LLM candidates.",
         "",
-        "## Data Files",
+        "## Taxonomy",
         "",
-        "- `data/processed/curated_papers.csv`: expanded curated list combining the original seeds and promoted additions.",
-        "- `data/processed/seed_papers_enriched.csv`: seed papers with Semantic Scholar metadata, citation counts, links, and abstracts.",
-        "- `data/processed/expansion_candidates_preliminary.csv`: top 200 candidate additions discovered from citation/reference expansion.",
-        "- `data/processed/round2_expansion_candidates.csv`: top 200 candidate additions discovered from the second-round expansion.",
-        "- `data/processed/round3_expansion_candidates.csv`: top 200 candidate additions discovered from the third-round expansion.",
-        "- `data/processed/round4_expansion_candidates.csv`: top 200 candidate additions discovered from the fourth-round expansion.",
-        "- `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.",
-        "- `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.",
-        "- `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.",
-        "- `data/raw/round3_related_work_edges.csv`: raw citation/reference edges from the third expansion pass.",
-        "- `data/raw/round4_related_work_edges.csv`: raw citation/reference edges from the fourth expansion pass.",
-        "- `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.",
-        "- `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.",
-        "- `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.",
-        "- `data/raw/round4_related_work_manifest.csv`: per-round-4-seed retrieval status and edge counts.",
-        "",
-        "## Collection Method",
-        "",
-        "1. Start with the seed CSV in `data/raw/seed_papers_original.csv`.",
-        "2. Resolve seed papers through Semantic Scholar, preferring arXiv ids when available.",
-        "3. Fetch both citations and references for each resolved seed paper.",
-        "4. Promote high-confidence candidates from prior passes as deeper expansion seeds.",
-        "5. Fetch citations and references for those promoted candidates.",
-        "6. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
-        "",
-        "See `docs/collection_plan.md` for the planned multi-round expansion workflow.",
-        "",
-        "## Seed Papers",
+        "Each paper is assigned to exactly one primary category. The taxonomy is intentionally a partition: the total number of papers in the categories below equals the total rows in `data/processed/curated_papers.csv`.",
         "",
     ]
+    for category in TAXONOMY_ORDER:
+        count = len(taxonomy_by_category.get(category, []))
+        lines.append(f"- **{category}** ({count}) - {TAXONOMY_DESCRIPTIONS[category]}")
+    lines.extend(
+        [
+            "",
+            "## Contents",
+            "",
+        ]
+    )
+    for category in TAXONOMY_ORDER:
+        count = len(taxonomy_by_category.get(category, []))
+        anchor = category.lower().replace("&", "").replace(",", "").replace(" ", "-")
+        lines.append(f"- [{category}](#{anchor}) ({count})")
+    lines.extend(
+        [
+            "",
+            "## Papers by Theme",
+            "",
+        ]
+    )
 
-    for category in category_order:
-        items = seed_by_category.get(category, [])
-        if not items:
-            continue
-        lines.extend([f"### {category}", ""])
-        for row in sorted(items, key=lambda x: (x.get("priority", "P9"), x.get("approx_year", ""), x.get("title", ""))):
-            url = row.get("source_url") or row.get("semantic_scholar_url")
-            year = row.get("approx_year") or row.get("resolved_year")
-            citation = row.get("citationCount") or "n/a"
-            short = row.get("short_name") or row.get("title")
-            lines.append(
-                f"- {markdown_link(row.get('title', ''), url)} ({year}) "
-                f"- `{row.get('priority', '')}` - citations: {citation} - {short}"
-            )
-        lines.append("")
-
-    curated_additions_by_category: dict[str, list[dict[str, str]]] = defaultdict(list)
-    for row in curated:
-        if row.get("list_status") == "seed":
-            continue
-        curated_additions_by_category[row.get("primary_category") or "Other"].append(row)
-
-    lines.extend(["## Expanded Curated Additions", ""])
-    for category in category_order + ["Other relevant work"]:
-        items = curated_additions_by_category.get(category, [])
+    for category in TAXONOMY_ORDER:
+        items = taxonomy_by_category.get(category, [])
         if not items:
             continue
         lines.extend([f"### {category}", ""])
@@ -856,16 +1130,59 @@ def write_readme(
             key=lambda x: (
                 x.get("priority", "P9"),
                 -to_int(x.get("citationCount", "0")),
+                x.get("approx_year", ""),
                 x.get("title", ""),
             ),
         ):
+            status = row.get("list_status", "")
+            status_label = {
+                "seed": "seed",
+                "round1_promoted_seed_for_round2": "expanded",
+                "round2_promoted": "expanded",
+                "round3_promoted": "expanded",
+                "round3_promoted_seed_for_round4": "expanded",
+                "round4_promoted": "expanded",
+            }.get(status, status)
             lines.append(
                 f"- {markdown_link(row.get('title', ''), row.get('source_url', ''))} "
                 f"({row.get('approx_year', 'n.d.')}) - `{row.get('priority', '')}` "
-                f"- citations: {row.get('citationCount', '0')} "
-                f"- {row.get('list_status', '')}"
+                f"- citations: {row.get('citationCount', '0')} - {status_label}"
             )
         lines.append("")
+
+    lines.extend(
+        [
+            "## Data Files",
+            "",
+            "- `data/processed/curated_papers.csv`: expanded curated list combining the original seeds and promoted additions.",
+            "- `data/processed/curated_papers_by_taxonomy.csv`: the same curated list with one mutually exclusive taxonomy category per paper.",
+            "- `data/processed/seed_papers_enriched.csv`: seed papers with Semantic Scholar metadata, citation counts, links, and abstracts.",
+            "- `data/processed/expansion_candidates_preliminary.csv`: top 200 candidate additions discovered from citation/reference expansion.",
+            "- `data/processed/round2_expansion_candidates.csv`: top 200 candidate additions discovered from the second-round expansion.",
+            "- `data/processed/round3_expansion_candidates.csv`: top 200 candidate additions discovered from the third-round expansion.",
+            "- `data/processed/round4_expansion_candidates.csv`: top 200 candidate additions discovered from the fourth-round expansion.",
+            "- `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.",
+            "- `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.",
+            "- `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.",
+            "- `data/raw/round3_related_work_edges.csv`: raw citation/reference edges from the third expansion pass.",
+            "- `data/raw/round4_related_work_edges.csv`: raw citation/reference edges from the fourth expansion pass.",
+            "- `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.",
+            "- `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.",
+            "- `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.",
+            "- `data/raw/round4_related_work_manifest.csv`: per-round-4-seed retrieval status and edge counts.",
+            "",
+            "## Collection Method",
+            "",
+            "1. Start with the seed CSV in `data/raw/seed_papers_original.csv`.",
+            "2. Resolve seed papers through Semantic Scholar, preferring arXiv ids when available.",
+            "3. Fetch both citations and references for each resolved seed paper.",
+            "4. Promote high-confidence candidates from prior passes as deeper expansion seeds.",
+            "5. Fetch citations and references for those promoted candidates.",
+            "6. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
+            "",
+            "See `docs/collection_plan.md` for the planned multi-round expansion workflow.",
+        ]
+    )
 
     lines.extend(
         [
@@ -1041,7 +1358,10 @@ def main() -> None:
         "abstract",
     ]
     write_csv(CURATED_PATH, curated, curated_columns)
-    write_readme(seeds, candidates, curated, round2_candidates)
+    taxonomy_rows = apply_taxonomy(curated)
+    taxonomy_columns = curated_columns + ["taxonomy_category", "taxonomy_description"]
+    write_csv(TAXONOMY_PATH, taxonomy_rows, taxonomy_columns)
+    write_readme(seeds, candidates, curated, round2_candidates, taxonomy_rows)
     write_plan()
     print(f"seeds={len(seeds)}")
     print(f"first_round_edges={len(first_round_edges)}")
@@ -1055,6 +1375,7 @@ def main() -> None:
     print(f"round4_candidates={len(round4_candidates)}")
     print(f"longlist={len(longlist)}")
     print(f"curated={len(curated)}")
+    print(f"taxonomy={len(taxonomy_rows)}")
     print(f"wrote={CANDIDATES_PATH}")
 
 
