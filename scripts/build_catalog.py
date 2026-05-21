@@ -27,6 +27,8 @@ REGTECH_COMPLIANCE_FOCUS_EDGES_PATH = ROOT / "data" / "raw" / "regtech_complianc
 REGTECH_COMPLIANCE_FOCUS_MANIFEST_PATH = ROOT / "data" / "raw" / "regtech_compliance_focus_manifest.csv"
 SPECIFIC_DOMAIN_FOCUS_EDGES_PATH = ROOT / "data" / "raw" / "specific_domain_focus_edges.csv"
 SPECIFIC_DOMAIN_FOCUS_MANIFEST_PATH = ROOT / "data" / "raw" / "specific_domain_focus_manifest.csv"
+SPECIFIC_DOMAIN_ROUND2_EDGES_PATH = ROOT / "data" / "raw" / "specific_domain_round2_edges.csv"
+SPECIFIC_DOMAIN_ROUND2_MANIFEST_PATH = ROOT / "data" / "raw" / "specific_domain_round2_manifest.csv"
 CANDIDATES_PATH = ROOT / "data" / "processed" / "expansion_candidates_preliminary.csv"
 LONG_LIST_PATH = ROOT / "data" / "processed" / "related_work_relevance_longlist.csv"
 ROUND2_CANDIDATES_PATH = ROOT / "data" / "processed" / "round2_expansion_candidates.csv"
@@ -40,6 +42,8 @@ REGTECH_COMPLIANCE_FOCUS_ANCHORS_PATH = ROOT / "data" / "processed" / "regtech_c
 REGTECH_COMPLIANCE_FOCUS_CANDIDATES_PATH = ROOT / "data" / "processed" / "regtech_compliance_focus_expansion_candidates.csv"
 SPECIFIC_DOMAIN_FOCUS_SEARCH_PATH = ROOT / "data" / "processed" / "specific_domain_focus_search_candidates.csv"
 SPECIFIC_DOMAIN_FOCUS_CANDIDATES_PATH = ROOT / "data" / "processed" / "specific_domain_focus_expansion_candidates.csv"
+SPECIFIC_DOMAIN_ROUND2_ANCHORS_PATH = ROOT / "data" / "processed" / "specific_domain_round2_anchor_candidates.csv"
+SPECIFIC_DOMAIN_ROUND2_CANDIDATES_PATH = ROOT / "data" / "processed" / "specific_domain_round2_expansion_candidates.csv"
 CURATED_PATH = ROOT / "data" / "processed" / "curated_papers.csv"
 TAXONOMY_PATH = ROOT / "data" / "processed" / "curated_papers_by_taxonomy.csv"
 README_PATH = ROOT / "README.md"
@@ -807,6 +811,7 @@ def build_curated_papers(
     regtech_focus_candidates: list[dict[str, str]] | None = None,
     specific_domain_search_candidates: list[dict[str, str]] | None = None,
     specific_domain_focus_candidates: list[dict[str, str]] | None = None,
+    specific_domain_round2_candidates: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     curated: list[dict[str, str]] = []
     seen_titles = set()
@@ -849,6 +854,7 @@ def build_curated_papers(
     regtech_focus_candidates = regtech_focus_candidates or []
     specific_domain_search_candidates = specific_domain_search_candidates or []
     specific_domain_focus_candidates = specific_domain_focus_candidates or []
+    specific_domain_round2_candidates = specific_domain_round2_candidates or []
 
     def should_promote_round2(candidate: dict[str, str]) -> bool:
         title = candidate.get("title", "").lower()
@@ -1471,6 +1477,9 @@ def build_curated_papers(
             "benchmarking large language models for supply chain risk identification",
             "event identification for supply chain risk management through news analysis",
             "equity research chatbot using llm",
+            "measuring corporate risk using large language model embeddings",
+            "finkario: event-enhanced automated construction of financial knowledge graph",
+            "finbert2: a specialized bidirectional encoder",
             "your ai, not your view",
             "shield: llm-driven schema induction",
             "fine-tuning and explaining finbert for sector-specific financial news",
@@ -1552,6 +1561,25 @@ def build_curated_papers(
         if should_promote_specific_domain_focus(candidate):
             add(curated_row_from_candidate(candidate, "specific_domain_focus_promoted"))
             specific_domain_promoted += 1
+
+    def should_promote_specific_domain_round2(candidate: dict[str, str]) -> bool:
+        title = candidate.get("title", "").lower()
+        critic_approved_titles = [
+            "findkg: dynamic knowledge graphs with large language models for detecting global trends in financial markets",
+            "finripple: aligning large language models with financial market for event ripple effect awareness",
+            "risk factor extraction in financial disclosures via a knowledge graph-enhanced language model",
+            "finkg: a core financial knowledge graph for financial analysis",
+            "naturekg: an ontology and knowledge graph for nature finance with a text2cypher application",
+        ]
+        return any(term in title for term in critic_approved_titles)
+
+    specific_domain_round2_promoted = 0
+    for candidate in specific_domain_round2_candidates:
+        if specific_domain_round2_promoted >= 12:
+            break
+        if should_promote_specific_domain_round2(candidate):
+            add(curated_row_from_candidate(candidate, "specific_domain_round2_promoted"))
+            specific_domain_round2_promoted += 1
     return curated
 
 
@@ -1571,7 +1599,7 @@ def write_readme(
         "",
         "A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, and professional finance evaluation.",
         "",
-        "> Status: expanding public seed. The current catalog starts from 58 seed papers, four broad Semantic Scholar citation/reference expansion rounds, focused FinMem trading-agent, financial report analysis, RegTech/compliance, and specific-domain deep-dives.",
+        "> Status: expanding public seed. The current catalog starts from 58 seed papers, four broad Semantic Scholar citation/reference expansion rounds, focused FinMem trading-agent, financial report analysis, RegTech/compliance, and multi-step specific-domain deep-dives.",
         "",
         "## Taxonomy",
         "",
@@ -1626,6 +1654,7 @@ def write_readme(
                 "report_analysis_focus_promoted": "focused expansion",
                 "regtech_compliance_focus_promoted": "focused expansion",
                 "specific_domain_focus_promoted": "focused expansion",
+                "specific_domain_round2_promoted": "focused expansion",
             }.get(status, status)
             lines.append(
                 f"- {markdown_link(row.get('title', ''), row.get('source_url', ''))} "
@@ -1653,6 +1682,8 @@ def write_readme(
             "- `data/processed/regtech_compliance_focus_expansion_candidates.csv`: candidate additions discovered from the focused RegTech/compliance deep-dive.",
             "- `data/processed/specific_domain_focus_search_candidates.csv`: direct Semantic Scholar search candidates for industry/sector analysis, supply-chain finance/risk, and ETF/asset-allocation workflows.",
             "- `data/processed/specific_domain_focus_expansion_candidates.csv`: candidate additions discovered from the focused specific-domain deep-dive.",
+            "- `data/processed/specific_domain_round2_anchor_candidates.csv`: Critic-approved anchors for the second specific-domain deep-dive.",
+            "- `data/processed/specific_domain_round2_expansion_candidates.csv`: candidate additions discovered from the second specific-domain deep-dive.",
             "- `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.",
             "- `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.",
             "- `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.",
@@ -1662,6 +1693,7 @@ def write_readme(
             "- `data/raw/report_analysis_focus_edges.csv`: raw citation/reference edges from the focused financial report analysis deep-dive.",
             "- `data/raw/regtech_compliance_focus_edges.csv`: raw citation/reference edges from the focused RegTech/compliance deep-dive.",
             "- `data/raw/specific_domain_focus_edges.csv`: raw citation/reference edges from the focused specific-domain deep-dive.",
+            "- `data/raw/specific_domain_round2_edges.csv`: raw citation/reference edges from the second specific-domain deep-dive.",
             "- `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.",
             "- `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.",
             "- `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.",
@@ -1670,6 +1702,7 @@ def write_readme(
             "- `data/raw/report_analysis_focus_manifest.csv`: per-report-analysis-focused-seed retrieval status and edge counts.",
             "- `data/raw/regtech_compliance_focus_manifest.csv`: per-RegTech/compliance-focused-anchor retrieval status and edge counts.",
             "- `data/raw/specific_domain_focus_manifest.csv`: per-specific-domain-focused-anchor retrieval status and edge counts.",
+            "- `data/raw/specific_domain_round2_manifest.csv`: per-second-specific-domain-focused-anchor retrieval status and edge counts.",
             "",
             "## Collection Method",
             "",
@@ -1682,7 +1715,8 @@ def write_readme(
             "7. Run a focused financial report analysis deep-dive over financial statement analysis, SEC filing QA, report chunking, XBRL, and report-generation anchors.",
             "8. Run a focused RegTech/compliance deep-dive over regulatory interpretation, model risk, audit, trustworthiness, and financial advisement anchors.",
             "9. Run a focused specific-domain deep-dive over industry/sector analysis, supply-chain finance/risk, investment research, and ETF/asset-allocation anchors.",
-            "10. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
+            "10. Run a Critic-approved second specific-domain deep-dive over corporate/supply-chain risk, financial knowledge graphs, sector intelligence, and finance-specific model deployment anchors.",
+            "11. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
             "",
             "See `docs/collection_plan.md` for the planned multi-round expansion workflow.",
         ]
@@ -1793,6 +1827,11 @@ def main() -> None:
         "specific_domain_focus",
         "specific_domain_focus_edges.csv",
     )
+    specific_domain_round2_edges = normalize_round_edges(
+        read_csv(SPECIFIC_DOMAIN_ROUND2_EDGES_PATH),
+        "specific_domain_round2",
+        "specific_domain_round2_edges.csv",
+    )
     edges = (
         first_round_edges
         + round2_edges
@@ -1802,6 +1841,7 @@ def main() -> None:
         + report_focus_edges
         + regtech_focus_edges
         + specific_domain_focus_edges
+        + specific_domain_round2_edges
     )
     round2_manifest_rows = read_csv(ROUND2_MANIFEST_PATH)
     round3_manifest_rows = read_csv(ROUND3_MANIFEST_PATH)
@@ -1813,6 +1853,7 @@ def main() -> None:
     regtech_focus_manifest_rows = read_csv(REGTECH_COMPLIANCE_FOCUS_MANIFEST_PATH)
     specific_domain_focus_manifest_rows = read_csv(SPECIFIC_DOMAIN_FOCUS_MANIFEST_PATH)
     specific_domain_search_candidates = read_csv(SPECIFIC_DOMAIN_FOCUS_SEARCH_PATH)
+    specific_domain_round2_manifest_rows = read_csv(SPECIFIC_DOMAIN_ROUND2_MANIFEST_PATH)
     candidates, longlist = build_candidates(seeds, edges)
     round2_seed_rows = manifest_as_seed_rows(round2_manifest_rows)
     round2_candidates, _round2_longlist = build_candidates(
@@ -1923,7 +1964,7 @@ def main() -> None:
         seeds + curated_as_seed_rows(curated_before_specific_domain_focus) + specific_domain_focus_seed_rows,
         specific_domain_focus_edges,
     )
-    curated = build_curated_papers(
+    curated_before_specific_domain_round2 = build_curated_papers(
         seeds,
         longlist
         + round2_candidates
@@ -1949,6 +1990,42 @@ def main() -> None:
         regtech_focus_candidates,
         specific_domain_search_candidates,
         specific_domain_focus_candidates,
+    )
+    specific_domain_round2_seed_rows = manifest_as_seed_rows(specific_domain_round2_manifest_rows)
+    specific_domain_round2_candidates, _specific_domain_round2_longlist = build_candidates(
+        seeds
+        + curated_as_seed_rows(curated_before_specific_domain_round2)
+        + specific_domain_round2_seed_rows,
+        specific_domain_round2_edges,
+    )
+    curated = build_curated_papers(
+        seeds,
+        longlist
+        + round2_candidates
+        + round3_candidates
+        + round4_candidates
+        + trading_focus_seed_candidates
+        + trading_focus_candidates
+        + report_focus_seed_candidates
+        + report_focus_candidates
+        + regtech_focus_candidates
+        + specific_domain_search_candidates
+        + specific_domain_focus_candidates
+        + specific_domain_round2_candidates,
+        round2_manifest_rows,
+        round2_candidates,
+        round3_manifest_rows,
+        round3_candidates,
+        round4_manifest_rows,
+        round4_candidates,
+        trading_focus_seed_candidates,
+        trading_focus_candidates,
+        report_focus_seed_candidates,
+        report_focus_candidates,
+        regtech_focus_candidates,
+        specific_domain_search_candidates,
+        specific_domain_focus_candidates,
+        specific_domain_round2_candidates,
     )
     columns = [
         "rank",
@@ -1982,6 +2059,7 @@ def main() -> None:
     write_csv(REPORT_ANALYSIS_FOCUS_CANDIDATES_PATH, report_focus_candidates, columns)
     write_csv(REGTECH_COMPLIANCE_FOCUS_CANDIDATES_PATH, regtech_focus_candidates, columns)
     write_csv(SPECIFIC_DOMAIN_FOCUS_CANDIDATES_PATH, specific_domain_focus_candidates, columns)
+    write_csv(SPECIFIC_DOMAIN_ROUND2_CANDIDATES_PATH, specific_domain_round2_candidates, columns)
     curated_columns = [
         "list_status",
         "priority",
@@ -2019,6 +2097,7 @@ def main() -> None:
     print(f"report_analysis_focus_edges={len(report_focus_edges)}")
     print(f"regtech_compliance_focus_edges={len(regtech_focus_edges)}")
     print(f"specific_domain_focus_edges={len(specific_domain_focus_edges)}")
+    print(f"specific_domain_round2_edges={len(specific_domain_round2_edges)}")
     print(f"edges={len(edges)}")
     print(f"candidates={len(candidates)}")
     print(f"round2_candidates={len(round2_candidates)}")
@@ -2029,6 +2108,7 @@ def main() -> None:
     print(f"regtech_compliance_focus_candidates={len(regtech_focus_candidates)}")
     print(f"specific_domain_focus_search_candidates={len(specific_domain_search_candidates)}")
     print(f"specific_domain_focus_candidates={len(specific_domain_focus_candidates)}")
+    print(f"specific_domain_round2_candidates={len(specific_domain_round2_candidates)}")
     print(f"longlist={len(longlist)}")
     print(f"curated={len(curated)}")
     print(f"taxonomy={len(taxonomy_rows)}")
