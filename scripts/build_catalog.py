@@ -31,6 +31,8 @@ SPECIFIC_DOMAIN_ROUND2_EDGES_PATH = ROOT / "data" / "raw" / "specific_domain_rou
 SPECIFIC_DOMAIN_ROUND2_MANIFEST_PATH = ROOT / "data" / "raw" / "specific_domain_round2_manifest.csv"
 SPECIFIC_DOMAIN_ROUND3_EDGES_PATH = ROOT / "data" / "raw" / "specific_domain_round3_edges.csv"
 SPECIFIC_DOMAIN_ROUND3_MANIFEST_PATH = ROOT / "data" / "raw" / "specific_domain_round3_manifest.csv"
+INSTITUTIONAL_TRADING_FOCUS_EDGES_PATH = ROOT / "data" / "raw" / "institutional_trading_focus_edges.csv"
+INSTITUTIONAL_TRADING_FOCUS_MANIFEST_PATH = ROOT / "data" / "raw" / "institutional_trading_focus_manifest.csv"
 CANDIDATES_PATH = ROOT / "data" / "processed" / "expansion_candidates_preliminary.csv"
 LONG_LIST_PATH = ROOT / "data" / "processed" / "related_work_relevance_longlist.csv"
 ROUND2_CANDIDATES_PATH = ROOT / "data" / "processed" / "round2_expansion_candidates.csv"
@@ -48,6 +50,8 @@ SPECIFIC_DOMAIN_ROUND2_ANCHORS_PATH = ROOT / "data" / "processed" / "specific_do
 SPECIFIC_DOMAIN_ROUND2_CANDIDATES_PATH = ROOT / "data" / "processed" / "specific_domain_round2_expansion_candidates.csv"
 SPECIFIC_DOMAIN_ROUND3_ANCHORS_PATH = ROOT / "data" / "processed" / "specific_domain_round3_anchor_candidates.csv"
 SPECIFIC_DOMAIN_ROUND3_CANDIDATES_PATH = ROOT / "data" / "processed" / "specific_domain_round3_expansion_candidates.csv"
+INSTITUTIONAL_TRADING_FOCUS_SEARCH_PATH = ROOT / "data" / "processed" / "institutional_trading_focus_search_candidates.csv"
+INSTITUTIONAL_TRADING_FOCUS_CANDIDATES_PATH = ROOT / "data" / "processed" / "institutional_trading_focus_expansion_candidates.csv"
 CURATED_PATH = ROOT / "data" / "processed" / "curated_papers.csv"
 TAXONOMY_PATH = ROOT / "data" / "processed" / "curated_papers_by_taxonomy.csv"
 README_PATH = ROOT / "README.md"
@@ -123,6 +127,30 @@ STRONG_FINANCE_TERMS = [
     "research report",
     "etf",
     "exchange-traded fund",
+    "option",
+    "options",
+    "derivative",
+    "derivatives",
+    "structured product",
+    "structured products",
+    "hedging",
+    "volatility surface",
+    "order book",
+    "limit order book",
+    "market microstructure",
+    "execution",
+    "slippage",
+    "transaction cost",
+    "high frequency",
+    "hft",
+    "robo-advisor",
+    "wealth management",
+    "investment advice",
+    "private equity",
+    "venture capital",
+    "alternative assets",
+    "private market",
+    "private markets",
 ]
 
 WEAK_FINANCE_TERMS = [
@@ -609,6 +637,39 @@ def assign_taxonomy_category(row: dict[str, str]) -> str:
                 "etf",
                 "exchange traded fund",
                 "exchange-traded fund",
+                "option",
+                "options",
+                "derivative",
+                "derivatives",
+                "structured product",
+                "structured products",
+                "hedging",
+                "volatility surface",
+                "implied volatility",
+                "order book",
+                "limit order book",
+                "market microstructure",
+                "execution",
+                "slippage",
+                "transaction cost",
+                "high frequency",
+                "hft",
+                "prediction market",
+                "prediction markets",
+                "robo-advisor",
+                "robo advisor",
+                "wealth management",
+                "investment advice",
+                "financial advice",
+                "investor profiling",
+                "private equity",
+                "venture capital",
+                "due diligence",
+                "private market",
+                "private markets",
+                "alternative asset",
+                "alternative assets",
+                "commercial real estate",
                 "forecasting",
                 "financial market",
                 "sentiment trading",
@@ -817,6 +878,8 @@ def build_curated_papers(
     specific_domain_focus_candidates: list[dict[str, str]] | None = None,
     specific_domain_round2_candidates: list[dict[str, str]] | None = None,
     specific_domain_round3_candidates: list[dict[str, str]] | None = None,
+    institutional_trading_search_candidates: list[dict[str, str]] | None = None,
+    institutional_trading_focus_candidates: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     curated: list[dict[str, str]] = []
     seen_titles = set()
@@ -861,6 +924,8 @@ def build_curated_papers(
     specific_domain_focus_candidates = specific_domain_focus_candidates or []
     specific_domain_round2_candidates = specific_domain_round2_candidates or []
     specific_domain_round3_candidates = specific_domain_round3_candidates or []
+    institutional_trading_search_candidates = institutional_trading_search_candidates or []
+    institutional_trading_focus_candidates = institutional_trading_focus_candidates or []
 
     def should_promote_round2(candidate: dict[str, str]) -> bool:
         title = candidate.get("title", "").lower()
@@ -1605,6 +1670,87 @@ def build_curated_papers(
         if should_promote_specific_domain_round3(candidate):
             add(curated_row_from_candidate(candidate, "specific_domain_round3_promoted"))
             specific_domain_round3_promoted += 1
+
+    def should_promote_institutional_trading_focus(candidate: dict[str, str]) -> bool:
+        title = candidate.get("title", "").lower()
+        text = f"{title} {candidate.get('abstract', '').lower()}"
+        venue = candidate.get("venue", "").lower()
+        year = to_int(candidate.get("year", "0"))
+        llm_terms = [
+            "large language",
+            "llm",
+            "gpt",
+            "chatgpt",
+            "generative ai",
+            "language model",
+            "agent",
+            "benchmark",
+            "rag",
+            "retrieval",
+            "reasoning",
+        ]
+        critic_style_whitelist = [
+            "polybench: benchmarking llm forecasting and trading capabilities on live prediction market data",
+            "dynamic hedging strategies in derivatives markets with llm-driven sentiment and news analytics",
+            "finsheet-bench: from simple lookups to complex reasoning, where llms break on financial spreadsheets",
+            "financeqa: a benchmark for evaluating financial analysis capabilities of large language models",
+            "biased echoes: large language models reinforce investment biases and increase portfolio risks of private investors",
+            "the gaining paths to investment success: information-driven llm graph reasoning for venture capital prediction",
+            "stocksim: a dual-mode order-level simulator for evaluating multi-agent llms in financial markets",
+            "a multi-agent orchestration framework for venture capital due diligence",
+            "from natural language to executable option strategies via large language models",
+            "a multi-agent approach to investor profiling using large language models",
+            "polyswarm: a multi-agent large language model framework for prediction market trading and latency arbitrage",
+            "alphaforgebench: benchmarking end-to-end trading strategy design with large language models",
+            "agent trading arena: a study on numerical understanding in llm-based agents",
+            "can large language models effectively process and execute financial trading instructions?",
+            "quantcode-bench: a benchmark for evaluating the ability of large language models to generate executable algorithmic trading strategies",
+            "deepfinllm: an intelligent financial advisor unleashing strategic insights with large language models",
+            "chatgpt as a financial advisor: a re-examination",
+            "llm-guided evolutionary strategy generation for quantitative trading",
+            "mm-drex: multimodal-driven dynamic routing of llm experts for financial trading",
+            "application of startup success prediction models and business document extraction using large language models to enhance due diligence efficiency",
+        ]
+        excluded = [
+            "treatment options",
+            "dermatological",
+            "clinical",
+            "medical",
+            "melanoma",
+            "nutrition",
+            "inpatient",
+            "eda",
+            "chip",
+            "system-on-chip",
+            "energy trading",
+            "electricity trading",
+            "carbon trading",
+            "cancer drug",
+            "option pricing error mitigation",
+            "arbitrage-aware 3d implied volatility",
+            "deep bsde",
+            "expected utility insight",
+            "currency hedging strategies",
+            "causes of indian investor",
+            "portfolio dollarization",
+            "student-scientists",
+            "gender and racial bias",
+        ]
+        if year and year < 2024:
+            return False
+        if any(term in title for term in excluded) or "student-scientists" in venue:
+            return False
+        if not any(term in text for term in llm_terms):
+            return False
+        return any(term in title for term in critic_style_whitelist)
+
+    institutional_trading_promoted = 0
+    for candidate in institutional_trading_search_candidates + institutional_trading_focus_candidates:
+        if institutional_trading_promoted >= 22:
+            break
+        if should_promote_institutional_trading_focus(candidate):
+            add(curated_row_from_candidate(candidate, "institutional_trading_focus_promoted"))
+            institutional_trading_promoted += 1
     return curated
 
 
@@ -1681,6 +1827,7 @@ def write_readme(
                 "specific_domain_focus_promoted": "focused expansion",
                 "specific_domain_round2_promoted": "focused expansion",
                 "specific_domain_round3_promoted": "focused expansion",
+                "institutional_trading_focus_promoted": "focused expansion",
             }.get(status, status)
             lines.append(
                 f"- {markdown_link(row.get('title', ''), row.get('source_url', ''))} "
@@ -1712,6 +1859,8 @@ def write_readme(
             "- `data/processed/specific_domain_round2_expansion_candidates.csv`: candidate additions discovered from the second specific-domain deep-dive.",
             "- `data/processed/specific_domain_round3_anchor_candidates.csv`: Critic-approved anchors for the third specific-domain deep-dive.",
             "- `data/processed/specific_domain_round3_expansion_candidates.csv`: candidate additions discovered from the third specific-domain deep-dive.",
+            "- `data/processed/institutional_trading_focus_search_candidates.csv`: direct Semantic Scholar search candidates for derivatives/options, execution/microstructure, investment advisory, and private/alternative assets.",
+            "- `data/processed/institutional_trading_focus_expansion_candidates.csv`: candidate additions discovered from the focused institutional trading/investment deep-dive.",
             "- `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.",
             "- `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.",
             "- `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.",
@@ -1723,6 +1872,7 @@ def write_readme(
             "- `data/raw/specific_domain_focus_edges.csv`: raw citation/reference edges from the focused specific-domain deep-dive.",
             "- `data/raw/specific_domain_round2_edges.csv`: raw citation/reference edges from the second specific-domain deep-dive.",
             "- `data/raw/specific_domain_round3_edges.csv`: raw citation/reference edges from the third specific-domain deep-dive.",
+            "- `data/raw/institutional_trading_focus_edges.csv`: raw citation/reference edges from the focused institutional trading/investment deep-dive.",
             "- `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.",
             "- `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.",
             "- `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.",
@@ -1733,6 +1883,7 @@ def write_readme(
             "- `data/raw/specific_domain_focus_manifest.csv`: per-specific-domain-focused-anchor retrieval status and edge counts.",
             "- `data/raw/specific_domain_round2_manifest.csv`: per-second-specific-domain-focused-anchor retrieval status and edge counts.",
             "- `data/raw/specific_domain_round3_manifest.csv`: per-third-specific-domain-focused-anchor retrieval status and edge counts.",
+            "- `data/raw/institutional_trading_focus_manifest.csv`: per-institutional-trading-focused-anchor retrieval status and edge counts.",
             "",
             "## Collection Method",
             "",
@@ -1747,7 +1898,8 @@ def write_readme(
             "9. Run a focused specific-domain deep-dive over industry/sector analysis, supply-chain finance/risk, investment research, and ETF/asset-allocation anchors.",
             "10. Run a Critic-approved second specific-domain deep-dive over corporate/supply-chain risk, financial knowledge graphs, sector intelligence, and finance-specific model deployment anchors.",
             "11. Run a Critic-approved third specific-domain deep-dive over financial knowledge graphs, risk-factor extraction, event ripple effects, and nature-finance graph intelligence anchors.",
-            "12. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
+            "12. Run a focused institutional trading/investment deep-dive over derivatives/options, execution/microstructure, investment advisory, and private/alternative assets.",
+            "13. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.",
             "",
             "See `docs/collection_plan.md` for the planned multi-round expansion workflow.",
         ]
@@ -1868,6 +2020,11 @@ def main() -> None:
         "specific_domain_round3",
         "specific_domain_round3_edges.csv",
     )
+    institutional_trading_focus_edges = normalize_round_edges(
+        read_csv(INSTITUTIONAL_TRADING_FOCUS_EDGES_PATH),
+        "institutional_trading_focus",
+        "institutional_trading_focus_edges.csv",
+    )
     edges = (
         first_round_edges
         + round2_edges
@@ -1879,6 +2036,7 @@ def main() -> None:
         + specific_domain_focus_edges
         + specific_domain_round2_edges
         + specific_domain_round3_edges
+        + institutional_trading_focus_edges
     )
     round2_manifest_rows = read_csv(ROUND2_MANIFEST_PATH)
     round3_manifest_rows = read_csv(ROUND3_MANIFEST_PATH)
@@ -1892,6 +2050,8 @@ def main() -> None:
     specific_domain_search_candidates = read_csv(SPECIFIC_DOMAIN_FOCUS_SEARCH_PATH)
     specific_domain_round2_manifest_rows = read_csv(SPECIFIC_DOMAIN_ROUND2_MANIFEST_PATH)
     specific_domain_round3_manifest_rows = read_csv(SPECIFIC_DOMAIN_ROUND3_MANIFEST_PATH)
+    institutional_trading_focus_manifest_rows = read_csv(INSTITUTIONAL_TRADING_FOCUS_MANIFEST_PATH)
+    institutional_trading_search_candidates = read_csv(INSTITUTIONAL_TRADING_FOCUS_SEARCH_PATH)
     candidates, longlist = build_candidates(seeds, edges)
     round2_seed_rows = manifest_as_seed_rows(round2_manifest_rows)
     round2_candidates, _round2_longlist = build_candidates(
@@ -2072,7 +2232,7 @@ def main() -> None:
         + specific_domain_round3_seed_rows,
         specific_domain_round3_edges,
     )
-    curated = build_curated_papers(
+    curated_before_institutional_trading_focus = build_curated_papers(
         seeds,
         longlist
         + round2_candidates
@@ -2102,6 +2262,48 @@ def main() -> None:
         specific_domain_focus_candidates,
         specific_domain_round2_candidates,
         specific_domain_round3_candidates,
+    )
+    institutional_trading_focus_seed_rows = manifest_as_seed_rows(institutional_trading_focus_manifest_rows)
+    institutional_trading_focus_candidates, _institutional_trading_focus_longlist = build_candidates(
+        seeds
+        + curated_as_seed_rows(curated_before_institutional_trading_focus)
+        + institutional_trading_focus_seed_rows,
+        institutional_trading_focus_edges,
+    )
+    curated = build_curated_papers(
+        seeds,
+        longlist
+        + round2_candidates
+        + round3_candidates
+        + round4_candidates
+        + trading_focus_seed_candidates
+        + trading_focus_candidates
+        + report_focus_seed_candidates
+        + report_focus_candidates
+        + regtech_focus_candidates
+        + specific_domain_search_candidates
+        + specific_domain_focus_candidates
+        + specific_domain_round2_candidates
+        + specific_domain_round3_candidates
+        + institutional_trading_search_candidates
+        + institutional_trading_focus_candidates,
+        round2_manifest_rows,
+        round2_candidates,
+        round3_manifest_rows,
+        round3_candidates,
+        round4_manifest_rows,
+        round4_candidates,
+        trading_focus_seed_candidates,
+        trading_focus_candidates,
+        report_focus_seed_candidates,
+        report_focus_candidates,
+        regtech_focus_candidates,
+        specific_domain_search_candidates,
+        specific_domain_focus_candidates,
+        specific_domain_round2_candidates,
+        specific_domain_round3_candidates,
+        institutional_trading_search_candidates,
+        institutional_trading_focus_candidates,
     )
     columns = [
         "rank",
@@ -2137,6 +2339,7 @@ def main() -> None:
     write_csv(SPECIFIC_DOMAIN_FOCUS_CANDIDATES_PATH, specific_domain_focus_candidates, columns)
     write_csv(SPECIFIC_DOMAIN_ROUND2_CANDIDATES_PATH, specific_domain_round2_candidates, columns)
     write_csv(SPECIFIC_DOMAIN_ROUND3_CANDIDATES_PATH, specific_domain_round3_candidates, columns)
+    write_csv(INSTITUTIONAL_TRADING_FOCUS_CANDIDATES_PATH, institutional_trading_focus_candidates, columns)
     curated_columns = [
         "list_status",
         "priority",
@@ -2176,6 +2379,7 @@ def main() -> None:
     print(f"specific_domain_focus_edges={len(specific_domain_focus_edges)}")
     print(f"specific_domain_round2_edges={len(specific_domain_round2_edges)}")
     print(f"specific_domain_round3_edges={len(specific_domain_round3_edges)}")
+    print(f"institutional_trading_focus_edges={len(institutional_trading_focus_edges)}")
     print(f"edges={len(edges)}")
     print(f"candidates={len(candidates)}")
     print(f"round2_candidates={len(round2_candidates)}")
@@ -2188,6 +2392,8 @@ def main() -> None:
     print(f"specific_domain_focus_candidates={len(specific_domain_focus_candidates)}")
     print(f"specific_domain_round2_candidates={len(specific_domain_round2_candidates)}")
     print(f"specific_domain_round3_candidates={len(specific_domain_round3_candidates)}")
+    print(f"institutional_trading_focus_search_candidates={len(institutional_trading_search_candidates)}")
+    print(f"institutional_trading_focus_candidates={len(institutional_trading_focus_candidates)}")
     print(f"longlist={len(longlist)}")
     print(f"curated={len(curated)}")
     print(f"taxonomy={len(taxonomy_rows)}")
