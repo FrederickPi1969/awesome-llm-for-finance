@@ -2,7 +2,7 @@
 
 A curated reading list for large language models in finance: financial-domain LLMs, benchmarks, SEC filing analysis, financial reasoning, trading agents, investment research, and professional finance evaluation.
 
-> Status: expanding public seed. The current catalog starts from 58 seed papers, four broad Semantic Scholar citation/reference expansion rounds, focused FinMem trading-agent and financial report analysis deep-dives, and a focused RegTech/compliance deep-dive.
+> Status: expanding public seed. The current catalog starts from 58 seed papers, four broad Semantic Scholar citation/reference expansion rounds, focused FinMem trading-agent, financial report analysis, RegTech/compliance, and specific-domain deep-dives.
 
 ## Taxonomy
 
@@ -10,11 +10,11 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 
 - **Surveys and Reviews** (20) - Survey, review, taxonomy, and overview papers that map the finance LLM landscape.
 - **Foundation and Domain Language Models** (21) - Financial-domain LLMs, FinBERT-style models, instruction tuning, and domain adaptation work.
-- **Benchmarks and Evaluation Suites** (16) - General finance LLM benchmarks, evaluation suites, exams, leaderboards, and broad task collections.
+- **Benchmarks and Evaluation Suites** (15) - General finance LLM benchmarks, evaluation suites, exams, leaderboards, and broad task collections.
 - **Financial QA, Reasoning, and Table Understanding** (12) - Question answering, numerical reasoning, financial table/text reasoning, and discrete reasoning tasks.
-- **Reports, Filings, Accounting, and Risk** (31) - SEC filings, annual reports, XBRL, accounting, credit/risk, disclosure, and document analytics.
-- **Trading, Investment, and Portfolio Management** (45) - Stock prediction, trading, alpha, portfolio construction, allocation, investment reports, and market analysis.
-- **Agents and Multi-Agent Systems** (52) - Financial LLM agents, trading agents, multi-agent markets, agent benchmarks, and autonomous workflows.
+- **Reports, Filings, Accounting, and Risk** (38) - SEC filings, annual reports, XBRL, accounting, credit/risk, disclosure, and document analytics.
+- **Trading, Investment, and Portfolio Management** (49) - Stock prediction, trading, alpha, portfolio construction, allocation, investment reports, and market analysis.
+- **Agents and Multi-Agent Systems** (53) - Financial LLM agents, trading agents, multi-agent markets, agent benchmarks, and autonomous workflows.
 - **RAG, Search, and Knowledge Systems** (19) - Retrieval-augmented generation, search, knowledge grounding, knowledge graphs, and document retrieval systems.
 - **Multimodal and Multilingual Finance** (17) - Multimodal, multilingual, bilingual, and non-English financial LLM resources and evaluations.
 - **Professional, Regulatory, and Advisory Applications** (10) - CFA/professional exams, financial advice, regulatory interpretation, compliance, and human-facing advisory settings.
@@ -23,11 +23,11 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 
 - [Surveys and Reviews](#surveys-and-reviews) (20)
 - [Foundation and Domain Language Models](#foundation-and-domain-language-models) (21)
-- [Benchmarks and Evaluation Suites](#benchmarks-and-evaluation-suites) (16)
+- [Benchmarks and Evaluation Suites](#benchmarks-and-evaluation-suites) (15)
 - [Financial QA, Reasoning, and Table Understanding](#financial-qa-reasoning-and-table-understanding) (12)
-- [Reports, Filings, Accounting, and Risk](#reports-filings-accounting-and-risk) (31)
-- [Trading, Investment, and Portfolio Management](#trading-investment-and-portfolio-management) (45)
-- [Agents and Multi-Agent Systems](#agents-and-multi-agent-systems) (52)
+- [Reports, Filings, Accounting, and Risk](#reports-filings-accounting-and-risk) (38)
+- [Trading, Investment, and Portfolio Management](#trading-investment-and-portfolio-management) (49)
+- [Agents and Multi-Agent Systems](#agents-and-multi-agent-systems) (53)
 - [RAG, Search, and Knowledge Systems](#rag-search-and-knowledge-systems) (19)
 - [Multimodal and Multilingual Finance](#multimodal-and-multilingual-finance) (17)
 - [Professional, Regulatory, and Advisory Applications](#professional-regulatory-and-advisory-applications) (10)
@@ -97,7 +97,6 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - [Advancing Anomaly Detection: Non-Semantic Financial Data Encoding With Large Language Models](https://www.semanticscholar.org/paper/c3aa9fb3366773efcded68170feb90bed301869a) (2024) - `P1` - citations: 10 - focused expansion
 - [Exploring Large Language Models for Financial Applications: Techniques, Performance, and Challenges with FinMA](https://www.semanticscholar.org/paper/35d835d43450af4348ee49c8f7097b7ab9c3ecd0) (2025) - `P1` - citations: 2 - expanded
 - [Evaluating LLMs in Finance Requires Explicit Bias Consideration](https://www.semanticscholar.org/paper/1744469bb8a5a2c5b462cc5d1f33ce621ab35424) (2026) - `P1` - citations: 2 - focused expansion
-- [FinReasoning: A Hierarchical Benchmark for Reliable Financial Research Reporting](https://www.semanticscholar.org/paper/13f2f65f72b72da24b20b209ec803b1fa0e36871) (2026) - `P1` - citations: 0 - focused expansion
 - [Large Language Model Evaluation on Financial Benchmarks](https://research.ibm.com/publications/large-language-model-evaluation-on-financial-benchmarks) (2024) - `P2` - citations: 7 - seed
 
 ### Financial QA, Reasoning, and Table Understanding
@@ -130,19 +129,26 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - [Bloated Disclosures: Can ChatGPT Help Investors Process Information?](https://www.semanticscholar.org/paper/af16b6f8146432e9437c1dd9b8320ee24ac63455) (2023) - `P1` - citations: 56 - expanded
 - [GPT-InvestAR: Enhancing Stock Investment Strategies through Annual Report Analysis with Large Language Models](https://www.semanticscholar.org/paper/110052b69ccbcc280b1a806c4e0bf876e6a5b116) (2023) - `P1` - citations: 29 - expanded
 - [Assessing Consistency and Reproducibility in the Outputs of Large Language Models: Evidence Across Diverse Finance and Accounting Tasks](https://www.semanticscholar.org/paper/128a8fdc8d15dcb2827eb75fab898e260f2e485c) (2025) - `P1` - citations: 26 - focused expansion
+- [SHIELD: LLM-Driven Schema Induction for Predictive Analytics in EV Battery Supply Chain Disruptions](https://www.semanticscholar.org/paper/7b29d5ddee07066355ede470cb325603b7bc6c0e) (2024) - `P1` - citations: 17 - focused expansion
 - [SEC-QA: A Systematic Benchmark for Evaluating Long-Context Question Answering on SEC Filings](https://arxiv.org/html/2406.14394v1) (2024) - `P1` - citations: 15 - seed
+- [Measuring Firm-Level Supply Chain Risk Using A Generative Large Language Model](https://www.semanticscholar.org/paper/74de4e2c66b47539377eedf2726dad5c93a5b3ee) (2025) - `P1` - citations: 15 - focused expansion
 - [Generative AI Solutions to Empower Financial Firms](https://www.semanticscholar.org/paper/6aa25a7fba787219fc7af14411f42b43d2eda1a9) (2024) - `P1` - citations: 12 - expanded
+- [Event Identification for Supply Chain Risk Management Through News Analysis by Using Large Language Models](https://www.semanticscholar.org/paper/0754dff6096217daf0150f2b5f4114c89b9bb49e) (2024) - `P1` - citations: 7 - focused expansion
 - [FinAuditing: A Financial Taxonomy-Structured Multi-Document Benchmark for Evaluating LLMs](https://www.semanticscholar.org/paper/fe525530756c4b3a7d020c98dfbe75d8e0cc2b11) (2025) - `P1` - citations: 7 - focused expansion
+- [Leveraging Internet-Sourced Text Data for Financial Analytics in Supply Chain Finance: A Large Language Model-Enhanced Text Mining Workflow](https://www.semanticscholar.org/paper/7ad8e6d84f7ce6145a15852fa19c370c0d485eb0) (2025) - `P1` - citations: 6 - focused expansion
 - [SECQUE: A Benchmark for Evaluating Question-Answering on SEC Filings](https://arxiv.org/abs/2504.04596) (2025) - `P1` - citations: 6 - seed
 - [Automating Financial Statement Audits with Large Language Models](https://www.semanticscholar.org/paper/0ce70fbf8d7128801adfd9626fc56b49201b62e1) (2025) - `P1` - citations: 4 - focused expansion
 - [EDINET-Bench: Evaluating LLMs on Complex Financial Tasks using Japanese Financial Statements](https://www.semanticscholar.org/paper/e41a4abbb067bcb6fbc7dfebf8d4a20573b4e84e) (2025) - `P1` - citations: 4 - focused expansion
 - [FinNLI: Novel Dataset for Multi-Genre Financial Natural Language Inference Benchmarking](https://www.semanticscholar.org/paper/f22b17e68fc846fd660951807862a78adc08525f) (2025) - `P1` - citations: 4 - expanded
+- [Measuring climate risk with ChatGPT: the influence of firms market value within supply chains in China](https://www.semanticscholar.org/paper/ee3198dcf12dee9baf58134f3bb92ac7b75052d9) (2025) - `P1` - citations: 4 - focused expansion
 - [A Scalable Data-Driven Framework for Systematic Analysis of SEC 10-K Filings Using Large Language Models](https://www.semanticscholar.org/paper/164c6a7606fc03d63d3836cd8b3a3234d09d37d4) (2024) - `P1` - citations: 3 - focused expansion
 - [Language Models Fine-Tuning for Automatic Format Reconstruction of SEC Financial Filings](https://www.semanticscholar.org/paper/6ac39e68e162e27f2ca0f7345390112b91f69e1f) (2024) - `P1` - citations: 3 - focused expansion
+- [Benchmarking large language models for supply chain risk identification: an extended evaluation within the LARD-SC framework](https://www.semanticscholar.org/paper/0258d13e84238957c3821d1ce76716aa2b4facff) (2025) - `P1` - citations: 3 - focused expansion
 - [Evaluating Large Language Models (LLMs) in Financial NLP: A Comparative Study on Financial Report Analysis](https://www.semanticscholar.org/paper/9152606cc3f27124d96f12388e14e67ba3ac3f29) (2025) - `P1` - citations: 3 - focused expansion
 - [Finch: Benchmarking Finance & Accounting across Spreadsheet-Centric Enterprise Workflows](https://www.semanticscholar.org/paper/9b4b712e7daffd0566593006b5e3340f957b0563) (2025) - `P1` - citations: 3 - focused expansion
 - [HiFi-KPI: A Dataset for Hierarchical KPI Extraction from Earnings Filings](https://www.semanticscholar.org/paper/f28343ca4663f21b9901c599c9a4a5fae7d81047) (2025) - `P1` - citations: 1 - focused expansion
 - [ALERA: An Entropy-Based LLM Multi-Agent Framework for Dynamic Risk Quantification in Quantitative Investing](https://www.semanticscholar.org/paper/12cf7474ba0c98d7c376fe4e47847d1ef35de14f) (2025) - `P1` - citations: 0 - expanded
+- [From text to risk: Predicting repayment risk in supply chain finance with deep learning and large language models](https://www.semanticscholar.org/paper/aafaa3ae79682cac015ceddb4c9e9f68cce7a09a) (2025) - `P1` - citations: 0 - focused expansion
 - [Quantifying Material Risks from Textual Disclosures in Financial Statements using Large Language Model Agents](https://www.bis.org/ifc/publ/ifcb65_09_rh.pdf) (2025) - `P1` - citations:  - seed
 - [Detecting Semantic Mismatches in XBRL Tag Mapping for SEC 10-K Filings: A Text Comparison and Historical Consistency Analysis](https://www.semanticscholar.org/paper/e123ec052cb2aab036fb0ace58991d3cacb4a013) (2026) - `P1` - citations: 0 - focused expansion
 - [Document-Level Numerical Reasoning across Single and Multiple Tables in Financial Reports](https://www.semanticscholar.org/paper/53d7cd998e6ec4794422688c0a2c3e2cd70025d2) (2026) - `P1` - citations: 0 - focused expansion
@@ -186,11 +192,15 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - [Leveraging Large Language Models for Top-Down Sector Allocation](https://arxiv.org/html/2503.09647v5) (2025) - `P1` - citations: 3 - seed
 - [FinTradeBench: A Comprehensive Benchmark for Fundamental and Technical Analysis in Financial Trading](https://arxiv.org/abs/2603.19225) (2026) - `P1` - citations: 2 - seed
 - [BondBERT: What we learn when assigning sentiment in the bond market](https://www.semanticscholar.org/paper/21015b352de7fa3ecaa804345bab13b6e1693c44) (2025) - `P1` - citations: 1 - expanded
+- [Fine-Tuning and Explaining FinBERT for Sector-Specific Financial News: A Reproducible Workflow](https://www.semanticscholar.org/paper/0099ce22044724b6e13fc4f246ebd7b78a0b2b72) (2025) - `P1` - citations: 1 - focused expansion
 - [Large Language Models for Financial Knowledge Extraction Analytical Insights and Corporate Planning Support](https://www.semanticscholar.org/paper/8dd640e8c2d469fb7a1d3286a0d7b14175b9234f) (2025) - `P1` - citations: 1 - expanded
 - [The recent history of large language model in investment and portfolio management: is it a revolution in finance?](https://www.semanticscholar.org/paper/e23021a2ab136fa32d80fe211b0714d72b6b2dbe) (2025) - `P1` - citations: 1 - expanded
 - [Navigating Complexity: GPT-4's Performance in Predicting Earnings and Stock Returns in China's A-Share Market](https://www.semanticscholar.org/paper/72fb0ae13fd11664293735cb678a5874175734f9) (2024) - `P1` - citations: 0 - focused expansion
+- [Sentiment-driven prediction of financial returns: a Bayesian-enhanced FinBERT approach](https://www.semanticscholar.org/paper/317d7890d7feb66e5f6a9ece0e8fd09736fce136) (2024) - `P1` - citations: 0 - focused expansion
 - [Exploring the Synergy of Quantitative Factors and Newsflow Representations from Large Language Models for Stock Return Prediction](https://www.semanticscholar.org/paper/88f47a944ab8b957c86393b0900b3d93161473cd) (2025) - `P1` - citations: 0 - expanded
 - [Task-Adaptive Large Language Models to Generate Human-Persuasive Investment Reports](https://aclanthology.org/2025.finnlp-2.23.pdf) (2025) - `P1` - citations: 0 - seed
+- [CN-Buzz2Portfolio: A Chinese-Market Dataset and Benchmark for LLM-Based Macro and Sector Asset Allocation from Daily Trending Financial News](https://www.semanticscholar.org/paper/7897014ae2caeee70d65df37ba8e5ed2bb3c4aee) (2026) - `P1` - citations: 0 - focused expansion
+- [FinReasoning: A Hierarchical Benchmark for Reliable Financial Research Reporting](https://www.semanticscholar.org/paper/13f2f65f72b72da24b20b209ec803b1fa0e36871) (2026) - `P1` - citations: 0 - focused expansion
 - [LLM-Based Intelligent Risk Identification for SMEs: A Comparative Study of Prompt Engineering Strategies](https://www.semanticscholar.org/paper/ed4f58c05aa6e7c132a8be192ae6855d1eb993b4) (2026) - `P1` - citations: 0 - focused expansion
 - [The Wall Street Neophyte: A Zero-Shot Analysis of ChatGPT over Multimodal Stock Movement Prediction Challenges](https://arxiv.org/abs/2304.05351) (2023) - `P2` - citations: 77 - seed
 - [Integrating Stock Features and Global Information via Large Language Models for Enhanced Stock Return Prediction](https://www.semanticscholar.org/paper/0fc94e0c7fea54407e9cf4e4fcbc5487be883b61) (2023) - `P2` - citations: 20 - expanded
@@ -239,6 +249,7 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - [To Trade or Not to Trade: An Agentic Approach to Estimating Market Risk Improves Trading Decisions](https://www.semanticscholar.org/paper/c5580a444dfd0cd80dc915fc7d1da7061a4855d7) (2025) - `P1` - citations: 2 - focused expansion
 - [Trade in Minutes! Rationality-Driven Agentic System for Quantitative Financial Trading](https://www.semanticscholar.org/paper/c78c601e1fff91dd466cc0ee78db27654e604111) (2025) - `P1` - citations: 2 - expanded
 - [TradeTrap: Are LLM-based Trading Agents Truly Reliable and Faithful?](https://www.semanticscholar.org/paper/f85ceb388f4252862609da9d5bab478a116e2ed3) (2025) - `P1` - citations: 2 - focused expansion
+- [Equity Research Chatbot Using LLM: A Responsive Agent for Investment Research](https://www.semanticscholar.org/paper/7bb4a5e42968d11762bd82b57b0f68797235bb21) (2024) - `P1` - citations: 1 - focused expansion
 - [FinSphere: A Conversational Stock Analysis Agent based on Large Language Models](https://arxiv.org/abs/2501.12399) (2025) - `P1` - citations: 1 - seed
 - [Design and Empirical Study of a Large Language Model-Based Multi-Agent Investment System for Chinese Public REITs](https://www.semanticscholar.org/paper/4f1188a5073c4d475eb959e1a667ad5bc7cb2f1e) (2026) - `P1` - citations: 1 - focused expansion
 - [Signal or Noise in Multi-Agent LLM-based Stock Recommendations?](https://www.semanticscholar.org/paper/a3f2d5e7cafe1dd5672fadcddfc72135107c57c2) (2026) - `P1` - citations: 1 - focused expansion
@@ -322,6 +333,8 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - `data/processed/report_analysis_focus_expansion_candidates.csv`: candidate additions discovered from the focused financial report analysis deep-dive.
 - `data/processed/regtech_compliance_focus_anchor_candidates.csv`: focused anchors for RegTech, compliance, audit, and model-risk expansion.
 - `data/processed/regtech_compliance_focus_expansion_candidates.csv`: candidate additions discovered from the focused RegTech/compliance deep-dive.
+- `data/processed/specific_domain_focus_search_candidates.csv`: direct Semantic Scholar search candidates for industry/sector analysis, supply-chain finance/risk, and ETF/asset-allocation workflows.
+- `data/processed/specific_domain_focus_expansion_candidates.csv`: candidate additions discovered from the focused specific-domain deep-dive.
 - `data/processed/related_work_relevance_longlist.csv`: longer relevance-filtered candidate list for manual review.
 - `data/raw/semantic_scholar_related_work_edges.csv`: raw citation/reference edges from the first expansion pass.
 - `data/raw/round2_related_work_edges.csv`: raw citation/reference edges from the second expansion pass.
@@ -330,6 +343,7 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - `data/raw/trading_agent_focus_edges.csv`: raw citation/reference edges from the focused FinMem trading-agent deep-dive.
 - `data/raw/report_analysis_focus_edges.csv`: raw citation/reference edges from the focused financial report analysis deep-dive.
 - `data/raw/regtech_compliance_focus_edges.csv`: raw citation/reference edges from the focused RegTech/compliance deep-dive.
+- `data/raw/specific_domain_focus_edges.csv`: raw citation/reference edges from the focused specific-domain deep-dive.
 - `data/raw/semantic_scholar_manifest.csv`: per-seed retrieval status and edge counts.
 - `data/raw/round2_related_work_manifest.csv`: per-round-2-seed retrieval status and edge counts.
 - `data/raw/round3_related_work_manifest.csv`: per-round-3-seed retrieval status and edge counts.
@@ -337,6 +351,7 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 - `data/raw/trading_agent_focus_manifest.csv`: per-focused-seed retrieval status and edge counts.
 - `data/raw/report_analysis_focus_manifest.csv`: per-report-analysis-focused-seed retrieval status and edge counts.
 - `data/raw/regtech_compliance_focus_manifest.csv`: per-RegTech/compliance-focused-anchor retrieval status and edge counts.
+- `data/raw/specific_domain_focus_manifest.csv`: per-specific-domain-focused-anchor retrieval status and edge counts.
 
 ## Collection Method
 
@@ -348,7 +363,8 @@ Each paper is assigned to exactly one primary category. The taxonomy is intentio
 6. Run a focused deep-dive from the highest-cited trading-agent seed, FinMem, to capture recent LLM trading-agent work.
 7. Run a focused financial report analysis deep-dive over financial statement analysis, SEC filing QA, report chunking, XBRL, and report-generation anchors.
 8. Run a focused RegTech/compliance deep-dive over regulatory interpretation, model risk, audit, trustworthiness, and financial advisement anchors.
-9. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.
+9. Run a focused specific-domain deep-dive over industry/sector analysis, supply-chain finance/risk, investment research, and ETF/asset-allocation anchors.
+10. Rank candidate additions by finance/LLM relevance terms, number of source-paper connections, citation count, influential-edge hits, and recency.
 
 See `docs/collection_plan.md` for the planned multi-round expansion workflow.
 
